@@ -22,7 +22,8 @@ SRCS = \
 	stbhwci.c \
 	stbhwosd.c \
 	stbpvrpr.c \
-	stbhwnet.c
+	stbhwnet.c \
+	stbhwvbi.c
 
 DEFINES += _FILE_OFFSET_BITS=64
 

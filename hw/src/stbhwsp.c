@@ -22,6 +22,8 @@
 
 /*---includes for this file---------------------------------------------------*/
 /* compiler library header files */
+#include <stdio.h>
+#include <stdarg.h>
 
 /* third party header files */
 /* DVBCore header files*/
@@ -37,6 +39,7 @@
 
 /*---local (static) variable declarations for this file-----------------------*/
 /*   (internal variables declared static to make them local) */
+static char debug_msg_buff[512];
 
 /*---local function prototypes for this file----------------------------------*/
 /*   (internal functions declared static to make them local) */
@@ -54,9 +57,18 @@
  */
 void STB_SPDebugWrite(const char *format, ... )
 {
+   va_list vparams;
+
    FUNCTION_START(STB_SPDebugWrite);
 
    ASSERT(format != NULL);
+
+   va_start(vparams, format);
+   vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
+   va_end(vparams);
+
+   printf("%s\n", debug_msg_buff);
+   fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugWrite);
 }
@@ -67,9 +79,18 @@ void STB_SPDebugWrite(const char *format, ... )
  */
 void STB_SPDebugNoCnWrite(const char *format, ... )
 {
+   va_list vparams;
+
    FUNCTION_START(STB_SPDebugNoCnWrite);
 
    ASSERT(format != NULL);
+
+   va_start(vparams, format);
+   vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
+   va_end(vparams);
+
+   printf("%s", debug_msg_buff);
+   fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugNoCnWrite);
 }

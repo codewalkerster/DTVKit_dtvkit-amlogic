@@ -27,7 +27,7 @@ export DTVKIT_AR=${ANDROID_CROSS_GCC}ar
 export DTVKIT_USE_STDINT=1
 
 # Additional compiler options
-export DTVKIT_ADDITIONAL_COMPILER_OPTIONS="-Wall  -fno-short-enums ${ANDROID_HEADERS}"
+export DTVKIT_ADDITIONAL_COMPILER_OPTIONS="-Wall  -fno-short-enums -fPIC ${ANDROID_HEADERS}"
 # For 64 bit compilation and to build on the Raspberry Pi, '-m32' MUST be removed
 #export DTVKIT_ADDITIONAL_COMPILER_OPTIONS=-Wall
 

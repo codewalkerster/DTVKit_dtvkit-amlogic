@@ -4,16 +4,13 @@ BIONIC_LIB=${ANDROID_ROOT}/bionic/libc
 LIBRARY_OUT=${ANDROID_ROOT}/out/target/product/txlx_t962x_r314/obj/lib/
 ANDROID_CROSS_GCC=/opt/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
 
-ANDROID_HEADERS=\
-   "-I${BIONIC_LIB}/arch-arm64/include \
-    -I${BIONIC_LIB}/kernel/uapi \
-    -I${BIONIC_LIB}/kernel/android/uapi \
-    -I${BIONIC_LIB}/kernel/uapi/asm-arm64 \
-    -I${BIONIC_LIB}/stdio \
-    -I${BIONIC_LIB}/include \
-    -I${BIONIC_LIB}/../libm/include"
-
-INTERMEDIATE=$ANDROID_ROOT/out/target/product/txlx_t962x_r314/obj/STATIC_LIBRARIES/libdvbcore_intermediates
+ANDROID_HEADERS="-I${BIONIC_LIB}/arch-arm64/include"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/android/uapi"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm64"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/stdio"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/include"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/../libm/include"
 
 # Location of DTVKIT root folder
 

@@ -21,10 +21,22 @@
  */
 
 
+#include <stdlib.h>
+#include <semaphore.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/time.h>
+#include <errno.h>
+
+
 /* STB Header Files */
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwos.h"
+#include "stbhwmem.h"
 
 /* Local MACRO Definitions */
 
@@ -50,11 +62,29 @@
  */
 void* STB_OSCreateSemaphore(void)
 {
+   sem_t *sem;
+   int err;
+
    FUNCTION_START(STB_OSCreateSemaphore);
+
+   sem = (sem_t *)STB_MEMGetSysRAM(sizeof(sem_t));
+   if (sem != NULL)
+   {
+      /* Initialise the semaphore with a count of 1 and allow it to be shared with
+       * other threads but not other processes */
+      err = sem_init(sem, 0, 1);
+      if (err != 0)
+      {
+         STB_MEMFreeSysRAM(sem);
+         sem = NULL;
+
+         SEM_DBG("Failed to init semaphore, error %d", errno);
+      }
+   }
 
    FUNCTION_FINISH(STB_OSCreateSemaphore);
 
-   return(NULL);
+   return((void *)sem);
 }
 
 /**
@@ -64,23 +94,29 @@ void* STB_OSCreateSemaphore(void)
  */
 void* STB_OSCreateCountSemaphore(U32BIT value)
 {
+   sem_t *sem;
+   int err;
+
    FUNCTION_START(STB_OSCreateCountSemaphore);
+
+   sem = (sem_t *)STB_MEMGetSysRAM(sizeof(sem_t));
+   if (sem != NULL)
+   {
+      /* Initialise the semaphore with a count of 1 and allow it to be shared with
+       * other threads but not other processes */
+      err = sem_init(sem, 0, value);
+      if (err != 0)
+      {
+         STB_MEMFreeSysRAM(sem);
+         sem = NULL;
+
+         SEM_DBG("Failed to init semaphore, error %d", errno);
+      }
+   }
+
    FUNCTION_FINISH(STB_OSCreateCountSemaphore);
 
-   return(NULL);
-}
-
-/**
- * @brief   Initialise a counting semaphore
- * @param   semaphore - Semaphore handle.
- * @param   value - New value for semaphore.
- * @warning This is a very dangerous function, and should be used
- *           very carefully.
- */
-void STB_OSInitCountSemaphore(void *semaphore, U32BIT value)
-{
-   USE_UNWANTED_PARAM(semaphore);
-   USE_UNWANTED_PARAM(value);
+   return((void *)sem);
 }
 
 /**
@@ -90,7 +126,22 @@ void STB_OSInitCountSemaphore(void *semaphore, U32BIT value)
  */
 void STB_OSDeleteSemaphore(void *semaphore)
 {
+   int err;
+
    FUNCTION_START(STB_OSDeleteSemaphore);
+
+   if (semaphore != NULL)
+   {
+      err = sem_destroy((sem_t *)semaphore);
+
+      if (err != 0)
+      {
+         SEM_DBG("Failed to destroy semaphore 0x%x, error %d", semaphore, errno);
+      }
+
+      STB_MEMFreeSysRAM(semaphore);
+   }
+
    FUNCTION_FINISH(STB_OSDeleteSemaphore);
 }
 
@@ -100,7 +151,23 @@ void STB_OSDeleteSemaphore(void *semaphore)
  */
 void STB_OSSemaphoreSignal(void *semaphore)
 {
+   int err;
+
    FUNCTION_START(STB_OSSemaphoreSignal);
+
+   if (semaphore != NULL)
+   {
+      err = sem_post((sem_t *)semaphore);
+      if (err != 0)
+      {
+         SEM_DBG("Failed to unlock semaphore 0x%p, error %d", semaphore, errno);
+      }
+   }
+   else
+   {
+      SEM_DBG("NULL semaphore");
+   }
+
    FUNCTION_FINISH(STB_OSSemaphoreSignal);
 }
 
@@ -111,7 +178,24 @@ void STB_OSSemaphoreSignal(void *semaphore)
  */
 void STB_OSSemaphoreWait(void *semaphore)
 {
+   int err;
+
    FUNCTION_START(STB_OSSemaphoreWait);
+
+   if (semaphore != NULL)
+   {
+      err = sem_wait((sem_t *)semaphore);
+
+      if (err != 0)
+      {
+         SEM_DBG("Failed to lock semaphore 0x%p, error %d", semaphore, errno);
+      }
+   }
+   else
+   {
+      SEM_DBG("NULL semaphore");
+   }
+
    FUNCTION_FINISH(STB_OSSemaphoreWait);
 }
 
@@ -123,11 +207,47 @@ void STB_OSSemaphoreWait(void *semaphore)
  */
 BOOLEAN STB_OSSemaphoreWaitTimeout(void *semaphore, U16BIT timeout)
 {
+   struct timeval tv;
+   struct timespec abs_timeout;
+   U32BIT usec;
+   int err;
    BOOLEAN result;
 
    FUNCTION_START(STB_OSSemaphoreWaitTimeout);
 
-   result = FALSE;
+   if (semaphore != NULL)
+   {
+      result = TRUE;
+
+      gettimeofday(&tv, NULL);
+      usec = tv.tv_usec + (1000 * timeout);
+      while (usec >= 1000000)
+      {
+         usec -= 1000000;
+         tv.tv_sec++;
+      }
+      abs_timeout.tv_sec = tv.tv_sec;
+      abs_timeout.tv_nsec = 1000 * usec;
+
+      do
+      {
+         err = sem_timedwait((sem_t *)semaphore, &abs_timeout);
+      } while (err == -1 && errno == EINTR);   /* Restart when interrupted by handler */
+
+      if (err != 0)
+      {
+         result = FALSE;
+         if (errno != ETIMEDOUT)
+         {
+            SEM_DBG("Failed to lock semaphore 0x%p, error %d", semaphore, errno);
+         }
+      }
+   }
+   else
+   {
+      SEM_DBG("NULL semaphore");
+      result = FALSE;
+   }
 
    FUNCTION_FINISH(STB_OSSemaphoreWaitTimeout);
 

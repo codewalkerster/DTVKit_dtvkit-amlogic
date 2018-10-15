@@ -21,12 +21,15 @@
  */
 
 
+#include <sys/time.h>
+
 /* STB Header Files */
 #include "techtype.h"
 #include "dbgfuncs.h"
 
 
 /*!- Local MACRO Definitions */
+#define RTC_TICKS_PER_SEC     1000
 
 /*!- Select-Deselect Local Debug Text Output */
 /*#define  RTC_DEBUG*/
@@ -44,7 +47,15 @@
 
 /* Local VARIABLE  Declarations */
 
+/* UTC Time in Seconds */
+static U32BIT utc_seconds = 0;
+
+/* System Time from when the Time was Last Set */
+static U32BIT sync_time = 0;
+
+
 /* Local PROTOTYPE Declarations */
+static U32BIT SysBootTime(void);
 
 
 /**
@@ -53,6 +64,10 @@
 void STB_OSInitialise(void)
 {
    FUNCTION_START(STB_OSInitialise);
+
+   /* Call SysBootTime at the very beginning to initialise the static variable inside of it */
+   SysBootTime();
+
    FUNCTION_FINISH(STB_OSInitialise);
 }
 
@@ -63,6 +78,14 @@ void STB_OSInitialise(void)
 void STB_OSSetClockRTC(U32BIT num_seconds)
 {
    FUNCTION_START(STB_OSSetClockRTC);
+
+   utc_seconds = num_seconds;
+
+   /* Save the system time at the point the clock has been set */
+   sync_time = SysBootTime();
+
+   RTC_DBG("Time set to %u secs at %u msecs", num_seconds, sync_time);
+
    FUNCTION_FINISH(STB_OSSetClockRTC);
 }
 
@@ -78,7 +101,10 @@ U32BIT STB_OSGetClockRTC(void)
 
    FUNCTION_START(STB_OSGetClockRTC);
 
-   time_now = 0;
+   /* Actual time is given by the value saved in
+    * utc_seconds with the difference between the time
+    * when it was set (sync_time) and the time now.   */
+   time_now = utc_seconds + ((SysBootTime() - sync_time) / RTC_TICKS_PER_SEC);
 
    FUNCTION_FINISH(STB_OSGetClockRTC);
 
@@ -92,10 +118,16 @@ U32BIT STB_OSGetClockRTC(void)
  */
 U32BIT STB_OSGetClockDiff(U32BIT timestamp)
 {
+   U32BIT diff;
+
    FUNCTION_START(STB_OSGetClockDiff);
+
+   /* Calculate difference between current time & given value */
+   diff = SysBootTime() - timestamp;
+
    FUNCTION_FINISH(STB_OSGetClockDiff);
 
-   return 0;
+   return diff;
 }
 
 /**
@@ -107,7 +139,7 @@ U32BIT STB_OSGetClockPerSec(void)
    FUNCTION_START(STB_OSGetClockPerSec);
    FUNCTION_FINISH(STB_OSGetClockPerSec);
 
-   return(0);
+   return(RTC_TICKS_PER_SEC);
 }
 
 /**
@@ -120,7 +152,7 @@ U32BIT STB_OSGetClockMilliseconds(void)
 
    FUNCTION_START(STB_OSGetClockMilliseconds);
 
-   millisecs = 0;
+   millisecs = SysBootTime();
 
    FUNCTION_FINISH(STB_OSGetClockMilliseconds);
 
@@ -144,9 +176,55 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
  */
 U32BIT STB_OSGetClockGMT(void)
 {
+   struct timeval tv;
+
    FUNCTION_START(STB_OSGetClockGMT);
+
+   gettimeofday(&tv, NULL);
+
    FUNCTION_FINISH(STB_OSGetClockGMT);
 
-   return(0);
+   return tv.tv_sec;
+}
+
+
+/****************************************************************************
+ *  Local Procedures
+ ****************************************************************************/
+
+/*!**************************************************************************
+ * @brief    Get the time in milliseconds since the system was booted.
+ * @return   Time in milliseconds since system booted
+ * @warning  None.
+ * @bug      None.
+ ****************************************************************************/
+static U32BIT SysBootTime(void)
+{
+   struct timeval tv;
+   U32BIT sec, msec, usec;
+   static BOOLEAN first_call = TRUE;
+   static struct timeval first_tv;
+
+   if (first_call)
+   {
+      gettimeofday(&first_tv, NULL);
+      first_call = FALSE;
+   }
+
+   gettimeofday(&tv, NULL);
+   sec = tv.tv_sec - first_tv.tv_sec;
+   if (tv.tv_usec < first_tv.tv_usec)
+   {
+      usec = tv.tv_usec + 1000000 - first_tv.tv_usec;
+      --sec;
+   }
+   else
+   {
+      usec = tv.tv_usec - first_tv.tv_usec;
+   }
+
+   msec = sec * 1000 + usec / 1000;
+
+   return msec;
 }
 

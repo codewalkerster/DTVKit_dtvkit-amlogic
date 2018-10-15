@@ -21,6 +21,11 @@
  */
 
 // compiler library header files
+#include <pthread.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h> 
+#include <sys/prctl.h>
 
 /* STB Header Files */
 #include "techtype.h"
@@ -39,8 +44,12 @@
 /* Local ENUM/TYPE Definitions */
 
 /* Local VARIABLE  Declarations */
+static pthread_mutex_t sleep_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  sleep_cond = PTHREAD_COND_INITIALIZER;
 
 /* Local PROTOTYPE Declarations */
+static int MapToOSPriority(U8BIT priority);
+
 
 /**
  * @brief   Create a New Task to the calling process. Upon success, the
@@ -56,13 +65,45 @@
  */
 void* STB_OSCreateTask(void (*function)(void *), void *param, U32BIT stack, U8BIT priority, U8BIT *name)
 {
+   pthread_attr_t attr;
+   struct sched_param parm;
+   pthread_t handle;
+   int err;
+
    FUNCTION_START(STB_OSCreateTask);
 
    USE_UNWANTED_PARAM(name);
 
+   // Create a set of default creation attributes
+   pthread_attr_init(&attr);
+
+   if (stack > 0)
+   {
+      pthread_attr_setstacksize(&attr, stack);
+   }
+
+   // Ensure thread is detached so resources are freed on exit
+   err = pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+   if (err == 0)
+   {
+      parm.sched_priority = MapToOSPriority(priority);
+      pthread_attr_setschedparam(&attr, &parm);
+   }
+
+   // Create the task
+   err = pthread_create(&handle, &attr, (void *(*)(void *))function, param);
+   if (err != 0)
+   {
+      TASK_DBG("Failed to create task %s, err=%d (%s)", name, err, strerror(err));
+      handle = 0;
+   }
+
+   // Destroy the creation attributes
+   pthread_attr_destroy(&attr);
+
    FUNCTION_FINISH(STB_OSCreateTask);
 
-   return(NULL);
+   return((void *)handle);
 }
 
 /**
@@ -72,7 +113,15 @@ void* STB_OSCreateTask(void (*function)(void *), void *param, U32BIT stack, U8BI
  */
 void STB_OSDestroyTask(void *task)
 {
+   void *status;
+
    FUNCTION_START(STB_OSDestroyTask);
+
+   if (task != NULL)
+   {
+      pthread_join((pthread_t)task, &status);
+   }
+
    FUNCTION_FINISH(STB_OSDestroyTask);
 }
 
@@ -106,7 +155,16 @@ void STB_OSTaskUnlock(void)
  */
 void STB_OSTaskDelay(U16BIT timeout)
 {
+   struct timespec t;
+
    FUNCTION_START(STB_OSTaskDelay);
+
+   t.tv_sec = timeout / 1000;
+   t.tv_nsec = ((U32BIT)timeout % 1000) * 1000000L;
+
+   while ((nanosleep(&t, &t) < 0) && (errno == EINTR))
+      ;
+
    FUNCTION_FINISH(STB_OSTaskDelay);
 }
 
@@ -117,6 +175,14 @@ void STB_OSTaskDelay(U16BIT timeout)
 void  STB_OSTaskSleep(void)
 {
    FUNCTION_START(STB_OSTaskSleep);
+
+   /* Lock the mutex */
+   pthread_mutex_lock(&sleep_mutex);
+
+   /* Wait on the cond variable */
+   pthread_cond_wait(&sleep_cond, &sleep_mutex);
+   pthread_mutex_unlock(&sleep_mutex);
+
    FUNCTION_FINISH(STB_OSTaskSleep);
 }
 
@@ -126,6 +192,11 @@ void  STB_OSTaskSleep(void)
 void STB_OSTaskWakeUp(void)
 {
    FUNCTION_START(STB_OSTaskWakeUp);
+
+   pthread_mutex_lock(&sleep_mutex);
+   pthread_cond_broadcast(&sleep_cond);
+   pthread_mutex_unlock(&sleep_mutex);
+
    FUNCTION_FINISH(STB_OSTaskWakeUp);
 }
 
@@ -138,7 +209,17 @@ void STB_OSTaskWakeUp(void)
  */
 U8BIT STB_OSTaskPriority(void *task, U8BIT priority)
 {
+   struct sched_param parm;
+
    FUNCTION_START(STB_OSTaskPriority);
+
+   if (task != NULL)
+   {
+      memset(&parm, 0, sizeof(parm));
+
+      parm.sched_priority = MapToOSPriority(priority);
+      pthread_setschedparam(*((pthread_t *)task), SCHED_FIFO, &parm);
+   }
 
    FUNCTION_FINISH(STB_OSTaskPriority);
 
@@ -151,6 +232,9 @@ U8BIT STB_OSTaskPriority(void *task, U8BIT priority)
 void  STB_OSTaskSuspend(void)
 {
    FUNCTION_START(STB_OSTaskSuspend);
+
+   sched_yield();
+
    FUNCTION_FINISH(STB_OSTaskSuspend);
 }
 
@@ -163,6 +247,26 @@ void* STB_OSGetCurrentTask(void)
    FUNCTION_START(STB_OSGetCurrentTask);
    FUNCTION_FINISH(STB_OSGetCurrentTask);
 
-   return NULL;
+   return((void *)pthread_self());
+}
+
+
+static int MapToOSPriority(U8BIT priority)
+{
+   int min_priority, max_priority;
+   int priority_range;
+   int os_priority;
+
+   FUNCTION_START(MapToOSPriority);
+
+   min_priority = sched_get_priority_min(SCHED_FIFO);
+   max_priority = sched_get_priority_max(SCHED_FIFO);
+   priority_range = (max_priority - min_priority) + 1;
+
+   os_priority = min_priority + (priority * priority_range) / 16;
+
+   FUNCTION_FINISH(MapToOSPriority);
+
+   return(os_priority);
 }
 

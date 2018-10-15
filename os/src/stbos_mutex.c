@@ -24,12 +24,14 @@
 /*---includes for this file--------------------------------------------------*/
 
 /* compiler library header files */
+#include <pthread.h>
 
 /* third party header files */
 
 /* DVBCore header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "stbhwmem.h"
 
 /*!- Select-Deselect Local Debug Text Output */
 /*#define  MUTEX_DEBUG*/
@@ -44,6 +46,14 @@
 /*---constant definitions for this file--------------------------------------*/
 
 /*---local typedef structs for this file-------------------------------------*/
+struct mutex_s
+{
+   pthread_mutex_t lock;
+   pthread_t thread_id;
+   U32BIT lock_count;
+};
+
+typedef struct mutex_s mutex_t;
 
 /*---local (static) variable declarations for this file----------------------*/
 
@@ -60,10 +70,27 @@
  */
 void* STB_OSCreateMutex(void)
 {
+   mutex_t *mutex_handle;
+   pthread_mutexattr_t mutex_attr_ptr;
+
    FUNCTION_START(STB_OSCreateMutex);
+
+   mutex_handle = (mutex_t *)STB_MEMGetSysRAM(sizeof(mutex_t));
+   if (mutex_handle != NULL)
+   {
+      pthread_mutexattr_init(&mutex_attr_ptr);
+      if (pthread_mutex_init(&mutex_handle->lock, &mutex_attr_ptr) == 0)
+      {
+         mutex_handle->thread_id = 0;
+         mutex_handle->lock_count = 0;
+      }
+   }
+
+   MUTEX_DBG("Created mutex 0x%p", mutex_handle);
+
    FUNCTION_FINISH(STB_OSCreateMutex);
 
-   return NULL;
+   return((void *)mutex_handle);
 }
 
 /**
@@ -72,7 +99,34 @@ void* STB_OSCreateMutex(void)
  */
 void STB_OSMutexLock(void *mutex_var)
 {
+   mutex_t *mutex_handle;
+
    FUNCTION_START(STB_OSMutexLock);
+
+   if (mutex_var != NULL)
+   {
+      mutex_handle = (mutex_t *)mutex_var;
+
+      if (pthread_equal(mutex_handle->thread_id, pthread_self()) != 0)
+      {
+         /* This thread already owns the mutex so just increment the lock count */
+         mutex_handle->lock_count++;
+      }
+      else
+      {
+         /* The mutex is either already owned by another thread or isn't owned at all
+            so just attempt to acquire it. */
+         pthread_mutex_lock((pthread_mutex_t *) &mutex_handle->lock);
+
+         mutex_handle->thread_id = pthread_self();
+         mutex_handle->lock_count = 1;
+      }
+   }
+   else
+   {
+      MUTEX_DBG("NULL mutex");
+   }
+
    FUNCTION_FINISH(STB_OSMutexLock);
 }
 
@@ -82,7 +136,36 @@ void STB_OSMutexLock(void *mutex_var)
  */
 void STB_OSMutexUnlock(void *mutex_var)
 {
+   mutex_t *mutex_handle;
+
    FUNCTION_START(STB_OSMutexUnlock);
+
+   if (mutex_var != NULL)
+   {
+      mutex_handle = (mutex_t *)mutex_var;
+
+      /* if the same thread as original lock, decrement counter */
+      if (pthread_equal(mutex_handle->thread_id, pthread_self()) != 0)
+      {
+         mutex_handle->lock_count--;
+
+         if (mutex_handle->lock_count == 0)
+         {
+            /* Mutex has now been released by this thread */
+            mutex_handle->thread_id = 0;
+            pthread_mutex_unlock((pthread_mutex_t *) &mutex_handle->lock);
+         }
+      }
+      else
+      {
+         MUTEX_DBG("Thread doesn't own mutex %p", mutex_var);
+      }
+   }
+   else
+   {
+      MUTEX_DBG("NULL mutex");
+   }
+
    FUNCTION_FINISH(STB_OSMutexUnlock);
 }
 
@@ -92,7 +175,23 @@ void STB_OSMutexUnlock(void *mutex_var)
  */
 void STB_OSDeleteMutex(void *mutex_var)
 {
+   mutex_t *mutex_handle;
+
    FUNCTION_START(STB_OSDeleteMutex);
+
+   if (mutex_var != NULL)
+   {
+      mutex_handle = (mutex_t *)mutex_var;
+
+      pthread_mutex_destroy((pthread_mutex_t *) &mutex_handle->lock);
+
+      STB_MEMFreeSysRAM(mutex_var);
+   }
+   else
+   {
+      MUTEX_DBG("NULL mutex");
+   }
+
    FUNCTION_FINISH(STB_OSDeleteMutex);
 }
 

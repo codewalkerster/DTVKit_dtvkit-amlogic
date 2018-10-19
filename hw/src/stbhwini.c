@@ -30,7 +30,14 @@
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+
+#include "stbhwdef.h"
 #include "stbhwini.h"
+#include "stbhwmem.h"
+#include "stbhwdmx.h"
+#include "stbhwtun.h"
+#include "stbhwosd.h"
+#include "stbhwav.h"
 
 /*---constant definitions for this file---------------------------------------*/
 #ifdef ENABLE_DEBUG
@@ -60,7 +67,26 @@
 void STB_HWInitialise(E_HW_SUBT_CONTROL_MASK hw_subt)
 {
    FUNCTION_START(STB_HWInitialise);
-   USE_UNWANTED_PARAM(hw_subt);
+
+   STB_MEMInitialiseRAM();
+
+   if (hw_subt == HW_SUBT_EBU)
+   {
+      /* The number of demuxes are dynamically determined, so 0 is passed in */
+      STB_DMXInitialise(0, FALSE);
+   }
+   else
+   {
+      STB_DMXInitialise(0, TRUE);
+   }
+
+   STB_OSDInitialise(0);
+   STB_AVInitialise(NUM_AUDIO_DECODE_PATHS, NUM_VIDEO_DECODE_PATHS);
+   STB_MEMInitialiseNVM();
+
+   /* Number of tuners is dynamically determined, so 0 is passed in */
+   STB_TuneInitialise(0);
+
    FUNCTION_FINISH(STB_HWInitialise);
 }
 

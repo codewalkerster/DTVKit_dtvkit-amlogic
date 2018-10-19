@@ -1,0 +1,46 @@
+/*******************************************************************************
+ * Copyright (c) 2018 The DTVKit Open Software Foundation Ltd (www.dtvkit.org)
+ *
+ * This file is part of a DTVKit Software Component
+ * You are permitted to copy, modify or distribute this file subject to the terms
+ * of the DTVKit 1.0 Licence which can be found in licence.txt or at www.dtvkit.org
+ *
+ * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * If you or your organisation is not a member of DTVKit then you have access
+ * to this source code outside of the terms of the licence agreement
+ * and you are expected to delete this and any associated files immediately.
+ * Further information on DTVKit, membership and terms can be found at www.dtvkit.org
+ *******************************************************************************/
+/**
+ * @brief   Header file - Internal functions and definitions
+ * @file    internal.h
+ * @date    October 2018
+ */
+
+#ifndef _INTERNAL_H
+#define _INTERNAL_H
+
+//---Constant and macro definitions for public use-----------------------------
+
+//---Enumerations for public use-----------------------------------------------
+
+//---Global type defs for public use-------------------------------------------
+
+//---Global Function prototypes for public use---------------------------------
+
+/**
+ * @brief   Internal function that returns the decode PIDs for the given demux
+ * @param   path demux path
+ * @param   pcr_pid pointer for returned PCR PID value
+ * @param   video_pid pointer for returned video PID value
+ * @param   audio_pid pointer for returned audio PID value
+ * @param   ad_pid pointer for returned AD PID value
+ * @return  TRUE if demux is valid and PIDs are returned, FALSE otherwise
+ */
+BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid,
+   U16BIT *ad_pid);
+
+#endif

@@ -24,13 +24,27 @@
 
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/poll.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
+#include "stbhwmem.h"
+#include "stbhwos.h"
 
 /* third party header files */
+#include "linux/dvb/frontend.h"
+
 
 /*---Macro Definitions for this file-----------------------------------------*/
 #ifdef TUNER_DEBUG
@@ -40,18 +54,89 @@
 #endif
 
 /*---constant definitions for this file--------------------------------------*/
+#define INVALID_FD               -1
+
+#define TUNE_TASK_PRIORITY       11
+#define TUNE_TASK_STACK_SIZE     8192
+
+#define WAIT_LOCK_TIMEOUT        3000
 
 
 /*---local typedef structs for this file-------------------------------------*/
+typedef enum
+{
+   TUNER_IDLE,
+   TUNER_TUNING,
+   TUNER_LOCKED,
+   TUNER_RELOCKING
+} E_TUNER_STATE;
+
+typedef struct
+{
+   E_STB_TUNE_TMODE tmode;
+   E_STB_TUNE_TBWIDTH tbwidth;
+} S_TERR_STATUS;
+
+typedef struct
+{
+   U32BIT srate;
+   E_STB_TUNE_CMODE cmode;
+} S_CABLE_STATUS;
+
+typedef struct
+{
+   U32BIT srate;
+   E_STB_TUNE_FEC fec;
+   U16BIT lo_freq;
+   E_STB_TUNE_LNB_VOLTAGE lnb_voltage;
+   E_STB_TUNE_MODULATION modulation;
+   BOOLEAN use_22khz;
+} S_SAT_STATUS;
+
+typedef struct
+{
+   U8BIT path;
+
+   E_TUNER_STATE state;
+   BOOLEAN stop;
+   E_STB_TUNE_SYSTEM_TYPE tuned_sys_type;
+
+   void *mutex;
+   void *tune_sem;
+
+   int frontend_fd;
+
+   struct dvb_frontend_info fe_info;
+   fe_delivery_system_t delivery_system;
+
+   E_STB_TUNE_SIGNAL_TYPE signal_type;
+   E_STB_TUNE_SYSTEM_TYPE sys_type;
+
+   BOOLEAN auto_relock;
+
+   U32BIT freq;
+   union
+   {
+      S_TERR_STATUS terr;
+      S_CABLE_STATUS cab;
+      S_SAT_STATUS sat;
+   } u;
+} S_TUNER_STATUS;
 
 
 /*---local (static) variable declarations for this file----------------------*/
+static S_TUNER_STATUS *tuner_status = NULL;
+static U8BIT num_paths;
 
 
 /*---local function prototypes for this file---------------------------------*/
-
-
-/*---local function definitions----------------------------------------------*/
+static BOOLEAN OpenTuner(S_TUNER_STATUS *status, char *device_name);
+static void CloseTuner(S_TUNER_STATUS *tstatus);
+static BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
+static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
+static void TunerTask(void *param);
+static void ClearTuner(S_TUNER_STATUS *tstatus);
+static U8BIT ConvertStatToPercentage(struct dtv_stats *stat);
 
 
 /*---global function definitions---------------------------------------------*/
@@ -62,8 +147,67 @@
  */
 void STB_TuneInitialise(U8BIT paths)
 {
+   char fe_name[32];
+   struct stat file_status;
+   BOOLEAN adapter_found;
+   U8BIT i;
+
    FUNCTION_START(STB_TuneInitialise);
    USE_UNWANTED_PARAM(paths);
+
+   /* Find out how many tuners are available */
+   for (num_paths = 0, adapter_found = TRUE; adapter_found; )
+   {
+      snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", num_paths);
+      if (stat(fe_name, &file_status) == 0)
+      {
+         TUN_DBG("found %s", fe_name);
+         num_paths++;
+      }
+      else
+      {
+         adapter_found = FALSE;
+      }
+   }
+
+   if (num_paths != 0)
+   {
+      tuner_status = (S_TUNER_STATUS *)STB_MEMGetSysRAM(sizeof(S_TUNER_STATUS) * num_paths);
+      if (tuner_status != NULL)
+      {
+         memset(tuner_status, 0, sizeof(S_TUNER_STATUS) * num_paths);
+
+         /* Check the status of each tuner */
+         for (i = 0; i != num_paths; i++)
+         {
+            tuner_status[i].path = i;
+            tuner_status[i].state = TUNER_IDLE;
+            tuner_status[i].stop = FALSE;
+            tuner_status[i].tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
+            tuner_status[i].auto_relock = FALSE;
+
+            snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", i);
+
+            if (OpenTuner(&tuner_status[i], fe_name))
+            {
+               tuner_status[i].mutex = STB_OSCreateMutex();
+               tuner_status[i].tune_sem = STB_OSCreateCountSemaphore(0);
+
+               if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
+                  TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
+               {
+                  TUN_DBG("Failed to create task for tuner %u", i);
+                  CloseTuner(&tuner_status[i]);
+               }
+            }
+         }
+      }
+   }
+   else
+   {
+      TUN_DBG("No tuners found!");
+   }
+
    FUNCTION_FINISH(STB_TuneInitialise);
 }
 
@@ -75,8 +219,12 @@ void STB_TuneInitialise(U8BIT paths)
 void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
 {
    FUNCTION_START(STB_TuneAutoRelock);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(state);
+
+   if (path < num_paths)
+   {
+      tuner_status[path].auto_relock = state;
+   }
+
    FUNCTION_FINISH(STB_TuneAutoRelock);
 }
 
@@ -87,11 +235,22 @@ void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
  */
 E_STB_TUNE_SIGNAL_TYPE STB_TuneGetSignalType(U8BIT path)
 {
+   E_STB_TUNE_SIGNAL_TYPE sigtype;
+
    FUNCTION_START(STB_TuneGetSignalType);
-   USE_UNWANTED_PARAM(path);
+
+   if (path < num_paths)
+   {
+      sigtype = tuner_status[path].signal_type;
+   }
+   else
+   {
+      sigtype = TUNE_SIGNAL_NONE;
+   }
+
    FUNCTION_FINISH(STB_TuneGetSignalType);
 
-   return TUNE_SIGNAL_NONE;
+   return sigtype;
 }
 
 /**
@@ -111,19 +270,127 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
    S8BIT freq_off, E_STB_TUNE_TMODE tmode, E_STB_TUNE_TBWIDTH tbwidth,
    E_STB_TUNE_CMODE cmode, E_STB_TUNE_ANALOG_VIDEO_TYPE anlg_vtype)
 {
+   S_TUNER_STATUS *tstatus;
+   E_TUNER_STATE state;
+   BOOLEAN start_tuning;
+
    FUNCTION_START(STB_TuneStartTuner);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(freq);
-   USE_UNWANTED_PARAM(srate);
-   USE_UNWANTED_PARAM(fec);
    USE_UNWANTED_PARAM(freq_off);
-   USE_UNWANTED_PARAM(tmode);
-   USE_UNWANTED_PARAM(tbwidth);
-   USE_UNWANTED_PARAM(cmode);
    USE_UNWANTED_PARAM(anlg_vtype);
+
+   if (path < num_paths)
+   {
+      tstatus = &tuner_status[path];
+
+      TUN_DBG("%u: freq %lu, sys_type %s", path, freq,
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" : "UNSUPPORTED")))));
+
+      if (((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ||
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (tstatus->delivery_system == SYS_DVBT2)))) ||
+         ((tstatus->signal_type == TUNE_SIGNAL_QPSK) &&
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ||
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (tstatus->delivery_system == SYS_DVBS2)))))
+      {
+         start_tuning = FALSE;
+
+         if (tstatus->tuned_sys_type != tstatus->sys_type)
+         {
+            start_tuning = TRUE;
+            tstatus->tuned_sys_type = tstatus->sys_type;
+         }
+
+         if (tstatus->freq != freq)
+         {
+            start_tuning = TRUE;
+            tstatus->freq = freq;
+         }
+
+         switch (tstatus->signal_type)
+         {
+            case TUNE_SIGNAL_COFDM:
+               if ((tstatus->u.terr.tmode != tmode) || (tstatus->u.terr.tbwidth != tbwidth))
+               {
+                  start_tuning = TRUE;
+                  tstatus->u.terr.tmode = tmode;
+                  tstatus->u.terr.tbwidth = tbwidth;
+               }
+               break;
+
+            case TUNE_SIGNAL_QAM:
+               if ((tstatus->u.cab.cmode != cmode) || (tstatus->u.cab.srate != srate))
+               {
+                  start_tuning = TRUE;
+                  tstatus->u.cab.cmode = cmode;
+                  tstatus->u.cab.srate = srate;
+               }
+               break;
+
+            case TUNE_SIGNAL_QPSK:
+               if ((tstatus->u.sat.fec != fec) || (tstatus->u.sat.srate != srate))
+               {
+                  start_tuning = TRUE;
+                  tstatus->u.sat.fec = fec;
+                  tstatus->u.sat.srate = srate;
+               }
+               break;
+
+            default:
+               break;
+         }
+
+         if (start_tuning)
+         {
+            STB_OSMutexLock(tstatus->mutex);
+            state = tstatus->state;
+            STB_OSMutexUnlock(tstatus->mutex);
+
+            if (state != TUNER_IDLE)
+            {
+               STB_TuneStopTuner(path);
+            }
+
+            if (StartTune(tstatus))
+            {
+               STB_OSSemaphoreSignal(tstatus->tune_sem);
+            }
+            else
+            {
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
+                  sizeof(U8BIT));
+            }
+         }
+         else
+         {
+            /* Already tuned to the required transport */
+            TUN_DBG("%u: Already tuned", tstatus->path);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
+         }
+      }
+      else
+      {
+         TUN_DBG("%u: system type %u not supported", tstatus->path, tstatus->sys_type);
+
+         STB_OSMutexLock(tstatus->mutex);
+         state = tstatus->state;
+         STB_OSMutexUnlock(tstatus->mutex);
+
+         if (state != TUNER_IDLE)
+         {
+            STB_TuneStopTuner(path);
+         }
+
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneStartTuner);
 }
 
+#if 0
 /**
  * @brief   Restarts tuner and attempts to lock to signal in StartTuner call
  * @param   path the tuner path to restart
@@ -134,6 +401,7 @@ void STB_TuneRestartTuner(U8BIT path)
    USE_UNWANTED_PARAM(path);
    FUNCTION_FINISH(STB_TuneRestartTuner);
 }
+#endif
 
 /**
  * @brief   Stops any locking attempt, or unlocks if locked
@@ -141,8 +409,44 @@ void STB_TuneRestartTuner(U8BIT path)
  */
 void STB_TuneStopTuner(U8BIT path)
 {
+   S_TUNER_STATUS *tstatus;
+   E_TUNER_STATE state;
+
    FUNCTION_START(STB_TuneStopTuner);
-   USE_UNWANTED_PARAM(path);
+
+   if (path < num_paths)
+   {
+      tstatus = &tuner_status[path];
+
+      STB_OSMutexLock(tstatus->mutex);
+      state = tstatus->state;
+      STB_OSMutexUnlock(tstatus->mutex);
+
+      if (state != TUNER_IDLE)
+      {
+         TUN_DBG("%u: Stopping tuning...", tstatus->path);
+
+         STB_OSMutexLock(tstatus->mutex);
+         tstatus->stop = TRUE;
+         STB_OSMutexUnlock(tstatus->mutex);
+
+         while (state != TUNER_IDLE)
+         {
+            STB_OSTaskDelay(50);
+
+            STB_OSMutexLock(tstatus->mutex);
+            state = tstatus->state;
+            STB_OSMutexUnlock(tstatus->mutex);
+         }
+
+         ClearTuner(tstatus);
+
+         tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
+      }
+
+      TUN_DBG("%u: Tuner stopped", tstatus->path);
+   }
+
    FUNCTION_FINISH(STB_TuneStopTuner);
 }
 
@@ -153,11 +457,30 @@ void STB_TuneStopTuner(U8BIT path)
  */
 U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
 {
+   U32BIT min_freq;
+
    FUNCTION_START(STB_TuneGetMinTunerFreqKHz);
-   USE_UNWANTED_PARAM(path);
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      /* Return the frequency in KHz */
+      if (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK)
+      {
+         min_freq = tuner_status[path].fe_info.frequency_min;
+      }
+      else
+      {
+         min_freq = tuner_status[path].fe_info.frequency_min / 1000;
+      }
+   }
+   else
+   {
+      min_freq = 0;
+   }
+
    FUNCTION_FINISH(STB_TuneGetMinTunerFreqKHz);
 
-   return(0);
+   return(min_freq);
 }
 
 /**
@@ -167,11 +490,30 @@ U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
  */
 U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
 {
+   U32BIT max_freq;
+
    FUNCTION_START(STB_TuneGetMaxTunerFreqKHz);
-   USE_UNWANTED_PARAM(path);
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      /* Return the frequency in KHz */
+      if (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK)
+      {
+         max_freq = tuner_status[path].fe_info.frequency_max;
+      }
+      else
+      {
+         max_freq = tuner_status[path].fe_info.frequency_max / 1000;
+      }
+   }
+   else
+   {
+      max_freq = 0;
+   }
+
    FUNCTION_FINISH(STB_TuneGetMaxTunerFreqKHz);
 
-   return(0);
+   return(max_freq);
 }
 
 /**
@@ -181,11 +523,54 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
  */
 U8BIT STB_TuneGetSignalStrength(U8BIT path)
 {
+   U8BIT retval;
+   struct dtv_property cmd;
+   struct dtv_properties props;
+   __u16 strength;
+
    FUNCTION_START(STB_TuneGetSignalStrength);
-   USE_UNWANTED_PARAM(path);
+
+   retval = 0;
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         memset(&cmd, 0, sizeof(struct dtv_property));
+
+         cmd.cmd = DTV_STAT_SIGNAL_STRENGTH;
+         props.num = 1;
+         props.props = &cmd;
+
+         if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+         {
+            if (cmd.u.st.len == 0)
+            {
+               /* New method of reading signal strength not supported, so use the old API */
+               if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, &strength) >= 0)
+               {
+                  /* Strength is returned as a percentage */
+                  retval = (U8BIT)strength;
+                  TUN_DBG("%u: %u%%", path, retval);
+               }
+            }
+            else
+            {
+               TUN_DBG("%u: num=%u, scale=%u, uvalue=%llu, svalue=%llu", path,
+                  cmd.u.st.len, cmd.u.st.stat[0].scale, cmd.u.st.stat[0].uvalue, cmd.u.st.stat[0].svalue);
+               retval = ConvertStatToPercentage(&cmd.u.st.stat[0]);
+            }
+         }
+         else
+         {
+            TUN_DBG("%u: Failed to get signal strength, errno %d", path, errno);
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetSignalStrength);
 
-   return 0;
+   return retval;
 }
 
 /**
@@ -196,11 +581,31 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
  */
 U8BIT STB_TuneGetDataIntegrity(U8BIT path)
 {
+   U8BIT retval;
+   __u32 ber;
+
    FUNCTION_START(STB_TuneGetDataIntegrity);
-   USE_UNWANTED_PARAM(path);
+
+   retval = 0;
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         if (ioctl(tuner_status[path].frontend_fd, FE_READ_BER, &ber) >= 0)
+         {
+            TUN_DBG("%u: BER=%lu", path, ber);
+         }
+         else
+         {
+            TUN_DBG("%u: FE_READ_BER failed, errno %d", path, errno);
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetDataIntegrity);
 
-   return 0;
+   return retval;
 }
 
 /**
@@ -210,10 +615,43 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
  */
 U32BIT STB_TuneGetActualTerrFrequency(U8BIT path)
 {
+   U32BIT freq;
+   struct dtv_property cmd;
+   struct dtv_properties props;
+
    FUNCTION_START(STB_TuneGetActualTerrFrequency);
-   USE_UNWANTED_PARAM(path);
+
+   freq = 0;
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         memset(&cmd, 0, sizeof(struct dtv_property));
+
+         cmd.cmd = DTV_FREQUENCY;
+         props.num = 1;
+         props.props = &cmd;
+
+         if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+         {
+            freq = cmd.u.data;
+            TUN_DBG("%u: freq=%lu", path, freq);
+         }
+         else
+         {
+            TUN_DBG("%u: Failed to read frequency, errno %d", path, errno);
+         }
+      }
+      else
+      {
+         freq = tuner_status[path].freq;
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetActualTerrFrequency);
-   return(0);
+
+   return(freq);
 }
 
 /**
@@ -223,10 +661,41 @@ U32BIT STB_TuneGetActualTerrFrequency(U8BIT path)
  */
 S8BIT STB_TuneGetActualTerrFreqOffset(U8BIT path)
 {
+   S8BIT offset;
+   struct dtv_property cmd;
+   struct dtv_properties props;
+
    FUNCTION_START(STB_TuneGetActualTerrFreqOffset);
-   USE_UNWANTED_PARAM(path);
+
+   offset = 0;
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         memset(&cmd, 0, sizeof(struct dtv_property));
+
+         cmd.cmd = DTV_FREQUENCY;
+         props.num = 1;
+         props.props = &cmd;
+
+         if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+         {
+            offset = cmd.u.data - tuner_status[path].freq;
+
+            TUN_DBG("%u: freq=%lu, actual=%lu, offset=%d", path,
+               tuner_status[path].freq, cmd.u.data, offset);
+         }
+         else
+         {
+            TUN_DBG("%u: Failed to read frequency, errno %d", path, errno);
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetActualTerrFreqOffset);
-   return(0);
+
+   return(offset);
 }
 
 /**
@@ -236,10 +705,63 @@ S8BIT STB_TuneGetActualTerrFreqOffset(U8BIT path)
  */
 E_STB_TUNE_TMODE STB_TuneGetActualTerrMode(U8BIT path)
 {
+   E_STB_TUNE_TMODE mode;
+   struct dtv_property cmd;
+   struct dtv_properties props;
+
    FUNCTION_START(STB_TuneGetActualTerrMode);
-   USE_UNWANTED_PARAM(path);
+
+   mode = TUNE_MODE_COFDM_UNDEFINED;
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         memset(&cmd, 0, sizeof(struct dtv_property));
+
+         cmd.cmd = DTV_TRANSMISSION_MODE;
+         props.num = 1;
+         props.props = &cmd;
+
+         if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+         {
+            TUN_DBG("%u: mode=%lu", path, cmd.u.data);
+
+            switch (cmd.u.data)
+            {
+               case TRANSMISSION_MODE_2K:
+                  mode = TUNE_MODE_COFDM_2K;
+                  break;
+               case TRANSMISSION_MODE_8K:
+                  mode = TUNE_MODE_COFDM_8K;
+                  break;
+               case TRANSMISSION_MODE_4K:
+                  mode = TUNE_MODE_COFDM_4K;
+                  break;
+               case TRANSMISSION_MODE_1K:
+                  mode = TUNE_MODE_COFDM_1K;
+                  break;
+               case TRANSMISSION_MODE_16K:
+                  mode = TUNE_MODE_COFDM_16K;
+                  break;
+               case TRANSMISSION_MODE_32K:
+                  mode = TUNE_MODE_COFDM_32K;
+                  break;
+               case TRANSMISSION_MODE_AUTO:
+               default:
+                  break;
+            }
+         }
+         else
+         {
+            TUN_DBG("%u: Failed to read frequency, errno %d", path, errno);
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetActualTerrMode);
-   return(TUNE_MODE_COFDM_UNDEFINED);
+
+   return(mode);
 }
 
 /**
@@ -275,10 +797,86 @@ E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
  */
 E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
 {
+   U8BIT retval;
+   struct dtv_property cmd;
+   struct dtv_properties props;
+   uint8_t plp_ids[256];
+
    FUNCTION_START(STB_TuneGetActualTerrHierarchy);
-   USE_UNWANTED_PARAM(path);
+
+   retval = TUNE_THIERARCHY_UNDEFINED;
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         memset(&cmd, 0, sizeof(struct dtv_property));
+
+         if (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
+         {
+            cmd.cmd = DTV_DVBT2_PLP_ID;
+            cmd.u.buffer.reserved1[1] = UINT_MAX;
+            cmd.u.buffer.reserved2 = plp_ids;
+
+            props.num = 1;
+            props.props = &cmd;
+
+            if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+            {
+               retval = cmd.u.buffer.reserved1[0];
+               if (retval != 0)
+               {
+                  /* Return the value of the max PLP id */
+                  retval--;
+               }
+
+               TUN_DBG("%u: Num PLPs=%u", path, retval);
+            }
+            else
+            {
+               TUN_DBG("%u: Failed to get number of PLPs, errno %d", path, errno);
+               retval = TUNE_THIERARCHY_NONE;
+            }
+         }
+         else
+         {
+            cmd.cmd = DTV_HIERARCHY;
+            props.num = 1;
+            props.props = &cmd;
+
+            if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+            {
+               TUN_DBG("%u: hierarchy=%lu", path, cmd.u.data);
+               switch (cmd.u.data)
+               {
+                  case HIERARCHY_NONE:
+                     retval = TUNE_THIERARCHY_NONE;
+                     break;
+                  case HIERARCHY_1:
+                     retval = TUNE_THIERARCHY_1;
+                     break;
+                  case HIERARCHY_2:
+                     retval = TUNE_THIERARCHY_2;
+                     break;
+                  case HIERARCHY_4:
+                     retval = TUNE_THIERARCHY_4;
+                     break;
+                  default:
+                     retval = TUNE_THIERARCHY_UNDEFINED;
+                     break;
+               }
+            }
+            else
+            {
+               TUN_DBG("%u: Failed to get hierarchy, errno %d", path, errno);
+            }
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetActualTerrHierarchy);
-   return TUNE_THIERARCHY_UNDEFINED;
+
+   return retval;
 }
 
 /**
@@ -354,8 +952,12 @@ void STB_TuneActiveAerialPower(U8BIT path, BOOLEAN enabled)
 void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
 {
    FUNCTION_START(STB_TuneSetLNBVoltage);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(voltage);
+
+   if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+   {
+      tuner_status[path].u.sat.lnb_voltage = voltage;
+   }
+
    FUNCTION_FINISH(STB_TuneSetLNBVoltage);
 }
 
@@ -367,8 +969,12 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
 void STB_TuneSetModulation(U8BIT path, E_STB_TUNE_MODULATION modulation)
 {
    FUNCTION_START(STB_TuneSetModulation);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(modulation);
+
+   if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+   {
+      tuner_status[path].u.sat.modulation = modulation;
+   }
+
    FUNCTION_FINISH(STB_TuneSetModulation);
 }
 
@@ -380,8 +986,12 @@ void STB_TuneSetModulation(U8BIT path, E_STB_TUNE_MODULATION modulation)
 void STB_TuneSet22kState(U8BIT path, BOOLEAN state)
 {
    FUNCTION_START(STB_TuneSet22kState);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(state);
+
+   if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+   {
+      tuner_status[path].u.sat.use_22khz = state;
+   }
+
    FUNCTION_FINISH(STB_TuneSet22kState);
 }
 
@@ -488,8 +1098,12 @@ void STB_TuneChangeSkewPosition(U8BIT path, U16BIT count)
 void STB_TuneSetLOFrequency(U8BIT tuner, U16BIT lo_freq)
 {
    FUNCTION_START(STB_TuneSetLOFrequency);
-   USE_UNWANTED_PARAM(tuner);
-   USE_UNWANTED_PARAM(lo_freq);
+
+   if (tuner < num_paths)
+   {
+      tuner_status[tuner].u.sat.lo_freq = lo_freq;
+   }
+
    FUNCTION_FINISH(STB_TuneSetLOFrequency);
 }
 
@@ -523,8 +1137,12 @@ U8BIT STB_TuneSatGetCarrierStrength(U8BIT path, U32BIT freq)
 void STB_TuneSetSystemType(U8BIT path, E_STB_TUNE_SYSTEM_TYPE type)
 {
    FUNCTION_START(STB_TuneSetSystemType);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(type);
+
+   if (path < num_paths)
+   {
+      tuner_status[path].sys_type = type;
+   }
+
    FUNCTION_FINISH(STB_TuneSetTerrType);
 }
 
@@ -536,10 +1154,22 @@ void STB_TuneSetSystemType(U8BIT path, E_STB_TUNE_SYSTEM_TYPE type)
  */
 E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSystemType(U8BIT path)
 {
+   E_STB_TUNE_SYSTEM_TYPE type;
+
    FUNCTION_START(STB_TuneGetSystemType);
-   USE_UNWANTED_PARAM(path);
+
+   if (path < num_paths)
+   {
+      type = tuner_status[path].sys_type;
+   }
+   else
+   {
+      type = TUNE_SYSTEM_TYPE_UNKNOWN;
+   }
+
    FUNCTION_FINISH(STB_TuneGetSystemType);
-   return(TUNE_SYSTEM_TYPE_UNKNOWN);
+
+   return(type);
 }
 
 /**
@@ -549,9 +1179,33 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSystemType(U8BIT path)
  */
 void STB_TuneSetPLP(U8BIT path, U8BIT plp)
 {
+   struct dtv_property cmd;
+   struct dtv_properties props;
+
    FUNCTION_START(STB_TuneSetPLP);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(plp);
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD) &&
+      (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         TUN_DBG("%u: PLP %u", path, plp);
+
+         memset(&cmd, 0, sizeof(struct dtv_property));
+
+         cmd.cmd = DTV_DVBT2_PLP_ID;
+         cmd.u.data = plp;
+
+         props.num = 1;
+         props.props = &cmd;
+
+         if (ioctl(tuner_status[path].frontend_fd, FE_SET_PROPERTY, &props) < 0)
+         {
+            TUN_DBG("%u: Failed to set number of PLPs, errno %d", path, errno);
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneSetPLP);
 }
 
@@ -562,10 +1216,27 @@ void STB_TuneSetPLP(U8BIT path, U8BIT plp)
  */
 U32BIT STB_TuneGetActualSymbolRate(U8BIT path)
 {
+   U32BIT srate;
+
    FUNCTION_START(STB_TuneGetActualSymbolRate);
-   USE_UNWANTED_PARAM(path);
+
+   srate = 0;
+
+   if (path < num_paths)
+   {
+      if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM)
+      {
+         srate = tuner_status[path].u.cab.srate;
+      }
+      else if (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK)
+      {
+         srate = tuner_status[path].u.sat.srate;
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetActualSymbolRate);
-   return(0);
+
+   return(srate);
 }
 
 /**
@@ -575,10 +1246,20 @@ U32BIT STB_TuneGetActualSymbolRate(U8BIT path)
  */
 E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path)
 {
+   E_STB_TUNE_CMODE mode;
+
    FUNCTION_START(STB_TuneGetActualCableMode);
-   USE_UNWANTED_PARAM(path);
+
+   mode = TUNE_MODE_QAM_UNDEFINED;
+
+   if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QAM))
+   {
+      mode = tuner_status[path].u.cab.cmode;
+   }
+
    FUNCTION_FINISH(STB_TuneGetActualCableMode);
-   return(TUNE_MODE_QAM_UNDEFINED);
+
+   return(mode);
 }
 
 /**
@@ -592,9 +1273,869 @@ E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path)
  */
 E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSupportedSystemType(U8BIT path)
 {
+   E_STB_TUNE_SYSTEM_TYPE type;
+
    FUNCTION_START(STB_TuneGetSupportedSystemType);
-   USE_UNWANTED_PARAM(path);
+
+   type = TUNE_SYSTEM_TYPE_UNKNOWN;
+
+   if (path < num_paths)
+   {
+      switch (tuner_status[path].delivery_system)
+      {
+         case SYS_DVBT:
+            type = TUNE_SYSTEM_TYPE_DVBT;
+            break;
+         case SYS_DVBT2:
+            type = TUNE_SYSTEM_TYPE_DVBT2;
+            break;
+         case SYS_DVBC_ANNEX_A:
+         case SYS_DVBC_ANNEX_B:
+            type = TUNE_SYSTEM_TYPE_DVBC;
+            break;
+         case SYS_DVBS:
+            type = TUNE_SYSTEM_TYPE_DVBS;
+            break;
+         case SYS_DVBS2:
+            type = TUNE_SYSTEM_TYPE_DVBS2;
+            break;
+         default:
+            break;
+      }
+   }
+
    FUNCTION_FINISH(STB_TuneGetSupportedSystemType);
 
-   return TUNE_SYSTEM_TYPE_UNKNOWN;
+   return type;
 }
+
+
+/*---local function definitions----------------------------------------------*/
+
+static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, char *device_name)
+{
+   BOOLEAN retval;
+   int mode;
+
+   retval = FALSE;
+
+   if ((tstatus->frontend_fd = open(device_name, O_RDWR | O_NONBLOCK)) < 0)
+   {
+      TUN_DBG("Failed to open %s, errno %d", device_name, errno);
+   }
+   else
+   {
+      mode = FE_OFDM;
+
+      if (ioctl(tstatus->frontend_fd, FE_SET_MODE, mode) >= 0)
+      {
+         memset(&tstatus->fe_info, 0, sizeof(tstatus->fe_info));
+
+         if (ioctl(tstatus->frontend_fd, FE_GET_INFO, &(tstatus->fe_info)) >= 0)
+         {
+            TUN_DBG("Tuner %s configured as DVB-T2, min_freq=%lu, max_freq=%lu", device_name,
+               tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
+            tstatus->signal_type = TUNE_SIGNAL_COFDM;
+            tstatus->delivery_system = SYS_DVBT2;
+            retval = TRUE;
+         }
+         else
+         {
+            TUN_DBG("Failed to get FE_INFO for %s, errno %d", device_name, errno);
+         }
+      }
+      else
+      {
+         TUN_DBG("Failed to FE_SET_MODE for %s, errno %d", device_name, errno);
+      }
+
+      if (!retval)
+      {
+         CloseTuner(tstatus);
+      }
+   }
+
+   return(retval);
+}
+
+static void CloseTuner(S_TUNER_STATUS *tstatus)
+{
+   if (tstatus->frontend_fd != INVALID_FD)
+   {
+      close(tstatus->frontend_fd);
+      tstatus->frontend_fd = INVALID_FD;
+   }
+}
+
+#if 0
+static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
+{
+   BOOLEAN retval;
+   U32BIT num_cmds;
+   struct dtv_property cmds[15];
+   struct dtv_properties props;
+
+   retval = FALSE;
+   num_cmds = 0;
+
+   /* Setup the series of command and properties that are needed to tune for each type of tuner */
+   memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+   cmds[num_cmds].cmd = DTV_CLEAR;
+   num_cmds++;
+
+   switch (tstatus->signal_type)
+   {
+      case TUNE_SIGNAL_COFDM:
+      {
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_INVERSION;
+         cmds[num_cmds].u.data = INVERSION_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_FREQUENCY;
+         cmds[num_cmds].u.data = tstatus->freq;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_BANDWIDTH_HZ;
+         switch (tstatus->u.terr.tbwidth)
+         {
+            case TUNE_TBWIDTH_6MHZ:
+               cmds[num_cmds].u.data = 6000000;
+               break;
+            case TUNE_TBWIDTH_7MHZ:
+               cmds[num_cmds].u.data = 7000000;
+               break;
+            case TUNE_TBWIDTH_8MHZ:
+            default:
+               cmds[num_cmds].u.data = 8000000;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_CODE_RATE_HP;
+         cmds[num_cmds].u.data = FEC_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_CODE_RATE_LP;
+         cmds[num_cmds].u.data = FEC_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_TRANSMISSION_MODE;
+         switch (tstatus->u.terr.tmode)
+         {
+            case TUNE_MODE_COFDM_1K:
+               cmds[num_cmds].u.data = TRANSMISSION_MODE_1K;
+               break;
+            case TUNE_MODE_COFDM_2K:
+               cmds[num_cmds].u.data = TRANSMISSION_MODE_2K;
+               break;
+            case TUNE_MODE_COFDM_4K:
+               cmds[num_cmds].u.data = TRANSMISSION_MODE_4K;
+               break;
+            case TUNE_MODE_COFDM_8K:
+               cmds[num_cmds].u.data = TRANSMISSION_MODE_8K;
+               break;
+            case TUNE_MODE_COFDM_16K:
+               cmds[num_cmds].u.data = TRANSMISSION_MODE_16K;
+               break;
+            case TUNE_MODE_COFDM_32K:
+               cmds[num_cmds].u.data = TRANSMISSION_MODE_32K;
+               break;
+            default:
+               cmds[num_cmds].u.data = TRANSMISSION_MODE_AUTO;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_MODULATION;
+         cmds[num_cmds].u.data = QAM_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_GUARD_INTERVAL;
+         cmds[num_cmds].u.data = GUARD_INTERVAL_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_HIERARCHY;
+         cmds[num_cmds].u.data = HIERARCHY_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_TUNE;
+         num_cmds++;
+         break;
+      }
+
+      case TUNE_SIGNAL_QPSK:
+      {
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+
+         cmds[num_cmds].cmd = DTV_DELIVERY_SYSTEM;
+         if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2)
+         {
+            cmds[num_cmds].u.data = SYS_DVBS2;
+         }
+         else
+         {
+            cmds[num_cmds].u.data = SYS_DVBS;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_INVERSION;
+         cmds[num_cmds].u.data = INVERSION_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_FREQUENCY;
+         cmds[num_cmds].u.data = tstatus->freq;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_SYMBOL_RATE;
+         cmds[num_cmds].u.data = tstatus->u.sat.srate;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_INNER_FEC;
+         switch (tstatus->u.sat.fec)
+         {
+            case TUNE_FEC_1_2:
+               cmds[num_cmds].u.data = FEC_1_2;
+               break;
+            case TUNE_FEC_2_3:
+               cmds[num_cmds].u.data = FEC_2_3;
+               break;
+            case TUNE_FEC_3_4:
+               cmds[num_cmds].u.data = FEC_3_4;
+               break;
+            case TUNE_FEC_5_6:
+               cmds[num_cmds].u.data = FEC_5_6;
+               break;
+            case TUNE_FEC_7_8:
+               cmds[num_cmds].u.data = FEC_7_8;
+               break;
+            case TUNE_FEC_2_5:
+               cmds[num_cmds].u.data = FEC_2_5;
+               break;
+            case TUNE_FEC_8_9:
+               cmds[num_cmds].u.data = FEC_8_9;
+               break;
+            case TUNE_FEC_9_10:
+               cmds[num_cmds].u.data = FEC_9_10;
+               break;
+            default:
+               cmds[num_cmds].u.data = FEC_AUTO;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_VOLTAGE;
+         switch (tstatus->u.sat.lnb_voltage)
+         {
+            case LNB_VOLTAGE_14V:
+               cmds[num_cmds].u.data = SEC_VOLTAGE_13;
+               break;
+            case LNB_VOLTAGE_18V:
+               cmds[num_cmds].u.data = SEC_VOLTAGE_18;
+               break;
+            case LNB_VOLTAGE_OFF:
+            default:
+               cmds[num_cmds].u.data = SEC_VOLTAGE_OFF;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_MODULATION;
+         switch (tstatus->u.terr.tmode)
+         {
+            case TUNE_MOD_QPSK:
+               cmds[num_cmds].u.data = QPSK;
+               break;
+            case TUNE_MOD_8PSK:
+               cmds[num_cmds].u.data = PSK_8;
+               break;
+            case TUNE_MOD_16QAM:
+               cmds[num_cmds].u.data = QAM_16;
+               break;
+            case TUNE_MOD_AUTO:
+            default:
+               cmds[num_cmds].u.data = QAM_AUTO;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_TONE;
+         if (tstatus->u.sat.use_22khz)
+         {
+            cmds[num_cmds].u.data = SEC_TONE_ON;
+         }
+         else
+         {
+            cmds[num_cmds].u.data = SEC_TONE_OFF;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_TUNE;
+         num_cmds++;
+         break;
+      }
+
+      default:
+      {
+         TUN_DBG("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
+         num_cmds = 0;
+         break;
+      }
+   }
+
+   if (num_cmds != 0)
+   {
+      props.num = num_cmds;
+      props.props = cmds;
+
+      if (ioctl(tstatus->frontend_fd, FE_SET_PROPERTY, &props) >= 0)
+      {
+         TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+         retval = TRUE;
+      }
+      else
+      {
+         TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+      }
+   }
+
+   return(retval);
+}
+#else
+static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
+{
+   BOOLEAN retval;
+   struct dvb_frontend_parameters_ex fe_params;
+
+   retval = FALSE;
+
+   switch (tstatus->signal_type)
+   {
+      case TUNE_SIGNAL_COFDM:
+      {
+         fe_params.frequency = tstatus->freq;
+
+         switch (tstatus->u.terr.tbwidth)
+         {
+            case TUNE_TBWIDTH_6MHZ:
+               fe_params.u.ofdm.bandwidth = BANDWIDTH_6_MHZ;
+               break;
+            case TUNE_TBWIDTH_7MHZ:
+               fe_params.u.ofdm.bandwidth = BANDWIDTH_7_MHZ;
+               break;
+            case TUNE_TBWIDTH_8MHZ:
+               fe_params.u.ofdm.bandwidth = BANDWIDTH_8_MHZ;
+               break;
+            default:
+               fe_params.u.ofdm.bandwidth = BANDWIDTH_AUTO;
+               break;
+         }
+
+         fe_params.u.ofdm.code_rate_HP = FEC_AUTO;
+         fe_params.u.ofdm.code_rate_LP = FEC_AUTO;
+
+         switch (tstatus->u.terr.tmode)
+         {
+            case TUNE_MODE_COFDM_1K:
+               fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_1K;
+               break;
+            case TUNE_MODE_COFDM_2K:
+               fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_2K;
+               break;
+            case TUNE_MODE_COFDM_4K:
+               fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_4K;
+               break;
+            case TUNE_MODE_COFDM_8K:
+               fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_8K;
+               break;
+            case TUNE_MODE_COFDM_16K:
+               fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_16K;
+               break;
+            case TUNE_MODE_COFDM_32K:
+               fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_32K;
+               break;
+            default:
+               fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_AUTO;
+               break;
+         }
+
+         fe_params.u.ofdm.constellation = QAM_AUTO;
+         fe_params.u.ofdm.guard_interval = GUARD_INTERVAL_AUTO;
+
+         if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2)
+         {
+            fe_params.u.ofdm.ofdm_mode = OFDM_DVBT2;
+         }
+         else
+         {
+            fe_params.u.ofdm.ofdm_mode = OFDM_DVBT;
+         }
+
+         retval = TRUE;
+         break;
+      }
+#if 0
+      case TUNE_SIGNAL_QPSK:
+      {
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+
+         cmds[num_cmds].cmd = DTV_DELIVERY_SYSTEM;
+         if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2)
+         {
+            cmds[num_cmds].u.data = SYS_DVBS2;
+         }
+         else
+         {
+            cmds[num_cmds].u.data = SYS_DVBS;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_INVERSION;
+         cmds[num_cmds].u.data = INVERSION_AUTO;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_FREQUENCY;
+         cmds[num_cmds].u.data = tstatus->freq;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_SYMBOL_RATE;
+         cmds[num_cmds].u.data = tstatus->u.sat.srate;
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_INNER_FEC;
+         switch (tstatus->u.sat.fec)
+         {
+            case TUNE_FEC_1_2:
+               cmds[num_cmds].u.data = FEC_1_2;
+               break;
+            case TUNE_FEC_2_3:
+               cmds[num_cmds].u.data = FEC_2_3;
+               break;
+            case TUNE_FEC_3_4:
+               cmds[num_cmds].u.data = FEC_3_4;
+               break;
+            case TUNE_FEC_5_6:
+               cmds[num_cmds].u.data = FEC_5_6;
+               break;
+            case TUNE_FEC_7_8:
+               cmds[num_cmds].u.data = FEC_7_8;
+               break;
+            case TUNE_FEC_2_5:
+               cmds[num_cmds].u.data = FEC_2_5;
+               break;
+            case TUNE_FEC_8_9:
+               cmds[num_cmds].u.data = FEC_8_9;
+               break;
+            case TUNE_FEC_9_10:
+               cmds[num_cmds].u.data = FEC_9_10;
+               break;
+            default:
+               cmds[num_cmds].u.data = FEC_AUTO;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_VOLTAGE;
+         switch (tstatus->u.sat.lnb_voltage)
+         {
+            case LNB_VOLTAGE_14V:
+               cmds[num_cmds].u.data = SEC_VOLTAGE_13;
+               break;
+            case LNB_VOLTAGE_18V:
+               cmds[num_cmds].u.data = SEC_VOLTAGE_18;
+               break;
+            case LNB_VOLTAGE_OFF:
+            default:
+               cmds[num_cmds].u.data = SEC_VOLTAGE_OFF;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_MODULATION;
+         switch (tstatus->u.terr.tmode)
+         {
+            case TUNE_MOD_QPSK:
+               cmds[num_cmds].u.data = QPSK;
+               break;
+            case TUNE_MOD_8PSK:
+               cmds[num_cmds].u.data = PSK_8;
+               break;
+            case TUNE_MOD_16QAM:
+               cmds[num_cmds].u.data = QAM_16;
+               break;
+            case TUNE_MOD_AUTO:
+            default:
+               cmds[num_cmds].u.data = QAM_AUTO;
+               break;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_TONE;
+         if (tstatus->u.sat.use_22khz)
+         {
+            cmds[num_cmds].u.data = SEC_TONE_ON;
+         }
+         else
+         {
+            cmds[num_cmds].u.data = SEC_TONE_OFF;
+         }
+         num_cmds++;
+
+         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
+         cmds[num_cmds].cmd = DTV_TUNE;
+         num_cmds++;
+         break;
+      }
+#endif
+      default:
+      {
+         TUN_DBG("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
+         break;
+      }
+   }
+
+   if (retval)
+   {
+      if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND_EX, &fe_params) >= 0)
+      {
+         TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+         retval = TRUE;
+      }
+      else
+      {
+         TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+      }
+   }
+
+   return(retval);
+}
+#endif
+
+static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus)
+{
+   BOOLEAN locked;
+   fe_status_t status;
+
+   locked = FALSE;
+
+   if (ioctl(tstatus->frontend_fd, FE_READ_STATUS, &status) >= 0)
+   {
+      if ((status & FE_HAS_LOCK) != 0)
+      {
+         locked = TRUE;
+      }
+
+      //TUN_DBG("%u: status=0x%02x, %s", tstatus->path, status, (locked ? "TRUE" : "FALSE"));
+   }
+   else
+   {
+      TUN_DBG("%u: FE_READ_STATUS failed, errno %d", tstatus->path, errno);
+   }
+
+   return(locked);
+}
+
+static void TunerTask(void *param)
+{
+   S_TUNER_STATUS *tstatus = param;
+   E_TUNER_STATE state;
+   BOOLEAN locked;
+   fe_status_t status;
+   U32BIT start_time;
+   BOOLEAN stop;
+#if 0
+   struct dtv_property cmd;
+   struct dtv_properties props;
+#else
+   struct dvb_frontend_parameters_ex fe_params;
+#endif
+
+   while (TRUE)
+   {
+      STB_OSMutexLock(tstatus->mutex);
+      state = tstatus->state;
+      STB_OSMutexUnlock(tstatus->mutex);
+
+      if (state == TUNER_IDLE)
+      {
+         /* Wait until tuning has been started */
+         TUN_DBG("%u: Waiting for tune request....", tstatus->path);
+
+         STB_OSSemaphoreWait(tstatus->tune_sem);
+
+         STB_OSMutexLock(tstatus->mutex);
+         tstatus->state = TUNER_TUNING;
+         stop = tstatus->stop;
+         STB_OSMutexUnlock(tstatus->mutex);
+
+         TUN_DBG("%u: Tuning started, checking LOCK status", tstatus->path);
+
+         for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
+            !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
+         {
+            status = 0;
+            if (ioctl(tstatus->frontend_fd, FE_READ_STATUS, &status) >= 0)
+            {
+               if ((status & FE_HAS_LOCK) != 0)
+               {
+                  locked = TRUE;
+               }
+               else if ((status & FE_TIMEDOUT) != 0)
+               {
+                  /* Failed to lock */
+                  break;
+               }
+
+               STB_OSTaskDelay(100);
+
+               STB_OSMutexLock(tstatus->mutex);
+               stop = tstatus->stop;
+               STB_OSMutexUnlock(tstatus->mutex);
+            }
+            else
+            {
+               /* Failed to read tuner status, so drop out */
+               break;
+            }
+         }
+
+         if (stop)
+         {
+            TUN_DBG("%u: Tuning stopped", tstatus->path);
+            STB_OSMutexLock(tstatus->mutex);
+            tstatus->state = TUNER_IDLE;
+            STB_OSMutexUnlock(tstatus->mutex);
+         }
+         else
+         {
+            if (locked)
+            {
+#if 0
+               /* Get the system type now the tuner has locked to see if it matches the required type */
+               memset(&cmd, 0, sizeof(struct dtv_property));
+
+               cmd.cmd = DTV_DELIVERY_SYSTEM;
+               props.num = 1;
+               props.props = &cmd;
+
+               if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+               {
+                  if ((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
+                     (((cmd.u.data == SYS_DVBT) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBT)) ||
+                     ((cmd.u.data == SYS_DVBT2) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBT2))))
+                  {
+                     /* Tuner has locked on a signal type that isn't the required one so ignore it */
+                     locked = FALSE;
+                  }
+
+                  if ((tstatus->signal_type == TUNE_SIGNAL_QPSK) &&
+                     (((cmd.u.data == SYS_DVBS) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBS)) ||
+                     ((cmd.u.data == SYS_DVBS2) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBS2))))
+                  {
+                     /* Tuner has locked on a signal type that isn't the required one so ignore it */
+                     locked = FALSE;
+                  }
+
+                  if (!locked)
+                  {
+                     TUN_DBG("%u: Ignoring LOCKED status for type %u, delivery system is %u",
+                        tstatus->path, tstatus->sys_type, cmd.u.data);
+                  }
+               }
+#else
+               if (ioctl(tstatus->frontend_fd, FE_GET_FRONTEND_EX, &fe_params) >= 0)
+               {
+                  if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (fe_params.u.ofdm.ofdm_mode != OFDM_DVBT)) ||
+                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (fe_params.u.ofdm.ofdm_mode != OFDM_DVBT2)))
+                  {
+                     locked = FALSE;
+                     TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
+                        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
+                        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
+                        ((fe_params.u.ofdm.ofdm_mode == OFDM_DVBT) ? "DVB-T" : "DVB-T2"));
+                  }
+               }
+#endif
+            }
+            if (locked)
+            {
+               TUN_DBG("%u: LOCKED", tstatus->path);
+
+               STB_OSMutexLock(tstatus->mutex);
+               tstatus->state = TUNER_LOCKED;
+               STB_OSMutexUnlock(tstatus->mutex);
+
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
+                  sizeof(U8BIT));
+            }
+            else
+            {
+               TUN_DBG("%u: NOT LOCKED", tstatus->path);
+
+               ClearTuner(tstatus);
+
+               STB_OSMutexLock(tstatus->mutex);
+               tstatus->state = TUNER_IDLE;
+               STB_OSMutexUnlock(tstatus->mutex);
+
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
+                  sizeof(U8BIT));
+            }
+         }
+      }
+      else
+      {
+         /* Monitor tuner lock status */
+         locked = TRUE;
+
+         while ((state == TUNER_LOCKED) || (state == TUNER_RELOCKING))
+         {
+            if (IsTunerLocked(tstatus))
+            {
+               if (!locked)
+               {
+                  /* Tuner has relocked */
+                  TUN_DBG("%u: Tuner has relocked", tstatus->path);
+                  locked = TRUE;
+
+                  STB_OSMutexLock(tstatus->mutex);
+                  tstatus->state = TUNER_LOCKED;
+                  STB_OSMutexUnlock(tstatus->mutex);
+
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
+                     sizeof(U8BIT));
+               }
+            }
+            else
+            {
+               if (locked)
+               {
+                  /* Lost lock */
+                  TUN_DBG("%u: Lost LOCK, relock %u", tstatus->path, tstatus->auto_relock);
+
+                  locked = FALSE;
+
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
+                     sizeof(U8BIT));
+
+                  if (tstatus->auto_relock)
+                  {
+                     /* Check whether the tuner says it can recover from lost lock automatically */
+                     if ((tstatus->fe_info.caps & FE_CAN_RECOVER) == 0)
+                     {
+                        /* Tuner needs to be retuned to recover lock */
+                        if (StartTune(tstatus))
+                        {
+                           STB_OSMutexLock(tstatus->mutex);
+                           tstatus->state = TUNER_RELOCKING;
+                           STB_OSMutexUnlock(tstatus->mutex);
+                        }
+                        else
+                        {
+                           /* Failed to retune */
+                           TUN_DBG("%u: Failed to retune after losing LOCK", tstatus->path);
+                           STB_OSMutexLock(tstatus->mutex);
+                           tstatus->state = TUNER_IDLE;
+                           STB_OSMutexUnlock(tstatus->mutex);
+                        }
+                     }
+                     else
+                     {
+                        /* Tuner will recover lock automatically */
+                        STB_OSMutexLock(tstatus->mutex);
+                        tstatus->state = TUNER_RELOCKING;
+                        STB_OSMutexUnlock(tstatus->mutex);
+                     }
+                  }
+                  else
+                  {
+                     ClearTuner(tstatus);
+
+                     STB_OSMutexLock(tstatus->mutex);
+                     tstatus->state = TUNER_IDLE;
+                     STB_OSMutexUnlock(tstatus->mutex);
+                  }
+               }
+            }
+            STB_OSMutexLock(tstatus->mutex);
+            stop = tstatus->stop;
+            STB_OSMutexUnlock(tstatus->mutex);
+
+            if (stop)
+            {
+               STB_OSMutexLock(tstatus->mutex);
+               tstatus->stop = FALSE;
+               tstatus->state = TUNER_IDLE;
+               STB_OSMutexUnlock(tstatus->mutex);
+            }
+            else
+            {
+               STB_OSTaskDelay(300);
+            }
+
+            STB_OSMutexLock(tstatus->mutex);
+            state = tstatus->state;
+            STB_OSMutexUnlock(tstatus->mutex);
+         }
+      }
+   }
+}
+
+static void ClearTuner(S_TUNER_STATUS *tstatus)
+{
+   struct dtv_property cmd;
+   struct dtv_properties props;
+
+   memset(&cmd, 0, sizeof(struct dtv_property));
+   cmd.cmd = DTV_CLEAR;
+   props.num = 1;
+   props.props = &cmd;
+
+   if (ioctl(tstatus->frontend_fd, FE_SET_PROPERTY, &props) < 0)
+   {
+      TUN_DBG("%u: DTV_CLEAR failed, errno %d", tstatus->path, errno);
+   }
+}
+
+static U8BIT ConvertStatToPercentage(struct dtv_stats *stat)
+{
+   U8BIT retval = 0;
+
+   if ((stat->scale == FE_SCALE_COUNTER) || (stat->scale == FE_SCALE_RELATIVE))
+   {
+      retval = (U8BIT)((stat->uvalue * 100) / 65535);
+   }
+   else if (stat->scale == FE_SCALE_DECIBEL)
+   {
+      TUN_DBG("DECIBEL range not converted");
+   }
+
+   return(retval);
+}
+

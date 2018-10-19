@@ -26,12 +26,15 @@
 
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
+#include <malloc.h>
 
 /* third party header files */
 
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+
+#include "stbhwc.h"
 #include "stbhwmem.h"
 
 /*---macro definitions for this file-----------------------------------------*/
@@ -87,6 +90,15 @@ void* STB_MEMGetSysRAM(U32BIT bytes)
 
    retval = NULL;
 
+   if (bytes > 0)
+   {
+      retval = malloc((size_t)bytes);
+      if (retval == NULL)
+      {
+         HEAP_DBG("*** OUT OF MEMORY (%lu bytes)", bytes);
+      }
+   }
+
    FUNCTION_FINISH(STB_MEMGetSysRAM);
 
    return(retval);
@@ -106,6 +118,15 @@ void* STB_MEMResizeSysRAM(void *ptr, U32BIT new_num_bytes)
 
    new_ptr = NULL;
 
+   if ((ptr != NULL) && (new_num_bytes > 0))
+   {
+      new_ptr = realloc(ptr, new_num_bytes);
+      if (new_ptr == NULL)
+      {
+         HEAP_DBG("Failed to reallocate %u bytes for %p", new_num_bytes, ptr);
+      }
+   }
+
    FUNCTION_FINISH(STB_MEMResizeSysRAM);
 
    return(new_ptr);
@@ -118,6 +139,12 @@ void* STB_MEMResizeSysRAM(void *ptr, U32BIT new_num_bytes)
 void STB_MEMFreeSysRAM(void *block_ptr)
 {
    FUNCTION_START(STB_MEMFreeSysRAM);
+
+   if (block_ptr != NULL)
+   {
+      free(block_ptr);
+   }
+
    FUNCTION_FINISH(STB_MEMFreeSysRAM);
 }
 
@@ -150,6 +177,15 @@ void* STB_MEMGetAppRAM(U32BIT bytes)
 
    retval = NULL;
 
+   if (bytes > 0)
+   {
+      retval = malloc((size_t)bytes);
+      if (retval == NULL)
+      {
+         HEAP_DBG("*** OUT OF MEMORY (%lu bytes)", bytes);
+      }
+   }
+
    FUNCTION_FINISH(STB_MEMGetAppRAM);
 
    return(retval);
@@ -169,6 +205,15 @@ void* STB_MEMResizeAppRAM(void *ptr, U32BIT new_num_bytes)
 
    new_ptr = NULL;
 
+   if ((ptr != NULL) && (new_num_bytes > 0))
+   {
+      new_ptr = realloc(ptr, new_num_bytes);
+      if (new_ptr == NULL)
+      {
+         HEAP_DBG("Failed to reallocate %u bytes for %p", new_num_bytes, ptr);
+      }
+   }
+
    FUNCTION_FINISH(STB_MEMResizeAppRAM);
 
    return(new_ptr);
@@ -181,6 +226,12 @@ void* STB_MEMResizeAppRAM(void *ptr, U32BIT new_num_bytes)
 void STB_MEMFreeAppRAM(void *block_ptr)
 {
    FUNCTION_START(STB_MEMFreeAppRAM);
+
+   if (block_ptr != NULL)
+   {
+      free(block_ptr);
+   }
+
    FUNCTION_FINISH(STB_MEMFreeAppRAM);
 }
 

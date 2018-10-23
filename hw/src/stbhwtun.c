@@ -136,7 +136,6 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
 static void TunerTask(void *param);
 static void ClearTuner(S_TUNER_STATUS *tstatus);
-static U8BIT ConvertStatToPercentage(struct dtv_stats *stat);
 
 
 /*---global function definitions---------------------------------------------*/
@@ -390,19 +389,6 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
    FUNCTION_FINISH(STB_TuneStartTuner);
 }
 
-#if 0
-/**
- * @brief   Restarts tuner and attempts to lock to signal in StartTuner call
- * @param   path the tuner path to restart
- */
-void STB_TuneRestartTuner(U8BIT path)
-{
-   FUNCTION_START(STB_TuneRestartTuner);
-   USE_UNWANTED_PARAM(path);
-   FUNCTION_FINISH(STB_TuneRestartTuner);
-}
-#endif
-
 /**
  * @brief   Stops any locking attempt, or unlocks if locked
  * @param   path the tuner path to stop
@@ -524,9 +510,7 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
 U8BIT STB_TuneGetSignalStrength(U8BIT path)
 {
    U8BIT retval;
-   struct dtv_property cmd;
-   struct dtv_properties props;
-   __u16 strength;
+   uint16_t strength;
 
    FUNCTION_START(STB_TuneGetSignalStrength);
 
@@ -536,30 +520,12 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
    {
       if (IsTunerLocked(&tuner_status[path]))
       {
-         memset(&cmd, 0, sizeof(struct dtv_property));
-
-         cmd.cmd = DTV_STAT_SIGNAL_STRENGTH;
-         props.num = 1;
-         props.props = &cmd;
-
-         if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+         /* New method of reading signal strength not supported, so use the old API */
+         if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, &strength) >= 0)
          {
-            if (cmd.u.st.len == 0)
-            {
-               /* New method of reading signal strength not supported, so use the old API */
-               if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, &strength) >= 0)
-               {
-                  /* Strength is returned as a percentage */
-                  retval = (U8BIT)strength;
-                  TUN_DBG("%u: %u%%", path, retval);
-               }
-            }
-            else
-            {
-               TUN_DBG("%u: num=%u, scale=%u, uvalue=%llu, svalue=%llu", path,
-                  cmd.u.st.len, cmd.u.st.stat[0].scale, cmd.u.st.stat[0].uvalue, cmd.u.st.stat[0].svalue);
-               retval = ConvertStatToPercentage(&cmd.u.st.stat[0]);
-            }
+            /* Strength is returned as a percentage */
+            retval = (U8BIT)strength;
+            TUN_DBG("%u: %u%%", path, retval);
          }
          else
          {
@@ -1333,7 +1299,7 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, char *device_name)
 
          if (ioctl(tstatus->frontend_fd, FE_GET_INFO, &(tstatus->fe_info)) >= 0)
          {
-            TUN_DBG("Tuner %s configured as DVB-T2, min_freq=%lu, max_freq=%lu", device_name,
+            TUN_DBG("Tuner %s configured as DVB-T/T2, min_freq=%lu, max_freq=%lu", device_name,
                tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
             tstatus->signal_type = TUNE_SIGNAL_COFDM;
             tstatus->delivery_system = SYS_DVBT2;
@@ -1367,260 +1333,6 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
    }
 }
 
-#if 0
-static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
-{
-   BOOLEAN retval;
-   U32BIT num_cmds;
-   struct dtv_property cmds[15];
-   struct dtv_properties props;
-
-   retval = FALSE;
-   num_cmds = 0;
-
-   /* Setup the series of command and properties that are needed to tune for each type of tuner */
-   memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-   cmds[num_cmds].cmd = DTV_CLEAR;
-   num_cmds++;
-
-   switch (tstatus->signal_type)
-   {
-      case TUNE_SIGNAL_COFDM:
-      {
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_INVERSION;
-         cmds[num_cmds].u.data = INVERSION_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_FREQUENCY;
-         cmds[num_cmds].u.data = tstatus->freq;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_BANDWIDTH_HZ;
-         switch (tstatus->u.terr.tbwidth)
-         {
-            case TUNE_TBWIDTH_6MHZ:
-               cmds[num_cmds].u.data = 6000000;
-               break;
-            case TUNE_TBWIDTH_7MHZ:
-               cmds[num_cmds].u.data = 7000000;
-               break;
-            case TUNE_TBWIDTH_8MHZ:
-            default:
-               cmds[num_cmds].u.data = 8000000;
-               break;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_CODE_RATE_HP;
-         cmds[num_cmds].u.data = FEC_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_CODE_RATE_LP;
-         cmds[num_cmds].u.data = FEC_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_TRANSMISSION_MODE;
-         switch (tstatus->u.terr.tmode)
-         {
-            case TUNE_MODE_COFDM_1K:
-               cmds[num_cmds].u.data = TRANSMISSION_MODE_1K;
-               break;
-            case TUNE_MODE_COFDM_2K:
-               cmds[num_cmds].u.data = TRANSMISSION_MODE_2K;
-               break;
-            case TUNE_MODE_COFDM_4K:
-               cmds[num_cmds].u.data = TRANSMISSION_MODE_4K;
-               break;
-            case TUNE_MODE_COFDM_8K:
-               cmds[num_cmds].u.data = TRANSMISSION_MODE_8K;
-               break;
-            case TUNE_MODE_COFDM_16K:
-               cmds[num_cmds].u.data = TRANSMISSION_MODE_16K;
-               break;
-            case TUNE_MODE_COFDM_32K:
-               cmds[num_cmds].u.data = TRANSMISSION_MODE_32K;
-               break;
-            default:
-               cmds[num_cmds].u.data = TRANSMISSION_MODE_AUTO;
-               break;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_MODULATION;
-         cmds[num_cmds].u.data = QAM_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_GUARD_INTERVAL;
-         cmds[num_cmds].u.data = GUARD_INTERVAL_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_HIERARCHY;
-         cmds[num_cmds].u.data = HIERARCHY_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_TUNE;
-         num_cmds++;
-         break;
-      }
-
-      case TUNE_SIGNAL_QPSK:
-      {
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-
-         cmds[num_cmds].cmd = DTV_DELIVERY_SYSTEM;
-         if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2)
-         {
-            cmds[num_cmds].u.data = SYS_DVBS2;
-         }
-         else
-         {
-            cmds[num_cmds].u.data = SYS_DVBS;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_INVERSION;
-         cmds[num_cmds].u.data = INVERSION_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_FREQUENCY;
-         cmds[num_cmds].u.data = tstatus->freq;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_SYMBOL_RATE;
-         cmds[num_cmds].u.data = tstatus->u.sat.srate;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_INNER_FEC;
-         switch (tstatus->u.sat.fec)
-         {
-            case TUNE_FEC_1_2:
-               cmds[num_cmds].u.data = FEC_1_2;
-               break;
-            case TUNE_FEC_2_3:
-               cmds[num_cmds].u.data = FEC_2_3;
-               break;
-            case TUNE_FEC_3_4:
-               cmds[num_cmds].u.data = FEC_3_4;
-               break;
-            case TUNE_FEC_5_6:
-               cmds[num_cmds].u.data = FEC_5_6;
-               break;
-            case TUNE_FEC_7_8:
-               cmds[num_cmds].u.data = FEC_7_8;
-               break;
-            case TUNE_FEC_2_5:
-               cmds[num_cmds].u.data = FEC_2_5;
-               break;
-            case TUNE_FEC_8_9:
-               cmds[num_cmds].u.data = FEC_8_9;
-               break;
-            case TUNE_FEC_9_10:
-               cmds[num_cmds].u.data = FEC_9_10;
-               break;
-            default:
-               cmds[num_cmds].u.data = FEC_AUTO;
-               break;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_VOLTAGE;
-         switch (tstatus->u.sat.lnb_voltage)
-         {
-            case LNB_VOLTAGE_14V:
-               cmds[num_cmds].u.data = SEC_VOLTAGE_13;
-               break;
-            case LNB_VOLTAGE_18V:
-               cmds[num_cmds].u.data = SEC_VOLTAGE_18;
-               break;
-            case LNB_VOLTAGE_OFF:
-            default:
-               cmds[num_cmds].u.data = SEC_VOLTAGE_OFF;
-               break;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_MODULATION;
-         switch (tstatus->u.terr.tmode)
-         {
-            case TUNE_MOD_QPSK:
-               cmds[num_cmds].u.data = QPSK;
-               break;
-            case TUNE_MOD_8PSK:
-               cmds[num_cmds].u.data = PSK_8;
-               break;
-            case TUNE_MOD_16QAM:
-               cmds[num_cmds].u.data = QAM_16;
-               break;
-            case TUNE_MOD_AUTO:
-            default:
-               cmds[num_cmds].u.data = QAM_AUTO;
-               break;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_TONE;
-         if (tstatus->u.sat.use_22khz)
-         {
-            cmds[num_cmds].u.data = SEC_TONE_ON;
-         }
-         else
-         {
-            cmds[num_cmds].u.data = SEC_TONE_OFF;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_TUNE;
-         num_cmds++;
-         break;
-      }
-
-      default:
-      {
-         TUN_DBG("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
-         num_cmds = 0;
-         break;
-      }
-   }
-
-   if (num_cmds != 0)
-   {
-      props.num = num_cmds;
-      props.props = cmds;
-
-      if (ioctl(tstatus->frontend_fd, FE_SET_PROPERTY, &props) >= 0)
-      {
-         TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
-         retval = TRUE;
-      }
-      else
-      {
-         TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
-      }
-   }
-
-   return(retval);
-}
-#else
 static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 {
    BOOLEAN retval;
@@ -1835,7 +1547,6 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 
    return(retval);
 }
-#endif
 
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus)
 {
@@ -1869,12 +1580,7 @@ static void TunerTask(void *param)
    fe_status_t status;
    U32BIT start_time;
    BOOLEAN stop;
-#if 0
-   struct dtv_property cmd;
-   struct dtv_properties props;
-#else
    struct dvb_frontend_parameters_ex fe_params;
-#endif
 
    while (TRUE)
    {
@@ -1899,6 +1605,8 @@ static void TunerTask(void *param)
          for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
             !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
          {
+            STB_OSTaskDelay(50);
+
             status = 0;
             if (ioctl(tstatus->frontend_fd, FE_READ_STATUS, &status) >= 0)
             {
@@ -1911,18 +1619,16 @@ static void TunerTask(void *param)
                   /* Failed to lock */
                   break;
                }
-
-               STB_OSTaskDelay(100);
-
-               STB_OSMutexLock(tstatus->mutex);
-               stop = tstatus->stop;
-               STB_OSMutexUnlock(tstatus->mutex);
             }
             else
             {
                /* Failed to read tuner status, so drop out */
                break;
             }
+
+            STB_OSMutexLock(tstatus->mutex);
+            stop = tstatus->stop;
+            STB_OSMutexUnlock(tstatus->mutex);
          }
 
          if (stop)
@@ -1936,39 +1642,7 @@ static void TunerTask(void *param)
          {
             if (locked)
             {
-#if 0
-               /* Get the system type now the tuner has locked to see if it matches the required type */
-               memset(&cmd, 0, sizeof(struct dtv_property));
-
-               cmd.cmd = DTV_DELIVERY_SYSTEM;
-               props.num = 1;
-               props.props = &cmd;
-
-               if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) >= 0)
-               {
-                  if ((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
-                     (((cmd.u.data == SYS_DVBT) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBT)) ||
-                     ((cmd.u.data == SYS_DVBT2) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBT2))))
-                  {
-                     /* Tuner has locked on a signal type that isn't the required one so ignore it */
-                     locked = FALSE;
-                  }
-
-                  if ((tstatus->signal_type == TUNE_SIGNAL_QPSK) &&
-                     (((cmd.u.data == SYS_DVBS) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBS)) ||
-                     ((cmd.u.data == SYS_DVBS2) && (tstatus->sys_type != TUNE_SYSTEM_TYPE_DVBS2))))
-                  {
-                     /* Tuner has locked on a signal type that isn't the required one so ignore it */
-                     locked = FALSE;
-                  }
-
-                  if (!locked)
-                  {
-                     TUN_DBG("%u: Ignoring LOCKED status for type %u, delivery system is %u",
-                        tstatus->path, tstatus->sys_type, cmd.u.data);
-                  }
-               }
-#else
+               /* The tuner locks when set to T or T2, so check whether the mode is correct for what was set */
                if (ioctl(tstatus->frontend_fd, FE_GET_FRONTEND_EX, &fe_params) >= 0)
                {
                   if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (fe_params.u.ofdm.ofdm_mode != OFDM_DVBT)) ||
@@ -1981,8 +1655,8 @@ static void TunerTask(void *param)
                         ((fe_params.u.ofdm.ofdm_mode == OFDM_DVBT) ? "DVB-T" : "DVB-T2"));
                   }
                }
-#endif
             }
+
             if (locked)
             {
                TUN_DBG("%u: LOCKED", tstatus->path);
@@ -2121,21 +1795,5 @@ static void ClearTuner(S_TUNER_STATUS *tstatus)
    {
       TUN_DBG("%u: DTV_CLEAR failed, errno %d", tstatus->path, errno);
    }
-}
-
-static U8BIT ConvertStatToPercentage(struct dtv_stats *stat)
-{
-   U8BIT retval = 0;
-
-   if ((stat->scale == FE_SCALE_COUNTER) || (stat->scale == FE_SCALE_RELATIVE))
-   {
-      retval = (U8BIT)((stat->uvalue * 100) / 65535);
-   }
-   else if (stat->scale == FE_SCALE_DECIBEL)
-   {
-      TUN_DBG("DECIBEL range not converted");
-   }
-
-   return(retval);
 }
 

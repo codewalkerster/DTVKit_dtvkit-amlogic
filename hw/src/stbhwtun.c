@@ -97,6 +97,7 @@ typedef struct
 {
    U8BIT path;
 
+   char fe_name[24];
    E_TUNER_STATE state;
    BOOLEAN stop;
    E_STB_TUNE_SYSTEM_TYPE tuned_sys_type;
@@ -109,10 +110,12 @@ typedef struct
    struct dvb_frontend_info fe_info;
    fe_delivery_system_t delivery_system;
 
+   U16BIT tuner_types;
    E_STB_TUNE_SIGNAL_TYPE signal_type;
    E_STB_TUNE_SYSTEM_TYPE sys_type;
 
    BOOLEAN auto_relock;
+   BOOLEAN tuning_params_changed;
 
    U32BIT freq;
    union
@@ -130,7 +133,7 @@ static U8BIT num_paths;
 
 
 /*---local function prototypes for this file---------------------------------*/
-static BOOLEAN OpenTuner(S_TUNER_STATUS *status, char *device_name);
+static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
 static void CloseTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
@@ -146,7 +149,7 @@ static void ClearTuner(S_TUNER_STATUS *tstatus);
  */
 void STB_TuneInitialise(U8BIT paths)
 {
-   char fe_name[32];
+   char fe_name[24];
    struct stat file_status;
    BOOLEAN adapter_found;
    U8BIT i;
@@ -180,24 +183,22 @@ void STB_TuneInitialise(U8BIT paths)
          for (i = 0; i != num_paths; i++)
          {
             tuner_status[i].path = i;
+            tuner_status[i].frontend_fd = INVALID_FD;
             tuner_status[i].state = TUNER_IDLE;
             tuner_status[i].stop = FALSE;
             tuner_status[i].tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
             tuner_status[i].auto_relock = FALSE;
+            tuner_status[i].tuner_types = TUNE_SIGNAL_COFDM | TUNE_SIGNAL_QPSK;
+            tuner_status[i].signal_type = TUNE_SIGNAL_NONE;
+            tuner_status[i].tuning_params_changed = FALSE;
 
-            snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", i);
+            tuner_status[i].mutex = STB_OSCreateMutex();
+            tuner_status[i].tune_sem = STB_OSCreateCountSemaphore(0);
 
-            if (OpenTuner(&tuner_status[i], fe_name))
+            if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
+               TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
             {
-               tuner_status[i].mutex = STB_OSCreateMutex();
-               tuner_status[i].tune_sem = STB_OSCreateCountSemaphore(0);
-
-               if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
-                  TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
-               {
-                  TUN_DBG("Failed to create task for tuner %u", i);
-                  CloseTuner(&tuner_status[i]);
-               }
+               TUN_DBG("Failed to create task for tuner %u", i);
             }
          }
       }
@@ -228,28 +229,87 @@ void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
 }
 
 /**
- * @brief   Gets the signal type of the tuner path
- * @param   path the tuner path to configure
- * @return  the tuner signal type
+ * @brief   Gets the signal types of the given tuner path.
+ *          This will be a bitmask of supported types defined by E_STB_TUNE_SIGNAL_TYPE
+ * @param   path tuner path
+ * @return  the signal types supported by the given tuner
  */
-E_STB_TUNE_SIGNAL_TYPE STB_TuneGetSignalType(U8BIT path)
+U16BIT STB_TuneGetSignalType(U8BIT path)
 {
-   E_STB_TUNE_SIGNAL_TYPE sigtype;
+   U16BIT sig_type;
 
    FUNCTION_START(STB_TuneGetSignalType);
 
    if (path < num_paths)
    {
-      sigtype = tuner_status[path].signal_type;
+      if (tuner_status[path].signal_type == TUNE_SIGNAL_NONE)
+      {
+         sig_type = tuner_status[path].tuner_types;
+      }
+      else
+      {
+         sig_type = tuner_status[path].signal_type;
+      }
    }
    else
    {
-      sigtype = TUNE_SIGNAL_NONE;
+      sig_type = TUNE_SIGNAL_NONE;
    }
 
    FUNCTION_FINISH(STB_TuneGetSignalType);
 
-   return sigtype;
+   return sig_type;
+}
+
+/**
+ * @brief   This function is only relevant for tuners that support more than one signal type;
+ *          for tuners that don't support more than one signal type it can be a blank function.
+ *          It will be called to inform the platform which of the supported signal types is being
+ *          used.
+ * @param   path tuner path
+ * @param   type signal type that is being used for this tuner
+ */
+void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
+{
+   S_TUNER_STATUS *tstatus;
+   E_TUNER_STATE state;
+
+   FUNCTION_START(STB_TuneSetSignalType);
+
+   if (path < num_paths)
+   {
+      tstatus = &tuner_status[path];
+
+      TUN_DBG("%u: current type=%u, new type=%u", path, tstatus->signal_type, type);
+
+      if (tstatus->signal_type != type)
+      {
+         if (tstatus->frontend_fd != INVALID_FD)
+         {
+            STB_OSMutexLock(tstatus->mutex);
+            state = tstatus->state;
+            STB_OSMutexUnlock(tstatus->mutex);
+
+            if (state != TUNER_IDLE)
+            {
+               STB_TuneStopTuner(path);
+            }
+
+            CloseTuner(tstatus);
+            tstatus->signal_type = TUNE_SIGNAL_NONE;
+         }
+
+         if ((type != TUNE_SIGNAL_NONE) && ((tstatus->tuner_types & type) != 0))
+         {
+            if (OpenTuner(tstatus, type))
+            {
+               tstatus->signal_type = type;
+            }
+         }
+      }
+   }
+
+   FUNCTION_FINISH(STB_TuneSetSignalType);
 }
 
 /**
@@ -308,10 +368,15 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             tstatus->freq = freq;
          }
 
+         STB_OSMutexLock(tstatus->mutex);
+         state = tstatus->state;
+         STB_OSMutexUnlock(tstatus->mutex);
+
          switch (tstatus->signal_type)
          {
             case TUNE_SIGNAL_COFDM:
-               if ((tstatus->u.terr.tmode != tmode) || (tstatus->u.terr.tbwidth != tbwidth))
+               if ((tstatus->u.terr.tmode != tmode) || (tstatus->u.terr.tbwidth != tbwidth) ||
+                  (state != TUNER_LOCKED))
                {
                   start_tuning = TRUE;
                   tstatus->u.terr.tmode = tmode;
@@ -320,7 +385,8 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                break;
 
             case TUNE_SIGNAL_QAM:
-               if ((tstatus->u.cab.cmode != cmode) || (tstatus->u.cab.srate != srate))
+               if ((tstatus->u.cab.cmode != cmode) || (tstatus->u.cab.srate != srate) ||
+                  (state != TUNER_LOCKED))
                {
                   start_tuning = TRUE;
                   tstatus->u.cab.cmode = cmode;
@@ -329,7 +395,8 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                break;
 
             case TUNE_SIGNAL_QPSK:
-               if ((tstatus->u.sat.fec != fec) || (tstatus->u.sat.srate != srate))
+               if ((tstatus->u.sat.fec != fec) || (tstatus->u.sat.srate != srate) ||
+                  (state != TUNER_LOCKED))
                {
                   start_tuning = TRUE;
                   tstatus->u.sat.fec = fec;
@@ -341,16 +408,14 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                break;
          }
 
-         if (start_tuning)
+         if (start_tuning || tstatus->tuning_params_changed)
          {
-            STB_OSMutexLock(tstatus->mutex);
-            state = tstatus->state;
-            STB_OSMutexUnlock(tstatus->mutex);
-
             if (state != TUNER_IDLE)
             {
                STB_TuneStopTuner(path);
             }
+
+            tstatus->tuning_params_changed = FALSE;
 
             if (StartTune(tstatus))
             {
@@ -425,6 +490,12 @@ void STB_TuneStopTuner(U8BIT path)
             STB_OSMutexUnlock(tstatus->mutex);
          }
 
+         /* The tuner state can change to idle due to it losing lock, in which case
+          * the stop flag will still be set, so reset now to be sure */
+         STB_OSMutexLock(tstatus->mutex);
+         tstatus->stop = FALSE;
+         STB_OSMutexUnlock(tstatus->mutex);
+
          ClearTuner(tstatus);
 
          tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
@@ -450,14 +521,7 @@ U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
    {
       /* Return the frequency in KHz */
-      if (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK)
-      {
-         min_freq = tuner_status[path].fe_info.frequency_min;
-      }
-      else
-      {
-         min_freq = tuner_status[path].fe_info.frequency_min / 1000;
-      }
+      min_freq = tuner_status[path].fe_info.frequency_min / 1000;
    }
    else
    {
@@ -483,14 +547,7 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
    {
       /* Return the frequency in KHz */
-      if (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK)
-      {
-         max_freq = tuner_status[path].fe_info.frequency_max;
-      }
-      else
-      {
-         max_freq = tuner_status[path].fe_info.frequency_max / 1000;
-      }
+      max_freq = tuner_status[path].fe_info.frequency_max / 1000;
    }
    else
    {
@@ -921,7 +978,11 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
 
    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
    {
-      tuner_status[path].u.sat.lnb_voltage = voltage;
+      if (tuner_status[path].u.sat.lnb_voltage != voltage)
+      {
+         tuner_status[path].u.sat.lnb_voltage = voltage;
+         tuner_status[path].tuning_params_changed = TRUE;
+      }
    }
 
    FUNCTION_FINISH(STB_TuneSetLNBVoltage);
@@ -955,7 +1016,11 @@ void STB_TuneSet22kState(U8BIT path, BOOLEAN state)
 
    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
    {
-      tuner_status[path].u.sat.use_22khz = state;
+      if (tuner_status[path].u.sat.use_22khz != state)
+      {
+         tuner_status[path].u.sat.use_22khz = state;
+         tuner_status[path].tuning_params_changed = TRUE;
+      }
    }
 
    FUNCTION_FINISH(STB_TuneSet22kState);
@@ -1278,20 +1343,30 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSupportedSystemType(U8BIT path)
 
 /*---local function definitions----------------------------------------------*/
 
-static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, char *device_name)
+static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type)
 {
    BOOLEAN retval;
+   char fe_name[24];
    int mode;
 
    retval = FALSE;
 
-   if ((tstatus->frontend_fd = open(device_name, O_RDWR | O_NONBLOCK)) < 0)
+   snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", tstatus->path);
+
+   if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
    {
-      TUN_DBG("Failed to open %s, errno %d", device_name, errno);
+      TUN_DBG("Failed to open %s, errno %d", fe_name, errno);
    }
    else
    {
-      mode = FE_OFDM;
+      if (sig_type == TUNE_SIGNAL_COFDM)
+      {
+         mode = FE_OFDM;
+      }
+      else
+      {
+         mode = FE_QPSK;
+      }
 
       if (ioctl(tstatus->frontend_fd, FE_SET_MODE, mode) >= 0)
       {
@@ -1299,20 +1374,36 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, char *device_name)
 
          if (ioctl(tstatus->frontend_fd, FE_GET_INFO, &(tstatus->fe_info)) >= 0)
          {
-            TUN_DBG("Tuner %s configured as DVB-T/T2, min_freq=%lu, max_freq=%lu", device_name,
-               tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
-            tstatus->signal_type = TUNE_SIGNAL_COFDM;
-            tstatus->delivery_system = SYS_DVBT2;
+            TUN_DBG("fe_info.type=%d", tstatus->fe_info.type);
+
+            if (tstatus->fe_info.type == FE_OFDM)
+            {
+               TUN_DBG("Tuner %s configured as DVB-T/T2, min_freq=%lu, max_freq=%lu", fe_name,
+                  tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
+
+               tstatus->signal_type = TUNE_SIGNAL_COFDM;
+               tstatus->delivery_system = SYS_DVBT2;
+            }
+            else
+            {
+               TUN_DBG("Tuner %s configured as DVB-S/S2, freq min/max=%lu/%lu, symbol rate min/max=%lu/%lu",
+                  fe_name, tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max,
+                  tstatus->fe_info.symbol_rate_min, tstatus->fe_info.symbol_rate_max);
+
+               tstatus->signal_type = TUNE_SIGNAL_QPSK;
+               tstatus->delivery_system = SYS_DVBS2;
+            }
+
             retval = TRUE;
          }
          else
          {
-            TUN_DBG("Failed to get FE_INFO for %s, errno %d", device_name, errno);
+            TUN_DBG("Failed to get FE_INFO for %s, errno %d", fe_name, errno);
          }
       }
       else
       {
-         TUN_DBG("Failed to FE_SET_MODE for %s, errno %d", device_name, errno);
+         TUN_DBG("Failed to FE_SET_MODE for %s, errno %d", fe_name, errno);
       }
 
       if (!retval)
@@ -1337,6 +1428,8 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 {
    BOOLEAN retval;
    struct dvb_frontend_parameters_ex fe_params;
+   fe_sec_voltage_t voltage;
+   fe_sec_tone_mode_t tone;
 
    retval = FALSE;
 
@@ -1402,146 +1495,108 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
             fe_params.u.ofdm.ofdm_mode = OFDM_DVBT;
          }
 
-         retval = TRUE;
-         break;
-      }
-#if 0
-      case TUNE_SIGNAL_QPSK:
-      {
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-
-         cmds[num_cmds].cmd = DTV_DELIVERY_SYSTEM;
-         if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2)
+         if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND_EX, &fe_params) >= 0)
          {
-            cmds[num_cmds].u.data = SYS_DVBS2;
+            TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+            retval = TRUE;
          }
          else
          {
-            cmds[num_cmds].u.data = SYS_DVBS;
+            TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
          }
-         num_cmds++;
+         break;
+      }
 
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_INVERSION;
-         cmds[num_cmds].u.data = INVERSION_AUTO;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_FREQUENCY;
-         cmds[num_cmds].u.data = tstatus->freq;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_SYMBOL_RATE;
-         cmds[num_cmds].u.data = tstatus->u.sat.srate;
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_INNER_FEC;
-         switch (tstatus->u.sat.fec)
-         {
-            case TUNE_FEC_1_2:
-               cmds[num_cmds].u.data = FEC_1_2;
-               break;
-            case TUNE_FEC_2_3:
-               cmds[num_cmds].u.data = FEC_2_3;
-               break;
-            case TUNE_FEC_3_4:
-               cmds[num_cmds].u.data = FEC_3_4;
-               break;
-            case TUNE_FEC_5_6:
-               cmds[num_cmds].u.data = FEC_5_6;
-               break;
-            case TUNE_FEC_7_8:
-               cmds[num_cmds].u.data = FEC_7_8;
-               break;
-            case TUNE_FEC_2_5:
-               cmds[num_cmds].u.data = FEC_2_5;
-               break;
-            case TUNE_FEC_8_9:
-               cmds[num_cmds].u.data = FEC_8_9;
-               break;
-            case TUNE_FEC_9_10:
-               cmds[num_cmds].u.data = FEC_9_10;
-               break;
-            default:
-               cmds[num_cmds].u.data = FEC_AUTO;
-               break;
-         }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_VOLTAGE;
+      case TUNE_SIGNAL_QPSK:
+      {
          switch (tstatus->u.sat.lnb_voltage)
          {
             case LNB_VOLTAGE_14V:
-               cmds[num_cmds].u.data = SEC_VOLTAGE_13;
+               voltage = SEC_VOLTAGE_13;
                break;
             case LNB_VOLTAGE_18V:
-               cmds[num_cmds].u.data = SEC_VOLTAGE_18;
+               voltage = SEC_VOLTAGE_18;
                break;
             case LNB_VOLTAGE_OFF:
             default:
-               cmds[num_cmds].u.data = SEC_VOLTAGE_OFF;
+               voltage = SEC_VOLTAGE_OFF;
                break;
          }
-         num_cmds++;
 
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_MODULATION;
-         switch (tstatus->u.terr.tmode)
+         if (ioctl(tstatus->frontend_fd, FE_SET_VOLTAGE, voltage) >= 0)
          {
-            case TUNE_MOD_QPSK:
-               cmds[num_cmds].u.data = QPSK;
-               break;
-            case TUNE_MOD_8PSK:
-               cmds[num_cmds].u.data = PSK_8;
-               break;
-            case TUNE_MOD_16QAM:
-               cmds[num_cmds].u.data = QAM_16;
-               break;
-            case TUNE_MOD_AUTO:
-            default:
-               cmds[num_cmds].u.data = QAM_AUTO;
-               break;
-         }
-         num_cmds++;
+            if (tstatus->u.sat.use_22khz)
+            {
+               tone = SEC_TONE_ON;
+            }
+            else
+            {
+               tone = SEC_TONE_OFF;
+            }
 
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_TONE;
-         if (tstatus->u.sat.use_22khz)
-         {
-            cmds[num_cmds].u.data = SEC_TONE_ON;
+            if (ioctl(tstatus->frontend_fd, FE_SET_TONE, tone) >= 0)
+            {
+               fe_params.frequency = tstatus->freq * 1000;
+               fe_params.inversion = INVERSION_AUTO;
+               fe_params.u.qpsk.symbol_rate = tstatus->u.sat.srate;
+
+               switch (tstatus->u.sat.fec)
+               {
+                  case TUNE_FEC_1_2:
+                     fe_params.u.qpsk.fec_inner = FEC_1_2;
+                     break;
+                  case TUNE_FEC_2_3:
+                     fe_params.u.qpsk.fec_inner = FEC_2_3;
+                     break;
+                  case TUNE_FEC_3_4:
+                     fe_params.u.qpsk.fec_inner = FEC_3_4;
+                     break;
+                  case TUNE_FEC_5_6:
+                     fe_params.u.qpsk.fec_inner = FEC_5_6;
+                     break;
+                  case TUNE_FEC_7_8:
+                     fe_params.u.qpsk.fec_inner = FEC_7_8;
+                     break;
+                  case TUNE_FEC_2_5:
+                     fe_params.u.qpsk.fec_inner = FEC_2_5;
+                     break;
+                  case TUNE_FEC_8_9:
+                     fe_params.u.qpsk.fec_inner = FEC_8_9;
+                     break;
+                  case TUNE_FEC_9_10:
+                     fe_params.u.qpsk.fec_inner = FEC_9_10;
+                     break;
+                  default:
+                     fe_params.u.qpsk.fec_inner = FEC_AUTO;
+                     break;
+               }
+
+               if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND_EX, &fe_params) >= 0)
+               {
+                  TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+                  retval = TRUE;
+               }
+               else
+               {
+                  TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+               }
+            }
+            else
+            {
+               TUN_DBG("%u: Failed to set tone, errno %d", tstatus->path, errno);
+            }
          }
          else
          {
-            cmds[num_cmds].u.data = SEC_TONE_OFF;
+            TUN_DBG("%u: Failed to set voltage, errno %d", tstatus->path, errno);
          }
-         num_cmds++;
-
-         memset(&cmds[num_cmds], 0, sizeof(struct dtv_property));
-         cmds[num_cmds].cmd = DTV_TUNE;
-         num_cmds++;
          break;
       }
-#endif
+
       default:
       {
          TUN_DBG("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
          break;
-      }
-   }
-
-   if (retval)
-   {
-      if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND_EX, &fe_params) >= 0)
-      {
-         TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
-         retval = TRUE;
-      }
-      else
-      {
-         TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
       }
    }
 
@@ -1577,10 +1632,11 @@ static void TunerTask(void *param)
    S_TUNER_STATUS *tstatus = param;
    E_TUNER_STATE state;
    BOOLEAN locked;
-   fe_status_t status;
    U32BIT start_time;
    BOOLEAN stop;
    struct dvb_frontend_parameters_ex fe_params;
+   struct pollfd pfd;
+   struct dvb_frontend_event fe_event;
 
    while (TRUE)
    {
@@ -1602,28 +1658,29 @@ static void TunerTask(void *param)
 
          TUN_DBG("%u: Tuning started, checking LOCK status", tstatus->path);
 
+         pfd.fd = tstatus->frontend_fd;
+         pfd.events = POLLIN;
+         pfd.revents = 0;
+
          for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
             !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
          {
-            STB_OSTaskDelay(50);
+            if (poll(&pfd, 1, 50) == 1)
+            {
+               if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
+               {
+                  TUN_DBG("status=0x%02x", fe_event.status);
 
-            status = 0;
-            if (ioctl(tstatus->frontend_fd, FE_READ_STATUS, &status) >= 0)
-            {
-               if ((status & FE_HAS_LOCK) != 0)
-               {
-                  locked = TRUE;
+                  if ((fe_event.status & FE_HAS_LOCK) != 0)
+                  {
+                     locked = TRUE;
+                  }
+                  else if ((fe_event.status & FE_TIMEDOUT) != 0)
+                  {
+                     /* Failed to lock */
+                     break;
+                  }
                }
-               else if ((status & FE_TIMEDOUT) != 0)
-               {
-                  /* Failed to lock */
-                  break;
-               }
-            }
-            else
-            {
-               /* Failed to read tuner status, so drop out */
-               break;
             }
 
             STB_OSMutexLock(tstatus->mutex);
@@ -1690,73 +1747,6 @@ static void TunerTask(void *param)
 
          while ((state == TUNER_LOCKED) || (state == TUNER_RELOCKING))
          {
-            if (IsTunerLocked(tstatus))
-            {
-               if (!locked)
-               {
-                  /* Tuner has relocked */
-                  TUN_DBG("%u: Tuner has relocked", tstatus->path);
-                  locked = TRUE;
-
-                  STB_OSMutexLock(tstatus->mutex);
-                  tstatus->state = TUNER_LOCKED;
-                  STB_OSMutexUnlock(tstatus->mutex);
-
-                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
-                     sizeof(U8BIT));
-               }
-            }
-            else
-            {
-               if (locked)
-               {
-                  /* Lost lock */
-                  TUN_DBG("%u: Lost LOCK, relock %u", tstatus->path, tstatus->auto_relock);
-
-                  locked = FALSE;
-
-                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
-                     sizeof(U8BIT));
-
-                  if (tstatus->auto_relock)
-                  {
-                     /* Check whether the tuner says it can recover from lost lock automatically */
-                     if ((tstatus->fe_info.caps & FE_CAN_RECOVER) == 0)
-                     {
-                        /* Tuner needs to be retuned to recover lock */
-                        if (StartTune(tstatus))
-                        {
-                           STB_OSMutexLock(tstatus->mutex);
-                           tstatus->state = TUNER_RELOCKING;
-                           STB_OSMutexUnlock(tstatus->mutex);
-                        }
-                        else
-                        {
-                           /* Failed to retune */
-                           TUN_DBG("%u: Failed to retune after losing LOCK", tstatus->path);
-                           STB_OSMutexLock(tstatus->mutex);
-                           tstatus->state = TUNER_IDLE;
-                           STB_OSMutexUnlock(tstatus->mutex);
-                        }
-                     }
-                     else
-                     {
-                        /* Tuner will recover lock automatically */
-                        STB_OSMutexLock(tstatus->mutex);
-                        tstatus->state = TUNER_RELOCKING;
-                        STB_OSMutexUnlock(tstatus->mutex);
-                     }
-                  }
-                  else
-                  {
-                     ClearTuner(tstatus);
-
-                     STB_OSMutexLock(tstatus->mutex);
-                     tstatus->state = TUNER_IDLE;
-                     STB_OSMutexUnlock(tstatus->mutex);
-                  }
-               }
-            }
             STB_OSMutexLock(tstatus->mutex);
             stop = tstatus->stop;
             STB_OSMutexUnlock(tstatus->mutex);
@@ -1770,7 +1760,92 @@ static void TunerTask(void *param)
             }
             else
             {
-               STB_OSTaskDelay(300);
+               if (IsTunerLocked(tstatus))
+               {
+                  if (!locked)
+                  {
+                     /* Tuner has relocked */
+                     TUN_DBG("%u: Tuner has relocked", tstatus->path);
+                     locked = TRUE;
+
+                     STB_OSMutexLock(tstatus->mutex);
+                     tstatus->state = TUNER_LOCKED;
+                     STB_OSMutexUnlock(tstatus->mutex);
+
+                     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
+                        sizeof(U8BIT));
+                  }
+               }
+               else
+               {
+                  if (locked)
+                  {
+                     /* Lost lock */
+                     TUN_DBG("%u: Lost LOCK, relock %u", tstatus->path, tstatus->auto_relock);
+
+                     locked = FALSE;
+
+                     if (tstatus->auto_relock)
+                     {
+                        /* Check whether the tuner says it can recover from lost lock automatically */
+                        if ((tstatus->fe_info.caps & FE_CAN_RECOVER) == 0)
+                        {
+                           /* Tuner needs to be retuned to recover lock */
+                           if (StartTune(tstatus))
+                           {
+                              STB_OSMutexLock(tstatus->mutex);
+                              tstatus->state = TUNER_RELOCKING;
+                              STB_OSMutexUnlock(tstatus->mutex);
+                           }
+                           else
+                           {
+                              /* Failed to retune */
+                              TUN_DBG("%u: Failed to retune after losing LOCK", tstatus->path);
+                              STB_OSMutexLock(tstatus->mutex);
+                              tstatus->state = TUNER_IDLE;
+                              STB_OSMutexUnlock(tstatus->mutex);
+                           }
+
+                           STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED,
+                              &tstatus->path, sizeof(U8BIT));
+                        }
+                        else
+                        {
+                           /* Tuner will recover lock automatically */
+                           STB_OSMutexLock(tstatus->mutex);
+                           tstatus->state = TUNER_RELOCKING;
+                           STB_OSMutexUnlock(tstatus->mutex);
+
+                           STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED,
+                              &tstatus->path, sizeof(U8BIT));
+                        }
+                     }
+                     else
+                     {
+                        ClearTuner(tstatus);
+
+                        STB_OSMutexLock(tstatus->mutex);
+                        tstatus->state = TUNER_IDLE;
+                        STB_OSMutexUnlock(tstatus->mutex);
+
+                        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
+                           sizeof(U8BIT));
+                     }
+                  }
+               }
+
+               STB_OSMutexLock(tstatus->mutex);
+               if (tstatus->stop)
+               {
+                  tstatus->stop = FALSE;
+                  tstatus->state = TUNER_IDLE;
+                  STB_OSMutexUnlock(tstatus->mutex);
+               }
+               else
+               {
+                  STB_OSMutexUnlock(tstatus->mutex);
+                  STB_OSTaskDelay(300);
+               }
             }
 
             STB_OSMutexLock(tstatus->mutex);

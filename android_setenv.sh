@@ -1,21 +1,30 @@
 # Variables added for the build system
-ANDROID_ROOT=/home/amlogic/n-amlogic
+ANDROID_ROOT=${1}
 BIONIC_LIB=${ANDROID_ROOT}/bionic/libc
-LIBRARY_OUT=${ANDROID_ROOT}/out/target/product/txlx_t962x_r314/obj/lib/
-ANDROID_CROSS_GCC=/opt/gcc-linaro-4.9.4-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+LIBRARY_OUT=${2}
+ANDROID_CROSS_GCC=${ANDROID_ROOT}/${3}
 
 ANDROID_HEADERS=" -I${ANDROID_ROOT}/vendor/amlogic/dvb/android/ndk/include"
-ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm64/include"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/android/uapi"
-ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm64"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/stdio"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/include"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/../libm/include"
+echo "platform $4"
+if [ $4 = 'arm' ]; then
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm/include"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm"
+elif [ $4 = 'arm64' ];then
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm64/include"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm64"
+else
+    echo "Error!"
+    return
+fi
 
 # Location of DTVKIT root folder
 
-export DTVKIT_ROOT=${ANDROID_ROOT}/external/dtvkit
+export DTVKIT_ROOT=${ANDROID_ROOT}/vendor/amlogic/external/dtvkit
 export DTVKIT_DVBCORE_ROOT=${DTVKIT_ROOT}/DVBCore
 
 # Folder where the compilation products will be placed. This overrides the default 'build'
@@ -25,7 +34,14 @@ export DTVKIT_CC=${ANDROID_CROSS_GCC}gcc
 export DTVKIT_AR=${ANDROID_CROSS_GCC}ar
 
 # For 64 bit compilation, set this to '1' 
+if [ $4 = 'arm' ]; then
+export DTVKIT_USE_STDINT=0
+elif [ $4 = 'arm64' ]; then
 export DTVKIT_USE_STDINT=1
+else
+    echo "Error!!!"
+    return
+fi
 
 # Additional compiler options
 export DTVKIT_ADDITIONAL_COMPILER_OPTIONS="-Wall  -fno-short-enums -fPIC ${ANDROID_HEADERS}"

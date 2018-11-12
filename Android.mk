@@ -35,6 +35,9 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
 	$(LOCAL_PATH)/hw/inc \
 	$(LOCAL_PATH)os/inc \
 	vendor/amlogic/dvb/android/ndk/include \
+	vendor/amlogic/dvb/include \
+	vendor/amlogic/dvb/android/ndk/include/linux \
+	vendor/amlogic/dvb/android/ndk/include \
 	bionic/libc/kernel/uapi \
 	bionic/libc/kernel/android/uapi \
 	bionic/libc/stdio \
@@ -75,6 +78,6 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
-LOCAL_SHARED_LIBRARIES+=libcutils
+LOCAL_STATIC_LIBRARIES+=libcutils
 
 include $(BUILD_STATIC_LIBRARY)

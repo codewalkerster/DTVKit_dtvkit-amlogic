@@ -1367,7 +1367,7 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
       {
          mode = FE_QPSK;
       }
-
+#if 0
       if (ioctl(tstatus->frontend_fd, FE_SET_MODE, mode) >= 0)
       {
          memset(&tstatus->fe_info, 0, sizeof(tstatus->fe_info));
@@ -1405,6 +1405,7 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
       {
          TUN_DBG("Failed to FE_SET_MODE for %s, errno %d", fe_name, errno);
       }
+#endif
 
       if (!retval)
       {
@@ -1427,12 +1428,12 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
 static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 {
    BOOLEAN retval;
-   struct dvb_frontend_parameters_ex fe_params;
+   //struct dvb_frontend_parameters_ex fe_params;
    fe_sec_voltage_t voltage;
    fe_sec_tone_mode_t tone;
 
    retval = FALSE;
-
+#if 0
    switch (tstatus->signal_type)
    {
       case TUNE_SIGNAL_COFDM:
@@ -1533,7 +1534,6 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
             {
                tone = SEC_TONE_OFF;
             }
-
             if (ioctl(tstatus->frontend_fd, FE_SET_TONE, tone) >= 0)
             {
                fe_params.frequency = tstatus->freq * 1000;
@@ -1599,7 +1599,7 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
          break;
       }
    }
-
+#endif
    return(retval);
 }
 
@@ -1634,7 +1634,7 @@ static void TunerTask(void *param)
    BOOLEAN locked;
    U32BIT start_time;
    BOOLEAN stop;
-   struct dvb_frontend_parameters_ex fe_params;
+//   struct dvb_frontend_parameters_ex fe_params;
    struct pollfd pfd;
    struct dvb_frontend_event fe_event;
 
@@ -1700,6 +1700,7 @@ static void TunerTask(void *param)
             if (locked)
             {
                /* The tuner locks when set to T or T2, so check whether the mode is correct for what was set */
+#if 0
                if (ioctl(tstatus->frontend_fd, FE_GET_FRONTEND_EX, &fe_params) >= 0)
                {
                   if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (fe_params.u.ofdm.ofdm_mode != OFDM_DVBT)) ||
@@ -1712,6 +1713,7 @@ static void TunerTask(void *param)
                         ((fe_params.u.ofdm.ofdm_mode == OFDM_DVBT) ? "DVB-T" : "DVB-T2"));
                   }
                }
+#endif
             }
 
             if (locked)

@@ -5,6 +5,12 @@ LIBRARY_OUT=${2}
 ANDROID_CROSS_GCC=${ANDROID_ROOT}/${3}
 
 ANDROID_HEADERS=" -I${ANDROID_ROOT}/vendor/amlogic/dvb/android/ndk/include"
+ANDROID_HEADERS+=" -I${ANDROID_ROOT}/vendor/amlogic/dvb/include"
+ANDROID_HEADERS+=" -I${ANDROID_ROOT}/vendor/amlogic/dvb/include/am_adp"
+ANDROID_HEADERS+=" -I${ANDROID_ROOT}/vendor/amlogic/dvb/include/am_mw"
+ANDROID_HEADERS+=" -I${ANDROID_ROOT}/vendor/amlogic/dvb/android/ndk/include/linux"
+ANDROID_HEADERS+=" -I${ANDROID_ROOT}/external/sqlite/dist"
+ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm64/include"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/android/uapi"
 ANDROID_HEADERS+=" -I${BIONIC_LIB}/stdio"
@@ -26,6 +32,8 @@ fi
 
 export DTVKIT_ROOT=${ANDROID_ROOT}/vendor/amlogic/external/dtvkit
 export DTVKIT_DVBCORE_ROOT=${DTVKIT_ROOT}/DVBCore
+export DTVKIT_CIPLUS_ROOT=${DTVKIT_ROOT}/CI-Plus
+export DTVKIT_MHEG5_ROOT=${DTVKIT_ROOT}/MHEG5
 
 # Folder where the compilation products will be placed. This overrides the default 'build'
 #export DTVKIT_OUTPUT_DIR=

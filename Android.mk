@@ -8,6 +8,12 @@ else
 endif
 
 DTVKIT_OPTIMISATION_OPTION?=-O2
+ifeq ($(DTVKIT_BUILD_MODE),release)
+LOCAL_CFLAGS += $(DTVKIT_OPTIMISATION_OPTION)
+else
+LOCAL_CFLAGS += -g
+endif
+
 
 LOCAL_MODULE := libdtvkit_platform
 LOCAL_MODULE_TAGS := optional
@@ -29,21 +35,30 @@ else
         endif
     endif
 endif
+LOCAL_CFLAGS += -DCOLOUR_DEPTH=$(DTVKIT_COLOUR_DEPTH)
+
+LOCAL_CFLAGS += -D_FILE_OFFSET_BITS=64
+
+DVB_PATH := vendor/amlogic/common/external/dvb
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/../DVBCore/platform/inc \
     $(LOCAL_PATH)/../CI-Plus/include \
+    $(LOCAL_PATH)/../MHEG5/include \
+    $(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \
     $(LOCAL_PATH)/hw/inc \
-    $(LOCAL_PATH)os/inc \
-    vendor/amlogic/common/external/dvb/android/ndk/include \
-    vendor/amlogic/common/external/dvb/include \
+    $(LOCAL_PATH)/os/inc \
+    $(DVB_PATH)/include \
+    $(DVB_PATH)/include/am_adp \
+    $(DVB_PATH)/include/am_mw \
+    $(DVB_PATH)/android/ndk/include/linux \
+    $(DVB_PATH)/android/ndk/include \
+    external/sqlite/dist \
     bionic/libc/kernel/uapi \
     bionic/libc/kernel/android/uapi \
     bionic/libc/stdio \
     bionic/libc/include \
     bionic/libc/../libm/include \
-    hardware/amlogic/media/amcodec/include\
-    external/expat/lib
 
 ifeq ($(TARGET_ARCH),"arm")
     ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm/include"
@@ -81,6 +96,7 @@ LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
+LOCAL_SHARED_LIBRARIES+=liblog
 
 LOCAL_VENDOR_MODULE := true
 

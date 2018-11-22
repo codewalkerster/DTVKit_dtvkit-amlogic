@@ -26,19 +26,12 @@
 /*---includes for this file---------------------------------------------------*/
 /* compiler library header files */
 #include <stdio.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <poll.h>
-#include <error.h>
-#include <errno.h>
-#include <stdint.h>
 
 /* third party header files */
 #include <linux/dvb/dmx.h>
+#include <am_adp/am_dmx.h>
 
 /* STB header files */
 #include "techtype.h"
@@ -75,9 +68,7 @@
 #define DEMUX_PID_NOT_USED          0xFFFF
 #define INVALID_PID                 0x1FFF
 
-#define PES_PACKET_SIZE             184
-#define PES_BUFFER_SIZE             (8 * PES_PACKET_SIZE)
-#define TEXT_BUFFER_SIZE            (3008 * 24)
+#define TEXT_BUFFER_SIZE            (65 * 1024)
 
 /* Local ENUM/TYPE Definitions */
 typedef void(*SectionFilterFunc)(U8BIT path, U16BIT bytes, U16BIT pfilt_id);
@@ -94,10 +85,11 @@ typedef struct s_section_filter_info
 
 typedef struct s_pid_filter_info
 {
+   U8BIT index;
    U16BIT pid;
-   int filter_fd;
+   int fhandle;
    BOOLEAN started;
-   U8BIT* data_packet;
+   const U8BIT* data_packet;
    U16BIT data_packet_size;
    S_SECTION_FILTER_INFO section_filters[MAX_SECTION_FILTERS];
    FILTER_CALLBACK func_ptr[MAX_FILTERS_PER_PID];
@@ -119,27 +111,19 @@ typedef struct
    U16BIT audio_pid;
    U16BIT ad_pid;
 
-   uint64_t stc_value;
-   U32BIT stc_time;
-
    /* Subtitle/teletext PES support vars */
-   int text_fd;
+   int text_fhandle;
    U16BIT text_pid;
    U8BIT* text_buffer;
    U8BIT* write_ptr;
    U8BIT* read_ptr;
    U32BIT text_bytes_available;
    void* text_mutex;
-   BOOLEAN pes_task_running;
-   void* start_pes_task;
-   void* pes_task_stopped;
+   BOOLEAN text_started;
 
    S_PID_FILTER_INFO filter_info[MAX_PID_FILTERS];
 
    U8BIT num_pid_filters_started;
-   void* dmx_task_start;
-   void* dmx_task_stopped;
-   volatile BOOLEAN dmx_task_running;
 } S_DMX_STATUS;
 
 
@@ -152,13 +136,15 @@ static U32BIT pes_data_size = 0;
 
 
 /*---local function prototypes for this file---------------------------------*/
-static void DMXTask(void *param);
 static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
 
-static void PesDataTask(void* param);
+static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
+static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
 
-static void OpenSectionFilters(char *demux_name, S_DMX_STATUS *pdmx);
+static void OpenSectionFilters(S_DMX_STATUS *pdmx);
+#if 0
 static void CloseSectionFilters(U8BIT path);
+#endif
 
 
 /*---global function definitions---------------------------------------------*/
@@ -171,30 +157,16 @@ static void CloseSectionFilters(U8BIT path);
  */
 void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 {
-   BOOLEAN adapter_found;
-   char demux_name[32];
-   struct stat file_status;
+   AM_ErrorCode_t am_result;
+   AM_DMX_OpenPara_t open_params;
    U16BIT i;
    U16BIT j;
 
    FUNCTION_START(STB_DMXInitialise);
-   USE_UNWANTED_PARAM(paths);
-   USE_UNWANTED_PARAM(inc_pes_collection);
 
-   /* Find out how many demuxes are available */
-   for (num_paths = 0, adapter_found = TRUE; adapter_found; )
-   {
-      snprintf(demux_name, sizeof(demux_name), "/dev/dvb0.demux%u", num_paths);
-      if (stat(demux_name, &file_status) == 0)
-      {
-         DMX_DBG("found %s", demux_name);
-         num_paths++;
-      }
-      else
-      {
-         adapter_found = FALSE;
-      }
-   }
+   DMX_DBG("%u demuxes, %s PES colection", paths, inc_pes_collection ? "with" : "no");
+
+   num_paths = paths;
 
    if (num_paths != 0)
    {
@@ -202,89 +174,88 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       demux_status = (S_DMX_STATUS*)STB_MEMGetSysRAM(sizeof(S_DMX_STATUS) * num_paths);
 
       /* Initialise the status for each path and section filter
-       * and open any required demuxing handles
-       */
+       * and open any required demuxing handles */
       if (demux_status != NULL)
       {
          memset(demux_status, 0, sizeof(S_DMX_STATUS) * num_paths);
 
+         memset(&open_params, 0, sizeof(open_params));
+
          for (i = 0; i < num_paths; i++)
          {
-            demux_status[i].path = i;
-            demux_status[i].config_mutex = STB_OSCreateMutex();
-
-            /* All demuxes are capable of everything */
-            demux_status[i].caps = DMX_CAPS_LIVE | DMX_CAPS_RECORDING | DMX_CAPS_PLAYBACK |
-               DMX_CAPS_MONITOR_SI;
-
-            demux_status[i].pcr_pid = 0;
-            demux_status[i].video_pid = 0;
-            demux_status[i].audio_pid = 0;
-            demux_status[i].text_pid = 0;
-            demux_status[i].ad_pid = 0;
-
-            demux_status[i].stc_value = 0;
-            demux_status[i].stc_time = 0;
-
-            /* Set default values */
-            for (j = 0; j < MAX_PID_FILTERS; j++)
+            am_result = AM_DMX_Open(i, &open_params);
+            if (am_result == AM_SUCCESS)
             {
-               memset(&demux_status[i].filter_info[j], 0, sizeof(demux_status[i].filter_info[j]));
+               demux_status[i].path = i;
+               demux_status[i].config_mutex = STB_OSCreateMutex();
+               if (demux_status[i].config_mutex != NULL)
+               {
+                  /* All demuxes are capable of everything */
+                  demux_status[i].caps = DMX_CAPS_LIVE | DMX_CAPS_RECORDING | DMX_CAPS_PLAYBACK |
+                     DMX_CAPS_MONITOR_SI;
 
-               demux_status[i].filter_info[j].filter_fd = -1;
-               demux_status[i].filter_info[j].started = FALSE;
-               demux_status[i].filter_info[j].pid = DEMUX_PID_NOT_USED;
-               demux_status[i].filter_info[j].data_packet = STB_MEMGetSysRAM(MAX_SECTION_SIZE);
-               demux_status[i].filter_info[j].data_packet_size = 0;
+                  demux_status[i].pcr_pid = 0;
+                  demux_status[i].video_pid = 0;
+                  demux_status[i].audio_pid = 0;
+                  demux_status[i].text_pid = 0;
+                  demux_status[i].ad_pid = 0;
+
+                  /* Set default values */
+                  for (j = 0; j < MAX_PID_FILTERS; j++)
+                  {
+                     memset(&demux_status[i].filter_info[j], 0, sizeof(demux_status[i].filter_info[j]));
+
+                     demux_status[i].filter_info[j].index = j;
+                     demux_status[i].filter_info[j].fhandle = -1;
+                     demux_status[i].filter_info[j].started = FALSE;
+                     demux_status[i].filter_info[j].pid = DEMUX_PID_NOT_USED;
+                     demux_status[i].filter_info[j].data_packet = NULL;
+                     demux_status[i].filter_info[j].data_packet_size = 0;
+                  }
+
+                  /* Default sources for each path */
+                  demux_status[i].source = DMX_MEMORY;
+                  demux_status[i].source_param = 255;
+
+                  if (inc_pes_collection)
+                  {
+                     demux_status[i].text_buffer = STB_MEMGetSysRAM(TEXT_BUFFER_SIZE);
+                     demux_status[i].write_ptr = demux_status[i].text_buffer;
+                     demux_status[i].read_ptr = demux_status[i].text_buffer;
+                     demux_status[i].text_mutex = STB_OSCreateMutex();
+                     demux_status[i].text_bytes_available = 0;
+                     demux_status[i].text_started = FALSE;
+
+                     /* Open a demux instance for the text (subtitle) PES */
+                     am_result = AM_DMX_AllocateFilter(i, &demux_status[i].text_fhandle);
+                     if (am_result == AM_SUCCESS)
+                     {
+                        DMX_DBG("%u: Opened text PES filter, handle=%d", i, demux_status[i].text_fhandle);
+                        AM_DMX_SetBufferSize(i, demux_status[i].text_fhandle, TEXT_BUFFER_SIZE);
+                     }
+                     else
+                     {
+                        DMX_ERR("Failed to open PES filter on demux %u, error %d", i, am_result);
+                     }
+                  }
+                  else
+                  {
+                     demux_status[i].text_fhandle = -1;
+                  }
+
+                  OpenSectionFilters(&demux_status[i]);
+
+                  demux_status[i].num_pid_filters_started = 0;
+               }
+               else
+               {
+                  DMX_ERR("Failed to create mutex for demux %u!", i);
+               }
             }
-
-            /* Default sources for each path */
-            demux_status[i].source = DMX_MEMORY;
-            demux_status[i].source_param = 255;
-
-            demux_status[i].text_buffer = STB_MEMGetSysRAM(TEXT_BUFFER_SIZE);
-            demux_status[i].write_ptr = demux_status[i].text_buffer;
-            demux_status[i].read_ptr = demux_status[i].text_buffer;
-            demux_status[i].text_mutex = STB_OSCreateMutex();
-            demux_status[i].start_pes_task = STB_OSCreateSemaphore();
-            demux_status[i].pes_task_stopped = STB_OSCreateSemaphore();
-            demux_status[i].text_bytes_available = 0;
-
-            snprintf(demux_name, sizeof(demux_name), "/dev/dvb0.demux%u", i);
-
-            /* Open a demux instance for the text (subtitle) PES */
-            if ((demux_status[i].text_fd = open(demux_name, O_RDWR | O_NONBLOCK)) >= 0)
+            else
             {
-               ioctl(demux_status[i].text_fd, DMX_SET_BUFFER_SIZE, TEXT_BUFFER_SIZE);
+               DMX_ERR("Failed to open demux device %u, error %d", i, am_result);
             }
-
-            DMX_DBG("%u: Opened text PES filter, fd=%d", i, demux_status[i].text_fd);
-
-            OpenSectionFilters(demux_name, &demux_status[i]);
-
-            STB_OSSemaphoreWait(demux_status[i].start_pes_task);
-            STB_OSSemaphoreWait(demux_status[i].pes_task_stopped);
-
-            demux_status[i].pes_task_running = FALSE;
-
-            STB_OSCreateTask(PesDataTask, (void*)&demux_status[i], DMX_TASK_STACK_SIZE,
-               DMX_TASK_PRIORITY, (U8BIT*)"PesDataTask");
-
-            demux_status[i].num_pid_filters_started = 0;
-
-            demux_status[i].dmx_task_start = STB_OSCreateSemaphore();
-            STB_OSSemaphoreWait(demux_status[i].dmx_task_start);
-
-            demux_status[i].dmx_task_stopped = STB_OSCreateSemaphore();
-            STB_OSSemaphoreWait(demux_status[i].dmx_task_stopped);
-
-            demux_status[i].dmx_task_running = FALSE;
-
-            STB_OSCreateTask(DMXTask, (void*)&demux_status[i], DMX_TASK_STACK_SIZE,
-               DMX_TASK_PRIORITY, (U8BIT*)"DMXTask");
-
-            /* Allow the DMX task to start running */
-            STB_OSSemaphoreSignal(demux_status[i].dmx_task_start);
          }
       }
    }
@@ -307,7 +278,7 @@ U16BIT STB_DMXGetCapabilities(U8BIT path)
 
    FUNCTION_START(STB_DMXGetCapabilities);
 
-   if (path < num_paths)
+   if ((path < num_paths) && (demux_status[path].config_mutex != NULL))
    {
       caps = demux_status[path].caps;
    }
@@ -339,7 +310,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
    DMX_DBG("%u: pcr=%u, video=%u, audio=%u, text=%u, ad=%u", path, pcr_pid, video_pid, audio_pid,
       text_pid, ad_pid);
 
-   if (path < num_paths)
+   if ((path < num_paths) && (demux_status[path].config_mutex != NULL))
    {
       demux_status[path].pcr_pid = pcr_pid;
       demux_status[path].video_pid = video_pid;
@@ -359,53 +330,23 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
  */
 void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
 {
-   struct dmx_pes_filter_params p;
+   AM_ErrorCode_t am_result;
+   struct dmx_pes_filter_params pes_params;
 
    FUNCTION_START(STB_DMXChangeTextPID);
 
    if ((path < num_paths) && (demux_status[path].text_pid != text_pid))
    {
-      demux_status[path].text_pid = text_pid;
-
-      if (demux_status[path].text_fd >= 0)
+      if (demux_status[path].text_fhandle >= 0)
       {
-         if (demux_status[path].pes_task_running)
+         if (demux_status[path].text_started)
          {
-            /* Signal the PES task to stop and wait for it */
-            demux_status[path].pes_task_running = FALSE;
-            STB_OSSemaphoreWait(demux_status[path].pes_task_stopped);
-         }
+            /* Stop the filter and clear the callback */
+            AM_DMX_StopFilter(path, demux_status[path].text_fhandle);
+            AM_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
 
-         if ((text_pid == 0) || (text_pid == 0xffff))
-         {
-            /* Set invalid PID value */
-            text_pid = INVALID_PID;
-         }
+            demux_status[path].text_started = FALSE;
 
-         memset(&p, 0, sizeof(p));
-
-#if 0
-         if (path == PLAYBACK_PATH)
-         {
-            p.input = DMX_IN_DVR;
-         }
-         else
-#endif
-         {
-            p.input = DMX_IN_FRONTEND;
-         }
-
-         p.output = DMX_OUT_TAP;
-         p.pes_type = DMX_PES_SUBTITLE;
-         p.pid = text_pid;
-
-         if (ioctl(demux_status[path].text_fd, DMX_SET_PES_FILTER, &p) < 0)
-         {
-            DMX_ERR("%u: Failed to set PID %u, fd %u, errno %d",
-               path, text_pid, demux_status[path].text_fd, errno);
-         }
-         else
-         {
             /* PID has been changed or filter has been stopped so clear record of any
              * remaining text PES data */
             STB_OSMutexLock(demux_status[path].text_mutex);
@@ -413,17 +354,62 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
             demux_status[path].read_ptr = demux_status[path].text_buffer;
             demux_status[path].text_bytes_available = 0;
             STB_OSMutexUnlock(demux_status[path].text_mutex);
+         }
 
+         demux_status[path].text_pid = text_pid;
+
+         if ((text_pid == 0) || (text_pid == 0xffff))
+         {
+            /* Set invalid PID value */
+            text_pid = INVALID_PID;
+         }
+
+         memset(&pes_params, 0, sizeof(pes_params));
+
+         if (demux_status[path].source == DMX_MEMORY)
+         {
+            pes_params.input = DMX_IN_DVR;
+         }
+         else
+         {
+            pes_params.input = DMX_IN_FRONTEND;
+         }
+
+         pes_params.output = DMX_OUT_TAP;
+         pes_params.pes_type = DMX_PES_SUBTITLE;
+         pes_params.pid = text_pid;
+
+         am_result = AM_DMX_SetPesFilter(path, demux_status[path].text_fhandle, &pes_params);
+         if (am_result != AM_SUCCESS)
+         {
+            DMX_ERR("%u: Failed to set PID %u, handle %u, error %d",
+               path, text_pid, demux_status[path].text_fhandle, am_result);
+         }
+         else
+         {
             if (demux_status[path].text_pid != 0)
             {
-               /* Can now restart PES collection and the PES task */
-               if (ioctl(demux_status[path].text_fd, DMX_START, 0) == 0)
+               am_result = AM_DMX_SetCallback(path, demux_status[path].text_fhandle, PesCallback,
+                  (void *)&demux_status[path]);
+               if (am_result == AM_SUCCESS)
                {
-                  STB_OSSemaphoreSignal(demux_status[path].start_pes_task);
+                  /* Can now restart PES collection and the PES task */
+                  am_result = AM_DMX_StartFilter(path, demux_status[path].text_fhandle);
+                  if (am_result == AM_SUCCESS)
+                  {
+                     demux_status[path].text_started = TRUE;
+                  }
+                  else
+                  {
+                     /* Filter not started so clear the callback */
+                     AM_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
+
+                     DMX_ERR("Failed to start demux %u text filter, error %d", path, am_result);
+                  }
                }
                else
                {
-                  DMX_ERR("Failed to start text filter, errno %d", errno);
+                  DMX_ERR("Failed to set demux %u callback, error %d", path, am_result);
                }
             }
          }
@@ -748,6 +734,7 @@ void  STB_DMXStartPIDFilter(U8BIT path, U16BIT pfilt_id)
    U16BIT filter_index;
    U16BIT handler_index;
    S_PID_FILTER_INFO *pid_filter;
+   AM_ErrorCode_t am_result;
 
    FUNCTION_START(STB_DMXStartPIDFilter);
 
@@ -770,15 +757,28 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
 
       if (!pid_filter->started)
       {
-         if (ioctl(pid_filter->filter_fd, DMX_START, 0) == 0)
+         am_result = AM_DMX_SetCallback(path, pid_filter->fhandle, PidCallback, (void *)pid_filter);
+         if (am_result == AM_SUCCESS)
          {
-            pid_filter->started = TRUE;
+            am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
+            if (am_result == AM_SUCCESS)
+            {
+               pid_filter->started = TRUE;
 
-            demux_status[path].num_pid_filters_started++;
+               demux_status[path].num_pid_filters_started++;
+            }
+            else
+            {
+               /* Failed to start filter so clear the callback */
+               AM_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
+
+               DMX_ERR("%u: Failed to start PID filter 0x%04x, error %d", path, pfilt_id, am_result);
+            }
          }
          else
          {
-            DMX_ERR("%u: Failed to start PID filter 0x%04x, errno=%d", path, pfilt_id, errno);
+            DMX_ERR("%u: Failed to set callback for PID filter 0x%04x, error %d", path,
+               pfilt_id, am_result);
          }
       }
 
@@ -800,6 +800,7 @@ void  STB_DMXStopPIDFilter(U8BIT path, U16BIT pfilt_id)
    S_PID_FILTER_INFO *pid_filter;
    BOOLEAN all_counts_zero;
    U8BIT i;
+   AM_ErrorCode_t am_result;
 
    FUNCTION_START(STB_DMXStopPIDFilter);
 
@@ -837,12 +838,15 @@ printf(">> %s(%u, 0x%04x): start_count=%u", __FUNCTION__, path, pfilt_id, pid_fi
 #ifdef FILTER_PRINTS
 printf(" - STOP");
 #endif
-            /* Stop the filter */
-            if (ioctl(pid_filter->filter_fd, DMX_STOP, 0) < 0)
+            /* Stop the filter and clear the callback */
+            am_result = AM_DMX_StopFilter(path, pid_filter->fhandle);
+            if (am_result != AM_SUCCESS)
             {
-               DMX_ERR("%u: Failed to stop PID filter 0x%04x on PID %u, errno 0x%x", path,
-                  pfilt_id, pid_filter->pid, errno);
+               DMX_ERR("%u: Failed to stop PID filter 0x%04x on PID %u, error %d", path,
+                  pfilt_id, pid_filter->pid, am_result);
             }
+
+            AM_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
 
             pid_filter->started = FALSE;
 
@@ -956,11 +960,9 @@ U8BIT STB_DMXGetMaxSectionFilters(void)
  */
 void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param)
 {
-   dmx_source_t dmx_source;
-   char dmx_source_file[32];
-   char *source_name;
    int tuner_index;
-   char cmd[64];
+   AM_DMX_Source_t dmx_source;
+   AM_ErrorCode_t am_result;
 
    FUNCTION_START(STB_DMXSetDemuxSource);
 
@@ -975,31 +977,14 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 
       if (source == DMX_TUNER)
       {
-         dmx_source = DMX_SOURCE_FRONT0 + param;
-         if (dmx_source < DMX_SOURCE_FRONT3)
+         dmx_source = AM_DMX_SRC_TS0 + param;
+         if (dmx_source <= AM_DMX_SRC_TS2)
          {
-            snprintf(dmx_source_file, sizeof(dmx_source_file), "/sys/class/stb/demux%u_source", path);
             tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
-            switch (aml_hw_cfg.tuners[tuner_index].ts_input_idx)
+            am_result = AM_DMX_SetSource(path, aml_hw_cfg.tuners[tuner_index].ts_input_idx);
+            if (am_result != AM_SUCCESS)
             {
-               case DMX_SOURCE_FRONT0:
-                  source_name = "ts0";
-                  break;
-               case DMX_SOURCE_FRONT1:
-                  source_name = "ts1";
-                  break;
-               case DMX_SOURCE_FRONT2:
-                  source_name = "ts2";
-                  break;
-               default:
-                  source_name = NULL;
-                  break;
-            }
-
-            if (source_name != NULL)
-            {
-               snprintf(cmd, sizeof(cmd), "echo \"%s\">%s", source_name, dmx_source_file);
-               system(cmd);
+               DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, am_result);
             }
          }
          else
@@ -1049,51 +1034,54 @@ void STB_DMXReadTextPES(U8BIT path, U8BIT **buffer, U32BIT *num_bytes)
    *num_bytes = 0;
    *buffer = NULL;
 
-   if ((path < num_paths) && (demux_status[path].text_fd >= 0))
+   if ((path < num_paths) && demux_status[path].text_started)
    {
       STB_OSMutexLock(demux_status[path].text_mutex);
 
-      read_ptr = demux_status[path].read_ptr;
-      end_ptr = demux_status[path].text_buffer + TEXT_BUFFER_SIZE;
-
-      if (pes_data == NULL)
+      if (demux_status[path].text_bytes_available != 0)
       {
-         /* Create a buffer to copy the PES data into */
-         pes_data = STB_MEMGetSysRAM(demux_status[path].text_bytes_available);
-         pes_data_size = demux_status[path].text_bytes_available;
-      }
-      else if (pes_data_size < demux_status[path].text_bytes_available)
-      {
-         /* Buffer needs to be increased */
-         pes_data = STB_MEMResizeSysRAM(pes_data, demux_status[path].text_bytes_available);
-         pes_data_size = demux_status[path].text_bytes_available;
-      }
+         read_ptr = demux_status[path].read_ptr;
+         end_ptr = demux_status[path].text_buffer + TEXT_BUFFER_SIZE;
 
-      if (pes_data != NULL)
-      {
-         bytes_available = end_ptr - read_ptr;
-
-         if (demux_status[path].text_bytes_available < bytes_available)
+         if (pes_data == NULL)
          {
-            /* Data can be copied in one go */
-            memcpy(pes_data, read_ptr, demux_status[path].text_bytes_available);
-
-            demux_status[path].read_ptr += demux_status[path].text_bytes_available;
+            /* Create a buffer to copy the PES data into */
+            pes_data = STB_MEMGetSysRAM(demux_status[path].text_bytes_available);
+            pes_data_size = demux_status[path].text_bytes_available;
          }
-         else
+         else if (pes_data_size < demux_status[path].text_bytes_available)
          {
-            /* Data has wrapped round in the buffer */
-            memcpy(pes_data, read_ptr, bytes_available);
-            bytes_to_copy = demux_status[path].text_bytes_available - bytes_available;
-            memcpy(pes_data + bytes_available, demux_status[path].text_buffer, bytes_to_copy);
-
-            demux_status[path].read_ptr = demux_status[path].text_buffer + bytes_to_copy;
+            /* Buffer needs to be increased */
+            pes_data = STB_MEMResizeSysRAM(pes_data, demux_status[path].text_bytes_available);
+            pes_data_size = demux_status[path].text_bytes_available;
          }
 
-         *num_bytes = demux_status[path].text_bytes_available;
-         *buffer = pes_data;
+         if (pes_data != NULL)
+         {
+            bytes_available = end_ptr - read_ptr;
 
-         demux_status[path].text_bytes_available = 0;
+            if (demux_status[path].text_bytes_available < bytes_available)
+            {
+               /* Data can be copied in one go */
+               memcpy(pes_data, read_ptr, demux_status[path].text_bytes_available);
+
+               demux_status[path].read_ptr += demux_status[path].text_bytes_available;
+            }
+            else
+            {
+               /* Data has wrapped round in the buffer */
+               memcpy(pes_data, read_ptr, bytes_available);
+               bytes_to_copy = demux_status[path].text_bytes_available - bytes_available;
+               memcpy(pes_data + bytes_available, demux_status[path].text_buffer, bytes_to_copy);
+
+               demux_status[path].read_ptr = demux_status[path].text_buffer + bytes_to_copy;
+            }
+
+            *num_bytes = demux_status[path].text_bytes_available;
+            *buffer = pes_data;
+
+            demux_status[path].text_bytes_available = 0;
+         }
       }
 
       STB_OSMutexUnlock(demux_status[path].text_mutex);
@@ -1102,7 +1090,6 @@ void STB_DMXReadTextPES(U8BIT path, U8BIT **buffer, U32BIT *num_bytes)
    FUNCTION_FINISH(STB_DMXReadTextPES);
 }
 
-#if 0
 /**
  * @brief   Writes data to the demux from memory
  * @param   path the demux path to be written
@@ -1117,7 +1104,6 @@ void STB_DMXWriteDemux(U8BIT path, U8BIT *data, U32BIT size)
    USE_UNWANTED_PARAM(size);
    FUNCTION_FINISH(STB_DMXWriteDemux);
 }
-#endif
 
 /**
  * @brief   Acquires a descrambler for the specified track on this path
@@ -1278,235 +1264,165 @@ BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT 
 
 /**
  * @brief   Opens section filters on the given demux path
- * @param   demux_name name of Linux DVB demux device
- * @param   path demux
+ * @param   pdmx pointer to this demux's status structure
  */
-static void OpenSectionFilters(char *demux_name, S_DMX_STATUS *pdmx)
+static void OpenSectionFilters(S_DMX_STATUS *pdmx)
 {
    U8BIT j;
-   int res;
+   AM_ErrorCode_t am_result;
 
    for (j = 0; j < MAX_PID_FILTERS; j++)
    {
-      if ((pdmx->filter_info[j].filter_fd = open(demux_name, O_RDWR | O_NONBLOCK)) >= 0)
+      am_result = AM_DMX_AllocateFilter(pdmx->path, &pdmx->filter_info[j].fhandle);
+      if (am_result == AM_SUCCESS)
       {
-         res = ioctl(pdmx->filter_info[j].filter_fd, DMX_SET_BUFFER_SIZE, 8 * MAX_SECTION_SIZE);
-         if (res != 0)
+         am_result = AM_DMX_SetBufferSize(pdmx->path, pdmx->filter_info[j].fhandle,
+            8 * MAX_SECTION_SIZE);
+         if (am_result != AM_SUCCESS)
          {
-            DMX_ERR("%u: Failed to set buffer size for PID filter %u, errno %d", pdmx->path, j, errno);
+            DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", pdmx->path,
+               j, am_result);
          }
       }
       else
       {
-         DMX_ERR("%u: Failed to open filter %u, %s, errno %d", pdmx->path, j, demux_name, errno);
+         DMX_ERR("%u: Failed to open section filter %u, error %d", pdmx->path, j, am_result);
       }
    }
 }
 
+#if 0
 /**
  * @brief   Close all open section filter handles on the given demux path
  * @param   path - demux
  */
 static void CloseSectionFilters(U8BIT path)
 {
-   int res;
    U8BIT j;
+   AM_ErrorCode_t am_result;
 
    for (j = 0; j < MAX_PID_FILTERS; j++)
    {
-      if (demux_status[path].filter_info[j].filter_fd >= 0)
+      if (demux_status[path].filter_info[j].fhandle >= 0)
       {
-         res = close(demux_status[path].filter_info[j].filter_fd);
-         demux_status[path].filter_info[j].filter_fd = -1;
-         if (res != 0)
+         am_result = AM_DMX_FreeFilter(path, demux_status[path].filter_info[j].fhandle);
+         demux_status[path].filter_info[j].fhandle = -1;
+         if (am_result != AM_SUCCESS)
          {
-            DMX_ERR("%u: Failed to close filter %u, errno %d", path, j, errno);
+            DMX_ERR("%u: Failed to close filter %u, error %d", path, j, am_result);
          }
       }
    }
 }
+#endif
 
 /**
- * @brief   Task to monitor the section filters
- * @param   param - demux path
+ * @brief   Callback function that receives data for PID and section filters
  */
-static void DMXTask(void *param)
+static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data)
 {
-   U8BIT path;
-   S_DMX_STATUS* pdmx;
-   U32BIT filt_index;
-   S32BIT nbytes;
-   struct pollfd fds[MAX_PID_FILTERS];
-   U8BIT result;
-   U16BIT sfi;
-   U8BIT i, j;
    S_PID_FILTER_INFO *pid_filter;
+   U8BIT i, j;
    S_SECTION_FILTER_INFO *sect_filter;
    FILTER_CALLBACK func_ptr;
+   U8BIT result;
+   U16BIT sfi;
 
-   pdmx = (S_DMX_STATUS*)param;
-   path = pdmx->path;
+   FUNCTION_START(PidCallback);
 
-   while(TRUE)
+   if ((data != NULL) && (len != 0) && (user_data != NULL))
    {
-      /* Wait for the task to be started */
-      STB_OSSemaphoreWait(pdmx->dmx_task_start);
+      pid_filter = (S_PID_FILTER_INFO *)user_data;
 
-      pdmx->dmx_task_running = TRUE;
-
-      /* Setup the file descriptors to be polled */
-      for (filt_index = 0; filt_index < MAX_PID_FILTERS; filt_index++)
+      if (pid_filter->fhandle == fhandle)
       {
-         fds[filt_index].fd = pdmx->filter_info[filt_index].filter_fd;
-         fds[filt_index].events = POLLIN;
-         fds[filt_index].revents = 0;
-      }
+         pid_filter->data_packet = data;
+         pid_filter->data_packet_size = len;
 
-      while (pdmx->dmx_task_running)
-      {
-         /* Clear the events that have been received */
-         for (filt_index = 0; filt_index < MAX_PID_FILTERS; filt_index++)
+         for (i = 0; i < MAX_SECTION_FILTERS; i++)
          {
-            fds[filt_index].revents = 0;
-         }
+            sect_filter = &pid_filter->section_filters[i];
 
-         /* Check if any data is available */
-         if (poll(fds, MAX_PID_FILTERS, -1) > 0)
-         {
-            /* Look for any filters that have data available to be read */
-            for (filt_index = 0; filt_index < MAX_PID_FILTERS; filt_index++)
+            if (sect_filter->in_use)
             {
-               if (((fds[filt_index].revents & POLLIN) != 0) && pdmx->filter_info[filt_index].started)
+               if (!sect_filter->setup || sect_filter->empty_mask)
                {
-                  STB_OSMutexLock(pdmx->config_mutex);
-
-                  pid_filter = &pdmx->filter_info[filt_index];
-
-                  /* Read the data from the demux on the filter's file descriptor */
-                  nbytes = read(pid_filter->filter_fd, (void*)pid_filter->data_packet,
-                     (size_t)MAX_SECTION_SIZE);
-
-                  if (nbytes > 0)
+                  for (j = 0; j < MAX_FILTERS_PER_PID; j++)
                   {
-#if 0
-U16BIT sect_len;
-BOOLEAN data_used = FALSE;
-if (pid_filter->pid != 18)
-{
-sect_len = (((pid_filter->data_packet[1] & 0x0f) << 8) | pid_filter->data_packet[2]) + 3;
-if (nbytes != sect_len)
-   printf("## DMXTask(%u): nbytes=%u, sect_len=%u\n", pid_filter->pid, (U16BIT)nbytes, sect_len);
-else
-   printf("DMXTask(%u): nbytes=%u\n", pid_filter->pid, (U16BIT)nbytes);
-}
-#endif
-                     pid_filter->data_packet_size = nbytes;
-
-                     for (i = 0; i < MAX_SECTION_FILTERS; i++)
+                     /* No section filtering: Call the handler */
+                     if (pid_filter->func_ptr[j] != NULL)
                      {
-                        sect_filter = &pid_filter->section_filters[i];
+                        func_ptr = pid_filter->func_ptr[j];
+                        (*func_ptr)(dev_no, (U16BIT)len, ((pid_filter->index << 8) + (j << 4)));
+                     }
+                  }
+               }
+               else
+               {
+                  /* Check section filter
+                   *
+                   * We have:
+                   *   s - actual section bit (0 or 1)
+                   *   v - section filter value (0 or 1)
+                   *   m - section filter mask (0 = disabled, 1 = enabled)
+                   *   d - section filter mode (always 0)
+                   *
+                   * To check:
+                   *   m & (s^v) == 0 if
+                   *     m == 0 (don't care), or
+                   *     s == v (good)
+                   *   m & (s^v) == 1 if
+                   *     m == 1 (check) and s != v (bad)
+                   *
+                   * So m & (s^v) == 0 if and only if section is good.
+                   */
+                  result = sect_filter->mask[0] & (data[0] ^ sect_filter->match[0]);
 
-                        if (sect_filter->in_use)
+                  /* Different tables can be on the same PID, so if result doesn't equal
+                   * 0 then this data is for a different table id */
+                  if (result == 0)
+                  {
+                     for (sfi = 1; sfi < DEMUX_SECTION_FILTER_LENGTH; ++sfi)
+                     {
+                        /* Skip section length field */
+                        result |= (sect_filter->mask[sfi] & (data[sfi+2] ^ sect_filter->match[sfi]));
+                     }
+
+                     if (result == 0)
+                     {
+                        for (j = 0; j < MAX_FILTERS_PER_PID; j++)
                         {
-                           if (!sect_filter->setup || sect_filter->empty_mask)
+                           if (pid_filter->func_ptr[j] != NULL)
                            {
-                              for (j = 0; j < MAX_FILTERS_PER_PID; j++)
-                              {
-                                 /* No section filtering: Call the handler */
-                                 if (pid_filter->func_ptr[j] != NULL)
-                                 {
-                                    func_ptr = pid_filter->func_ptr[j];
-                                    STB_OSMutexUnlock(pdmx->config_mutex);
-                                    (*func_ptr)(path, (U16BIT)nbytes, ((filt_index << 8) + (j << 4)));
-                                    STB_OSMutexLock(pdmx->config_mutex);
-#if 0
-data_used = TRUE;
-#endif
-                                 }
-                              }
-                           }
-                           else
-                           {
-                              /* Check section filter
-                               *
-                               * We have:
-                               *   s - actual section bit (0 or 1)
-                               *   v - section filter value (0 or 1)
-                               *   m - section filter mask (0 = disabled, 1 = enabled)
-                               *   d - section filter mode (always 0)
-                               *
-                               * To check:
-                               *   m & (s^v) == 0 if
-                               *     m == 0 (don't care), or
-                               *     s == v (good)
-                               *   m & (s^v) == 1 if
-                               *     m == 1 (check) and s != v (bad)
-                               *
-                               * So m & (s^v) == 0 if and only if section is good.
-                               */
-                              result = sect_filter->mask[0] &
-                                 (pid_filter->data_packet[0] ^ sect_filter->match[0]);
-
-                              /* Different tables can be on the same PID, so if result doesn't equal
-                               * 0 then this data is for a different table id */
-                              if (result == 0)
-                              {
-                                 for (sfi = 1; sfi < DEMUX_SECTION_FILTER_LENGTH; ++sfi)
-                                 {
-                                    /* Skip section length field */
-                                    result |= (sect_filter->mask[sfi] &
-                                       (pid_filter->data_packet[sfi+2] ^ sect_filter->match[sfi]));
-                                 }
-
-                                 if (result == 0)
-                                 {
-                                    for (j = 0; j < MAX_FILTERS_PER_PID; j++)
-                                    {
-                                       /* No section filtering: Call the handler */
-                                       if (pid_filter->func_ptr[j] != NULL)
-                                       {
-                                          func_ptr = pid_filter->func_ptr[j];
-                                          STB_OSMutexUnlock(pdmx->config_mutex);
-                                          (*func_ptr)(path, (U16BIT)nbytes, ((filt_index << 8) + (j << 4)));
-                                          STB_OSMutexLock(pdmx->config_mutex);
-#if 0
-data_used = TRUE;
-#endif
-                                       }
-                                    }
-                                 }
-                                 else
-                                 {
-                                    U8BIT*p = pid_filter->data_packet;
-                                    printf("  corrupt?: 0x%02x%02x%02x%02x%02x%02x%02x%02x match=0x%02x, mask=0x%02x\n",
-                                       p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
-                                       sect_filter->match[0], sect_filter->mask[0]);
-                                 }
-                              }
+                              func_ptr = pid_filter->func_ptr[j];
+                              (*func_ptr)(dev_no, (U16BIT)len, ((pid_filter->index << 8) + (j << 4)));
                            }
                         }
                      }
-
-                     /* Ensure that the packet of data is no longer available */
-                     pid_filter->data_packet_size = 0;
-#if 0
-if (!data_used)
-   printf("## DMXTask(pid=%u): not used, tid=0x%02x\n", pid_filter->pid, pid_filter->data_packet[0]);
-#endif
+                     else
+                     {
+                        const U8BIT*p = data;
+                        printf("  corrupt?: 0x%02x%02x%02x%02x%02x%02x%02x%02x match=0x%02x, mask=0x%02x\n",
+                           p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
+                           sect_filter->match[0], sect_filter->mask[0]);
+                     }
                   }
-                  else
-                  {
-                     DMX_ERR("Error reading section data, nbytes=%ld", nbytes);
-                  }
-
-                  STB_OSMutexUnlock(pdmx->config_mutex);
                }
             }
          }
-      }
 
-      STB_OSSemaphoreSignal(pdmx->dmx_task_stopped);
+         /* Ensure that the packet of data is no longer available */
+         pid_filter->data_packet = NULL;
+         pid_filter->data_packet_size = 0;
+      }
+      else
+      {
+         DMX_ERR("Callback for demux %d, filter %d, user data is for %d!",
+            dev_no, fhandle, pid_filter->fhandle);
+      }
    }
+
+   FUNCTION_FINISH(PidCallback);
 }
 
 /**
@@ -1527,6 +1443,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    BOOLEAN success;
    struct dmx_sct_filter_params dvb_filt_p;
    U16BIT num_filters;
+   AM_ErrorCode_t am_result;
 
    FUNCTION_START(UpdateSectionFilter);
 
@@ -1632,27 +1549,30 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
       if (pid_filter->started)
       {
          /* Stop the filter while it's updated */
-         if (ioctl(pid_filter->filter_fd, DMX_STOP, 0) != 0)
+         am_result = AM_DMX_StopFilter(path, pid_filter->fhandle);
+         if (am_result != AM_SUCCESS)
          {
-            DMX_ERR("%u: Failed to stop PID filter, errno 0x%x", path, errno);
+            DMX_ERR("%u: Failed to stop PID filter %d, error %d", path, pid_filter->fhandle, am_result);
          }
       }
 
-      if (ioctl(pid_filter->filter_fd, DMX_SET_FILTER, &dvb_filt_p) >= 0)
+      am_result = AM_DMX_SetSecFilter(path, pid_filter->fhandle, &dvb_filt_p);
+      if (am_result == AM_SUCCESS)
       {
          success = TRUE;
       }
       else
       {
-         DMX_ERR("%u: Failed to setup section filter, errno 0x%x", path, errno);
+         DMX_ERR("%u: Failed to setup section filter %d, error %d", path, pid_filter->fhandle, am_result);
       }
 
       if (pid_filter->started)
       {
          /* Restart the filter */
-         if (ioctl(pid_filter->filter_fd, DMX_START, 0) != 0)
+         am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
+         if (am_result != AM_SUCCESS)
          {
-            DMX_ERR("%u: Failed to restart PID filter, errno 0x%x", path, errno);
+            DMX_ERR("%u: Failed to restart PID filter %d, error %d", path, pid_filter->fhandle, am_result);
          }
       }
    }
@@ -1663,88 +1583,58 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 }
 
 /**
- * @brief   Background task to collect PES data, which arrives as TP packets of 192 bytes
- *          and so needs to be gathered so that whole PES packets can be given to the middleware.
- * @param   param - pointer to demux status
+ * @brief   Callback function that receives PES data for DVB subtitles and EBU teletext
  */
-static void PesDataTask(void* param)
+static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data)
 {
    S_DMX_STATUS* pdmx;
-   U8BIT* pes_buffer;
-   int bytes_read, num_bytes;
-   U8BIT* end_ptr;
-   struct pollfd fds[1];
+   U32BIT num_bytes;
 
-   FUNCTION_START(PesDataTask);
+   FUNCTION_START(PesCallback);
 
-   pdmx = (S_DMX_STATUS *)param;
-
-   end_ptr = pdmx->text_buffer + TEXT_BUFFER_SIZE;
-
-   pes_buffer = (U8BIT*)STB_MEMGetSysRAM(PES_BUFFER_SIZE);
-   if (pes_buffer != NULL)
+   if ((data != NULL) && (len != 0) && (user_data != NULL))
    {
-      while(TRUE)
+      pdmx = (S_DMX_STATUS *)user_data;
+
+      if ((pdmx->path == dev_no) && (pdmx->text_fhandle == fhandle))
       {
-         STB_OSSemaphoreWait(pdmx->start_pes_task);
+         STB_OSMutexLock(pdmx->text_mutex);
 
-         pdmx->pes_task_running = TRUE;
-
-         fds[0].fd = pdmx->text_fd;
-         fds[0].events = POLLIN;
-
-         while (pdmx->pes_task_running)
+         /* Copy the data to the PES buffer */
+         if (pdmx->text_bytes_available + len <= TEXT_BUFFER_SIZE)
          {
-            fds[0].revents = 0;
+            num_bytes = pdmx->text_buffer + TEXT_BUFFER_SIZE - pdmx->write_ptr;
 
-            if ((poll(fds, 1, 10) > 0) && ((fds[0].revents & POLLIN) != 0))
+            if (num_bytes > len)
             {
-               /* Read the next PES TP packet(s) */
-               bytes_read = read(fds[0].fd, pes_buffer, PES_BUFFER_SIZE);
-
-               if (bytes_read > 0)
-               {
-                  STB_OSMutexLock(pdmx->text_mutex);
-
-                  /* Copy the data to the PES buffer */
-                  num_bytes = end_ptr - pdmx->write_ptr;
-
-                  if (pdmx->text_bytes_available + bytes_read <= TEXT_BUFFER_SIZE)
-                  {
-                     if (num_bytes > bytes_read)
-                     {
-                        /* There's room for all the data */
-                        memcpy(pdmx->write_ptr, pes_buffer, bytes_read);
-                        pdmx->write_ptr += bytes_read;
-                     }
-                     else
-                     {
-                        /* Wrap round to write all the data */
-                        memcpy(pdmx->write_ptr, pes_buffer, num_bytes);
-                        memcpy(pdmx->text_buffer, pes_buffer + num_bytes,
-                           bytes_read - num_bytes);
-                        pdmx->write_ptr = pdmx->text_buffer +
-                           (bytes_read - num_bytes);
-                     }
-
-                     pdmx->text_bytes_available += bytes_read;
-                  }
-                  else
-                  {
-                     DMX_ERR("Buffer is full!");
-                  }
-
-                  STB_OSMutexUnlock(pdmx->text_mutex);
-               }
+               /* There's room for all the data */
+               memcpy(pdmx->write_ptr, data, len);
+               pdmx->write_ptr += len;
             }
+            else
+            {
+               /* Wrap round to write all the data */
+               memcpy(pdmx->write_ptr, data, num_bytes);
+               memcpy(pdmx->text_buffer, data + num_bytes, len - num_bytes);
+               pdmx->write_ptr = pdmx->text_buffer + (len - num_bytes);
+            }
+
+            pdmx->text_bytes_available += len;
+         }
+         else
+         {
+            DMX_ERR("Buffer is full!");
          }
 
-         STB_OSSemaphoreSignal(pdmx->pes_task_stopped);
+         STB_OSMutexUnlock(pdmx->text_mutex);
       }
-
-      STB_MEMFreeSysRAM(pes_buffer);
+      else
+      {
+         DMX_ERR("PES callback for demux %d, filter %d, but demux status is for %u and %d!",
+            dev_no, fhandle, pdmx->path, pdmx->text_fhandle);
+      }
    }
 
-   FUNCTION_FINISH(PesDataTask);
+   FUNCTION_FINISH(PesCallback);
 }
 

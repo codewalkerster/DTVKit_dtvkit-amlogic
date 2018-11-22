@@ -5,7 +5,9 @@
 INCLUDES = ./inc \
            $(DTVKIT_DVBCORE_ROOT)/inc \
            $(DTVKIT_DVBCORE_ROOT)/platform/inc \
-           $(DTVKIT_CIPLUS_ROOT)/include
+           $(DTVKIT_CIPLUS_ROOT)/include \
+           $(DTVKIT_RPCSERVICE_ROOT)/modules/binderservice/inc
+           $(DTVKIT_MHEG5_ROOT)/include
 
 SRCDIR = src
 SRCS = \

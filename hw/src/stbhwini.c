@@ -38,6 +38,7 @@
 #include "stbhwtun.h"
 #include "stbhwosd.h"
 #include "stbhwav.h"
+#include "stbhwdsk.h"
 
 /*---constant definitions for this file---------------------------------------*/
 #ifdef ENABLE_DEBUG
@@ -72,14 +73,13 @@ void STB_HWInitialise(E_HW_SUBT_CONTROL_MASK hw_subt)
 
    STB_MEMInitialiseRAM();
 
-   if (hw_subt == HW_SUBT_EBU)
+   if (hw_subt == HW_SUBT_NONE)
    {
-      /* The number of demuxes are dynamically determined, so 0 is passed in */
-      STB_DMXInitialise(0, FALSE);
+      STB_DMXInitialise(NUM_DEMUX_PATHS, FALSE);
    }
    else
    {
-      STB_DMXInitialise(0, TRUE);
+      STB_DMXInitialise(NUM_DEMUX_PATHS, TRUE);
    }
 
    STB_OSDInitialise(0);
@@ -88,6 +88,8 @@ void STB_HWInitialise(E_HW_SUBT_CONTROL_MASK hw_subt)
 
    /* Number of tuners is dynamically determined, so 0 is passed in */
    STB_TuneInitialise(0);
+
+   STB_DSKInitialise();
 
    FUNCTION_FINISH(STB_HWInitialise);
 }

@@ -236,7 +236,7 @@ void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
  * @param   path tuner path
  * @return  the signal types supported by the given tuner
  */
-U16BIT STB_TuneGetSignalType(U8BIT path)
+E_STB_TUNE_SIGNAL_TYPE STB_TuneGetSignalType(U8BIT path)
 {
    U16BIT sig_type;
 

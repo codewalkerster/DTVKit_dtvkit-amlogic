@@ -4,7 +4,8 @@
 
 INCLUDES = ./inc \
            $(DTVKIT_DVBCORE_ROOT)/inc \
-           $(DTVKIT_DVBCORE_ROOT)/platform/inc
+           $(DTVKIT_DVBCORE_ROOT)/platform/inc \
+           $(DTVKIT_CIPLUS_ROOT)/include
 
 SRCDIR = src
 SRCS = \

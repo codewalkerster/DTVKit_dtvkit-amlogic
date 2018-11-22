@@ -32,6 +32,7 @@ endif
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
 	$(LOCAL_PATH)/../DVBCore/platform/inc \
+	$(LOCAL_PATH)/../AMLogic_CI-Plus/include \
 	$(LOCAL_PATH)/hw/inc \
 	$(LOCAL_PATH)os/inc \
 	vendor/amlogic/common/external/dvb/android/ndk/include \

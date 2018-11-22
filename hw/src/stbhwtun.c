@@ -53,6 +53,8 @@
    #define TUN_DBG(x,...)
 #endif
 
+#define TUN_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+
 /*---constant definitions for this file--------------------------------------*/
 #define INVALID_FD               -1
 
@@ -198,14 +200,14 @@ void STB_TuneInitialise(U8BIT paths)
             if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
                TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
             {
-               TUN_DBG("Failed to create task for tuner %u", i);
+               TUN_ERR("Failed to create task for tuner %u", i);
             }
          }
       }
    }
    else
    {
-      TUN_DBG("No tuners found!");
+      TUN_ERR("No tuners found!");
    }
 
    FUNCTION_FINISH(STB_TuneInitialise);
@@ -234,7 +236,7 @@ void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
  * @param   path tuner path
  * @return  the signal types supported by the given tuner
  */
-E_STB_TUNE_SIGNAL_TYPE STB_TuneGetSignalType(U8BIT path)
+U16BIT STB_TuneGetSignalType(U8BIT path)
 {
    U16BIT sig_type;
 
@@ -436,7 +438,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
       }
       else
       {
-         TUN_DBG("%u: system type %u not supported", tstatus->path, tstatus->sys_type);
+         TUN_ERR("%u: system type %u not supported", tstatus->path, tstatus->sys_type);
 
          STB_OSMutexLock(tstatus->mutex);
          state = tstatus->state;
@@ -586,7 +588,7 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
          }
          else
          {
-            TUN_DBG("%u: Failed to get signal strength, errno %d", path, errno);
+            TUN_ERR("%u: Failed to get signal strength, errno %d", path, errno);
          }
       }
    }
@@ -621,7 +623,7 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
          }
          else
          {
-            TUN_DBG("%u: FE_READ_BER failed, errno %d", path, errno);
+            TUN_ERR("%u: FE_READ_BER failed, errno %d", path, errno);
          }
       }
    }
@@ -663,7 +665,7 @@ U32BIT STB_TuneGetActualTerrFrequency(U8BIT path)
          }
          else
          {
-            TUN_DBG("%u: Failed to read frequency, errno %d", path, errno);
+            TUN_ERR("%u: Failed to read frequency, errno %d", path, errno);
          }
       }
       else
@@ -711,7 +713,7 @@ S8BIT STB_TuneGetActualTerrFreqOffset(U8BIT path)
          }
          else
          {
-            TUN_DBG("%u: Failed to read frequency, errno %d", path, errno);
+            TUN_ERR("%u: Failed to read frequency, errno %d", path, errno);
          }
       }
    }
@@ -777,7 +779,7 @@ E_STB_TUNE_TMODE STB_TuneGetActualTerrMode(U8BIT path)
          }
          else
          {
-            TUN_DBG("%u: Failed to read frequency, errno %d", path, errno);
+            TUN_ERR("%u: Failed to read frequency, errno %d", path, errno);
          }
       }
    }
@@ -857,7 +859,7 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
             }
             else
             {
-               TUN_DBG("%u: Failed to get number of PLPs, errno %d", path, errno);
+               TUN_ERR("%u: Failed to get number of PLPs, errno %d", path, errno);
                retval = TUNE_THIERARCHY_NONE;
             }
          }
@@ -891,7 +893,7 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
             }
             else
             {
-               TUN_DBG("%u: Failed to get hierarchy, errno %d", path, errno);
+               TUN_ERR("%u: Failed to get hierarchy, errno %d", path, errno);
             }
          }
       }
@@ -1232,7 +1234,7 @@ void STB_TuneSetPLP(U8BIT path, U8BIT plp)
 
          if (ioctl(tuner_status[path].frontend_fd, FE_SET_PROPERTY, &props) < 0)
          {
-            TUN_DBG("%u: Failed to set number of PLPs, errno %d", path, errno);
+            TUN_ERR("%u: Failed to set number of PLPs, errno %d", path, errno);
          }
       }
    }
@@ -1355,7 +1357,7 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
 
    if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
    {
-      TUN_DBG("Failed to open %s, errno %d", fe_name, errno);
+      TUN_ERR("Failed to open %s, errno %d", fe_name, errno);
    }
    else
    {
@@ -1398,12 +1400,12 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
          }
          else
          {
-            TUN_DBG("Failed to get FE_INFO for %s, errno %d", fe_name, errno);
+            TUN_ERR("Failed to get FE_INFO for %s, errno %d", fe_name, errno);
          }
       }
       else
       {
-         TUN_DBG("Failed to FE_SET_MODE for %s, errno %d", fe_name, errno);
+         TUN_ERR("Failed to FE_SET_MODE for %s, errno %d", fe_name, errno);
       }
 #endif
 
@@ -1503,7 +1505,7 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
          }
          else
          {
-            TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+            TUN_ERR("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
          }
          break;
       }
@@ -1578,24 +1580,24 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
                }
                else
                {
-                  TUN_DBG("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+                  TUN_ERR("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
                }
             }
             else
             {
-               TUN_DBG("%u: Failed to set tone, errno %d", tstatus->path, errno);
+               TUN_ERR("%u: Failed to set tone, errno %d", tstatus->path, errno);
             }
          }
          else
          {
-            TUN_DBG("%u: Failed to set voltage, errno %d", tstatus->path, errno);
+            TUN_ERR("%u: Failed to set voltage, errno %d", tstatus->path, errno);
          }
          break;
       }
 
       default:
       {
-         TUN_DBG("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
+         TUN_ERR("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
          break;
       }
    }
@@ -1606,23 +1608,19 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus)
 {
    BOOLEAN locked;
-   fe_status_t status;
 
-   locked = FALSE;
+   STB_OSMutexLock(tstatus->mutex);
 
-   if (ioctl(tstatus->frontend_fd, FE_READ_STATUS, &status) >= 0)
+   if (tstatus->state == TUNER_LOCKED)
    {
-      if ((status & FE_HAS_LOCK) != 0)
-      {
-         locked = TRUE;
-      }
-
-      //TUN_DBG("%u: status=0x%02x, %s", tstatus->path, status, (locked ? "TRUE" : "FALSE"));
+      locked = TRUE;
    }
    else
    {
-      TUN_DBG("%u: FE_READ_STATUS failed, errno %d", tstatus->path, errno);
+      locked = FALSE;
    }
+
+   STB_OSMutexUnlock(tstatus->mutex);
 
    return(locked);
 }
@@ -1632,6 +1630,7 @@ static void TunerTask(void *param)
    S_TUNER_STATUS *tstatus = param;
    E_TUNER_STATE state;
    BOOLEAN locked;
+   BOOLEAN tuner_locked;
    U32BIT start_time;
    BOOLEAN stop;
 //   struct dvb_frontend_parameters_ex fe_params;
@@ -1746,9 +1745,33 @@ static void TunerTask(void *param)
       {
          /* Monitor tuner lock status */
          locked = TRUE;
+         tuner_locked = TRUE;
+
+         pfd.fd = tstatus->frontend_fd;
+         pfd.events = POLLIN;
+         pfd.revents = 0;
 
          while ((state == TUNER_LOCKED) || (state == TUNER_RELOCKING))
          {
+            if (poll(&pfd, 1, 300) == 1)
+            {
+               if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
+               {
+                  if ((fe_event.status & FE_HAS_LOCK) != 0)
+                  {
+                     tuner_locked = TRUE;
+                  }
+                  else
+                  {
+                     tuner_locked = FALSE;
+                  }
+               }
+               else
+               {
+                  TUN_ERR("%u: FE_GET_EVENT failed, errno %d", tstatus->path, errno);
+               }
+            }
+
             STB_OSMutexLock(tstatus->mutex);
             stop = tstatus->stop;
             STB_OSMutexUnlock(tstatus->mutex);
@@ -1762,7 +1785,7 @@ static void TunerTask(void *param)
             }
             else
             {
-               if (IsTunerLocked(tstatus))
+               if (tuner_locked)
                {
                   if (!locked)
                   {
@@ -1802,7 +1825,7 @@ static void TunerTask(void *param)
                            else
                            {
                               /* Failed to retune */
-                              TUN_DBG("%u: Failed to retune after losing LOCK", tstatus->path);
+                              TUN_ERR("%u: Failed to retune after losing LOCK", tstatus->path);
                               STB_OSMutexLock(tstatus->mutex);
                               tstatus->state = TUNER_IDLE;
                               STB_OSMutexUnlock(tstatus->mutex);
@@ -1835,19 +1858,6 @@ static void TunerTask(void *param)
                      }
                   }
                }
-
-               STB_OSMutexLock(tstatus->mutex);
-               if (tstatus->stop)
-               {
-                  tstatus->stop = FALSE;
-                  tstatus->state = TUNER_IDLE;
-                  STB_OSMutexUnlock(tstatus->mutex);
-               }
-               else
-               {
-                  STB_OSMutexUnlock(tstatus->mutex);
-                  STB_OSTaskDelay(300);
-               }
             }
 
             STB_OSMutexLock(tstatus->mutex);
@@ -1870,7 +1880,7 @@ static void ClearTuner(S_TUNER_STATUS *tstatus)
 
    if (ioctl(tstatus->frontend_fd, FE_SET_PROPERTY, &props) < 0)
    {
-      TUN_DBG("%u: DTV_CLEAR failed, errno %d", tstatus->path, errno);
+      TUN_ERR("%u: DTV_CLEAR failed, errno %d", tstatus->path, errno);
    }
 }
 

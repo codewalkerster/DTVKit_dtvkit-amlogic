@@ -26,12 +26,16 @@
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
 #include <stdio.h>
+#include <stdarg.h>
 
 /* third party header files */
 
 /* STB Header Files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "stbhwci.h"
+#include "stbhwnvm.h"
+#include "stbcios.h" /*for STB_CIDebugPrintf()*/
 
 /*---macro definitions for this file-----------------------------------------*/
 
@@ -56,6 +60,17 @@
 /*---local function prototypes for this file---------------------------------*/
 
 /*---global function definitions----------------------------------------------*/
+
+/**
+ * @brief   Return number of CI slots
+ * @note    When supporting USB CAMs, this function returns
+ *          the same value as STB_CIUsbCamTotal().
+ * @return  Number of CI slots on the receiver
+ */
+U8BIT STB_CIGetSlotCount(void)
+{
+   return 1;
+}
 
 /**
  * @brief   Puts CI control into standby mode (power off)
@@ -85,12 +100,75 @@ void STB_CIStandbyOff(void)
 BOOLEAN STB_CIRouteTS(U8BIT tuner, U8BIT slot_id, BOOLEAN pass_through)
 {
    FUNCTION_START(STB_CIRouteTS);
+
    USE_UNWANTED_PARAM(tuner);
    USE_UNWANTED_PARAM(slot_id);
    USE_UNWANTED_PARAM(pass_through);
+
+   STB_CIDebugPrintf("STB_CIRouteTS(%u, %u, %u)", tuner, slot_id, pass_through);
+
    FUNCTION_FINISH(STB_CIRouteTS);
 
    return(FALSE);
+}
+
+/**
+ * @brief   Return CI+ host key
+ * @param   type type of host key
+ * @param   key pointer to the key data
+ * @param   length number of bytes in key data
+ * @note    The pointer must remain valid while the CI+ stack is running
+ * @param   slot_id Zero-based CI slot identifier (0, 1, ...)
+ */
+void STB_CIGetHostKey(E_STB_CI_KEY_TYPE type, U8BIT **key, U16BIT *length)
+{
+   *length = 0;
+   *key = NULL;
+}
+
+/**
+ * @brief   Read data from secure non-volatile area
+ * @param   buffer pointer to data buffer to read into
+ * @param   len number of bytes to read
+ * @return  TRUE if read operation was successful, FALSE otherwise
+ */
+BOOLEAN STB_CIReadSecureNVM(U8BIT *buffer, U32BIT len)
+{
+   return FALSE;
+}
+
+/**
+ * @brief   Write data into secure non-volatile area
+ * @param   buffer pointer to data buffer to write
+ * @param   len number of bytes to write
+ * @return  TRUE if read operation was successful, FALSE otherwise
+ */
+BOOLEAN STB_CIWriteSecureNVM(U8BIT *buffer, U32BIT len)
+{
+   return FALSE;
+}
+
+/**
+ * @brief   Write debug string to output
+ * @param   format string & format
+ */
+void STB_CIDebugPrintf(const char *format, ... )
+{
+   static char debug_msg_buff[512];
+   va_list vparams;
+
+   FUNCTION_START(STB_SPDebugNoCnWrite);
+
+   ASSERT(format != NULL);
+
+   va_start(vparams, format);
+   vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
+   va_end(vparams);
+
+   printf("%s", debug_msg_buff);
+   fflush(stdout);
+
+   FUNCTION_FINISH(STB_SPDebugNoCnWrite);
 }
 
 /*---local function definitions----------------------------------------------*/

@@ -68,6 +68,8 @@ void STB_HWInitialise(E_HW_SUBT_CONTROL_MASK hw_subt)
 {
    FUNCTION_START(STB_HWInitialise);
 
+   STB_CfgInitialise();
+
    STB_MEMInitialiseRAM();
 
    if (hw_subt == HW_SUBT_EBU)

@@ -38,6 +38,8 @@
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+
+#include "stbhwdef.h"
 #include "stbhwtun.h"
 #include "stbhwmem.h"
 #include "stbhwos.h"
@@ -160,7 +162,7 @@ void STB_TuneInitialise(U8BIT paths)
    USE_UNWANTED_PARAM(paths);
 
    /* Find out how many tuners are available */
-   for (num_paths = 0, adapter_found = TRUE; adapter_found; )
+   for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < aml_hw_cfg.tuner_num); )
    {
       snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", num_paths);
       if (stat(fe_name, &file_status) == 0)
@@ -191,10 +193,9 @@ void STB_TuneInitialise(U8BIT paths)
             tuner_status[i].sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
             tuner_status[i].tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
             tuner_status[i].auto_relock = FALSE;
-            tuner_status[i].tuner_types = TUNE_SIGNAL_COFDM | TUNE_SIGNAL_QPSK | TUNE_SIGNAL_QAM;
+            tuner_status[i].tuner_types = aml_hw_cfg.tuners[i].signal_types;
             tuner_status[i].signal_type = TUNE_SIGNAL_NONE;
             tuner_status[i].tuning_params_changed = FALSE;
-
             tuner_status[i].mutex = STB_OSCreateMutex();
             tuner_status[i].tune_sem = STB_OSCreateCountSemaphore(0);
 

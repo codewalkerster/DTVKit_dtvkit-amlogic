@@ -43,6 +43,7 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/include \
     bionic/libc/../libm/include \
     hardware/amlogic/media/amcodec/include\
+    external/expat/lib
 
 ifeq ($(TARGET_ARCH),"arm")
     ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm/include"
@@ -68,6 +69,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbpvrpr.c \
     hw/src/stbhwnet.c \
     hw/src/stbhwvbi.c \
+    hw/src/stbhwcfg.c \
     os/src/stbos_event.c      \
     os/src/stbos_mutex.c      \
     os/src/stbos_queue.c      \
@@ -78,7 +80,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
-LOCAL_STATIC_LIBRARIES+=libcutils
+LOCAL_STATIC_LIBRARIES+=libexpat libcutils
 
 LOCAL_VENDOR_MODULE := true
 

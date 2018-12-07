@@ -44,6 +44,7 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 
+#include "stbhwdef.h"
 #include "stbhwc.h"
 #include "stbhwos.h"
 #include "stbhwdmx.h"
@@ -958,6 +959,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
    dmx_source_t dmx_source;
    char dmx_source_file[32];
    char *source_name;
+   int tuner_index;
    char cmd[64];
 
    FUNCTION_START(STB_DMXSetDemuxSource);
@@ -977,8 +979,8 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
          if (dmx_source < DMX_SOURCE_FRONT3)
          {
             snprintf(dmx_source_file, sizeof(dmx_source_file), "/sys/class/stb/demux%u_source", path);
-
-            switch(dmx_source)
+            tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
+            switch (aml_hw_cfg.tuners[tuner_index].ts_input_idx)
             {
                case DMX_SOURCE_FRONT0:
                   source_name = "ts0";

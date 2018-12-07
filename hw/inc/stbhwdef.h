@@ -23,6 +23,8 @@
 #ifndef _STBHWDEF_H
 #define _STBHWDEF_H
 
+#include "stbhwcfg.h"
+
 //---Constant and macro definitions for public use-----------------------------
 #define KBYTES 1024
 
@@ -57,12 +59,12 @@
 #define MHEG_TASK_PRIORITY       6
 
 // PATH SPECIFIC CONFIGURATION
-#define NUM_TUNER_PATHS          1
-#define NUM_DEMUX_PATHS          3
-#define NUM_RECORDERS            (NUM_DEMUX_PATHS - 2)   /* One live demux and one playback */
-#define NUM_VIDEO_DECODE_PATHS   1
-#define NUM_AUDIO_DECODE_PATHS   2
-#define NUM_CI_SLOTS             1
+#define NUM_TUNER_PATHS          (aml_hw_cfg.tuner_num)
+#define NUM_DEMUX_PATHS          (aml_hw_cfg.demux_num)
+#define NUM_RECORDERS            (aml_hw_cfg.recorder_num)
+#define NUM_VIDEO_DECODE_PATHS   (aml_hw_cfg.vdec_num)
+#define NUM_AUDIO_DECODE_PATHS   (aml_hw_cfg.adec_num)
+#define NUM_CI_SLOTS             (aml_hw_cfg.ci_slot_num)
 
 
 //---Enumerations for public use-----------------------------------------------

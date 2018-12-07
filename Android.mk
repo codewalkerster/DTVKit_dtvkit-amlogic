@@ -37,7 +37,6 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)os/inc \
     vendor/amlogic/common/external/dvb/android/ndk/include \
     vendor/amlogic/common/external/dvb/include \
-    vendor/amlogic/common/external/dvb/android/ndk/include \
     bionic/libc/kernel/uapi \
     bionic/libc/kernel/android/uapi \
     bionic/libc/stdio \

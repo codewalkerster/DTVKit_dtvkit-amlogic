@@ -188,6 +188,7 @@ void STB_TuneInitialise(U8BIT paths)
             tuner_status[i].frontend_fd = INVALID_FD;
             tuner_status[i].state = TUNER_IDLE;
             tuner_status[i].stop = FALSE;
+            tuner_status[i].sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
             tuner_status[i].tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
             tuner_status[i].auto_relock = FALSE;
             tuner_status[i].tuner_types = TUNE_SIGNAL_COFDM | TUNE_SIGNAL_QPSK | TUNE_SIGNAL_QAM;
@@ -314,6 +315,39 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
    FUNCTION_FINISH(STB_TuneSetSignalType);
 }
 
+static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
+{
+    int fe_mode = SYS_UNDEFINED;
+
+    switch (tuned_sys_type)
+    {
+       case TUNE_SYSTEM_TYPE_DVBT:
+            fe_mode = SYS_DVBT;
+            break;
+       case TUNE_SYSTEM_TYPE_DVBT2:
+            fe_mode = SYS_DVBT2;
+            break;
+       case TUNE_SYSTEM_TYPE_DVBS:
+            fe_mode = SYS_DVBS;
+            break;
+       case TUNE_SYSTEM_TYPE_DVBS2:
+            fe_mode = SYS_DVBS2;
+            break;
+       default:
+            TUN_ERR("not support type:%d", tuned_sys_type);
+            return FALSE;
+    }
+
+    struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = fe_mode};
+    struct dtv_properties props = {.num = 1, .props = &p};
+    if (ioctl(fe_fd, FE_SET_PROPERTY, &props) == -1) {
+        TUN_ERR("Failed to FE_SET_PROPERTY, errno %d", errno);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 /**
  * @brief   Starts the tuner, it will then attempt to lock specified signal
  * @param   path the tuner path to start
@@ -362,6 +396,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
          {
             start_tuning = TRUE;
             tstatus->tuned_sys_type = tstatus->sys_type;
+            SetFeProperty(tstatus->frontend_fd, tstatus->tuned_sys_type);
          }
 
          if (tstatus->freq != freq)
@@ -1349,7 +1384,6 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
 {
    BOOLEAN retval;
    char fe_name[24];
-   int fe_mode = SYS_UNDEFINED;
    int mode;
 
    retval = FALSE;
@@ -1362,30 +1396,22 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
    }
    else
    {
-      switch (tstatus->sys_type)
+      switch (sig_type)
       {
-         case TUNE_SYSTEM_TYPE_DVBT:
-              fe_mode = SYS_DVBT;
-              break;
-         case TUNE_SYSTEM_TYPE_DVBT2:
-              fe_mode = SYS_DVBT2;
-              break;
-         case TUNE_SYSTEM_TYPE_DVBS:
-              fe_mode = SYS_DVBS;
-              break;
-         case TUNE_SYSTEM_TYPE_DVBS2:
-              fe_mode = SYS_DVBS2;
-              break;
+         case TUNE_SIGNAL_QPSK:
+            if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS2)
+                tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBS;
+            break;
+         case TUNE_SIGNAL_COFDM:
+            if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT2)
+                tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBT;
+            break;
          default:
-              fe_mode = SYS_DVBT; //temp add, only supports the DVB-T currently.
-              break;
-              //goto openError_end;
+            TUN_ERR("not support sig_type:%d\n", sig_type);
+            goto openError_end;
       }
 
-      struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = fe_mode};
-      struct dtv_properties props = {.num = 1, .props = &p};
-      TUN_ERR("dvb_set_mode:%d\n", props.props[0].u.data);
-      if (ioctl(tstatus->frontend_fd, FE_SET_PROPERTY, &props)!=-1)
+      if (SetFeProperty(tstatus->frontend_fd, tstatus->tuned_sys_type))
       {
           memset(&tstatus->fe_info, 0, sizeof(tstatus->fe_info));
           if (ioctl(tstatus->frontend_fd, FE_GET_INFO, &(tstatus->fe_info)) >= 0)
@@ -1419,7 +1445,7 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
           TUN_DBG("Failed to FE_SET_MODE for %s, errno %d", fe_name, errno);
       }
 
-//openError_end:
+openError_end:
       if (!retval)
       {
          CloseTuner(tstatus);

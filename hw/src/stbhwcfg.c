@@ -43,7 +43,8 @@ stb_hardware_cfg aml_hw_cfg = {
 .recorder_num = 1,
 .ci_slot_num  = 1,
 .vdec_num     = 1,
-.adec_num     = 2
+.adec_num     = 2,
+.demux        = 0
 };
 
 static void
@@ -103,6 +104,17 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 		cfg->vdec_num ++;
 	} else if (!strcmp(name, "adec")) {
 		cfg->adec_num ++;
+	} else if (!strcmp(name, "av")) {
+		att = atts;
+		an = att[0];
+		av = att[1];
+		if (!strcmp(an, "demux")) {
+			long int i;
+			i = strtol(av, NULL, 0);
+			if ((i != LONG_MIN) && (i != LONG_MAX))
+				cfg->demux = i;
+
+		}
 	}
 }
 
@@ -139,6 +151,7 @@ void STB_CfgInitialise(void)
 	aml_hw_cfg.ci_slot_num  = 0;
 	aml_hw_cfg.vdec_num     = 0;
 	aml_hw_cfg.adec_num     = 0;
+	aml_hw_cfg.demux        = 0;
 
 	while (1) {
 		char    buf[CFG_PARSER_BUF_SIZE];
@@ -159,13 +172,14 @@ void STB_CfgInitialise(void)
 			break;
 	}
 
-	CFG_DBG("tuner_num:%d demux_num:%d ci_slot_num:%d recorder_num:%d vdec_num:%d adec_num:%d",
+	CFG_DBG("tuner_num:%d demux_num:%d ci_slot_num:%d recorder_num:%d vdec_num:%d adec_num:%d demux:%d",
 			aml_hw_cfg.tuner_num,
 			aml_hw_cfg.demux_num,
 			aml_hw_cfg.ci_slot_num,
 			aml_hw_cfg.recorder_num,
 			aml_hw_cfg.vdec_num,
-			aml_hw_cfg.adec_num);
+			aml_hw_cfg.adec_num,
+			aml_hw_cfg.demux);
 
 	for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
 		stb_tuner_cfg *tun = &aml_hw_cfg.tuners[i];

@@ -33,6 +33,7 @@
 /* STB header files */
 #include "techtype.h"
 
+#include "stbhwdef.h"
 //#define DEBUG_FUNCTIONS
 #include "dbgfuncs.h"
 #include "stbhwos.h"
@@ -171,7 +172,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
    {
       num_paths = video_paths;
 
-      AV_DBG("video paths=%u", num_paths);
+      AV_DBG("video paths=%u demux = %d", num_paths, aml_hw_cfg.demux + 4);
 
       av_paths_status = (AV_PATH_STATUS*) STB_MEMGetSysRAM(sizeof(AV_PATH_STATUS) * num_paths);
       /* AV paths */
@@ -206,6 +207,8 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             {
                AV_DBG("AM_AV_Open failed, err %d", retval);
             }
+            //need add offset 4,(ts0 ts1 ts2 hiu dmx0 dmx1 dmx2)change demux id to enum value
+            AM_AV_SetTSSource(av_path, aml_hw_cfg.demux + 4);
          }
 
          memset(&aout_param, 0, sizeof(aout_param));
@@ -221,7 +224,6 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
       {
          ERR_DBG("Failed to allocate memory for 'av_status'");
       }
-
    }
    else
    {

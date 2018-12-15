@@ -9,4 +9,5 @@
 	<vdec/>
 	<adec/>
 	<adec/>
+	<av demux="0"/>
 </dtvkit>

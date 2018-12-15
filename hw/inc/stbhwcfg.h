@@ -27,6 +27,7 @@ typedef struct {
 	int           ci_slot_num;
 	int           vdec_num;
 	int           adec_num;
+	int           demux;
 } stb_hardware_cfg;
 
 extern stb_hardware_cfg aml_hw_cfg;

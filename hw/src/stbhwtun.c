@@ -20,7 +20,7 @@
  * @date    October 2018
  */
 
-//#define TUNER_DEBUG
+#define TUNER_DEBUG
 
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
@@ -334,6 +334,9 @@ static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
        case TUNE_SYSTEM_TYPE_DVBS2:
             fe_mode = SYS_DVBS2;
             break;
+       case TUNE_SYSTEM_TYPE_DVBC:
+            fe_mode = SYS_DVBC_ANNEX_A;
+            break;
        default:
             TUN_ERR("not support type:%d", tuned_sys_type);
             return FALSE;
@@ -379,21 +382,23 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
       tstatus = &tuner_status[path];
 
       TUN_DBG("%u: freq %lu, sys_type %s", path, freq,
-         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
-         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
-         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
-         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" : "UNSUPPORTED")))));
+        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
+        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
+        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
+        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" :
+        ((tstatus->signal_type == TUNE_SIGNAL_QAM) ? "DVB-C" : "UNSUPPORTED"))))));
 
       if (((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ||
          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (tstatus->delivery_system == SYS_DVBT2)))) ||
          ((tstatus->signal_type == TUNE_SIGNAL_QPSK) &&
          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ||
-         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (tstatus->delivery_system == SYS_DVBS2)))))
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (tstatus->delivery_system == SYS_DVBS2)))) ||
+         ((tstatus->signal_type == TUNE_SIGNAL_QAM) && (tstatus->delivery_system == SYS_DVBC_ANNEX_A)))
       {
          start_tuning = FALSE;
 
-         if (tstatus->tuned_sys_type != tstatus->sys_type)
+         if ((tstatus->tuned_sys_type != tstatus->sys_type) && (tstatus->signal_type != TUNE_SIGNAL_QAM))
          {
             start_tuning = TRUE;
             tstatus->tuned_sys_type = tstatus->sys_type;
@@ -1407,6 +1412,10 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
             if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT2)
                 tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBT;
             break;
+         case TUNE_SIGNAL_QAM:
+            if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBC)
+                tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBC;
+            break;
          default:
             TUN_ERR("not support sig_type:%d\n", sig_type);
             goto openError_end;
@@ -1424,6 +1433,13 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
                   tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
                   tstatus->signal_type = TUNE_SIGNAL_COFDM;
                   tstatus->delivery_system = SYS_DVBT2;
+              }
+              else if (tstatus->fe_info.type == FE_QAM)
+              {
+                  TUN_DBG("Tuner %s configured as DVBC, min_freq=%lu, max_freq=%lu", fe_name,
+                  tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
+                  tstatus->signal_type = TUNE_SIGNAL_QAM;
+                  tstatus->delivery_system = SYS_DVBC_ANNEX_A;
               }
               else
               {
@@ -1537,7 +1553,45 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
          }
          break;
       }
+      case TUNE_SIGNAL_QAM:
+      {
+         fe_params.frequency = tstatus->freq;
+         switch (tstatus->u.cab.cmode)
+         {
+             case TUNE_MODE_QAM_16:
+                fe_params.u.qam.modulation = QAM_16;
+                break;
+             case TUNE_MODE_QAM_32:
+                fe_params.u.qam.modulation = QAM_32;
+                break;
+             case TUNE_MODE_QAM_64:
+                fe_params.u.qam.modulation = QAM_64;
+                break;
+             case TUNE_MODE_QAM_128:
+                fe_params.u.qam.modulation = QAM_128;
+                break;
+             case TUNE_MODE_QAM_256:
+                fe_params.u.qam.modulation = QAM_256;
+                break;
+                default:
+                fe_params.u.qam.modulation = QAM_AUTO;
+                break;
+         }
 
+         fe_params.u.qam.symbol_rate = tstatus->u.cab.srate;
+         TUN_DBG("[%s] fe_params.u.qam.symbol_rate = %lu, fe_params.u.qam.modulation = %u\n", __FUNCTION__,
+         fe_params.u.qam.symbol_rate, fe_params.u.qam.modulation);
+         if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND, &fe_params) >= 0)
+         {
+            TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+            retval = TRUE;
+         }
+         else
+         {
+            TUN_ERR("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+         }
+         break;
+      }
       case TUNE_SIGNAL_QPSK:
       {
          switch (tstatus->u.sat.lnb_voltage)

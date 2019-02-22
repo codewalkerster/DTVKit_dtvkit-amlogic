@@ -1620,7 +1620,7 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
             }
             if (ioctl(tstatus->frontend_fd, FE_SET_TONE, tone) >= 0)
             {
-               fe_params.frequency = tstatus->freq * 1000;
+               fe_params.frequency = tstatus->freq;
                fe_params.inversion = INVERSION_AUTO;
                fe_params.u.qpsk.symbol_rate = tstatus->u.sat.srate;
 

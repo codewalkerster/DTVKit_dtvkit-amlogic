@@ -17,7 +17,7 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 
-#define CFG_FILE_PATH "/vendor/etc/dtvkit_amlogic.xml"
+#define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
 
 #define CFG_PARSER_BUF_SIZE 512
 

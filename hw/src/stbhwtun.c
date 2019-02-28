@@ -1784,8 +1784,9 @@ static void TunerTask(void *param)
                struct dtv_properties props = {.num = 1, .props = &p};
                if(ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props)!=-1)
                {
-                  if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
-                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2)))
+                  if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
+                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2))) &&
+                     (tstatus->signal_type != TUNE_SIGNAL_QAM))
                   {
                      locked = FALSE;
                      TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,

@@ -564,7 +564,7 @@ U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
    {
       /* Return the frequency in KHz */
-      min_freq = tuner_status[path].fe_info.frequency_min / 1000;
+      min_freq = tuner_status[path].signal_type == TUNE_SIGNAL_QPSK ? tuner_status[path].fe_info.frequency_min : tuner_status[path].fe_info.frequency_min / 1000;
    }
    else
    {
@@ -590,7 +590,7 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
    {
       /* Return the frequency in KHz */
-      max_freq = tuner_status[path].fe_info.frequency_max / 1000;
+      max_freq = tuner_status[path].signal_type == TUNE_SIGNAL_QPSK ? tuner_status[path].fe_info.frequency_max : tuner_status[path].fe_info.frequency_max / 1000;
    }
    else
    {

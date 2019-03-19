@@ -36,8 +36,10 @@
 #include "stbhwos.h"
 #include "stbhwc.h"
 #include "stbhwosd.h"
+#ifdef SUPPORT_DTVKIT_IN_VENDOR
+#else
 #include "binderservice.h"
-
+#endif
 #include "stb_osd.h"
 
 
@@ -205,7 +207,6 @@ void STB_OSDUpdate(void)
 
    STB_OSMutexLock(update_mutex);
 
-#ifdef OSD_UPDATE_BINDER
    BinderService_OverlayClear();
 
    /* Display the subtitles */
@@ -233,7 +234,6 @@ void STB_OSDUpdate(void)
    STB_OSMutexUnlock(mheg_mutex);
 
    BinderService_OverlayDrawFinished();
-#endif
 
    STB_OSMutexUnlock(update_mutex);
 

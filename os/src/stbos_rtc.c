@@ -22,10 +22,13 @@
 
 
 #include <sys/time.h>
+#include <time.h>
 
 /* STB Header Files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include <cutils/properties.h>
+#include <sys/system_properties.h>
 
 
 /*!- Local MACRO Definitions */
@@ -56,6 +59,7 @@ static U32BIT sync_time = 0;
 
 /* Local PROTOTYPE Declarations */
 static U32BIT SysBootTime(void);
+static U32BIT STB_OSGetSystemTime(void);
 
 
 /**
@@ -78,6 +82,8 @@ void STB_OSInitialise(void)
 void STB_OSSetClockRTC(U32BIT num_seconds)
 {
    FUNCTION_START(STB_OSSetClockRTC);
+   char prop_time[64] = {0};
+   int64_t system_time,temp_time;
 
    utc_seconds = num_seconds;
 
@@ -85,6 +91,12 @@ void STB_OSSetClockRTC(U32BIT num_seconds)
    sync_time = SysBootTime();
 
    RTC_DBG("Time set to %u secs at %u msecs", num_seconds, sync_time);
+
+   system_time = (int64_t)(STB_OSGetSystemTime());
+   temp_time = (int64_t)num_seconds - system_time;
+
+   sprintf(prop_time, "%ld000", temp_time);//prop need ms
+   property_set("tv.stream.realtime", prop_time);
 
    FUNCTION_FINISH(STB_OSSetClockRTC);
 }
@@ -227,4 +239,15 @@ static U32BIT SysBootTime(void)
 
    return msec;
 }
+
+static U32BIT STB_OSGetSystemTime(void)
+{
+	time_t t;
+	struct tm * lt;
+	time (&t);//获取Unix时间戳。
+	lt = localtime (&t);//转为时间结构。
+	printf ( "systime:%d/%d/%d %d:%d:%d\n",lt->tm_year+1900, lt->tm_mon, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec);
+	return t;
+}
+
 

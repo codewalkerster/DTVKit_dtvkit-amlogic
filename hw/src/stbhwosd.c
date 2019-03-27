@@ -207,6 +207,7 @@ void STB_OSDUpdate(void)
 
    STB_OSMutexLock(update_mutex);
 
+#ifndef SUPPORT_DTVKIT_IN_VENDOR
    BinderService_OverlayClear();
 
    /* Display the subtitles */
@@ -234,7 +235,7 @@ void STB_OSDUpdate(void)
    STB_OSMutexUnlock(mheg_mutex);
 
    BinderService_OverlayDrawFinished();
-
+#endif
    STB_OSMutexUnlock(update_mutex);
 
    FUNCTION_FINISH(STB_OSDUpdate);

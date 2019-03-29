@@ -451,8 +451,7 @@ U8BIT STB_AVGetUhfModulatorChannel(void)
 void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 {
    FUNCTION_START(STB_AVSetAudioVolume);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(vol);
+   AM_AOUT_SetVolume(AOUT_DEV, vol);
    FUNCTION_FINISH(STB_AVSetAudioVolume);
 }
 
@@ -1390,8 +1389,7 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
 void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 {
    FUNCTION_START(STB_AVSetADVolume);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(vol);
+   AM_AOUT_SetVolume(AOUT_DEV, vol);
    FUNCTION_FINISH(STB_AVSetADVolume);
 }
 

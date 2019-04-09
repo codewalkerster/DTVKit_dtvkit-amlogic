@@ -224,12 +224,10 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
 
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_AVAILABLE, AVEventHandler,
                   &av_paths_status[av_path]);
-#ifdef ASPECT_RATIO_REPORT_SUPPORT
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_ASPECT_RATIO_CHANGED, AVEventHandler,
                   &av_paths_status[av_path]);
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_RESOLUTION_CHANGED, AVEventHandler,
                   &av_paths_status[av_path]);
-#endif
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_WINDOW_CHANGED, AVEventHandler,
                   &av_paths_status[av_path]);
             }
@@ -1610,7 +1608,6 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
 
    switch(event_type)
    {
-#ifdef ASPECT_RATIO_REPORT_SUPPORT
       case AM_AV_EVT_VIDEO_ASPECT_RATIO_CHANGED:
       {
          switch ((AM_AV_VideoAspectRatio_t)param)
@@ -1637,6 +1634,8 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
          if (param != NULL)
          {
             video_status = (AM_AV_VideoStatus_t *)param;
+            if (!video_status->src_w || !video_status->src_h)
+                break;
             info.flags |= VIDEO_INFO_VIDEO_RESOLUTION;
             info.video_width = video_status->src_w;
             info.video_height = video_status->src_h;
@@ -1644,7 +1643,7 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
          }
          break;
       }
-#endif
+
       case AM_AV_EVT_VIDEO_AVAILABLE:
       {
          info.flags = VIDEO_INFO_DECODER_STATUS;

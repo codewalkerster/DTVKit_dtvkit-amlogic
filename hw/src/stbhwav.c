@@ -178,7 +178,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
    {
       num_paths = video_paths;
 
-      AV_DBG("video paths=%u demux = %d", num_paths, aml_hw_cfg.demux + 4);
+      AV_DBG("video paths=%u demux = %d", num_paths, aml_hw_cfg.demux + 5);
 
       av_paths_status = (AV_PATH_STATUS*) STB_MEMGetSysRAM(sizeof(AV_PATH_STATUS) * num_paths);
       /* AV paths */
@@ -216,8 +216,8 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             }
             else
             {
-               //need add offset 4,(ts0 ts1 ts2 hiu dmx0 dmx1 dmx2)change demux id to enum value
-               AM_AV_SetTSSource(av_path, aml_hw_cfg.demux + 4);
+               //need add offset 4,(ts0 ts1 ts2 hiu hiu1 dmx0 dmx1 dmx2)change demux id to enum value
+               AM_AV_SetTSSource(av_path, aml_hw_cfg.demux + 5);
 
                /* Prevent AMLogic AV code from applying any video scaling */
                AM_FileEcho("/sys/class/video/screen_mode", "5");

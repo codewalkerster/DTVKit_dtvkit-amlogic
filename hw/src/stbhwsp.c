@@ -31,6 +31,25 @@
 #include "dbgfuncs.h"
 #include "stbhwc.h"
 
+#include <android/log.h>
+#ifndef TAG_EXT
+#define TAG_EXT
+#endif
+
+#define DTVKIT_MACRO_BEGIN   do {
+
+/**\brief 添加在命令行式定义的末尾*/
+#define DTVKIT_MACRO_END     } while(0)
+
+#define log_print(...) __android_log_print(ANDROID_LOG_INFO, "DTVKIT_LOG" TAG_EXT, __VA_ARGS__)
+#define DTVKIT_DEBUG(_fmt...) \
+   DTVKIT_MACRO_BEGIN\
+   if (1)\
+   {\
+      log_print(_fmt);\
+   }\
+   DTVKIT_MACRO_END
+
 /*---constant definitions for this file---------------------------------------*/
 
 /*---macro definitions for this file------------------------------------------*/
@@ -67,8 +86,9 @@ void STB_SPDebugWrite(const char *format, ... )
    vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
    va_end(vparams);
 
-   printf("%s\n", debug_msg_buff);
-   fflush(stdout);
+   //printf("%s\n", debug_msg_buff);
+   DTVKIT_DEBUG("%s", debug_msg_buff);
+   //fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugWrite);
 }
@@ -89,8 +109,9 @@ void STB_SPDebugNoCnWrite(const char *format, ... )
    vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
    va_end(vparams);
 
-   printf("%s", debug_msg_buff);
-   fflush(stdout);
+   DTVKIT_DEBUG("%s", debug_msg_buff);
+   //printf("%s", debug_msg_buff);
+   //fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugNoCnWrite);
 }

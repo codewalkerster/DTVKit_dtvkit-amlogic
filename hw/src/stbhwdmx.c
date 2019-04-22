@@ -43,7 +43,7 @@
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
 
-
+#define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
 #define DMX_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 

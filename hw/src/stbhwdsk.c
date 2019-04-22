@@ -46,6 +46,7 @@
 
 
 /*---macro definitions for this file-----------------------------------------*/
+#define DISK_DEBUG 1
 #ifdef  DISK_DEBUG
    #define  DISK_DBG(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
@@ -54,6 +55,7 @@
 
 #define  DISK_ERR(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
+int add_flag = 0;
 
 /*---constant definitions for this file--------------------------------------*/
 
@@ -1174,20 +1176,66 @@ void STB_DSKSetStandby(BOOLEAN state)
    FUNCTION_FINISH(STB_DSKSetStandby);
 }
 
+static void DiskAddApkDir(void) {
+
+   BOOLEAN send_events = TRUE;
+   char device_name[128];
+   char mount_path[128];
+   char fs_type[32];
+   char read_write[8];
+   S_DISK_INFO* disk;
+   S_DISK_INFO* next_disk;
+   STB_OSMutexLock(disk_mutex);
+   if (add_flag == 0) {
+      add_flag = 1;
+      //init device name and mount path
+      memset(device_name, 0, 128);
+      memset(mount_path, 0, 128);
+      strcpy(device_name, "/data/data");
+      strcpy(mount_path, "/data/data/org.dtvkit.inputsource");
+      for (disk = disk_list; (disk != NULL) &&
+         ((strcmp(disk->device_name, device_name) != 0) || (strcmp(disk->mount_path, mount_path) != 0)); )
+      {
+         disk = disk->next;
+      }
+
+      if (disk == NULL)
+      {
+         /* Add this disk to the list */
+         disk = AddDisk(device_name, mount_path);
+
+         if (disk != NULL)
+         {
+            DISK_DBG("Added disk %s, mounted on %s, ID 0x%04x, size %lu KB",
+               disk->device_name, disk->mount_path, disk->disk_id, disk->disk_size);
+
+            if (send_events)
+            {
+               /* Send an event to indicate a device has been attached */
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_CONNECTED,
+                  &(disk->disk_id), sizeof(disk->disk_id));
+            }
+         }
+      }
+
+   }
+   STB_OSMutexUnlock(disk_mutex);
+}
+
 /*---local function definitions----------------------------------------------*/
 static void DiskMonitorTask(void *param)
 {
    USE_UNWANTED_PARAM(param);
 
    /* Create the initial list of disks, but don't send events on start up */
-   RefreshDiskList(FALSE);
-
+   //RefreshDiskList(FALSE);
+   DiskAddApkDir();
    while (TRUE)
    {
       /* Run the task every 3 seconds */
       STB_OSTaskDelay(3000);
 
-      RefreshDiskList(TRUE);
+      //RefreshDiskList(TRUE);
    }
 }
 
@@ -1210,7 +1258,7 @@ static void RefreshDiskList(BOOLEAN send_events)
       /* Mark all disks as not found so that any that have been removed can be detected */
       for (disk = disk_list; disk != NULL; disk = disk->next)
       {
-         disk->found = FALSE;
+            disk->found = FALSE;
       }
 
       STB_OSMutexUnlock(disk_mutex);

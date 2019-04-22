@@ -30,6 +30,7 @@
 #include <cutils/properties.h>
 #include <sys/system_properties.h>
 
+#include "am_misc.h"
 
 /*!- Local MACRO Definitions */
 #define RTC_TICKS_PER_SEC     1000
@@ -177,7 +178,8 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
    temp_time = (int64_t)num_seconds - system_time;
 
    sprintf(prop_time, "%ld000", temp_time);//prop need ms
-   property_set("tv.stream.realtime", prop_time);
+   //property_set("tv.stream.realtime", prop_time);
+   AM_PropEcho("tv.stream.realtime", prop_time);
    printf("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
 
    FUNCTION_FINISH(STB_OSSetClockGMT);

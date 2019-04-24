@@ -900,6 +900,10 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
       av_paths_status[path].video_format = VFORMAT_H264;
       VID_DBG("H264");
       break;
+   case AV_VIDEO_CODEC_H265:
+      av_paths_status[path].video_format = VFORMAT_HEVC;
+      VID_DBG("H265/HEVC");
+      break;
    case AV_VIDEO_CODEC_MPEG1:
    case AV_VIDEO_CODEC_MPEG2:
       av_paths_status[path].video_format = VFORMAT_MPEG12;

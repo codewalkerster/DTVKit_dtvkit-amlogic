@@ -235,6 +235,7 @@ void STB_OSDUpdate(void)
    STB_OSMutexUnlock(mheg_mutex);
 
    BinderService_OverlayDrawFinished();
+
    STB_OSMutexUnlock(update_mutex);
 
    FUNCTION_FINISH(STB_OSDUpdate);

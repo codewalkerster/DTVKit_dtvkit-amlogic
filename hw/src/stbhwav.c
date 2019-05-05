@@ -106,13 +106,11 @@ typedef struct
    E_STB_AV_DECODE_SOURCE source;
    U8BIT demux;
 
-   E_STB_AV_VIDEO_CODEC video_codec;
-   E_STB_AV_AUDIO_CODEC audio_codec;
-   E_STB_AV_AUDIO_CODEC ad_codec;
    AM_AV_VFormat_t video_format;
    AM_AV_AFormat_t audio_format;
    AM_AV_AFormat_t ad_format;
    E_AV_DECODER_STATE av_decoder_state;
+   BOOLEAN injecting;
 
    BOOLEAN iframe_shown;
    U8BIT* iframe_data;
@@ -192,14 +190,12 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
          {
             av_paths_status[av_path].decoder = av_path;
             av_paths_status[av_path].source = AV_DEMUX;
-            av_paths_status[av_path].video_codec = AV_AUDIO_CODEC_AUTO;
+            av_paths_status[av_path].injecting = FALSE;
             
             av_paths_status[av_path].iframe_shown = FALSE;
             av_paths_status[av_path].iframe_codec = AV_VIDEO_CODEC_AUTO;
             av_paths_status[av_path].iframe_data = NULL;
             
-            // av_paths_status[av_path].av_mutex = STB_OSCreateMutex();
-
             av_paths_status[av_path].audio_descriptor_active = FALSE;
             av_paths_status[av_path].av_decoder_state = DECODER_A_STOP_V_STOP;
             av_paths_status[av_path].audio_pid = INVALID_PID;
@@ -449,7 +445,11 @@ U8BIT STB_AVGetUhfModulatorChannel(void)
 void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 {
    FUNCTION_START(STB_AVSetAudioVolume);
+
+   av_paths_status[path].volume=vol;
+
    AM_AOUT_SetVolume(AOUT_DEV, vol);
+
    FUNCTION_FINISH(STB_AVSetAudioVolume);
 }
 
@@ -461,10 +461,9 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 U8BIT STB_AVGetAudioVolume(U8BIT path)
 {
    FUNCTION_START(STB_AVGetAudioVolume);
-   USE_UNWANTED_PARAM(path);
    FUNCTION_FINISH(STB_AVGetAudioVolume);
 
-   return 0;
+   return av_paths_status[path].volume;
 }
 
 /**
@@ -619,6 +618,11 @@ void STB_AVStartVideoDecoding(U8BIT path)
       audio_format = av_paths_status[path].audio_format;
       video_format = av_paths_status[path].video_format;
 
+      if (audio_pid == 0)
+      {
+         audio_pid = INVALID_PID;
+      }
+
       if (video_pid != 0)
       {
          AM_AV_SetVideoAspectRatio(path, AM_AV_VIDEO_ASPECT_AUTO);
@@ -658,17 +662,14 @@ void STB_AVStartVideoDecoding(U8BIT path)
             av_paths_status[path].pcr_pid = pcr_pid;
             break;
          case DECODER_A_STOP_V_STOP:
-            VID_DBG("audio not started, video PID=%u", video_pid);
+            VID_DBG("audio not started, video PID=%u, PCR=%u", video_pid,pcr_pid);
             av_paths_status[path].audio_pid = INVALID_PID;
             av_paths_status[path].video_pid = video_pid;
-            av_paths_status[path].video_pid = pcr_pid;         
-#if 0
-            /*start with invalid audio pid if the audio decoder shouldn't be started yet*/
-            AM_AV_StartTSWithPCR(path, video_pid, INVALID_PID, pcr_pid, video_format, audio_format);
-#else
+            av_paths_status[path].pcr_pid = pcr_pid;
+
             /*There seems to be a problem with using invalid pids, so just start up the audio decoder early*/
             AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
-#endif
+
             av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
             break;
          default:
@@ -687,7 +688,33 @@ void STB_AVStartVideoDecoding(U8BIT path)
 void  STB_AVPauseVideoDecoding(U8BIT path)
 {
    FUNCTION_START(STB_AVPauseVideoDecoding);
-   USE_UNWANTED_PARAM(path);
+
+   if (av_paths_status[path].injecting)
+   {
+      AM_AV_PauseInject(path);
+   }
+   else
+   {
+      switch (av_paths_status[path].av_decoder_state)
+      {
+         case DECODER_A_START_V_START:
+         {
+            /*restart the decoder in audio only, but leave last frame onscreen*/
+            AM_AV_StartTSWithPCR(path, INVALID_PID, av_paths_status[path].audio_pid, INVALID_PID, -1, av_paths_status[path].audio_format);
+            break;
+         }
+         case DECODER_A_STOP_V_START:
+         {
+            /*Stop decoding, but leave last frame onscreen*/
+            AM_AV_StopTS(path);
+            break;
+         }
+         default:
+            VID_DBG("can't pause: already stopped");
+            break;
+      }
+   }
+
    FUNCTION_FINISH(STB_AVPauseVideoDecoding);
 }
 
@@ -698,7 +725,39 @@ void  STB_AVPauseVideoDecoding(U8BIT path)
 void  STB_AVResumeVideoDecoding(U8BIT path)
 {
    FUNCTION_START(STB_AVResumeVideoDecoding);
-   USE_UNWANTED_PARAM(path);
+
+   if (av_paths_status[path].injecting)
+   {
+      AM_AV_ResumeInject(path);
+   }
+   else
+   {
+      switch (av_paths_status[path].av_decoder_state)
+      {
+         case DECODER_A_START_V_START:
+         {
+            AM_AV_StartTSWithPCR(path, av_paths_status[path].video_pid,
+                                 av_paths_status[path].audio_pid,
+                                 av_paths_status[path].pcr_pid,
+                                 av_paths_status[path].video_format,
+                                 av_paths_status[path].audio_format);
+            break;
+         }
+         case DECODER_A_STOP_V_START:
+         {
+            AM_AV_StartTSWithPCR(path, av_paths_status[path].video_pid,
+                                 av_paths_status[path].audio_pid,
+                                 av_paths_status[path].pcr_pid,
+                                 av_paths_status[path].video_format,
+                                 av_paths_status[path].audio_format);
+            break;
+         }
+         default:
+            VID_DBG("can't resume: already stopped");
+            break;
+      }
+   }
+
    FUNCTION_FINISH(STB_AVResumeVideoDecoding);
 }
 
@@ -714,50 +773,56 @@ void STB_AVStopVideoDecoding(U8BIT path)
    FUNCTION_START(STB_AVStopVideoDecoding);
 
    VID_DBG("path=%u", path);
- 
+
    info.flags = 0;
-
-   switch (av_paths_status[path].av_decoder_state)
+   if (av_paths_status[path].injecting)
    {
-      case DECODER_A_STOP_V_START:
-      {
-         VID_DBG("audio not running, stop decoding");
-         error = AM_AV_StopTS(path);
-         VID_DBG("Stopped decoding, result %d", error);
-
-         info.flags = VIDEO_INFO_DECODER_STATUS;
-         info.status = DECODER_STATUS_NONE;
-
-         av_paths_status[path].audio_pid = INVALID_PID;
-         av_paths_status[path].video_pid = INVALID_PID;
-         av_paths_status[path].ad_pid = INVALID_PID;
-         av_paths_status[path].pcr_pid = INVALID_PID;
-         av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_STOP;
-
-         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STOPPED, &path, sizeof(U8BIT));
-         break;
-      }
-
-      case DECODER_A_START_V_START:
-      {
-         VID_DBG("audio still running, just hide the video for now");
-
-         info.flags = VIDEO_INFO_DECODER_STATUS;
-         info.status = DECODER_STATUS_NONE;
-
-         //AM_AV_DisableVideo(path);
-         av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
-         av_paths_status[path].video_pid = INVALID_PID;
-         av_paths_status[path].pcr_pid = INVALID_PID;
-         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STOPPED, &path, sizeof(U8BIT));
-         break;   
-      }
-      case DECODER_A_STOP_V_STOP:
-      case DECODER_A_START_V_STOP:
-         VID_DBG("already stopped");
-         break;
+      AV_StopInjection(path);
    }
+   else
+   {
+      switch (av_paths_status[path].av_decoder_state)
+      {
+         case DECODER_A_STOP_V_START:
+         {
+            VID_DBG("audio not running, stop decoding");
+            error = AM_AV_StopTS(path);
+            VID_DBG("Stopped decoding, result %d", error);
 
+            info.flags = VIDEO_INFO_DECODER_STATUS;
+            info.status = DECODER_STATUS_NONE;
+
+            av_paths_status[path].audio_pid = INVALID_PID;
+            av_paths_status[path].video_pid = INVALID_PID;
+            av_paths_status[path].ad_pid = INVALID_PID;
+            av_paths_status[path].pcr_pid = INVALID_PID;
+            av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_STOP;
+
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STOPPED, &path, sizeof(U8BIT));
+            break;
+         }
+
+         case DECODER_A_START_V_START:
+         {
+            VID_DBG("audio still running, just hide the video for now");
+
+            info.flags = VIDEO_INFO_DECODER_STATUS;
+            info.status = DECODER_STATUS_NONE;
+
+            //AM_AV_DisableVideo(path);
+            AM_AV_StartTSWithPCR(path, INVALID_PID, av_paths_status[path].audio_pid, INVALID_PID, -1, av_paths_status[path].audio_format);
+            av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
+            av_paths_status[path].video_pid = INVALID_PID;
+            av_paths_status[path].pcr_pid = INVALID_PID;
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STOPPED, &path, sizeof(U8BIT));
+            break;
+         }
+         case DECODER_A_STOP_V_STOP:
+         case DECODER_A_START_V_STOP:
+            VID_DBG("already stopped");
+            break;
+      }
+   }
    if ((info.flags != 0) && (av_paths_status[path].callback != NULL))
    {
       av_paths_status[path].callback(&info, av_paths_status[path].user_data);
@@ -777,27 +842,34 @@ void STB_AVStopAudioDecoding(U8BIT path)
    FUNCTION_START(STB_AVStopAudioDecoding);
    AUD_DBG("path=%u", path);
 
-   switch (av_paths_status[path].av_decoder_state)
+   if (av_paths_status[path].injecting)
    {
-     case DECODER_A_STOP_V_START:
-     case DECODER_A_STOP_V_STOP:
-        AUD_DBG("already stopped");
-        break;
-      case DECODER_A_START_V_STOP:
-         AUD_DBG("video not running, stop decoding");
-         error = AM_AV_StopTS(path);
-         AUD_DBG("Stopped decoding, result %d", error);
-         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
-         av_paths_status[path].audio_pid = INVALID_PID;
-         av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_STOP;
-         break;
-      case DECODER_A_START_V_START:
-         AUD_DBG("video still running, switch to invalid audio pid");
-         AM_AV_SwitchTSAudio(path,INVALID_PID,av_paths_status[path].audio_format);
-         av_paths_status[path].audio_pid = INVALID_PID;
-         av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
-         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
-         break;
+      AV_StopInjection(path);
+   }
+   else
+   {
+      switch (av_paths_status[path].av_decoder_state)
+      {
+         case DECODER_A_STOP_V_START:
+         case DECODER_A_STOP_V_STOP:
+            AUD_DBG("already stopped");
+            break;
+         case DECODER_A_START_V_STOP:
+            AUD_DBG("video not running, stop decoding");
+            error = AM_AV_StopTS(path);
+            AUD_DBG("Stopped decoding, result %d", error);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
+            av_paths_status[path].audio_pid = INVALID_PID;
+            av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_STOP;
+            break;
+         case DECODER_A_START_V_START:
+            AUD_DBG("video still running, switch to invalid audio pid");
+            AM_AV_SwitchTSAudio(path,INVALID_PID,av_paths_status[path].audio_format);
+            av_paths_status[path].audio_pid = INVALID_PID;
+            av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
+            break;
+      }
    }
    FUNCTION_FINISH(STB_AVStopAudioDecoding);
 }
@@ -914,7 +986,7 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
       success = FALSE;
       break;
    }
-   
+
    FUNCTION_FINISH(STB_AVSetVideoCodec);
 
    return success;
@@ -976,12 +1048,23 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
 E_HW_STATUS STB_AVLoadAudioSample(U8BIT path, U8BIT *data, U32BIT size)
 {
    FUNCTION_START(STB_AVLoadAudioSample);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(data);
-   USE_UNWANTED_PARAM(size);
+
+   if (av_paths_status[path].sample_data != NULL)
+   {
+      STB_MEMFreeSysRAM(av_paths_status[path].sample_data);
+      av_paths_status[path].sample_data = NULL;
+      av_paths_status[path].sample_data_size = 0;
+   }
+
+   av_paths_status[path].sample_data = STB_MEMGetSysRAM(size);
+   if (av_paths_status[path].sample_data != NULL)
+   {
+      memcpy(av_paths_status[path].sample_data,data,size);
+      av_paths_status[path].sample_data_size = size;
+   }
    FUNCTION_FINISH(STB_AVLoadAudioSample);
 
-   return HW_GEN_ERROR;
+   return HW_OK;
 }
 
 /**
@@ -992,12 +1075,29 @@ E_HW_STATUS STB_AVLoadAudioSample(U8BIT path, U8BIT *data, U32BIT size)
  */
 E_HW_STATUS STB_AVPlayAudioSample(U8BIT path, U32BIT loop_count)
 {
+   AM_ErrorCode_t retval;
+   E_HW_STATUS success = HW_GEN_ERROR;
+
    FUNCTION_START(STB_AVPlayAudioSample);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(loop_count);
+   if (av_paths_status[path].sample_data_size > 0)
+   {
+      if ( AM_AV_SetTSSource(path, AM_AV_TS_SRC_HIU) == AM_SUCCESS)
+      {
+         retval = AM_AV_StartAudioESData(path, AFORMAT_MPEG, av_paths_status[path].sample_data,
+                          av_paths_status[path].sample_data_size,loop_count);
+         if (retval == AM_SUCCESS)
+         {
+           success = HW_OK;
+         }
+         else
+         {
+            ERR_DBG("AM_AV_StartAudioESData failed, error: %d",retval-AM_AV_ERROR_BASE);
+         }
+      }
+   }
    FUNCTION_FINISH(STB_AVPlayAudioSample);
 
-   return HW_GEN_ERROR;
+   return success;
 }
 
 /**
@@ -1035,7 +1135,9 @@ E_HW_STATUS STB_AVResumeAudioSample(U8BIT path)
 void STB_AVStopAudioSample(U8BIT path)
 {
    FUNCTION_START(STB_AVStopAudioSample);
-   USE_UNWANTED_PARAM(path);
+
+   AM_AV_StopAudioES(path);
+   AM_AV_SetTSSource(path, AM_AV_TS_SRC_DMX0);
    FUNCTION_FINISH(STB_AVStopAudioSample);
 }
 
@@ -1049,7 +1151,7 @@ BOOLEAN STB_AVSetIFrameCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
 {
    BOOLEAN supported;
    FUNCTION_START(STB_AVSetIFrameCodec);
-   
+
    switch(codec)
    {
       case AV_VIDEO_CODEC_MPEG1:
@@ -1061,7 +1163,7 @@ BOOLEAN STB_AVSetIFrameCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
       default:
          supported = FALSE;
    }
-   
+
    FUNCTION_FINISH(STB_AVSetIFrameCodec);
    return(supported);
 }
@@ -1085,10 +1187,10 @@ void STB_AVLoadIFrame(U8BIT path, U8BIT *data, U32BIT size)
    if (size != 0)
    {
       av_paths_status[path].iframe_data = STB_MEMGetSysRAM(size);
-      if(av_paths_status[path].iframe_data != NULL)
+      if (av_paths_status[path].iframe_data != NULL)
       {
          VID_DBG("buffering %lu byte iframe",size);
-         av_paths_status[path].iframe_data_size = size; 
+         av_paths_status[path].iframe_data_size = size;
          memcpy(av_paths_status[path].iframe_data,data,size);
       }
       else
@@ -1321,7 +1423,7 @@ void STB_AVStartADDecoding(U8BIT path)
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
 
    FUNCTION_START(STB_AVStartADDecoding);
-   
+
    DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
    AM_AV_SetAudioAd(path,1,ad_pid,av_paths_status[path].ad_format);
 
@@ -1636,12 +1738,13 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
          if (param != NULL)
          {
             video_status = (AM_AV_VideoStatus_t *)param;
-            if (!video_status->src_w || !video_status->src_h)
-                break;
-            info.flags |= VIDEO_INFO_VIDEO_RESOLUTION;
-            info.video_width = video_status->src_w;
-            info.video_height = video_status->src_h;
-            VID_DBG("Video res changed, %u x %u", info.video_width, info.video_height);
+            if ((video_status->src_w != 0) && (video_status->src_h != 0))
+            {
+               info.flags |= VIDEO_INFO_VIDEO_RESOLUTION;
+               info.video_width = video_status->src_w;
+               info.video_height = video_status->src_h;
+               VID_DBG("Video res changed, %u x %u", info.video_width, info.video_height);
+            }
          }
          break;
       }
@@ -1692,3 +1795,110 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
    }
 }
 
+BOOLEAN AV_StartInjection(U8BIT path)
+{
+   AM_ErrorCode_t retval;
+   AM_AV_InjectPara_t para;
+   U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+   BOOLEAN success = FALSE;
+
+   FUNCTION_START(AV_StartInjection);
+
+   DMXGetDecodePIDs(av_paths_status->demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+
+   para.vid_fmt = av_paths_status[path].video_format;
+   para.aud_fmt = av_paths_status[path].audio_format;
+   para.pkg_fmt = PFORMAT_TS;
+   para.vid_id  = video_pid;
+   para.aud_id  = audio_pid;
+   av_paths_status[path].video_pid = video_pid;
+   av_paths_status[path].audio_pid = audio_pid;
+
+   AM_AV_EnableVideo(path);
+   retval = AM_AV_SetTSSource(path, AM_AV_TS_SRC_HIU);
+   if (retval == AM_SUCCESS)
+   {
+      retval = AM_AV_StartInject(path, &para);
+      if (retval == AM_SUCCESS)
+      {
+         av_paths_status[path].injecting = TRUE;
+         success = TRUE;
+      }
+      else
+      {
+         ERR_DBG("AM_AV_StartInject failed, err %d", retval-AM_AV_ERROR_BASE);
+      }
+   }
+   else
+   {
+      ERR_DBG("AM_AV_SetTSSource failed, err %d", retval-AM_AV_ERROR_BASE);
+   }
+
+   FUNCTION_FINISH(AV_StartInjection);
+   return success;
+}
+
+BOOLEAN AV_StopInjection(U8BIT path)
+{
+   AM_ErrorCode_t retval;
+   BOOLEAN success = FALSE;
+
+   FUNCTION_START(AV_StopInjection);
+
+   if (av_paths_status[path].injecting)
+   {
+      retval = AM_AV_StopInject(path);
+      if (retval != AM_SUCCESS)
+      {
+         ERR_DBG("AM_AV_StopInject failed, err %d", retval-AM_AV_ERROR_BASE);
+      }
+      else
+      {
+         retval = AM_AV_SetTSSource(path, AM_AV_TS_SRC_DMX0);
+         if (retval != AM_SUCCESS)
+         {
+            ERR_DBG("AM_AV_SetTSSource failed, err %d", retval-AM_AV_ERROR_BASE);
+         }
+         else
+         {
+            av_paths_status[path].injecting = FALSE;
+            success = TRUE;
+            av_paths_status[path].video_pid = INVALID_PID;
+            av_paths_status[path].audio_pid = INVALID_PID;
+         }
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STOPPED, &path, sizeof(U8BIT));
+      }
+   }
+   else
+   {
+       AV_DBG("AM_AV_StopInject while not injecting\n");
+   }
+
+   FUNCTION_FINISH(AV_StopInjection);
+
+   return success;
+}
+
+void AV_InjectData(U8BIT path,U8BIT *data, U32BIT size)
+{
+   U8BIT *buffer = data;
+   U32BIT left = size;
+   U32BIT sent;
+   AM_ErrorCode_t retval = AM_SUCCESS;
+
+   if (!av_paths_status[path].injecting)
+   {
+      AV_StartInjection(path);
+   }
+   while (left > 0 && retval == AM_SUCCESS)
+   {
+      sent = left;
+      retval = AM_AV_InjectData(path, AM_AV_INJECT_MULTIPLEX , buffer, &sent, -1);
+      buffer += sent;
+      left -= sent;
+   }
+   if (retval != AM_SUCCESS)
+   {
+      ERR_DBG("AM_AV_InjectData failed, err %d", retval-AM_AV_ERROR_BASE);
+   }
+}

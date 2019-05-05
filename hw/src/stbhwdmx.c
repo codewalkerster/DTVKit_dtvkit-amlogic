@@ -32,11 +32,13 @@
 /* third party header files */
 #include <linux/dvb/dmx.h>
 #include <am_adp/am_dmx.h>
+#include <am_adp/am_dsc.h>
 
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
 
+#include "internal.h"
 #include "stbhwdef.h"
 #include "stbhwc.h"
 #include "stbhwos.h"
@@ -46,7 +48,7 @@
 #define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
 #define DMX_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
-
+//#define DEMUX_DEBUG
 #ifdef DEMUX_DEBUG
 #define DMX_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
@@ -70,7 +72,21 @@
 
 #define TEXT_BUFFER_SIZE            (65 * 1024)
 
+#define DSC_DEV_NO                  0
+
 /* Local ENUM/TYPE Definitions */
+
+typedef enum
+{ /* E_STB_DMX_DESC_TRACK is subset of this enum (first three correspond)*/
+   DMX_AUDIO,
+   DMX_VIDEO,
+   DMX_TEXT,
+   DMX_PCR,
+   DMX_ADES,
+   DMX_PID_COUNT
+} E_DMX_TRACK;
+
+
 typedef void(*SectionFilterFunc)(U8BIT path, U16BIT bytes, U16BIT pfilt_id);
 
 typedef struct s_section_filter_info
@@ -96,6 +112,17 @@ typedef struct s_pid_filter_info
    U8BIT start_count[MAX_FILTERS_PER_PID];
 } S_PID_FILTER_INFO;
 
+typedef struct s_des_track_info
+{
+   int chanid;
+   E_STB_DMX_DESC_TYPE type;
+   E_STB_DMX_KEY_USAGE usage;
+   BOOLEAN iseven;
+   BOOLEAN isodd;
+   U8BIT even[32];
+   U8BIT odd[32];
+} S_DES_TRACK_INFO;
+
 typedef struct
 {
    U8BIT path;
@@ -106,14 +133,12 @@ typedef struct
    E_STB_DMX_DEMUX_SOURCE source;
    U8BIT source_param;
 
-   U16BIT pcr_pid;
-   U16BIT video_pid;
-   U16BIT audio_pid;
-   U16BIT ad_pid;
+   U16BIT pids[DMX_PID_COUNT];
+
+   S_DES_TRACK_INFO tracks[DESC_NUM_TRACKS];
 
    /* Subtitle/teletext PES support vars */
    int text_fhandle;
-   U16BIT text_pid;
    U8BIT* text_buffer;
    U8BIT* write_ptr;
    U8BIT* read_ptr;
@@ -134,7 +159,6 @@ static U8BIT num_paths;
 static U8BIT* pes_data = NULL;
 static U32BIT pes_data_size = 0;
 
-
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
 
@@ -146,6 +170,8 @@ static void OpenSectionFilters(S_DMX_STATUS *pdmx);
 static void CloseSectionFilters(U8BIT path);
 #endif
 
+static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
+static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 
 /*---global function definitions---------------------------------------------*/
 
@@ -194,11 +220,17 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                   demux_status[i].caps = DMX_CAPS_LIVE | DMX_CAPS_RECORDING | DMX_CAPS_PLAYBACK |
                      DMX_CAPS_MONITOR_SI;
 
-                  demux_status[i].pcr_pid = 0;
-                  demux_status[i].video_pid = 0;
-                  demux_status[i].audio_pid = 0;
-                  demux_status[i].text_pid = 0;
-                  demux_status[i].ad_pid = 0;
+                  for (j = 0; j < DMX_PID_COUNT; j++)
+                  {
+                     demux_status[i].pids[j] = 0;
+                  }
+
+                  for (j = 0; j != DESC_NUM_TRACKS; j++)
+                  {
+                     demux_status[i].tracks[j].chanid = -1;
+                     demux_status[i].tracks[j].iseven = FALSE;
+                     demux_status[i].tracks[j].isodd = FALSE;
+                  }
 
                   /* Set default values */
                   for (j = 0; j < MAX_PID_FILTERS; j++)
@@ -264,6 +296,25 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       DMX_DBG("No demuxes found!");
    }
 
+   {
+      AM_DSC_OpenPara_t dsc_para;
+      AM_ErrorCode_t ret;
+      memset(&dsc_para, 0, sizeof(dsc_para));
+      ret = AM_DSC_Open(DSC_DEV_NO, &dsc_para);
+      if (ret != AM_SUCCESS)
+      {
+         DMX_ERR("AM_DSC_Open error=%x", ret);
+      }
+      else
+      {
+         ret = AM_DSC_SetSource(DSC_DEV_NO, AM_DSC_SRC_BYPASS);
+         if (ret != AM_SUCCESS)
+         {
+            DMX_ERR("AM_DSC_SetSource error=%x", ret);
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_DMXInitialise);
 }
 
@@ -304,6 +355,7 @@ U16BIT STB_DMXGetCapabilities(U8BIT path)
 void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid,
    U16BIT text_pid, U16BIT data_pid, U16BIT ad_pid)
 {
+   U16BIT *pids;
    FUNCTION_START(STB_DMXChangeDecodePIDs);
    USE_UNWANTED_PARAM(data_pid);
 
@@ -312,10 +364,35 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
 
    if ((path < num_paths) && (demux_status[path].config_mutex != NULL))
    {
-      demux_status[path].pcr_pid = pcr_pid;
-      demux_status[path].video_pid = video_pid;
-      demux_status[path].audio_pid = audio_pid;
-      demux_status[path].ad_pid = ad_pid;
+      pids = demux_status[path].pids;
+
+      pids[DMX_PCR] = pcr_pid;
+      pids[DMX_ADES] = ad_pid;
+
+      if (pids[DMX_AUDIO] != audio_pid)
+      {
+         pids[DMX_AUDIO] = audio_pid;
+         if (audio_pid != 0)
+         {
+            ApplyKey(path, DESC_TRACK_AUDIO);
+         }
+         else
+         {
+            ClearKey(path, DESC_TRACK_AUDIO);
+         }
+      }
+      if (pids[DMX_VIDEO] != video_pid)
+      {
+         pids[DMX_VIDEO] = video_pid;
+         if (video_pid != 0)
+         {
+            ApplyKey(path, DESC_TRACK_VIDEO);
+         }
+         else
+         {
+            ClearKey(path, DESC_TRACK_VIDEO);
+         }
+      }
 
       STB_DMXChangeTextPID(path, text_pid);
    }
@@ -335,7 +412,7 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
 
    FUNCTION_START(STB_DMXChangeTextPID);
 
-   if ((path < num_paths) && (demux_status[path].text_pid != text_pid))
+   if ((path < num_paths) && (demux_status[path].pids[DMX_TEXT] != text_pid))
    {
       if (demux_status[path].text_fhandle >= 0)
       {
@@ -356,7 +433,18 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
             STB_OSMutexUnlock(demux_status[path].text_mutex);
          }
 
-         demux_status[path].text_pid = text_pid;
+         if (demux_status[path].pids[DMX_TEXT] != text_pid)
+         {
+            demux_status[path].pids[DMX_TEXT] = text_pid;
+            if (text_pid != 0)
+            {
+               ApplyKey(path, DESC_TRACK_TEXT);
+            }
+            else
+            {
+               ClearKey(path, DESC_TRACK_TEXT);
+            }
+         }
 
          if ((text_pid == 0) || (text_pid == 0xffff))
          {
@@ -387,7 +475,7 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
          }
          else
          {
-            if (demux_status[path].text_pid != 0)
+            if (demux_status[path].pids[DMX_TEXT] != 0)
             {
                am_result = AM_DMX_SetCallback(path, demux_status[path].text_fhandle, PesCallback,
                   (void *)&demux_status[path]);
@@ -992,6 +1080,15 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
             DMX_ERR("Tuner source %u not supported", param);
          }
       }
+      else if(source == DMX_MEMORY)
+      {
+         DMX_DBG("setting source to MEMORY");
+         am_result = AM_DMX_SetSource(path, AM_DMX_SRC_HIU);
+         if (am_result != AM_SUCCESS)
+         {
+            DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, am_result);
+         }
+      }
    }
 
    FUNCTION_FINISH(STB_DMXSetDemuxSource);
@@ -1099,9 +1196,9 @@ void STB_DMXReadTextPES(U8BIT path, U8BIT **buffer, U32BIT *num_bytes)
 void STB_DMXWriteDemux(U8BIT path, U8BIT *data, U32BIT size)
 {
    FUNCTION_START(STB_DMXWriteDemux);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(data);
-   USE_UNWANTED_PARAM(size);
+
+   AV_InjectData(path,data,size);
+
    FUNCTION_FINISH(STB_DMXWriteDemux);
 }
 
@@ -1113,11 +1210,35 @@ void STB_DMXWriteDemux(U8BIT path, U8BIT *data, U32BIT size)
  */
 BOOLEAN STB_DMXGetDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 {
+   AM_ErrorCode_t ret;
+   BOOLEAN result;
+
    FUNCTION_START(STB_DMXGetDescramblerKey);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(track);
+
+   DMX_DBG("path %u track %u", path, track);
+   if (path < AM_DSC_SRC_BYPASS && track < DESC_NUM_TRACKS)
+   {
+      ret = AM_DSC_SetSource(DSC_DEV_NO, path);
+      if (ret != AM_SUCCESS)
+      {
+         DMX_ERR("AM_DSC_SetSource error=%x", ret);
+         result = FALSE;
+      }
+      else
+      {
+         demux_status[path].tracks[track].chanid = -2; /* prepare to allocate channel on next call to ApplyKey() */
+         result = TRUE;
+      }
+   }
+   else
+   {
+      DMX_ERR("Invalid: path %u track %u", path, track);
+      result = FALSE;
+   }
+
    FUNCTION_FINISH(STB_DMXGetDescramblerKey);
-   return(FALSE);
+
+   return result;
 }
 
 /**
@@ -1128,11 +1249,50 @@ BOOLEAN STB_DMXGetDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
  */
 BOOLEAN STB_DMXFreeDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 {
+   S_DMX_STATUS* pdmx;
+   S_DES_TRACK_INFO *ptrk;
+   AM_ErrorCode_t ret;
+   BOOLEAN result;
+
    FUNCTION_START(STB_DMXFreeDescramblerKey);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(track);
+
+   DMX_DBG("path %u track %u", path, track);
+   if (path < AM_DSC_SRC_BYPASS && track < DESC_NUM_TRACKS)
+   {
+      pdmx = demux_status + path;
+      ptrk = pdmx->tracks + track;
+      if (ptrk->chanid == -2)
+      {
+         ptrk->chanid = -1;
+         ptrk->iseven = FALSE;
+         ptrk->isodd = FALSE;
+         result = TRUE;
+      }
+      else
+      {
+         ret = AM_DSC_FreeChannel(DSC_DEV_NO, ptrk->chanid);
+         if (ret != AM_SUCCESS)
+         {
+            DMX_ERR("AM_DSC_FreeChannel error=%x", ret);
+            result = FALSE;
+         }
+         else
+         {
+            ptrk->chanid = -1;
+            ptrk->iseven = FALSE;
+            ptrk->isodd = FALSE;
+            result = TRUE;
+         }
+      }
+   }
+   else
+   {
+      result = FALSE;
+   }
+
    FUNCTION_FINISH(STB_DMXFreeDescramblerKey);
-   return(FALSE);
+
+   return result;
 }
 
 /**
@@ -1147,13 +1307,34 @@ BOOLEAN STB_DMXFreeDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 BOOLEAN STB_DMXSetDescramblerKeyData(U8BIT path, E_STB_DMX_DESC_TRACK track,
    E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *data)
 {
+   BOOLEAN result;
+
    FUNCTION_START(STB_DMXSetDescramblerKeyData);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(track);
-   USE_UNWANTED_PARAM(parity);
-   USE_UNWANTED_PARAM(data);
+
+   DMX_DBG("path %u track %u parity %u data %02x %02x", path, track, parity, data[0], data[1]);
+   if (path < AM_DSC_SRC_BYPASS && track < DESC_NUM_TRACKS)
+   {
+      if (parity == KEY_PARITY_EVEN)
+      {
+         demux_status[path].tracks[track].iseven = TRUE;
+         memcpy(demux_status[path].tracks[track].even, data, 32);
+      }
+      else
+      {
+         demux_status[path].tracks[track].isodd = TRUE;
+         memcpy(demux_status[path].tracks[track].odd, data, 32);
+      }
+      ApplyKey(path, track);
+      result = TRUE;
+   }
+   else
+   {
+      result = FALSE;
+   }
+
    FUNCTION_FINISH(STB_DMXSetDescramblerKeyData);
-   return(FALSE);
+
+   return result;
 }
 
 /**
@@ -1167,12 +1348,22 @@ BOOLEAN STB_DMXSetDescramblerKeyData(U8BIT path, E_STB_DMX_DESC_TRACK track,
  */
 BOOLEAN STB_DMXGetKeyUsage(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_KEY_USAGE *key_usage)
 {
+   BOOLEAN result = TRUE;
+
    FUNCTION_START(STB_DMXGetKeyUsage);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(track);
-   USE_UNWANTED_PARAM(key_usage);
+
+   if (path < AM_DSC_SRC_BYPASS && track < DESC_NUM_TRACKS)
+   {
+      *key_usage = demux_status[path].tracks[track].usage;
+   }
+   else
+   {
+      result = FALSE;
+   }
+
    FUNCTION_FINISH(STB_DMXGetKeyUsage);
-   return(FALSE);
+
+   return result;
 }
 
 /**
@@ -1185,12 +1376,23 @@ BOOLEAN STB_DMXGetKeyUsage(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_KEY
  */
 BOOLEAN STB_DMXSetKeyUsage(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_KEY_USAGE key_usage)
 {
+   BOOLEAN result = TRUE;
+
    FUNCTION_START(STB_DMXSetKeyUsage);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(track);
-   USE_UNWANTED_PARAM(key_usage);
+
+   DMX_DBG("path %u track %u key_usg %u", path, track, key_usage);
+   if (path < AM_DSC_SRC_BYPASS && track < DESC_NUM_TRACKS)
+   {
+      demux_status[path].tracks[track].usage = key_usage;
+   }
+   else
+   {
+      result = FALSE;
+   }
+
    FUNCTION_FINISH(STB_DMXSetKeyUsage);
-   return(FALSE);
+
+   return result;
 }
 
 /**
@@ -1202,12 +1404,22 @@ BOOLEAN STB_DMXSetKeyUsage(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_KEY
  */
 BOOLEAN STB_DMXGetDescramblerType(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_DESC_TYPE *type)
 {
+   BOOLEAN result = TRUE;
+
    FUNCTION_START(STB_DMXGetDescramblerType);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(track);
-   USE_UNWANTED_PARAM(type);
+
+   if (path < AM_DSC_SRC_BYPASS && track < DESC_NUM_TRACKS)
+   {
+      *type = demux_status[path].tracks[track].type;
+   }
+   else
+   {
+      result = FALSE;
+   }
+
    FUNCTION_FINISH(STB_DMXGetDescramblerType);
-   return(FALSE);
+
+   return result;
 }
 
 /**
@@ -1218,12 +1430,23 @@ BOOLEAN STB_DMXGetDescramblerType(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_
  */
 BOOLEAN STB_DMXSetDescramblerType(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_DESC_TYPE type)
 {
+   BOOLEAN result = TRUE;
+
    FUNCTION_START(STB_DMXSetDescramblerType);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(track);
-   USE_UNWANTED_PARAM(type);
+
+   DMX_DBG("path %u track %u type %u", path, track, type);
+   if (path < AM_DSC_SRC_BYPASS && track < DESC_NUM_TRACKS)
+   {
+      demux_status[path].tracks[track].type = type;
+   }
+   else
+   {
+      result = FALSE;
+   }
+
    FUNCTION_FINISH(STB_DMXSetDescramblerType);
-   return(FALSE);
+
+   return result;
 }
 
 
@@ -1245,10 +1468,10 @@ BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT 
 
    if (path < num_paths)
    {
-      *pcr_pid = demux_status[path].pcr_pid;
-      *video_pid = demux_status[path].video_pid;
-      *audio_pid = demux_status[path].audio_pid;
-      *ad_pid = demux_status[path].ad_pid;
+      *pcr_pid = demux_status[path].pids[DMX_PCR];
+      *video_pid = demux_status[path].pids[DMX_VIDEO];
+      *audio_pid = demux_status[path].pids[DMX_AUDIO];
+      *ad_pid = demux_status[path].pids[DMX_ADES];
    }
    else
    {
@@ -1315,6 +1538,145 @@ static void CloseSectionFilters(U8BIT path)
    }
 }
 #endif
+
+/**
+ * @brief   Apply descrambler keys
+ * @param   param - demux path
+ */
+static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
+{
+   S_DMX_STATUS* pdmx;
+   S_DES_TRACK_INFO *ptrk;
+   AM_ErrorCode_t ret;
+   int desc_chan;
+   AM_DSC_KeyType_t ktyp;
+
+   pdmx = demux_status + path;
+   ptrk = pdmx->tracks + track;
+
+   if (ptrk->chanid == -2 && pdmx->pids[track] != 0)
+   {
+      ret = AM_DSC_AllocateChannel(DSC_DEV_NO, &desc_chan);
+      if (ret != AM_SUCCESS)
+      {
+         DMX_ERR("AM_DSC_AllocateChannel error=%x", ret);
+      }
+      else
+      {
+         ptrk->chanid = desc_chan;
+         ret = AM_DSC_SetChannelPID(DSC_DEV_NO, ptrk->chanid, pdmx->pids[track]);
+         if (ret != AM_SUCCESS)
+         {
+            DMX_ERR("AM_DSC_SetChannelPID error=%x", ret);
+         }
+         else
+         {
+            if (ptrk->iseven)
+            {
+               switch (ptrk->type)
+               {
+                  case DESC_TYPE_DVB:
+                  {
+                     ktyp = AM_DSC_KEY_TYPE_EVEN;
+                     break;
+                  }
+                  case DESC_TYPE_AES:
+                  {
+                     /* CI+ AES */
+                     ktyp = AM_DSC_KEY_TYPE_AES_EVEN;
+                     break;
+                  }
+                  case DESC_TYPE_AES_SCTE_52:
+                  {
+                     /* MHEG ICS */
+                     ktyp = AM_DSC_KEY_TYPE_AES_IV_EVEN;
+                     break;
+                  }
+                  case DESC_TYPE_DES:
+                  case DESC_TYPE_TDES:
+                  {
+                     /* Not supported ? */
+                     ktyp = AM_DSC_KEY_TYPE_EVEN;
+                     break;
+                  }
+               }
+               ret = AM_DSC_SetKey(DSC_DEV_NO, ptrk->chanid, ktyp, ptrk->even);
+               if (ret != AM_SUCCESS)
+               {
+                  DMX_ERR("AM_DSC_SetKey error=%x", ret);
+               }
+               else
+               {
+                  DMX_DBG("SetKey EVEN typ=%u pid=%u", ptrk->type, pdmx->pids[track]);
+               }
+            }
+
+            if (ptrk->isodd)
+            {
+               switch (ptrk->type)
+               {
+                  case DESC_TYPE_DVB:
+                  {
+                     ktyp = AM_DSC_KEY_TYPE_ODD;
+                     break;
+                  }
+                  case DESC_TYPE_AES:
+                  {
+                     /* CI+ AES */
+                     ktyp = AM_DSC_KEY_TYPE_AES_ODD;
+                     break;
+                  }
+                  case DESC_TYPE_AES_SCTE_52:
+                  {
+                     /* MHEG ICS */
+                     ktyp = AM_DSC_KEY_TYPE_AES_IV_ODD;
+                     break;
+                  }
+                  case DESC_TYPE_DES:
+                  case DESC_TYPE_TDES:
+                  {
+                     /* Not supported ? */
+                     ktyp = AM_DSC_KEY_TYPE_ODD;
+                     break;
+                  }
+               }
+               ret = AM_DSC_SetKey(DSC_DEV_NO, ptrk->chanid, ktyp, ptrk->odd);
+               if (ret != AM_SUCCESS)
+               {
+                  DMX_ERR("AM_DSC_SetKey error=%x", ret);
+               }
+               else
+               {
+                  DMX_DBG("SetKey ODD typ=%u pid=%u", ptrk->type, pdmx->pids[track]);
+               }
+            }
+         }
+      }
+   }
+}
+
+/**
+ * @brief   Clear descrambler keys
+ * @param   param - demux path
+ */
+static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
+{
+   AM_ErrorCode_t ret;
+
+   if (demux_status[path].tracks[track].chanid >= 0)
+   {
+      ret = AM_DSC_FreeChannel(DSC_DEV_NO, demux_status[path].tracks[track].chanid);
+      if (ret != AM_SUCCESS)
+      {
+         DMX_ERR("AM_DSC_FreeChannel error=%x", ret);
+      }
+      else
+      {
+         DMX_DBG("[%u] trk=%u", path, track);
+         demux_status[path].tracks[track].chanid = -2;
+      }
+   }
+}
 
 /**
  * @brief   Callback function that receives data for PID and section filters

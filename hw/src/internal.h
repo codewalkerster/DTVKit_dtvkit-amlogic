@@ -43,4 +43,29 @@
 BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid,
    U16BIT *ad_pid);
 
+/**
+ * @brief   Internal function that sets the AV path into TS injection mode
+ *          for AV streaming
+ * @param   path AV path
+ * @return  TRUE if AV was configured for injection, FALSE otherwise
+ */
+BOOLEAN AV_StartInjection(U8BIT path);
+
+/**
+ * @brief   Internal function that disables TS injection for the specified
+ *          AV path
+ * @param   path AV path
+ * @return  TRUE if injection was disabled, FALSE otherwise
+ */
+BOOLEAN AV_StopInjection(U8BIT path);
+
+/**
+ * @brief   Internal function to pass data to the AV decoder for injection
+ * @param   path AV path
+ * @param   data TS data to be injected
+ * @param   size Size of data in bytes
+ * @return  void
+ */
+void AV_InjectData(U8BIT path, U8BIT *data, U32BIT size);
+
 #endif

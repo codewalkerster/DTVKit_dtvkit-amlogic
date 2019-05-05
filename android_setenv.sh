@@ -61,3 +61,6 @@ export DTVKIT_ADDITIONAL_COMPILER_OPTIONS="-Wall  -fno-short-enums -fPIC ${ANDRO
 
 # Option to include platform source required for DTVKit HbbTV v1.5
 export DTVKIT_INCLUDE_HBBTV=0
+
+# To include hard coded CI Plus test keys and certificates, enable
+#export DTVKIT_INCLUDE_TEST_KEYS=1

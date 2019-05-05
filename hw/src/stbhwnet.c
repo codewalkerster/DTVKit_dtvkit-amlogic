@@ -25,15 +25,28 @@
 
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
+#include <unistd.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <net/if.h>
+#include <linux/ethtool.h>
 
 /* third party header files */
 
 /* DVBCore header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "stbhwos.h"
+#include "stbhwmem.h"
 #include "stbhwnet.h"
 
 /*---constant definitions for this file--------------------------------------*/
+
+#define NW_TASK_STACK_SIZE 1024
+#define NW_TASK_PRIORITY 8
+
 #ifdef NETWORK_ERROR
    #define NET_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
@@ -48,9 +61,23 @@
 
 /*---local typedef structs for this file-------------------------------------*/
 
+typedef struct s_nw_eth_monitor
+{
+   struct s_nw_eth_monitor *next;
+   NW_eth_callback function;
+} S_NW_ETH_MONITOR;
+
 /*---local (static) variable declarations for this file----------------------*/
 
+static S_NW_ETH_MONITOR *nw_monitor_list = NULL;
+static void *nw_eth_task_ptr = NULL;
+static void *nw_mutex = NULL;
+static BOOLEAN nw_eth_status_running = FALSE;
+static E_NW_LINK_STATUS current_ethernet_status = NW_LINK_DISABLED;
+
 /*---local function prototypes for this file---------------------------------*/
+
+static void EthernetMonitorTask( void *arg );
 
 /*---global function definitions---------------------------------------------*/
 
@@ -61,9 +88,28 @@
 BOOLEAN STB_NWInitialise(void)
 {
    FUNCTION_START(STB_NWInitialise);
+
+   if (!nw_eth_status_running)
+   {
+      nw_mutex = STB_OSCreateMutex();
+      if (nw_mutex != NULL)
+      {
+         nw_eth_status_running = TRUE;
+         nw_eth_task_ptr = STB_OSCreateTask(EthernetMonitorTask, NULL, NW_TASK_STACK_SIZE,
+                                            NW_TASK_PRIORITY, (U8BIT *)"ethtsk" );
+         NET_DBG("Net task running\n");
+         if (nw_eth_task_ptr == NULL)
+         {
+            nw_eth_status_running = FALSE;
+            STB_OSDeleteMutex(nw_mutex);
+            nw_mutex = NULL;
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_NWInitialise);
 
-   return FALSE;
+   return nw_eth_status_running;
 }
 
 /**
@@ -602,8 +648,10 @@ S32BIT  STB_NWSelect(S_NW_SOCKSET *read_sockets, S_NW_SOCKSET *write_sockets,
 E_NW_LINK_STATUS STB_NWGetLinkStatus(void)
 {
    FUNCTION_START(STB_NWGetLinkStatus);
+   NET_DBG("STB_NWGetLinkStatus: %s", ((current_ethernet_status == NW_LINK_ACTIVE) ? "active" :
+                                        (current_ethernet_status == NW_LINK_INACTIVE) ? "inactive" : "disabled"));
    FUNCTION_FINISH(STB_NWGetLinkStatus);
-   return NW_LINK_DISABLED;
+   return current_ethernet_status;
 }
 
 /**
@@ -613,10 +661,32 @@ E_NW_LINK_STATUS STB_NWGetLinkStatus(void)
  */
 NW_handle STB_NWStartEthernetMonitor( NW_eth_callback func )
 {
+   S_NW_ETH_MONITOR *p_mtr;
+
    FUNCTION_START(STB_NWStartEthernetMonitor);
+
+   if (func == NULL)
+   {
+      p_mtr = NULL;
+   }
+   else
+   {
+      p_mtr = (S_NW_ETH_MONITOR *)STB_MEMGetSysRAM(sizeof(S_NW_ETH_MONITOR));
+
+      if (p_mtr != NULL)
+      {
+         p_mtr->function = func;
+
+         STB_OSMutexLock( nw_mutex );
+         p_mtr->next = nw_monitor_list;
+         nw_monitor_list = p_mtr;
+         STB_OSMutexUnlock( nw_mutex );
+      }
+   }
+
    FUNCTION_FINISH(STB_NWStartEthernetMonitor);
 
-   return NULL;
+   return p_mtr;
 }
 
 /**
@@ -625,8 +695,35 @@ NW_handle STB_NWStartEthernetMonitor( NW_eth_callback func )
  */
 void STB_NWStopEthernetMonitor(NW_handle hdl)
 {
+   S_NW_ETH_MONITOR *p_mtr, *prev;
+
    FUNCTION_START(STB_NWStopEthernetMonitor);
-   USE_UNWANTED_PARAM(hdl);
+   if (hdl != NULL && nw_monitor_list != NULL)
+   {
+      p_mtr = (S_NW_ETH_MONITOR *)hdl;
+      STB_OSMutexLock( nw_mutex );
+      if (p_mtr == nw_monitor_list)
+      {
+         nw_monitor_list = p_mtr->next;
+      }
+      else
+      {
+         prev = nw_monitor_list;
+         while (prev->next != NULL)
+         {
+            if (prev->next == p_mtr)
+            {
+               prev->next = p_mtr->next;
+               break;
+            }
+            prev = prev->next;
+         }
+      }
+      STB_OSMutexUnlock( nw_mutex );
+
+      STB_MEMFreeSysRAM( hdl );
+   }
+
    FUNCTION_FINISH(STB_NWStopEthernetMonitor);
 }
 
@@ -676,3 +773,73 @@ BOOLEAN STB_NWConnectToAccessPoint(U8BIT *essid, U8BIT *password)
 
 /*---local function definitions----------------------------------------------*/
 
+static void EthernetMonitorTask( void *arg )
+{
+   S_NW_ETH_MONITOR *p_nw_monitor;
+   E_NW_LINK_STATUS status_now;
+   struct ifreq ifr;
+   int sock_fd;
+   struct ethtool_value edata;
+
+   USE_UNWANTED_PARAM(arg);
+
+   sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+   if (sock_fd < 0)
+   {
+      NET_ERR("EthernetMonitorTask socket FAILURE");
+   }
+   else
+   {
+      strcpy(ifr.ifr_name, "eth0");
+
+      while (nw_eth_status_running)
+      {
+         if (ioctl(sock_fd, SIOCGIFFLAGS, &ifr) < 0)
+         {
+            NET_ERR("ioctl SIOCGIFFLAGS failed");
+            status_now = NW_LINK_DISABLED;
+         }
+         else
+         {
+            if (ifr.ifr_flags & (IFF_UP | IFF_RUNNING))
+            {
+               edata.cmd = ETHTOOL_GLINK;
+               ifr.ifr_data = (char *) &edata;
+               if (ioctl(sock_fd, SIOCETHTOOL, &ifr) < 0)
+               {
+                  NET_ERR("ioctl SIOCETHTOOL failed");
+                  status_now = NW_LINK_DISABLED;
+               }
+               else
+               {
+                  status_now = (edata.data) ? NW_LINK_ACTIVE : NW_LINK_INACTIVE;
+               }
+            }
+            else
+            {
+               status_now = NW_LINK_DISABLED;
+            }
+         }
+         if (current_ethernet_status != status_now)
+         {
+            current_ethernet_status = status_now;
+
+            NET_DBG("EthernetMonitorTask: current ethernet status changed to %s",
+                     ((current_ethernet_status == NW_LINK_ACTIVE) ? "active" :
+                      (current_ethernet_status == NW_LINK_INACTIVE) ? "inactive" : "disabled"));
+
+            STB_OSMutexLock( nw_mutex );
+            p_nw_monitor = nw_monitor_list;
+            while (p_nw_monitor != NULL)
+            {
+               (p_nw_monitor->function)(NW_WIRED, current_ethernet_status);
+               p_nw_monitor = p_nw_monitor->next;
+            }
+            STB_OSMutexUnlock( nw_mutex );
+         }
+
+         STB_OSTaskDelay( 100 );
+      }
+      close( sock_fd );
+   }
+}

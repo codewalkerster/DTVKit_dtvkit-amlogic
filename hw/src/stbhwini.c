@@ -39,6 +39,7 @@
 #include "stbhwosd.h"
 #include "stbhwav.h"
 #include "stbhwdsk.h"
+#include "stbhwnet.h"
 
 /*---constant definitions for this file---------------------------------------*/
 #ifdef ENABLE_DEBUG
@@ -85,6 +86,7 @@ void STB_HWInitialise(E_HW_SUBT_CONTROL_MASK hw_subt)
    STB_OSDInitialise(0);
    STB_AVInitialise(NUM_AUDIO_DECODE_PATHS, NUM_VIDEO_DECODE_PATHS);
    STB_MEMInitialiseNVM();
+   STB_NWInitialise();
 
    /* Number of tuners is dynamically determined, so 0 is passed in */
    STB_TuneInitialise(0);

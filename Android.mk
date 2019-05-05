@@ -1,6 +1,8 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
+include $(LOCAL_PATH)/Config.mk
+
 ifeq ($(TARGET_ARCH),"arm")
     DTVKIT_USE_STDINT = 0
 else
@@ -38,6 +40,10 @@ endif
 LOCAL_CFLAGS += -DCOLOUR_DEPTH=$(DTVKIT_COLOUR_DEPTH)
 
 LOCAL_CFLAGS += -D_FILE_OFFSET_BITS=64
+
+ifeq ($(DTVKIT_INCLUDE_TEST_KEYS),1)
+LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
+endif
 
 DVB_PATH := vendor/amlogic/common/external/dvb
 

@@ -27,6 +27,14 @@
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
 #include <malloc.h>
+#include <dirent.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 /* third party header files */
 
@@ -56,6 +64,8 @@
 #define  SEC_DBG(x,...)
 #endif
 
+#define NVM_PATH "/data/data/org.dtvkit.inputsource/NVM/"
+
 /*---constant definitions for this file--------------------------------------*/
 
 /*---local typedef structs for this file-------------------------------------*/
@@ -65,6 +75,8 @@
 /*---local function prototypes for this file---------------------------------*/
 
 /*---local function definitions----------------------------------------------*/
+static U8BIT*  ConvertPathToNVM(U8BIT* path);
+static BOOLEAN CreateDirectories(U8BIT* path);
 
 /*---global function definitions---------------------------------------------*/
 
@@ -406,11 +418,27 @@ const void* STB_MEMReadSecureConstant(U8BIT key, U32BIT *len)
  */
 BOOLEAN STB_NVMFileSize(U8BIT *filename, U32BIT *filesize)
 {
+   U8BIT *path;
+   FILE *file_p = NULL;
+   BOOLEAN success = FALSE;
+
    FUNCTION_START(STB_NVMFileSize);
-   USE_UNWANTED_PARAM(filename);
-   USE_UNWANTED_PARAM(filesize);
+
+   path = ConvertPathToNVM(filename);
+   if (path != NULL)
+   {
+      file_p = fopen(path, "r");
+      if (file_p != NULL)
+      {
+         fseek(file_p, 0, SEEK_END);
+         *filesize = ftell(file_p);
+         fclose(file_p);
+         success = TRUE;
+      }
+      STB_MEMFreeSysRAM(path);
+   }
    FUNCTION_FINISH(STB_NVMFileSize);
-   return(FALSE);
+   return success;
 }
 
 /**
@@ -423,11 +451,34 @@ BOOLEAN STB_NVMFileSize(U8BIT *filename, U32BIT *filesize)
  */
 void* STB_NVMOpenFile(U8BIT *name, E_STB_DSK_FILE_MODE mode)
 {
+   FILE *file_p = NULL;
+   U8BIT *path;
    FUNCTION_START(STB_NVMOpenFile);
-   USE_UNWANTED_PARAM(name);
-   USE_UNWANTED_PARAM(mode);
+
+   path = ConvertPathToNVM(name);
+   if (path != NULL)
+   {
+      switch (mode)
+      {
+      case FILE_MODE_OVERWRITE:
+         if (CreateDirectories(path) == TRUE)
+         {
+            file_p = fopen(path, "w");
+         }
+         break;
+      case FILE_MODE_READ:
+         file_p = fopen(path, "r");
+         break;
+      case FILE_MODE_WRITE:
+         file_p = fopen(path, "r+");
+         break;
+      }
+
+      STB_MEMFreeSysRAM(path);
+   }
+
    FUNCTION_FINISH(STB_NVMOpenFile);
-   return(NULL);
+   return file_p;
 }
 
 /**
@@ -437,7 +488,9 @@ void* STB_NVMOpenFile(U8BIT *name, E_STB_DSK_FILE_MODE mode)
 void STB_NVMCloseFile(void *file)
 {
    FUNCTION_START(STB_NVMCloseFile);
-   USE_UNWANTED_PARAM(file);
+
+   fclose(file);
+
    FUNCTION_FINISH(STB_NVMCloseFile);
 }
 
@@ -450,12 +503,13 @@ void STB_NVMCloseFile(void *file)
  */
 U32BIT STB_NVMReadFile(void *file, U8BIT *data, U32BIT size)
 {
+   U32BIT read;
    FUNCTION_START(STB_NVMReadFile);
-   USE_UNWANTED_PARAM(file);
-   USE_UNWANTED_PARAM(data);
-   USE_UNWANTED_PARAM(size);
+
+   read = fread(data, sizeof(U8BIT), size, file);
+
    FUNCTION_FINISH(STB_NVMReadFile);
-   return(0);
+   return read;
 }
 
 /**
@@ -467,12 +521,13 @@ U32BIT STB_NVMReadFile(void *file, U8BIT *data, U32BIT size)
  */
 U32BIT STB_NVMWriteFile(void *file, U8BIT *data, U32BIT size)
 {
+   U32BIT written;
    FUNCTION_START(STB_NVMWriteFile);
-   USE_UNWANTED_PARAM(file);
-   USE_UNWANTED_PARAM(data);
-   USE_UNWANTED_PARAM(size);
+
+   written = fwrite(data, sizeof(U8BIT), size, file);
+
    FUNCTION_FINISH(STB_NVMWriteFile);
-   return(0);
+   return written;
 }
 
 /**
@@ -482,10 +537,23 @@ U32BIT STB_NVMWriteFile(void *file, U8BIT *data, U32BIT size)
  */
 BOOLEAN STB_NVMDeleteFile(U8BIT *filename)
 {
+   U8BIT *path;
+   BOOLEAN success = FALSE;
+
    FUNCTION_START(STB_NVMDeleteFile);
-   USE_UNWANTED_PARAM(filename);
+
+   path = ConvertPathToNVM(filename);
+   if (path != NULL)
+   {
+      if (unlink(path) == 0)
+      {
+         success = TRUE;
+      }
+      STB_MEMFreeSysRAM(path);
+   }
+
    FUNCTION_FINISH(STB_NVMDeleteFile);
-   return(FALSE);
+   return success;
 }
 
 /**
@@ -495,10 +563,20 @@ BOOLEAN STB_NVMDeleteFile(U8BIT *filename)
  */
 void* STB_NVMOpenDirectory(U8BIT *dir_name)
 {
+   DIR* handle = NULL;
+   U8BIT *path;
    FUNCTION_START(STB_NVMOpenDirectory);
-   USE_UNWANTED_PARAM(dir_name);
+
+   path = ConvertPathToNVM(dir_name);
+   if (path != NULL)
+   {
+      handle = opendir(path);
+
+      STB_MEMFreeSysRAM(path);
+   }
+
    FUNCTION_FINISH(STB_NVMOpenDirectory);
-   return(NULL);
+   return handle;
 }
 
 /**
@@ -514,13 +592,34 @@ void* STB_NVMOpenDirectory(U8BIT *dir_name)
 BOOLEAN STB_NVMReadDirectory(void *dir, U8BIT *filename, U16BIT filename_len,
    E_STB_DIR_ENTRY_TYPE *entry_type)
 {
+   struct dirent* entry;
+   BOOLEAN success = FALSE;
    FUNCTION_START(STB_NVMReadDirectory);
-   USE_UNWANTED_PARAM(dir);
-   USE_UNWANTED_PARAM(filename);
-   USE_UNWANTED_PARAM(filename_len);
-   USE_UNWANTED_PARAM(entry_type);
+
+   entry = readdir(dir);
+   if (entry != NULL)
+   {
+      switch (entry->d_type)
+      {
+      case DT_REG:
+         *entry_type = DIR_ENTRY_FILE;
+         success = TRUE;
+         break;
+      case DT_DIR:
+         *entry_type = DIR_ENTRY_DIRECTORY;
+         success = TRUE;
+         break;
+      default:
+         break;
+      }
+      if (success)
+      {
+         strncpy(filename,entry->d_name,filename_len);
+      }
+   }
+
    FUNCTION_FINISH(STB_NVMReadDirectory);
-   return(FALSE);
+   return success;
 }
 
 /**
@@ -530,8 +629,67 @@ BOOLEAN STB_NVMReadDirectory(void *dir, U8BIT *filename, U16BIT filename_len,
 void STB_NVMCloseDirectory(void *dir)
 {
    FUNCTION_START(STB_NVMCloseDirectory);
-   USE_UNWANTED_PARAM(dir);
+
+   closedir(dir);
+
    FUNCTION_FINISH(STB_NVMCloseDirectory);
 }
 
 /*---local function definitions----------------------------------------------*/
+
+static U8BIT* ConvertPathToNVM(U8BIT* path)
+{
+  U8BIT* new_path = NULL;
+  U32BIT length ;
+
+  length = strlen(path);
+  if (length > 0)
+  {
+     new_path = STB_MEMGetSysRAM(length+strlen(NVM_PATH)+1);
+     if (new_path != NULL)
+     {
+        sprintf(new_path,"%s%s",NVM_PATH,path);
+     }
+  }
+  return new_path;
+}
+
+
+static BOOLEAN CreateDirectories(U8BIT* path)
+{
+   BOOLEAN success = FALSE;
+   char *dir_path;
+   int retval = 0;
+   U32BIT cursor;
+
+   /*Make a temporary buffer where we can manipulate the path*/
+   dir_path = STB_MEMGetSysRAM(strlen(path));
+   if (dir_path != NULL)
+   {
+      /*start from the preset NVM_PATH*/
+      cursor = strlen(NVM_PATH)-1;
+      while (path[cursor] != '\0')
+      {
+         if (path[cursor] == '/')
+         {
+            strncpy(dir_path,path,cursor);
+            dir_path[cursor] = '\0';
+            retval = mkdir(dir_path, (S_IFDIR | S_IRWXU | S_IRWXG));
+            if (retval == 0 || errno == EEXIST) /*The only acceptable error is that the directory exists*/
+            {
+               success = TRUE;
+            }
+            else
+            {
+               success = FALSE;
+               break;
+            }
+         }
+         cursor++;
+      }
+
+      STB_MEMFreeSysRAM(dir_path);
+   }
+   return success;
+
+}

@@ -34,6 +34,10 @@ ifeq ($(DTVKIT_INCLUDE_HBBTV),1)
 SRCS += stbhwmp.c
 endif
 
+ifeq ($(DTVKIT_INCLUDE_TEST_KEYS),1)
+DEFINES += INCLUDE_TEST_KEYS
+endif
+
 COMP=hw
 
 include ../common.mak

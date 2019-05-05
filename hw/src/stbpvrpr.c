@@ -751,7 +751,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                   RecEventHandler, &s_timeshift_status);
                AM_EVT_Unsubscribe((long)s_timeshift_status.rec_handle, AM_REC_EVT_RECORD_END,
                   RecEventHandler, &s_timeshift_status);
-                                
+
                AM_REC_Destroy(s_timeshift_status.rec_handle);
                s_timeshift_status.rec_handle = NULL;
             }
@@ -787,7 +787,7 @@ BOOLEAN STB_PVRRecordPause(U8BIT rec_index)
    USE_UNWANTED_PARAM(rec_index);
    FUNCTION_FINISH(STB_PVRRecordPause);
 
-   return(FALSE);
+   return(TRUE);
 }
 
 /**
@@ -801,7 +801,7 @@ BOOLEAN STB_PVRRecordResume(U8BIT rec_index)
    USE_UNWANTED_PARAM(rec_index);
    FUNCTION_FINISH(STB_PVRRecordResume);
 
-   return(FALSE);
+   return(TRUE);
 }
 
 /**

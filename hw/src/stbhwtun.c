@@ -838,9 +838,9 @@ E_STB_TUNE_TMODE STB_TuneGetActualTerrMode(U8BIT path)
 E_STB_TUNE_TBWIDTH STB_TuneGetActualTerrBwidth(U8BIT path)
 {
    FUNCTION_START(STB_TuneGetActualTerrBwidth);
-   USE_UNWANTED_PARAM(path);
+   E_STB_TUNE_TBWIDTH bwidth = tuner_status[path].u.terr.tbwidth;
    FUNCTION_FINISH(STB_TuneGetActualTerrBwidth);
-   return 0;
+   return bwidth;
 }
 
 /**

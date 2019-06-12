@@ -30,6 +30,7 @@
 #include "am_adp/am_vout.h"
 #include "am_adp/am_aout.h"
 #include "am_adp/am_misc.h"
+#include "am_adp/am_userdata.h"
 
 /* STB header files */
 #include "techtype.h"
@@ -197,7 +198,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].iframe_shown = FALSE;
             av_paths_status[av_path].iframe_codec = AV_VIDEO_CODEC_AUTO;
             av_paths_status[av_path].iframe_data = NULL;
-            
+
             av_paths_status[av_path].audio_descriptor_active = FALSE;
             av_paths_status[av_path].av_decoder_state = DECODER_A_STOP_V_STOP;
             av_paths_status[av_path].audio_pid = INVALID_PID;
@@ -206,6 +207,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].pcr_pid = INVALID_PID;
 
             av_param.vout_dev_no = 0;
+            av_param.afd_enable = 1;
 
             retval = AM_AV_Open(av_path, &av_param);
             if (retval != AM_SUCCESS)
@@ -227,6 +229,8 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_RESOLUTION_CHANGED, AVEventHandler,
                   &av_paths_status[av_path]);
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_WINDOW_CHANGED, AVEventHandler,
+                  &av_paths_status[av_path]);
+               AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_AFD_CHANGED, AVEventHandler,
                   &av_paths_status[av_path]);
             }
          }
@@ -362,6 +366,9 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
          dest->left, dest->top, dest->width, dest->height);
 
       STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_RECTANGLE_CHANGED, dest, sizeof(S_RECTANGLE));
+      AM_AV_SetVideoCropping(path, src->top, src->left, src->top, src->left);
+      //AM_AV_SetVideoWindow(path, dest->left, dest->top, dest->width-1, dest->height-1);
+      //AM_AV_EnableVideo(path);
    }
 
    FUNCTION_FINISH(STB_AVApplyVideoTransformation);
@@ -1705,6 +1712,7 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
    AV_PATH_STATUS *status;
    S_STB_AV_VIDEO_INFO info;
    AM_AV_VideoStatus_t *video_status;
+   AM_USERDATA_AFD_t *afd;
 
    status = (AV_PATH_STATUS *)data;
 
@@ -1779,6 +1787,15 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
 
          info.flags = VIDEO_INFO_DECODER_STATUS;
          info.status = DECODER_STATUS_IFRAME;
+         break;
+      }
+
+      case AM_AV_EVT_VIDEO_AFD_CHANGED:
+      {
+         afd = param;
+         info.flags = VIDEO_INFO_AFD;
+         info.afd = afd->af & 0x7;
+         VID_DBG("[evt] video afd changed: flg[0x%x] fmt[0x%x]\n", afd->af_flag, afd->af);
          break;
       }
 

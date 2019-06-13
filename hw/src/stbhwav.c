@@ -153,6 +153,8 @@ static S_VIDEO_MODE video_modes[] =
 /*---local function prototypes for this file---------------------------------*/
 
 static void AVEventHandler(long dev_no, int event_type, void *param, void *data);
+static AM_ErrorCode_t AVGetVOutDisplay(U32BIT *v_display);
+
 
 /*---global function definitions----------------------------------------------*/
 
@@ -235,39 +237,37 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
          AM_AOUT_Open(AOUT_DEV, &aout_param);
          AM_VOUT_Open(VOUT_DEV, &vout_param);
 
-         if ((retval = AM_VOUT_GetFormat(VOUT_DEV, &am_format)) == AM_SUCCESS)
+         U32BIT display;
+         retval = AVGetVOutDisplay(&display);
+         if (!retval)
          {
-            AV_DBG("AMLogic display format %d", am_format);
-
-            switch (am_format)
-            {
-               case AM_VOUT_FORMAT_576I:
-               case AM_VOUT_FORMAT_576P:
-                  display_info.screen_aspect_ratio = ASPECT_RATIO_4_3;
-                  display_info.screen_width = 720;
-                  display_info.screen_height = 576;
-                  break;
-               case AM_VOUT_FORMAT_720P:
-                  display_info.screen_aspect_ratio = ASPECT_RATIO_16_9;
-                  display_info.screen_width = 1280;
-                  display_info.screen_height = 720;
-                  break;
-               case AM_VOUT_FORMAT_1080I:
-               case AM_VOUT_FORMAT_1080P:
-                  display_info.screen_aspect_ratio = ASPECT_RATIO_16_9;
-                  display_info.screen_width = 1920;
-                  display_info.screen_height = 1080;
-                  break;
-               default:
-                  ERR_DBG("Unhandled display format %d, screen size not known!", am_format);
-                  break;
-            }
-
-            STB_OSDResize(FALSE, display_info.screen_width, display_info.screen_height, 0, 0);
+             switch (display)
+             {
+                case 576:
+                    display_info.screen_aspect_ratio = ASPECT_RATIO_4_3;
+                    display_info.screen_width = 720;
+                    display_info.screen_height = 576;
+                    break;
+                case 720:
+                    display_info.screen_aspect_ratio = ASPECT_RATIO_16_9;
+                    display_info.screen_width = 1280;
+                    display_info.screen_height = 720;
+                    break;
+                case 1080:
+                case 2160:
+                    display_info.screen_aspect_ratio = ASPECT_RATIO_16_9;
+                    display_info.screen_width = 1920;
+                    display_info.screen_height = 1080;
+                    break;
+                default:
+                    ERR_DBG("Unhandled display format %d, screen size not known!", display);
+                    break;
+             }
+             STB_OSDResize(FALSE, display_info.screen_width, display_info.screen_height, 0, 0);
          }
          else
          {
-            ERR_DBG("Failed to get display format, error %d", retval);
+             ERR_DBG("Failed to get display format, error %d", retval);
          }
 
          STB_OSSendEvent(FALSE, HW_EV_CLASS_HDMI, HW_EV_TYPE_HDMI_CONNECT, NULL, 0);
@@ -1793,6 +1793,24 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
    {
       status->callback(&info, status->user_data);
    }
+}
+
+static AM_ErrorCode_t AVGetVOutDisplay(U32BIT *v_display)
+{
+   AM_ErrorCode_t ret;
+   U8BIT buf[32] = {0};
+   U8BIT display[32] = {0};
+
+   *v_display = 1080;
+
+   ret = AM_FileRead("/sys/class/display/mode", buf, sizeof(buf));
+   if (!ret) {
+      sscanf(buf, "%[^a-z]", display);
+      *v_display = atoi(display);
+      VID_DBG("GetVOutDisplay buf:%s display:%s %d", buf, display, *v_display);
+      STB_SPDebugWrite("AVGetVOutDisplay buf:%s display:%s %d", buf, display, *v_display);
+   }
+   return ret;
 }
 
 BOOLEAN AV_StartInjection(U8BIT path)

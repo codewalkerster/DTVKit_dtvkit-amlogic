@@ -1091,9 +1091,21 @@ void STB_TuneSet12VSwitch(U8BIT path, BOOLEAN state)
 void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
 {
    FUNCTION_START(STB_TuneSendDISEQCMessage);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(data);
-   USE_UNWANTED_PARAM(size);
+   struct dvb_diseqc_master_cmd cmd;
+   memset(&cmd, 0, sizeof(struct dvb_diseqc_master_cmd));
+
+   for (int i = 0; i < size; i++)
+   {
+       cmd.msg[i] = data[i];
+       TUN_DBG("STB_TuneSendDISEQCMessage cmd:0x%x", data[i]);
+   }
+   cmd.msg_len = size;
+
+   if (ioctl(tuner_status[path].frontend_fd, FE_DISEQC_SEND_MASTER_CMD, &cmd) == -1)
+   {
+       TUN_DBG("ioctl FE_DISEQC_SEND_MASTER_CMD failed, path:%d error:%d", path, errno);
+   }
+
    FUNCTION_FINISH(STB_TuneSendDISEQCMessage);
 }
 
@@ -1105,8 +1117,15 @@ void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
 void STB_TuneSetPulseLimitEast(U8BIT path, U16BIT count)
 {
    FUNCTION_START(STB_TuneSetPulseLimitEast);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(count);
+   // count, support for drive owner
+   U8BIT dmsg_data[3];
+
+   dmsg_data[0] = 0xE0;
+   dmsg_data[1] = 0x31;
+   dmsg_data[2] = 0x66;
+
+   STB_TuneSendDISEQCMessage(path, dmsg_data, 3);
+
    FUNCTION_FINISH(STB_TuneSetPulseLimitEast);
 }
 
@@ -1118,8 +1137,15 @@ void STB_TuneSetPulseLimitEast(U8BIT path, U16BIT count)
 void STB_TuneSetPulseLimitWest(U8BIT path, U16BIT count)
 {
    FUNCTION_START(STB_TuneSetPulseLimitWest);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(count);
+   // count, support for drive owner
+   U8BIT dmsg_data[3];
+
+   dmsg_data[0] = 0xE0;
+   dmsg_data[1] = 0x31;
+   dmsg_data[2] = 0x67;
+
+   STB_TuneSendDISEQCMessage(path, dmsg_data, 3);
+
    FUNCTION_FINISH(STB_TuneSetPulseLimitWest);
 }
 
@@ -1127,6 +1153,7 @@ void STB_TuneChangePulsePosition(U8BIT path, U16BIT count)
 {
    FUNCTION_START(STB_TuneChangePulsePosition);
    USE_UNWANTED_PARAM(path);
+   //do nothing, now
    FUNCTION_FINISH(STB_TuneChangePulsePosition);
 }
 
@@ -1139,6 +1166,7 @@ U16BIT STB_TuneGetPulsePosition(U8BIT path)
 {
    FUNCTION_START(STB_TuneGetPulsePosition);
    USE_UNWANTED_PARAM(path);
+   //do nothing, now
    FUNCTION_FINISH(STB_TuneGetPulsePosition);
 
    return(0);
@@ -1580,7 +1608,7 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 
          fe_params.u.qam.symbol_rate = tstatus->u.cab.srate;
          TUN_DBG("[%s] fe_params.u.qam.symbol_rate = %lu, fe_params.u.qam.modulation = %u\n", __FUNCTION__,
-         fe_params.u.qam.symbol_rate, fe_params.u.qam.modulation);
+                     fe_params.u.qam.symbol_rate, fe_params.u.qam.modulation);
          if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND, &fe_params) >= 0)
          {
             TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);

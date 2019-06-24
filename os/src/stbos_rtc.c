@@ -180,7 +180,7 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
    sprintf(prop_time, "%ld000", temp_time);//prop need ms
    //property_set("tv.stream.realtime", prop_time);
    AM_PropEcho("tv.stream.realtime", prop_time);
-   printf("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
+   RTC_DBG("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
 
    FUNCTION_FINISH(STB_OSSetClockGMT);
 }
@@ -249,7 +249,7 @@ static U32BIT STB_OSGetSystemTime(void)
 	struct tm * lt;
 	time (&t);//获取Unix时间戳。
 	lt = localtime (&t);//转为时间结构。
-	printf ( "systime:%d/%d/%d %d:%d:%d\n",lt->tm_year+1900, lt->tm_mon, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec);
+	RTC_DBG( "systime:%d/%d/%d %d:%d:%d\n",lt->tm_year+1900, lt->tm_mon, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec);
 	return t;
 }
 

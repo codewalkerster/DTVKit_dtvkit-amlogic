@@ -218,7 +218,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
                AM_AV_SetTSSource(av_path, aml_hw_cfg.demux + 5);
 
                /* Prevent AMLogic AV code from applying any video scaling */
-               AM_FileEcho("/sys/class/video/screen_mode", "5");
+               //AM_FileEcho("/sys/class/video/screen_mode", "5");
 
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_AVAILABLE, AVEventHandler,
                   &av_paths_status[av_path]);
@@ -625,8 +625,8 @@ void STB_AVStartVideoDecoding(U8BIT path)
 
       if (video_pid != 0)
       {
-         AM_AV_SetVideoAspectRatio(path, AM_AV_VIDEO_ASPECT_AUTO);
-         AM_AV_SetVideoAspectMatchMode(path,AM_AV_VIDEO_ASPECT_MATCH_IGNORE);
+         //AM_AV_SetVideoAspectRatio(path, AM_AV_VIDEO_ASPECT_AUTO);
+         //AM_AV_SetVideoAspectMatchMode(path,AM_AV_VIDEO_ASPECT_MATCH_IGNORE);
 
          switch (av_paths_status[path].av_decoder_state)
          {

@@ -20,7 +20,7 @@
  * @date    October 2018
  */
 
-//#define DEMUX_DEBUG
+#define DEMUX_DEBUG
 //#define FILTER_PRINTS
 
 /*---includes for this file---------------------------------------------------*/
@@ -45,7 +45,7 @@
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
 
-#define DEMUX_DEBUG 1
+//#define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
 #define DMX_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 //#define DEMUX_DEBUG
@@ -74,6 +74,7 @@
 
 #define DSC_DEV_NO                  0
 
+#define STB_TSO_SOURCE "/sys/class/stb/tso_source"
 /* Local ENUM/TYPE Definitions */
 
 typedef enum
@@ -172,7 +173,7 @@ static void CloseSectionFilters(U8BIT path);
 
 static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
-
+static void STB_SetTsoutSource(void);
 /*---global function definitions---------------------------------------------*/
 
 
@@ -190,8 +191,8 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 
    FUNCTION_START(STB_DMXInitialise);
 
-   DMX_DBG("%u demuxes, %s PES colection", paths, inc_pes_collection ? "with" : "no");
-
+   DMX_DBG("%u demuxes--, %s PES colection", paths, inc_pes_collection ? "with" : "no");
+   STB_SetTsoutSource();
    num_paths = paths;
 
    if (num_paths != 0)
@@ -1066,7 +1067,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
       if (source == DMX_TUNER)
       {
          dmx_source = AM_DMX_SRC_TS0 + param;
-         if (dmx_source <= AM_DMX_SRC_TS2)
+         if (dmx_source <= AM_DMX_SRC_TS3)
          {
             tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
             am_result = AM_DMX_SetSource(path, aml_hw_cfg.tuners[tuner_index].ts_input_idx);
@@ -1112,6 +1113,87 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
 
    FUNCTION_FINISH(STB_DMXGetDemuxSource);
 }
+
+
+/**
+ * @brief   change the source of the demux when cam card plug or unplug
+ *          we need check "is_set_tssource" is 0 or not,if it value is 0,
+ *          we do nothing now.
+ * @param   slot  cam card slot
+ * @param   plug 0:cam card unplug, 1：camc card plug
+ */
+void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
+{
+   int i = 0;
+   int tuner_index = 0;
+   FUNCTION_START(STB_DMXChangeAllDemuxSource);
+   //no used now, only one cam card
+   slot = 0;
+   if (aml_hw_cfg.cam[slot].is_set_tssource == 0) {
+      //not set source at cfg file,so we return now,
+      return;
+   }
+
+   for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
+      if (plug == 0) {
+         //cam card is unplug.used camUnplug_tssource to
+         //set ts_input_idx for dmx source
+         aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camUnplug_tssource;
+          DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.cam[slot].camUnplug_tssource);
+      } else if(plug == 1) {
+         //cam card is plug.used camPlug_tssource to
+         //set ts_input_idx for dmx source
+         aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
+         DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
+      }
+   }
+   for (i = 0; i < num_paths; i++) {
+      //change ts_input_idx
+      STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index);
+   }
+   FUNCTION_FINISH(STB_DMXChangeAllDemuxSource);
+}
+
+/**
+ * @brief   set the tsout source when ts route is "tsin->tsout->tsin"
+ * get ts out source from cfg
+ */
+static void STB_SetTsoutSource(void)
+{
+   FUNCTION_START(STB_SetTsoutSource);
+   DMX_DBG("set demux source is set %d src %d", aml_hw_cfg.cam[0].is_set_tsout, aml_hw_cfg.cam[0].tsout_source);
+   if (aml_hw_cfg.cam[0].is_set_tsout)
+   {
+      char buf[32];
+      char *cmd;
+      int src = aml_hw_cfg.cam[0].tsout_source;
+      sprintf(buf, STB_TSO_SOURCE);
+
+      switch (src)
+      {
+         case STB_TS_SOURCE0:
+            cmd = "ts0";
+         break;
+         case STB_TS_SOURCE1:
+            cmd = "ts1";
+         break;
+         case STB_TS_SOURCE2:
+            cmd = "ts2";
+         break;
+         case STB_TS_SOURCE3:
+            cmd = "ts3";
+         break;
+         default:
+            DMX_DBG("do not support demux source %d", src);
+         return;
+      }
+      AM_FileEcho(buf, cmd);
+      return;
+   }
+
+   FUNCTION_FINISH(STB_SetTsoutSource);
+}
+
 
 /**
  * @brief   Reads Teletext PES data from the demux

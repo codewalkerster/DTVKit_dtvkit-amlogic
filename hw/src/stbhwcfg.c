@@ -20,7 +20,7 @@
 #define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
 
 #define CFG_PARSER_BUF_SIZE 512
-
+//#define CFG_DEBUG 1
 #ifdef CFG_DEBUG
    #define CFG_DBG(x,...)   STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
@@ -38,13 +38,25 @@ stb_hardware_cfg aml_hw_cfg = {
 	.support_dvbs2 = 1
 	}
 	},
+.cam = {
+	{
+	.is_set_tsout  = 0,
+	.tsout_source  = 0,
+	.is_set_tssource = 0,
+	.camPlug_tssource = 2,
+	.camUnplug_tssource = 2,
+	.is_changeTo_utf8 = 0,
+	.encodec_source = {0},
+	}
+	},
 .tuner_num    = 1,
 .demux_num    = 3,
 .recorder_num = 1,
 .ci_slot_num  = 1,
 .vdec_num     = 1,
 .adec_num     = 2,
-.demux        = 0
+.demux        = 0,
+.cam_num      = 0,
 };
 
 static void
@@ -52,7 +64,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 {
 	stb_hardware_cfg  *cfg = &aml_hw_cfg;
 	const XML_Char   **att, *an, *av;
-
+	//CFG_DBG("name [%s] ", name);
 	if (!strcmp(name, "tuner")) {
 		stb_tuner_cfg *tun;
 
@@ -115,6 +127,50 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 				cfg->demux = i;
 
 		}
+	}else if (!strcmp(name, "ci_source")) {
+		stb_cam_cfg *cam;
+
+		if (cfg->cam_num >= AML_MAX_CAM_NUM)
+			return;
+
+		cam = &cfg->cam[cfg->cam_num ++];
+
+		cam->is_set_tsout  = 0;
+		cam->tsout_source  = 0;
+		cam->is_set_tssource = 0;
+		cam->camPlug_tssource = 0;
+		cam->camUnplug_tssource = 0;
+
+		att = atts;
+		while (*att) {
+			an = att[0];
+			av = att[1];
+			//CFG_DBG("an [%s] av[%s]", an, av);
+			if (!strcmp(an, "is_set_tsout")) {
+				cam->is_set_tsout = atoi(av);
+				//CFG_DBG("cam->is_set_tsout[%d]", cam->is_set_tsout);
+			} else if (!strcmp(an, "tsout_source")) {
+				cam->tsout_source = atoi(av);
+				//CFG_DBG("cam->tsout_source[%d]", cam->tsout_source);
+			} else if (!strcmp(an, "is_set_tssource")) {
+				cam->is_set_tssource = atoi(av);
+				//CFG_DBG("cam->is_set_tssource[%d]", cam->is_set_tssource);
+			} else if (!strcmp(an, "camPlug_tssource")) {
+				cam->camPlug_tssource = atoi(av);
+				//CFG_DBG("cam->camPlug_tssource[%d]", cam->camPlug_tssource);
+			} else if (!strcmp(an, "camUnplug_tssource")) {
+				cam->camUnplug_tssource = atoi(av);
+				//CFG_DBG("cam->camUnplug_tssource[%d]", cam->camUnplug_tssource);
+			} else if (!strcmp(an, "is_changeTo_utf8")) {
+				cam->is_changeTo_utf8 = atoi(av);
+				//CFG_DBG("cam->camUnplug_tssource[%d]", cam->camUnplug_tssource);
+			} else if (!strcmp(an, "encodec_source")) {
+				memcpy(cam->encodec_source, av, strlen(av));
+				CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);
+			}
+			att += 2;
+		}
+
 	}
 }
 
@@ -195,4 +251,18 @@ void STB_CfgInitialise(void)
 	XML_ParserFree(parser);
 	fclose(fp);
 }
-
+/**
+ * @brief   get is need change chara encode from source to utf8
+ * @param   isChange is need change encode
+ * @param   encodec_source chara encode source, for example gdk gb2312 and so on
+ */
+int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source)
+{
+	//get is need change code and encodec source from cfg struct
+	if (isChange == NULL || encodec_source == NULL) {
+		return -1;
+	}
+	*isChange = aml_hw_cfg.cam[0].is_changeTo_utf8;
+	memcpy(encodec_source, aml_hw_cfg.cam[0].encodec_source, strlen(aml_hw_cfg.cam[0].encodec_source));
+	return 0;
+}

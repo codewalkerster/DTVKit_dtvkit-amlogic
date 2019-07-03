@@ -18,9 +18,21 @@ typedef struct {
 } stb_tuner_cfg;
 
 #define AML_MAX_TUNER_NUM 3
+#define AML_MAX_CAM_NUM 2
+typedef struct
+{
+	int           is_set_tsout;
+	int           tsout_source;
+	int           is_set_tssource;
+	int           camPlug_tssource;
+	int           camUnplug_tssource;
+	int           is_changeTo_utf8;
+	char          encodec_source[16];
+}stb_cam_cfg;
 
 typedef struct {
 	stb_tuner_cfg tuners[AML_MAX_TUNER_NUM];
+	stb_cam_cfg   cam[AML_MAX_CAM_NUM];
 	int           tuner_num;
 	int           demux_num;
 	int           recorder_num;
@@ -28,11 +40,12 @@ typedef struct {
 	int           vdec_num;
 	int           adec_num;
 	int           demux;
+	int           cam_num;
 } stb_hardware_cfg;
 
 extern stb_hardware_cfg aml_hw_cfg;
 
 extern void STB_CfgInitialise(void);
-
+extern int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source);
 #endif
 

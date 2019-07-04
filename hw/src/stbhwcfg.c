@@ -16,7 +16,7 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
-
+#include "stbhwdmx.h"
 #define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
 
 #define CFG_PARSER_BUF_SIZE 512
@@ -48,6 +48,9 @@ stb_hardware_cfg aml_hw_cfg = {
 	.is_changeTo_utf8 = 0,
 	.encodec_source = {0},
 	}
+	},
+.dmx_cap = {
+		0
 	},
 .tuner_num    = 1,
 .demux_num    = 3,
@@ -111,7 +114,26 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 		}
 
 	} else if (!strcmp(name, "demux")) {
+
+		att = atts;
+		while (*att) {
+			an = att[0];
+			av = att[1];
+			if (!strcmp(an, "rec") && !strcmp(av, "yes")) {
+				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_RECORDING;
+			} else if (!strcmp(an, "live") && !strcmp(av, "yes")) {
+				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_LIVE;
+			} else if (!strcmp(an, "pip") && !strcmp(av, "yes")) {
+				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_PIP;
+			} else if (!strcmp(an, "playback") && !strcmp(av, "yes")) {
+				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_PLAYBACK;
+			} else if (!strcmp(an, "si") && !strcmp(av, "yes")) {
+				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_MONITOR_SI;
+			}
+			att += 2;
+		}
 		cfg->demux_num ++;
+
 	} else if (!strcmp(name, "recorder")) {
 		cfg->recorder_num ++;
 	} else if (!strcmp(name, "ci_slot")) {

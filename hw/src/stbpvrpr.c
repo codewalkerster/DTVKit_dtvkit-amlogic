@@ -22,7 +22,7 @@
 
 #define PLAY_DEBUG
 #define RECORD_DEBUG
-
+//#define MEDIACODEC_PLAYER
 //---includes for this file----------------------------------------------------
 // compiler library header files
 #include <fcntl.h>
@@ -43,6 +43,12 @@
 #include "stbhwmem.h"
 #include "stbhwdsk.h"
 #include "stbpvrpr.h"
+
+#ifdef MEDIACODEC_PLAYER
+#include "swdmx_timeshift_player.h"
+#include "swdmx_tfile.h"
+#include "swdmx_rec.h"
+#endif
 
 //---constant definitions for this file----------------------------------------
 #define INVALID_RES_ID           255
@@ -70,6 +76,7 @@ typedef enum
    PLAY_STARTED
 } E_PLAY_STATE;
 
+
 typedef struct
 {
    U8BIT rec_index;
@@ -77,9 +84,17 @@ typedef struct
    U8BIT tuner;
    U8BIT rec_demux;
 
+
+ #ifndef MEDIACODEC_PLAYER
    AM_REC_Handle_t rec_handle;
    AM_TFile_t tfile;
    AM_AV_TimeshiftMediaInfo_t media_info;
+
+#else
+    SWDMX_TShiftPlayer_MediaInfo_t media_info;
+    SWDMX_REC_Handle_t *rec_handle;
+    SWDMX_TFile_t tfile;
+#endif
 
    BOOLEAN has_video;
    BOOLEAN has_audio;
@@ -112,6 +127,11 @@ typedef struct {
    U16BIT pcr_pid;
    U16BIT ad_pid;
 
+
+#ifdef MEDIACODEC_PLAYER
+   SWDMX_TShiftPlayer_Handle_t *player_handle;
+#endif
+
 } S_RECPLAY_STATUS;
 
 /* The following enums are taken from vendor/amlogic/dvb/am_adp/am_av/aml/aml.c
@@ -127,6 +147,7 @@ enum
    AV_TIMESHIFT_STATUS_EXIT,
    AV_TIMESHIFT_STATUS_INITOK,
    AV_TIMESHIFT_STATUS_SEARCHOK,
+   AV_TIMESHIFT_STATUS_STARTOK,
 };
 
 //---local (static) variable declarations for this file------------------------
@@ -160,6 +181,39 @@ static AM_Crypt_Ops_t des_ops = {
 
 
 //---global function definitions-----------------------------------------------
+
+#ifdef MEDIACODEC_PLAYER
+
+U8BIT STB_PVRPlayerCreatParamOpsInit(SWDMX_TShiftPlayer_CreatePara_t *para)
+{
+    //init ops tShiftOps
+    if (para == NULL) {
+        REC_DBG("rec creat para is NULL");
+        return 0;
+    }
+    //used default api
+    para->tShiftOps.startPlay = NULL;
+    para->tShiftOps.stopPlay= NULL;
+    para->tShiftOps.inject = NULL;
+    para->tShiftOps.lookup = NULL;
+    return 0;
+}
+
+U8BIT STB_PVRRECCreatParamOpsInit(SWDMX_REC_CreatePara_t *para)
+{
+    //init rec Ops
+    if (para == NULL) {
+        REC_DBG("rec creat para is NULL");
+        return 0;
+    }
+    //used default api
+    para->recOps.start = NULL;
+    para->recOps.stop = NULL;
+    para->recOps.read = NULL;
+    return 0;
+}
+#endif
+
 
 /**
  * @brief   Initialisation for playback
@@ -202,6 +256,7 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
          }
       }
    }
+
 
    FUNCTION_FINISH(STB_PVRInitPlayback);
 
@@ -305,6 +360,139 @@ void STB_PVRSetPlaybackNotifyTime(U8BIT audio_decoder, U8BIT video_decoder, U32B
 
    FUNCTION_FINISH(STB_PVRSetPlaybackNotifyTime);
 }
+
+#ifdef MEDIACODEC_PLAYER
+/**
+ * @brief   Starts playback
+ * @param   disk_id disk containing the recording to be played
+ * @param   audio_decoder audio decoder to be used for playback
+ * @param   video_decoder video decoder to be used for playback
+ * @param   demux demux to be used for playback
+ * @param   basename basename of the recording to be played
+ * @return  TRUE if playback is started, FALSE otherwise
+ */
+BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decoder, U8BIT demux,
+   U8BIT *basename)
+{
+   BOOLEAN play_started;
+   int am_error = 0;
+   SWDMX_TShiftPlayer_Params  params;
+   U8BIT play_index;
+   U8BIT rec_index;
+   BOOLEAN is_timeshift = FALSE;
+
+   FUNCTION_START(STB_PVRPlayStart);
+
+   USE_UNWANTED_PARAM(audio_decoder);
+
+   play_started = FALSE;
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+
+   if (play_index != INVALID_RES_ID)
+   {
+      rec_index = getRecIndex(disk_id, basename);
+      if (rec_index != INVALID_RES_ID)
+      {
+         if (s_recplay_status[rec_index].play_mode == START_PAUSED)
+         {
+            is_timeshift = TRUE;
+         }
+      }
+
+      s_recplay_status[play_index].play_demux = demux;
+
+      memset(&params, 0, sizeof(SWDMX_TShiftPlayer_Params));
+
+      params.dmx_id = demux;
+      params.surface = STB_AVGetSurface(0);
+
+      if (is_timeshift)
+      {
+         params.mode = SWDMX_TFILE_OPENMODE_TIMESHIFT;
+         params.file = s_rec_status[rec_index].tfile;
+         params.start_paused = 1;
+         s_recplay_status[play_index].play_speed = 0;
+         s_recplay_status[play_index].has_video = s_rec_status[rec_index].has_video;
+         s_recplay_status[play_index].has_audio = s_rec_status[rec_index].has_audio;
+
+         params.duration = s_rec_status[rec_index].timeshift_duration;
+
+         /* The media info to be played back is the same as is being recorded */
+         memcpy(&params.media_info, &s_rec_status[rec_index].media_info,
+            sizeof(SWDMX_TShiftPlayer_MediaInfo_t));
+      }
+      else
+      {
+         char file_path[256];
+         params.mode = SWDMX_TFILE_OPENMODE_PLAYBACK;
+         STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+         snprintf(params.file_path, sizeof(params.file_path), "%s.ts", file_path);
+         params.start_paused = 0;
+         s_recplay_status[play_index].play_speed = 100;
+
+         am_error = SWDMX_REC_GetMediaInfoFromFile(params.file_path, (SWDMX_RecMediaInfo*)&params.media_info);
+         if (am_error == 0)
+         {
+            params.duration = params.media_info.duration;
+            if (params.media_info.vid_pid >= 0 && params.media_info.vid_pid < 0x1fff)
+            {
+               s_recplay_status[play_index].has_video = TRUE;
+            }
+            else
+            {
+               s_recplay_status[play_index].has_video = FALSE;
+            }
+            if (params.media_info.aud_cnt > 0)
+            {
+               s_recplay_status[play_index].has_audio = TRUE;
+            }
+            else
+            {
+               s_recplay_status[play_index].has_audio = FALSE;
+            }
+         }
+         else
+         {
+            PLAY_DBG("Get Mediainfo from \"%s\" error: %x", params.file_path, am_error);
+         }
+      }
+
+      s_recplay_status[play_index].play_state = PLAY_STARTING;
+
+      if (am_error == 0)
+      {
+          SWDMX_TShiftPlayer_CreatePara_t para;
+          //creat tplayer with creat para, set ops
+          para.user_data = NULL;
+          STB_PVRPlayerCreatParamOpsInit(&para);
+          SWDMX_TShiftPlayer_Creat(&para, &s_recplay_status[play_index].player_handle);
+         am_error = SWDMX_TShiftPlayer_Start(s_recplay_status[play_index].player_handle, &params);
+         if (am_error == 0)
+         {
+            PLAY_DBG("Starting timeshift playback, speed=%u%%", s_recplay_status[play_index].play_speed);
+
+            AM_EVT_Subscribe((long)s_recplay_status[play_index].player_handle, SWDMX_TPLAYER_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
+               &s_recplay_status[play_index]);
+            play_started = TRUE;
+         }
+         else
+         {
+            PLAY_DBG("Failed to start timeshift, error %d", am_error);
+         }
+      }
+   }
+   else
+   {
+      PLAY_DBG("Can't start playback with video %u (audio %u)", video_decoder, audio_decoder);
+   }
+
+   FUNCTION_FINISH(STB_PVRPlayStart);
+
+   return(play_started);
+}
+
+#else
 
 /**
  * @brief   Starts playback
@@ -462,6 +650,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    return(play_started);
 }
 
+#endif
 /**
  * @brief   Returns status of playback with the given decoders
  * @param   audio_decoder audio decoder being used for playback
@@ -530,8 +719,18 @@ BOOLEAN STB_PVRIsPlayStopped(U8BIT audio_decoder, U8BIT video_decoder)
 BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT position_in_seconds)
 {
    BOOLEAN retval;
-   AM_ErrorCode_t am_error;
-   U8BIT play_index;
+
+#ifndef MEDIACODEC_PLAYER
+
+      AM_ErrorCode_t am_error;
+      U8BIT play_index;
+
+#else
+
+      int am_error;
+      U8BIT play_index;
+
+#endif
 
    FUNCTION_START(STB_PVRPlaySetPosition);
 
@@ -544,8 +743,13 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
       {
          if (s_recplay_status[play_index].play_speed == 0)
          {
+#ifdef MEDIACODEC_PLAYER
+            am_error = SWDMX_TShiftPlayer_PlaySeek(s_recplay_status[play_index].player_handle, position_in_seconds * 1000, AM_FALSE);
+            if (am_error == 0)
+#else
             am_error = AM_AV_SeekTimeshift(video_decoder, position_in_seconds * 1000, AM_FALSE);
             if (am_error == AM_SUCCESS)
+#endif
             {
                PLAY_DBG("%lu secs", position_in_seconds);
                retval = TRUE;
@@ -557,8 +761,13 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
          }
          else
          {
-            am_error = AM_AV_SeekTimeshift(video_decoder, position_in_seconds * 1000, AM_TRUE);
-            if (am_error == AM_SUCCESS)
+#ifdef MEDIACODEC_PLAYER
+             am_error = SWDMX_TShiftPlayer_PlaySeek(s_recplay_status[play_index].player_handle, position_in_seconds * 1000, AM_TRUE);
+             if (am_error == 0)
+#else
+             am_error = AM_AV_SeekTimeshift(video_decoder, position_in_seconds * 1000, AM_TRUE);
+             if (am_error == AM_SUCCESS)
+#endif
             {
                PLAY_DBG("%lu secs", position_in_seconds);
                retval = TRUE;
@@ -587,8 +796,18 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
  */
 void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 {
+
+#ifdef MEDIACODEC_PLAYER
+
+   int am_error;
+   U8BIT play_index;
+
+#else
+
    AM_ErrorCode_t am_error;
    U8BIT play_index;
+
+#endif
 
    FUNCTION_START(STB_PVRPlayStop);
 
@@ -597,8 +816,13 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    {
       if (s_recplay_status[play_index].play_state != PLAY_STOPPED)
       {
+#ifdef MEDIACODEC_PLAYER
+         am_error = SWDMX_TShiftPlayer_Stop(s_recplay_status[play_index].player_handle);
+         if (am_error == 0)
+#else
          am_error = AM_AV_StopTimeshift(video_decoder);
          if (am_error == AM_SUCCESS)
+#endif
          {
             PLAY_DBG("Timeshift playback stopped");
          }
@@ -611,6 +835,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].video_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].audio_decoder = INVALID_RES_ID;
 
+
+#ifndef MEDIACODEC_PLAYER
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_STATE_CHANGED, PlayEventHandler,
             &s_recplay_status[play_index]);
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_SPEED_CHANGED, PlayEventHandler,
@@ -621,6 +847,11 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
             &s_recplay_status[play_index]);
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_EOF, PlayEventHandler,
             &s_recplay_status[play_index]);
+#else
+         AM_EVT_Unsubscribe((long)s_recplay_status[play_index].player_handle, SWDMX_TPLAYER_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
+            &s_recplay_status[play_index]);
+         SWDMX_TShiftPlayer_Destory(s_recplay_status[play_index].player_handle);
+#endif
 
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
       }
@@ -743,6 +974,235 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
  * @param   pid_array PIDs to be recorded
  * @return  TRUE if recording is started, FALSE otherwise
  */
+ #ifdef MEDIACODEC_PLAYER
+
+BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
+   U16BIT num_pids, S_PVR_PID_INFO *pid_array)
+{
+   BOOLEAN retval;
+   U16BIT i;
+   int am_error;
+   SWDMX_REC_CreatePara_t create_params;
+   SWDMX_RecParams rec_params;
+   int tfile_flags;
+   BOOLEAN is_timeshift;
+   U8BIT dvr_mode;
+
+   FUNCTION_START(STB_PVRRecordStart);
+
+   retval = FALSE;
+
+   REC_DBG("STB_PVRRecordStart into --[%d][%d]-", rec_index, num_recorders);
+
+   if (rec_index < num_recorders)
+   {
+      if (s_rec_status[rec_index].rec_mode == START_PAUSED)
+      {
+         is_timeshift = TRUE;
+      }
+      else
+      {
+         is_timeshift = FALSE;
+      }
+
+      memset(&create_params, 0, sizeof(SWDMX_REC_CreatePara_t));
+
+      create_params.dvr = s_rec_status[rec_index].rec_demux;
+
+
+      dvr_mode = getDvrMode();
+
+      setDvrMode(create_params.dvr, dvr_mode);
+
+      STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
+               sizeof(create_params.store_dir));
+
+      REC_DBG("Starting recording in directory \"%s\" is_timeshift [%d] ", create_params.store_dir, is_timeshift);
+      STB_PVRRECCreatParamOpsInit(&create_params);
+      am_error = SWDMX_REC_Create(&create_params, &s_rec_status[rec_index].rec_handle);
+      if (am_error == 0)
+      {
+         s_rec_status[rec_index].disk_id = disk_id;
+         strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename));
+
+         if (is_timeshift)
+         {
+            AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
+               RecEventHandler, &s_rec_status[rec_index]);
+            AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
+               RecEventHandler, &s_rec_status[rec_index]);
+         }
+
+         s_rec_status[rec_index].has_video = FALSE;
+         s_rec_status[rec_index].has_audio = FALSE;
+
+         memset(&rec_params, 0, sizeof(SWDMX_RecParams));
+         memset(&s_rec_status[rec_index].media_info, 0, sizeof(SWDMX_TShiftPlayer_MediaInfo_t));
+
+         /* Setup the initial set of PIDs that are to be recorded */
+         REC_DBG("Recording PIDs:");
+         for (i = 0; i < num_pids; i++)
+         {
+            if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
+            {
+               s_rec_status[rec_index].has_video = TRUE;
+               s_rec_status[rec_index].media_info.vid_pid = pid_array[i].pid;
+
+               switch (pid_array[i].u.video_codec)
+               {
+                  case AV_VIDEO_CODEC_MPEG1:
+                  case AV_VIDEO_CODEC_MPEG2:
+                     s_rec_status[rec_index].media_info.vid_fmt = VFORMAT_MPEG12;
+                     break;
+                  case AV_VIDEO_CODEC_H264:
+                     s_rec_status[rec_index].media_info.vid_fmt = VFORMAT_H264;
+                     break;
+                  case AV_VIDEO_CODEC_H265:
+                     s_rec_status[rec_index].media_info.vid_fmt = VFORMAT_HEVC;
+                     break;
+                  default:
+                     break;
+               }
+               REC_DBG("  VIDEO %u", pid_array[i].pid);
+            }
+            else if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
+            {
+               s_rec_status[rec_index].has_audio = TRUE;
+               s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].pid = pid_array[i].pid;
+
+               switch (pid_array[i].u.audio_codec)
+               {
+                  case AV_AUDIO_CODEC_AC3:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_AC3;
+                     break;
+                  case AV_AUDIO_CODEC_EAC3:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_EAC3;
+                     break;
+                  case AV_AUDIO_CODEC_AAC:
+                  case AV_AUDIO_CODEC_HEAAC:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_AAC;
+                     break;
+                  case AV_AUDIO_CODEC_MP2:
+                  case AV_AUDIO_CODEC_MP3:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_MPEG;
+                     break;
+                  default:
+                     break;
+               }
+
+               s_rec_status[rec_index].media_info.aud_cnt++;
+               REC_DBG("  AUDIO %u", pid_array[i].pid);
+            }
+            else if (pid_array[i].type == PVR_PID_TYPE_SUBTITLES)
+            {
+               s_rec_status[rec_index].media_info.subtitles[s_rec_status[rec_index].media_info.sub_cnt].pid = pid_array[i].pid;
+               s_rec_status[rec_index].media_info.sub_cnt++;
+               REC_DBG("  SUBTITLES %u", pid_array[i].pid);
+            }
+            else if (pid_array[i].type == PVR_PID_TYPE_TELETEXT)
+            {
+               s_rec_status[rec_index].media_info.teletexts[s_rec_status[rec_index].media_info.ttx_cnt].pid = pid_array[i].pid;
+               s_rec_status[rec_index].media_info.ttx_cnt++;
+               REC_DBG("  TELETEXT %u", pid_array[i].pid);
+            }
+            else
+            {
+               REC_DBG("  Not recording %u, type %u", pid_array[i].pid, pid_array[i].type);
+            }
+         }
+
+         memcpy(&rec_params.media_info, &s_rec_status[rec_index].media_info,
+            sizeof(SWDMX_TShiftPlayer_MediaInfo_t));
+
+         if (is_timeshift)
+         {
+            strncpy(rec_params.prefix_name, "TimeShifting", SWDMX_REC_NAME_MAX);
+            rec_params.mode = SWDMX_REC_TIMESHIFT;
+         }
+         else
+         {
+            strncpy(rec_params.prefix_name, s_rec_status[rec_index].basename, SWDMX_REC_NAME_MAX);
+            rec_params.mode = SWDMX_REC_PVR;
+         }
+
+         strncpy(rec_params.suffix_name, "ts", SWDMX_REC_SUFFIX_MAX);
+         rec_params.total_time = s_rec_status[rec_index].timeshift_duration;
+
+         if (is_timeshift)
+         {
+            REC_DBG("Starting timeshift recording %p for %lu secs, [%s.ts]", s_rec_status[rec_index].rec_handle,
+               rec_params.total_time, rec_params.prefix_name);
+         }
+         else
+         {
+            REC_DBG("Starting normal recording %p for %lu secs, [%s.ts]", s_rec_status[rec_index].rec_handle,
+               rec_params.total_time, rec_params.prefix_name);
+         }
+//not add des operate now,
+//         if (aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
+//             rec_params.crypt_ops = &des_ops;
+
+
+         am_error = SWDMX_REC_StartRecord(s_rec_status[rec_index].rec_handle, &rec_params);
+         if (am_error == 0)
+         {
+            if (is_timeshift)
+            {
+               am_error = SWDMX_REC_GetTFile(s_rec_status[rec_index].rec_handle,
+                  &s_rec_status[rec_index].tfile);
+               if (am_error == 0)
+               {
+                  AM_EVT_Subscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_START_TIME_CHANGED,
+                     RecEventHandler, &s_rec_status[rec_index]);
+                  AM_EVT_Subscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_END_TIME_CHANGED,
+                     RecEventHandler, &s_rec_status[rec_index]);
+
+                  am_error = SWDMX_TFile_TimeStart(s_rec_status[rec_index].tfile);
+                  if (am_error != 0)
+                  {
+                     REC_DBG("AM_TFile_TimeStart failed, error %d", am_error);
+                  }
+               }
+               else
+               {
+                  REC_DBG("Failed to get recording tfile, error %d", am_error);
+               }
+            }
+
+            retval = TRUE;
+         }
+         else
+         {
+            REC_DBG("Failed to start recording, error %d", am_error);
+
+            {
+               AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
+                  RecEventHandler, &s_rec_status[rec_index]);
+               AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
+                  RecEventHandler, &s_rec_status[rec_index]);
+            }
+
+            SWDMX_REC_Destroy(s_rec_status[rec_index].rec_handle);
+            s_rec_status[rec_index].rec_handle = NULL;
+         }
+      }
+      else
+      {
+         REC_DBG("Failed to create recording, error %d", am_error);
+      }
+   }
+   else
+   {
+      REC_DBG("Invalid recorder %u", rec_index);
+   }
+
+   FUNCTION_FINISH(STB_PVRRecordStart);
+
+   return(retval);
+}
+
+#else
+
 BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    U16BIT num_pids, S_PVR_PID_INFO *pid_array)
 {
@@ -966,18 +1426,20 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    return(retval);
 }
 
+#endif
+
 /**
- * @brief   Pauses a recording currently taking place
- * @param   rec_index recording index
- * @return  TRUE if the recording is successfully paused, FALSE otherwise
- */
+* @brief   Pauses a recording currently taking place
+* @param   rec_index recording index
+* @return  TRUE if the recording is successfully paused, FALSE otherwise
+*/
 BOOLEAN STB_PVRRecordPause(U8BIT rec_index)
 {
-   FUNCTION_START(STB_PVRRecordPause);
-   USE_UNWANTED_PARAM(rec_index);
-   FUNCTION_FINISH(STB_PVRRecordPause);
+    FUNCTION_START(STB_PVRRecordPause);
+    USE_UNWANTED_PARAM(rec_index);
+    FUNCTION_FINISH(STB_PVRRecordPause);
 
-   return(TRUE);
+    return(TRUE);
 }
 
 /**
@@ -1010,6 +1472,29 @@ void STB_PVRRecordStop(U8BIT rec_index)
 
       if (s_rec_status[rec_index].rec_handle != NULL)
       {
+
+#ifdef MEDIACODEC_PLAYER
+     am_error = SWDMX_REC_StopRecord(s_rec_status[rec_index].rec_handle);
+     if (am_error != 0)
+     {
+        REC_DBG("Failed to stop recording %u, error %d", s_rec_status[rec_index].rec_handle, am_error);
+     }
+
+     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
+        RecEventHandler, &s_rec_status[rec_index]);
+     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
+        RecEventHandler, &s_rec_status[rec_index]);
+     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_START_TIME_CHANGED,
+        RecEventHandler, &s_rec_status[rec_index]);
+     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_END_TIME_CHANGED,
+        RecEventHandler, &s_rec_status[rec_index]);
+
+
+
+     SWDMX_REC_Destroy(s_rec_status[rec_index].rec_handle);
+
+ #else
+
          am_error = AM_REC_StopRecord(s_rec_status[rec_index].rec_handle);
          if (am_error != AM_SUCCESS)
          {
@@ -1028,6 +1513,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
          AM_REC_Destroy(s_rec_status[rec_index].rec_handle);
          s_rec_status[rec_index].rec_handle = NULL;
          s_rec_status[rec_index].tfile = NULL;
+#endif
       }
    }
 
@@ -1156,6 +1642,88 @@ void STB_PVRPlayTrickMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_PVR_PL
  * @param   speed Play speed as a percentage (i.e 100% = normal playback)
  * @return  TRUE if successful
  */
+#ifdef MEDIACODEC_PLAYER
+BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT speed)
+{
+   BOOLEAN retval;
+   int am_error;
+   int am_speed;
+   U8BIT play_index = INVALID_RES_ID;
+   int i;
+
+   FUNCTION_START(STB_PVRSetPlaySpeed);
+   USE_UNWANTED_PARAM(audio_decoder);
+
+   retval = FALSE;
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+
+   if (play_index != INVALID_RES_ID && s_recplay_status[play_index].play_state == PLAY_STARTED)
+   {
+      if (speed != s_recplay_status[play_index].play_speed)
+      {
+         if (speed == 0)
+         {
+            am_error = SWDMX_TShiftPlayer_PlayPause(s_recplay_status[play_index].player_handle);
+         }
+         else if (speed == 100)
+         {
+            am_error = SWDMX_TShiftPlayer_PlayResume(s_recplay_status[play_index].player_handle);
+         }
+         else if (speed > 100)
+         {
+            /*am_speed = speed / 100;
+
+            if (am_speed != 0)
+            {
+               am_error = AM_AV_FastForwardTimeshift(video_decoder, am_speed);
+            }
+            else*/
+            {
+               PLAY_DBG("Unsupported play speed %d", speed);
+               am_error = SWDMX_TPLAYER_ERR_NOT_SUPPORTED;
+            }
+         }
+         else if (speed <= -100)
+         {
+            /*am_speed = speed / -100;
+
+            if (am_speed != 0)
+            {
+               am_error = AM_AV_FastBackwardTimeshift(video_decoder, am_speed);
+            }
+            else*/
+            {
+               PLAY_DBG("Unsupported play speed %d", speed);
+               am_error = SWDMX_TPLAYER_ERR_NOT_SUPPORTED;
+            }
+         }
+         else
+         {
+            PLAY_DBG("Unsupported play speed %d", speed);
+            am_error = SWDMX_TPLAYER_ERR_NOT_SUPPORTED;
+         }
+
+         if (am_error == 0)
+         {
+            PLAY_DBG("Set play speed to %d%%", speed);
+            s_recplay_status[play_index].play_speed = speed;
+            retval = TRUE;
+         }
+         else
+         {
+            PLAY_DBG("Failed to set play speed to %d (%d), error 0x%x", speed, am_speed, am_error);
+         }
+      }
+   }
+
+   FUNCTION_FINISH(STB_PVRSetPlaySpeed);
+
+   return(retval);
+}
+
+#else
+
 BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT speed)
 {
    BOOLEAN retval;
@@ -1235,6 +1803,7 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
    return(retval);
 }
 
+#endif
 /**
  * @brief   Returns the current playback speed
  * @param   audio_decoder audio decoder being used for playback
@@ -1324,8 +1893,13 @@ BOOLEAN STB_PVRCanBeUsedForRecording(U16BIT disk_id, U8BIT *basename)
  */
 BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
 {
+#ifndef MEDIACODEC_PLAYER
    AM_TFile_t file_handle;
    AM_ErrorCode_t am_error;
+#else
+SWDMX_TFile_t file_handle;
+int am_error;
+#endif
    char file_path[256];
 
    FUNCTION_START(STB_PVRDeleteRecording);
@@ -1333,16 +1907,30 @@ BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
    STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
    snprintf(file_path, sizeof(file_path), "%s.ts", file_path);
 
+#ifndef MEDIACODEC_PLAYER
    am_error = AM_TFile_Open(&file_handle, file_path, AM_FALSE, 0, 0);
    if (am_error == AM_SUCCESS)
+#else
+    REC_DBG("STB_PVRDeleteRecording tf open [%s]", file_path);
+
+    am_error = SWDMX_TFile_Open(&file_handle, file_path, AM_FALSE, 0, 0, SWDMX_TFILE_OPENMODE_PLAYBACK);
+    if (am_error == 0)
+#endif
    {
       file_handle->delete_on_close = 1;
+#ifndef MEDIACODEC_PLAYER
       am_error = AM_TFile_Close(file_handle);
+#else
+      am_error = SWDMX_TFile_Close(file_handle);
+#endif
    }
 
    FUNCTION_FINISH(STB_PVRDeleteRecording);
-
+#ifndef MEDIACODEC_PLAYER
    return (am_error == AM_SUCCESS) ? TRUE : FALSE;
+#else
+   return (am_error == 0) ? TRUE : FALSE;
+#endif
 }
 
 /**
@@ -1355,10 +1943,17 @@ BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
 BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_size_kb)
 {
    BOOLEAN retval;
+
+#ifndef MEDIACODEC_PLAYER
    AM_ErrorCode_t am_error;
    AM_REC_RecInfo_t rec_info;
-   U8BIT rec_index;
    AM_TFile_t tfile;
+#else
+    int am_error;
+    SWDMX_TFile_t tfile;
+#endif
+
+   U8BIT rec_index;
    char file_path[256];
 
    FUNCTION_START(STB_PVRGetRecordingInfo);
@@ -1385,12 +1980,24 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
 */
    STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
    snprintf(file_path, sizeof(file_path), "%s.ts", file_path);
+
+#ifndef MEDIACODEC_PLAYER
    am_error = AM_TFile_Open(&tfile, file_path, AM_FALSE, 0, 0);
    if (am_error == AM_SUCCESS)
+#else
+    REC_DBG("STB_PVRGetRecordingSize tf open [%s]", file_path);
+
+    am_error = SWDMX_TFile_Open(&tfile, file_path, AM_FALSE, 0, 0, SWDMX_TFILE_OPENMODE_PLAYBACK);
+    if (am_error == 0)
+#endif
    {
       *rec_size_kb = tfile->size / 1024;
       retval = TRUE;
-      AM_TFile_Close(tfile);
+#ifndef MEDIACODEC_PLAYER
+       AM_TFile_Close(tfile);
+#else
+       SWDMX_TFile_Close(tfile);
+#endif
    }
    else
    {
@@ -1415,8 +2022,14 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
    U8BIT *elapsed_mins, U8BIT *elapsed_secs)
 {
    BOOLEAN retval;
+#ifdef MEDIACODEC_PLAYER
+int am_error;
+SWDMX_TShiftPlayerInfo_t info;
+#else
    AM_ErrorCode_t am_error;
    AM_AV_TimeshiftInfo_t info;
+#endif
+
    U32BIT seconds;
    U8BIT play_index;
 
@@ -1427,8 +2040,15 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
    play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
    {
+
+#ifdef MEDIACODEC_PLAYER
+       am_error = SWDMX_TShiftPlayer_GetTimeshiftInfo(s_recplay_status[play_index].player_handle, &info);
+       if (am_error == 0)
+#else
       am_error = AM_AV_GetTimeshiftInfo(s_recplay_status[play_index].video_decoder, &info);
+
       if (am_error == AM_SUCCESS)
+#endif
       {
          seconds = info.current_time / 1000;
 
@@ -1735,6 +2355,102 @@ static U8BIT getRecIndex(U8BIT disk_id, U8BIT *basename)
 
    return rec_index;
 }
+#ifdef MEDIACODEC_PLAYER
+static void RecEventHandler(long dev_no, int event_type, void *param, void *data)
+{
+   S_REC_STATUS *rec_status;
+
+   if (data != NULL)
+   {
+      rec_status = (S_REC_STATUS *)data;
+
+      switch (event_type)
+      {
+         case SWDMX_REC_EVT_RECORD_START:
+         {
+            REC_DBG("Timeshift recording started, handle %p", rec_status->rec_handle);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,
+               &rec_status->rec_index, sizeof(U8BIT));
+            break;
+         }
+
+         case SWDMX_REC_EVT_RECORD_END:
+         {
+            REC_DBG("Timeshift recording stopped");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
+               &rec_status->rec_index, sizeof(U8BIT));
+            break;
+         }
+
+         case SWDMX_TFILE_EVT_START_TIME_CHANGED:
+         {
+//            REC_DBG("TFile start changed: %ld", (long)param);
+            break;
+         }
+
+         case SWDMX_TFILE_EVT_END_TIME_CHANGED:
+         {
+//            REC_DBG("TFile end changed: %ld", (long)param);
+            break;
+         }
+
+         default:
+         {
+            REC_DBG("Unhandled recording event %d", event_type);
+            break;
+         }
+      }
+   }
+}
+
+static void PlayEventHandler(long dev_no, int event_type, void *param, void *data)
+{
+   static int last_status = AV_TIMESHIFT_STATUS_EXIT;
+
+   S_RECPLAY_STATUS *play_status;
+
+   if (data != NULL)
+   {
+      play_status = (S_RECPLAY_STATUS *)data;
+
+      switch (event_type)
+      {
+         case SWDMX_TPLAYER_EVT_PLAYER_UPDATE_INFO:
+         {
+            /**< Update the current player information*/
+            SWDMX_TShiftPlayerInfo_t *info = (SWDMX_TShiftPlayerInfo_t *)param;
+
+            if (info->status != last_status)
+            {
+               PLAY_DBG("Info update: current=%d, full=%d, status=%d", info->current_time,
+                  info->full_time, info->status);
+
+               if ((play_status->play_state == PLAY_STARTING) &&
+                  ((info->status == AV_TIMESHIFT_STATUS_PLAY) ||
+                   (info->status == AV_TIMESHIFT_STATUS_PAUSE) ||
+                   (info->status == AV_TIMESHIFT_STATUS_STARTOK) ||
+                   (info->status == AV_TIMESHIFT_STATUS_FFFB)))
+               {
+                  /* Playback has started successfully */
+                  PLAY_DBG("Timeshift playback has started");
+                  play_status->play_state = PLAY_STARTED;
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, NULL, 0);
+               }
+
+               last_status = info->status;
+            }
+            break;
+         }
+         default:
+         {
+            PLAY_DBG("Unhandled event %d", event_type);
+            break;
+         }
+      }
+   }
+}
+
+#else
 
 static void RecEventHandler(long dev_no, int event_type, void *param, void *data)
 {
@@ -1853,6 +2569,8 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
       }
    }
 }
+
+#endif
 
 static void *des_open()
 {

@@ -19,6 +19,8 @@ typedef struct {
 
 #define AML_MAX_TUNER_NUM 3
 #define AML_MAX_CAM_NUM 2
+#define AML_MAX_DMX_NUM 16
+
 typedef struct
 {
 	int           is_set_tsout;
@@ -35,9 +37,11 @@ typedef struct
 	int           encrypt;
 } stb_pvr_cfg;
 
+
 typedef struct {
 	stb_tuner_cfg tuners[AML_MAX_TUNER_NUM];
 	stb_cam_cfg   cam[AML_MAX_CAM_NUM];
+	int dmx_cap[AML_MAX_DMX_NUM];
 	int           tuner_num;
 	int           demux_num;
 	int           recorder_num;

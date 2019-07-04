@@ -217,9 +217,9 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                demux_status[i].config_mutex = STB_OSCreateMutex();
                if (demux_status[i].config_mutex != NULL)
                {
-                  /* All demuxes are capable of everything */
-                  demux_status[i].caps = DMX_CAPS_LIVE | DMX_CAPS_RECORDING | DMX_CAPS_PLAYBACK |
-                     DMX_CAPS_MONITOR_SI;
+                  /* All demuxes are not capable of everything ,get cap from cfg*/
+                  demux_status[i].caps = aml_hw_cfg.dmx_cap[i];
+                  DMX_ERR("dmx%dcap:0x%x", i, demux_status[i].caps);
 
                   for (j = 0; j < DMX_PID_COUNT; j++)
                   {

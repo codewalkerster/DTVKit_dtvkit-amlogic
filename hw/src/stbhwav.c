@@ -32,6 +32,7 @@
 #include "am_adp/am_misc.h"
 #include "am_adp/am_userdata.h"
 
+
 /* STB header files */
 #include "techtype.h"
 
@@ -51,6 +52,13 @@
 #define VIDEO_DEBUG
 #define AUDIO_DEBUG
 
+
+//#define MEDIACODEC_PLAYER
+
+#ifdef MEDIACODEC_PLAYER
+//for mediaplayer
+#include "swdemux.h"
+#endif
 
 #ifdef AV_DEBUG
    #define AV_DBG(x,...)   STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
@@ -82,6 +90,7 @@
 #define MIN_AV_SPEED    -600
 #define MAX_AV_SPEED     600
 
+#define MAX_PLAYER_NUM     32
 
 /*---constant definitions for this file--------------------------------------*/
 
@@ -122,6 +131,7 @@ typedef struct
    void *user_data;
 
    U8BIT volume;
+   U8BIT mute;
    U8BIT* sample_data;
    U32BIT sample_data_size;
    U32BIT loop_count;
@@ -150,6 +160,11 @@ static S_VIDEO_MODE video_modes[] =
    {AM_VOUT_FORMAT_720P, VIDEO_FORMAT_720P50HD},
    {AM_VOUT_FORMAT_1080I, VIDEO_FORMAT_1080IHD},
    {AM_VOUT_FORMAT_1080P, VIDEO_FORMAT_1080P50HD}
+};
+
+static void* video_surface[MAX_PLAYER_NUM] =
+{
+    NULL
 };
 
 /*---local function prototypes for this file---------------------------------*/
@@ -210,7 +225,12 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_param.vout_dev_no = 0;
             av_param.afd_enable = 1;
 
+#ifdef MEDIACODEC_PLAYER
+            retval = swdemux_av_init();
+#else
             retval = AM_AV_Open(av_path, &av_param);
+#endif
+
             if (retval != AM_SUCCESS)
             {
                ERR_DBG("AM_AV_Open failed, err %d", retval);
@@ -358,14 +378,20 @@ void STB_AVBlankVideo(U8BIT path, BOOLEAN blank)
    FUNCTION_START(STB_AVBlankVideo);
 
    VID_DBG("blank=%u", blank);
-
+   //need add api for blank video
    if( blank == TRUE)
    {
-      AM_AV_DisableVideo(path);
+   #ifdef MEDIACODEC_PLAYER
+   #else
+        AM_AV_DisableVideo(path);
+   #endif
    }
    else
    {
-      AM_AV_EnableVideo(path);
+   #ifdef MEDIACODEC_PLAYER
+   #else
+        AM_AV_EnableVideo(path);
+   #endif
    }
 
    FUNCTION_FINISH(STB_AVBlankVideo);
@@ -421,7 +447,7 @@ U8BIT STB_AVGetUhfModulatorChannel(void)
 /**
  * @brief   Sets the volume of the audio output
  * @param   path the audio path to be configured
- * @param   vol the audio volume (0-100%)
+ * @param   vol the audio volume (0-100%)(the value of vol is from 0 to 100)
  */
 void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 {
@@ -429,7 +455,13 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 
    av_paths_status[path].volume=vol;
 
-   AM_AOUT_SetVolume(AOUT_DEV, vol);
+#ifdef MEDIACODEC_PLAYER
+       AV_DBG("SetVolume path[%d] vol:[%d]vol[%d]", path, vol, vol);
+       swdemux_av_setVolume(path, vol, vol);
+       AV_DBG("SetVolume path[%d] vol:[%d]vol[%d] end", path, vol, vol);
+#else
+       AM_AOUT_SetVolume(AOUT_DEV, vol);
+#endif
 
    FUNCTION_FINISH(STB_AVSetAudioVolume);
 }
@@ -455,14 +487,27 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
 void STB_AVSetAudioMute(U8BIT path, BOOLEAN mute)
 {
    FUNCTION_START(STB_AVSetAudioMute);
-   if(mute==TRUE)
-   {
-      AM_AOUT_SetMute(AOUT_DEV, 1);
-   }
-   else
-   {
-      AM_AOUT_SetMute(AOUT_DEV, 0);
-   }
+#ifdef MEDIACODEC_PLAYER
+       if (mute == TRUE)
+       {
+          swdmx_codec_setAudMute(path, 1);
+       }
+       else
+       {
+          swdmx_codec_setAudMute(path, 0);
+       }
+#else
+       if (mute == TRUE)
+       {
+          AM_AOUT_SetMute(AOUT_DEV, 1);
+       }
+       else
+       {
+          AM_AOUT_SetMute(AOUT_DEV, 0);
+       }
+
+#endif
+
    FUNCTION_FINISH(STB_AVSetAudioMute);
 }
 
@@ -476,8 +521,13 @@ BOOLEAN STB_AVGetAudioMute(U8BIT path)
    AM_Bool_t mute;
    BOOLEAN retval;
    FUNCTION_START(STB_AVGetAudioMute);
+
+#ifdef MEDIACODEC_PLAYER
+   swdemux_av_getAudMute(path, &mute);
+#else
    AM_AOUT_GetMute(AOUT_DEV, &mute);
-   if(mute)
+#endif
+   if (mute)
    {
       retval = TRUE;
    }
@@ -543,8 +593,11 @@ void STB_AVStartAudioDecoding(U8BIT path)
             if(audio_pid != av_paths_status[path].audio_pid)
             {
                AUD_DBG("changing audio PID %u->%d", av_paths_status[path].audio_pid, audio_pid);
-
+#ifdef MEDIACODEC_PLAYER
+               swdemux_av_changeAudioTrack(path,audio_pid,audio_format);
+#else
                AM_AV_SwitchTSAudio(path,audio_pid,audio_format);
+#endif
                av_paths_status[path].audio_pid = audio_pid;
             }
             /*state*/
@@ -554,10 +607,15 @@ void STB_AVStartAudioDecoding(U8BIT path)
             /*starting audio when video is already started*/
             AUD_DBG("video already started, audio PID=%u", audio_pid);
             if (!av_start_flag) {
+#ifdef MEDIACODEC_PLAYER
+                swdemux_av_changeAudioTrack(path, audio_pid, audio_format);
+#else
                 AM_AV_SwitchTSAudio(path,audio_pid,audio_format); //The audio pid and fmt have been set when video decoding
+#endif
             }
             av_start_flag = FALSE;
             av_paths_status[path].audio_pid = audio_pid;
+
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
             break;
@@ -567,9 +625,21 @@ void STB_AVStartAudioDecoding(U8BIT path)
             av_paths_status[path].audio_pid = audio_pid;
             av_paths_status[path].video_pid = video_pid;
             av_paths_status[path].pcr_pid = pcr_pid;
+#ifdef MEDIACODEC_PLAYER
+            SWDMX_PlayParams pp;
+            pp.vid_pid = video_pid;
+            pp.vid_fmt = video_format;
+            pp.aud_pid = audio_pid;
+            pp.aud_fmt = audio_format;
+            pp.ad_pid = INVALID_PID;
+            pp.dmx_id = av_paths_status[path].demux;
+            AUD_DBG("swdmx av play started, audio PID=%u, PCR PID=%u", audio_pid, pcr_pid);
+            swdemux_av_startPlay(path, video_surface[path], pp);
+#else
             //AM_AV_DisableVideo(path);
             AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
+#endif
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
             break;
@@ -702,14 +772,31 @@ void STB_AVStartVideoDecoding(U8BIT path)
             if (video_pid != av_paths_status[path].video_pid)
             {
                VID_DBG("video PID changed %u->%u, decoding restarted", av_paths_status[path].video_pid, video_pid);
-               AM_AV_StopTS(path);
-               AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
-               AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
-               av_start_flag = TRUE;
+
+#ifdef MEDIACODEC_PLAYER
+                SWDMX_PlayParams pp;
+                pp.vid_pid = video_pid;
+                pp.vid_fmt = video_format;
+                pp.aud_pid = audio_pid;
+                pp.aud_fmt = audio_format;
+                pp.ad_pid = INVALID_PID;
+                pp.dmx_id = av_paths_status[path].demux;
+                swdemux_av_startPlay(path, video_surface[path], pp);
+                av_start_flag = TRUE;
+#else
+                AM_AV_StopTS(path);
+                AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
+                AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
+                av_start_flag = TRUE;
+#endif
+
             }
             else
             {
-               AM_AV_EnableVideo(path);
+            #ifdef MEDIACODEC_PLAYER
+            #else
+            AM_AV_EnableVideo(path);
+            #endif
             }
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
             av_paths_status[path].video_pid = video_pid;
@@ -721,9 +808,24 @@ void STB_AVStartVideoDecoding(U8BIT path)
             av_paths_status[path].video_pid = video_pid;
             av_paths_status[path].pcr_pid = pcr_pid;
 
+#ifdef MEDIACODEC_PLAYER
+            SWDMX_PlayParams pp;
+            av_paths_status[path].audio_pid = audio_pid;
+            av_paths_status[path].audio_format = audio_format;
+            pp.vid_pid = video_pid;
+            pp.vid_fmt = video_format;
+            pp.aud_pid = audio_pid;
+            pp.aud_fmt = audio_format;
+            pp.ad_pid = INVALID_PID;
+            pp.dmx_id = av_paths_status[path].demux;
+            VID_DBG("--swdmx av start play, video PID=%u", video_pid);
+            swdemux_av_startPlay(path, video_surface[path], pp);
+            VID_DBG("--swdmx av start play, video PID=%u end", video_pid);
+#else
             /*There seems to be a problem with using invalid pids, so just start up the audio decoder early*/
             AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
+#endif
 
             av_start_flag = TRUE;
             av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
@@ -827,6 +929,9 @@ void  STB_AVResumeVideoDecoding(U8BIT path)
 {
    FUNCTION_START(STB_AVResumeVideoDecoding);
 
+   VID_DBG("STB_AVResumeVideoDecoding----");
+
+
    if (av_paths_status[path].injecting)
    {
       AM_AV_ResumeInject(path);
@@ -889,7 +994,11 @@ void STB_AVStopVideoDecoding(U8BIT path)
          case DECODER_A_STOP_V_START:
          {
             VID_DBG("audio not running, stop decoding");
-            error = AM_AV_StopTS(path);
+#ifdef MEDIACODEC_PLAYER
+         swdemux_av_stopVideo(path);
+#else
+         error = AM_AV_StopTS(path);
+#endif
             VID_DBG("Stopped decoding, result %d", error);
 
             info.flags = VIDEO_INFO_DECODER_STATUS;
@@ -911,10 +1020,13 @@ void STB_AVStopVideoDecoding(U8BIT path)
 
             info.flags = VIDEO_INFO_DECODER_STATUS;
             info.status = DECODER_STATUS_NONE;
-
+#ifdef MEDIACODEC_PLAYER
+#else
             //AM_AV_DisableVideo(path);
             AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, INVALID_PID, av_paths_status[path].audio_pid, INVALID_PID, -1, av_paths_status[path].audio_format);
+#endif
+
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
             av_paths_status[path].video_pid = INVALID_PID;
             av_paths_status[path].pcr_pid = INVALID_PID;
@@ -960,7 +1072,11 @@ void STB_AVStopAudioDecoding(U8BIT path)
             break;
          case DECODER_A_START_V_STOP:
             AUD_DBG("video not running, stop decoding");
-            error = AM_AV_StopTS(path);
+#ifdef MEDIACODEC_PLAYER
+         swdemux_av_stopAudio(path);
+#else
+         error = AM_AV_StopTS(path);
+#endif
             AUD_DBG("Stopped decoding, result %d", error);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
             av_paths_status[path].audio_pid = INVALID_PID;
@@ -968,7 +1084,11 @@ void STB_AVStopAudioDecoding(U8BIT path)
             break;
          case DECODER_A_START_V_START:
             AUD_DBG("video still running, switch to invalid audio pid");
-            AM_AV_SwitchTSAudio(path,INVALID_PID,av_paths_status[path].audio_format);
+         #ifdef MEDIACODEC_PLAYER
+         swdemux_av_stopAudio(path);
+         #else
+         AM_AV_SwitchTSAudio(path,INVALID_PID,av_paths_status[path].audio_format);
+         #endif
             av_paths_status[path].audio_pid = INVALID_PID;
             av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
@@ -1055,6 +1175,41 @@ void STB_AVSetAudioSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
 
    FUNCTION_FINISH(STB_AVSetAudioSource);
 }
+
+
+/**
+ * @brief   Sets the video surface  with the given video decoder path
+ * @param   path video path
+ * @param   video surface point
+ * @return  TRUE if the codec is supported and is set correctly, FALSE otherwise
+ */
+BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
+{
+   BOOLEAN success = TRUE;
+    if (path >= MAX_PLAYER_NUM) {
+        return FALSE;
+    }
+   FUNCTION_START(STB_AVSetVideoCodec);
+   VID_DBG("set surface---path:[%d]", path);
+   video_surface[path] = surface;
+   FUNCTION_FINISH(STB_AVSetVideoCodec);
+
+   return success;
+}
+
+/**
+ * @brief   Gets the video surface  with the given video decoder path
+ * @param   path video path
+ * @return  surface poniter
+ */
+void * STB_AVGetSurface(U8BIT path)
+{
+    if (path >= MAX_PLAYER_NUM) {
+        return NULL;
+    }
+   return video_surface[path];
+}
+
 
 /**
  * @brief   Sets the video codec to be used when decoding video with the given video decoder path
@@ -1529,8 +1684,11 @@ void STB_AVStartADDecoding(U8BIT path)
    FUNCTION_START(STB_AVStartADDecoding);
 
    DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+#ifdef MEDIACODEC_PLAYER
+   swdemux_av_startAdAudio(path, ad_pid, av_paths_status[path].ad_format);
+#else
    AM_AV_SetAudioAd(path,1,ad_pid,av_paths_status[path].ad_format);
-
+#endif
    FUNCTION_FINISH(STB_AVStartADDecoding);
 }
 
@@ -1541,8 +1699,11 @@ void STB_AVStartADDecoding(U8BIT path)
 void STB_AVStopADDecoding(U8BIT path)
 {
    FUNCTION_START(STB_AVStopADDecoding);
-
+#ifdef MEDIACODEC_PLAYER
+   swdemux_av_stopAdAudio(path);
+#else
    AM_AV_SetAudioAd(path,0,INVALID_PID,av_paths_status[path].ad_format);
+#endif
    FUNCTION_FINISH(STB_AVStopADDecoding);
 }
 
@@ -1598,7 +1759,13 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
 void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 {
    FUNCTION_START(STB_AVSetADVolume);
-   AM_AOUT_SetVolume(AOUT_DEV, vol);
+#ifdef MEDIACODEC_PLAYER
+    AV_DBG("SetVolume ad path[%d] vol[%d]", path,  vol);
+    swdemux_av_setVolume(path, vol, vol);
+    AV_DBG("SetVolume ad path[%d] vol[%d] end", path,  vol);
+#else
+    AM_AOUT_SetVolume(AOUT_DEV, vol);
+#endif
    FUNCTION_FINISH(STB_AVSetADVolume);
 }
 
@@ -1933,6 +2100,7 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
          break;
       }
+
 
       case AM_AV_EVT_VIDEO_WINDOW_CHANGED:
       {

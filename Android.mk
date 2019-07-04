@@ -45,7 +45,13 @@ ifeq ($(DTVKIT_INCLUDE_TEST_KEYS),1)
 LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
 endif
 
+ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
+LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
+endif
+
+
 DVB_PATH := vendor/amlogic/common/external/dvb
+
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/../DVBCore/platform/inc \
@@ -65,6 +71,12 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/stdio \
     bionic/libc/include \
     bionic/libc/../libm/include \
+
+ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
+    SWDMX_PATH := vendor/amlogic/common/external/libswdemux
+    LOCAL_C_INCLUDES += $(SWDMX_PATH)/
+endif
+
 
 ifeq ($(TARGET_ARCH),"arm")
     ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm/include"
@@ -102,7 +114,12 @@ LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
-LOCAL_SHARED_LIBRARIES+=liblog
+ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
+    LOCAL_SHARED_LIBRARIES+=liblog libswdemux
+else
+    LOCAL_SHARED_LIBRARIES+=liblog
+endif
+
 LOCAL_CFLAGS += -DSUPPORT_DTVKIT_IN_VENDOR
 
 

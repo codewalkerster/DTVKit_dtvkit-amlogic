@@ -539,7 +539,7 @@ void STB_TuneStopTuner(U8BIT path)
          tstatus->stop = FALSE;
          STB_OSMutexUnlock(tstatus->mutex);
 
-         ClearTuner(tstatus);
+         //ClearTuner(tstatus);
 
          tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
       }
@@ -1812,7 +1812,7 @@ static void TunerTask(void *param)
             {
                TUN_DBG("%u: NOT LOCKED", tstatus->path);
 
-               ClearTuner(tstatus);
+               //ClearTuner(tstatus);
 
                STB_OSMutexLock(tstatus->mutex);
                tstatus->state = TUNER_IDLE;
@@ -1929,7 +1929,7 @@ static void TunerTask(void *param)
                      }
                      else
                      {
-                        ClearTuner(tstatus);
+                        //ClearTuner(tstatus);
 
                         STB_OSMutexLock(tstatus->mutex);
                         tstatus->state = TUNER_IDLE;

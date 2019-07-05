@@ -228,7 +228,7 @@ void STB_OSDUpdate(void)
    if (display_status.mheg_screen != NULL)
    {
       BinderService_OverlayDraw(display_status.mheg_screen->width, display_status.mheg_screen->height,
-         0, 0, display_status.mheg_screen->width, display_status.mheg_screen->height,
+         0, 0, display_status.screen_width, display_status.screen_height,
          display_status.mheg_screen->surface_data);
    }
 

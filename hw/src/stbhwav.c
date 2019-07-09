@@ -547,6 +547,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
          video_pid = INVALID_PID;
          pcr_pid = INVALID_PID;
          video_format = -1;
+         av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_STOP;
       }
 
       if(audio_pid != 0 && audio_pid != INVALID_PID)

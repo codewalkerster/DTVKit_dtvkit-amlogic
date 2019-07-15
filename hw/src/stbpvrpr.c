@@ -20,13 +20,14 @@
  * @date    October 2018
  */
 
-/*#define PLAY_DEBUG*/
-/*#define RECORD_DEBUG*/
+#define PLAY_DEBUG
+#define RECORD_DEBUG
 
 //---includes for this file----------------------------------------------------
 // compiler library header files
 #include <fcntl.h>
 #include <errno.h>
+#include <stdio.h>
 
 // third party header files
 #include "am_mw/am_rec.h"
@@ -86,6 +87,10 @@ typedef struct
 
    U16BIT disk_id;
    U8BIT basename[16];
+} S_REC_STATUS;
+
+typedef struct {
+   U8BIT play_index;
 
    U8BIT play_demux;
 
@@ -93,7 +98,14 @@ typedef struct
    S16BIT play_speed;
 
    E_PLAY_STATE play_state;
-} S_TIMESHIFT_STATUS;
+
+   U8BIT video_decoder;
+   U8BIT audio_decoder;
+
+   BOOLEAN has_video;
+   BOOLEAN has_audio;
+
+} S_RECPLAY_STATUS;
 
 /* The following enums are taken from vendor/amlogic/dvb/am_adp/am_av/aml/aml.c
  * As the status is provided to user code the enums should really be public :-(
@@ -115,14 +127,16 @@ enum
 static U8BIT num_recorders = 0;
 static U8BIT num_players = 0;
 
-static S_TIMESHIFT_STATUS s_timeshift_status;
+static S_REC_STATUS *s_rec_status = NULL;
+static S_RECPLAY_STATUS *s_recplay_status = NULL;
 
 
 //---local function prototypes for this file-----------------------------------
 //   (internal functions declared static to make them local)
 static void RecEventHandler(long dev_no, int event_type, void *param, void *data);
 static void PlayEventHandler(long dev_no, int event_type, void *param, void *data);
-
+static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder);
+static U8BIT getRecIndex(U8BIT disk_id, U8BIT *name);
 
 //---global function definitions-----------------------------------------------
 
@@ -134,21 +148,34 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
  */
 U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
 {
+   U8BIT index;
+
    FUNCTION_START(STB_PVRInitPlayback);
 
    USE_UNWANTED_PARAM(num_audio_decoders);
 
    if (num_video_decoders != 0)
    {
-      PLAY_DBG("");
+      num_players = num_video_decoders;
 
-      /* Only one player needed for timeshift */
-      num_players = 1;
+      PLAY_DBG("video decoders=%d audio decoders=%d", num_video_decoders, num_audio_decoders);
 
-      s_timeshift_status.play_demux = INVALID_RES_ID;
-      s_timeshift_status.play_mode = START_RUNNING;
-      s_timeshift_status.play_speed = 100;
-      s_timeshift_status.play_state = PLAY_STOPPED;
+      s_recplay_status = (S_RECPLAY_STATUS*) STB_MEMGetSysRAM(sizeof(S_RECPLAY_STATUS) * num_players);
+      if (s_recplay_status != NULL)
+      {
+         memset(s_recplay_status, 0, num_players * sizeof(S_RECPLAY_STATUS));
+
+         for (index = 0; index < num_players; index++)
+         {
+            s_recplay_status[index].play_index = index;
+            s_recplay_status[index].play_demux = INVALID_RES_ID;
+            s_recplay_status[index].play_mode = START_RUNNING;
+            s_recplay_status[index].play_speed = 100;
+            s_recplay_status[index].play_state = PLAY_STOPPED;
+            s_recplay_status[index].video_decoder = INVALID_RES_ID;
+            s_recplay_status[index].audio_decoder = INVALID_RES_ID;
+         }
+      }
    }
 
    FUNCTION_FINISH(STB_PVRInitPlayback);
@@ -163,22 +190,30 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
  */
 U8BIT STB_PVRInitRecording(U8BIT num_tuners)
 {
+   U8BIT index;
+
    FUNCTION_START(STB_PVRInitRecording);
    USE_UNWANTED_PARAM(num_tuners);
 
    if (NUM_RECORDERS != 0)
    {
-      REC_DBG("");
+      num_recorders = NUM_RECORDERS;
 
-      /* Only one recorder needed for timeshift */
-      num_recorders = 1;
+      REC_DBG("recoders=%d", num_recorders);
 
-      s_timeshift_status.rec_index = 0;
-      s_timeshift_status.tuner = INVALID_RES_ID;
-      s_timeshift_status.rec_demux = INVALID_RES_ID;
+      s_rec_status = (S_REC_STATUS*) STB_MEMGetSysRAM(sizeof(S_REC_STATUS) * num_recorders);
+      if (s_rec_status != NULL)
+      {
+         memset(s_rec_status, 0, num_recorders * sizeof(S_REC_STATUS));
 
-      /* Default to starting paused because only timeshift is supported */
-      s_timeshift_status.rec_mode = START_PAUSED;
+         for (index = 0; index < num_recorders; index++)
+         {
+            s_rec_status[index].rec_index = index;
+            s_rec_status[index].tuner = INVALID_RES_ID;
+            s_rec_status[index].rec_demux = INVALID_RES_ID;
+            s_rec_status[index].rec_mode = START_RUNNING;
+         }
+      }
    }
 
    FUNCTION_FINISH(STB_PVRInitRecording);
@@ -196,11 +231,15 @@ void STB_PVRSetPlayStartMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_PVR
 {
    FUNCTION_START(STB_PVRSetPlayStartMode);
 
-   USE_UNWANTED_PARAM(audio_decoder);
-
    if (video_decoder < num_players)
    {
-      s_timeshift_status.play_mode = mode;
+      s_recplay_status[video_decoder].play_mode = mode;
+      s_recplay_status[video_decoder].video_decoder = video_decoder;
+      s_recplay_status[video_decoder].audio_decoder = audio_decoder;
+
+      s_recplay_status[video_decoder].play_demux = INVALID_RES_ID;
+      s_recplay_status[video_decoder].play_speed = 100;
+      s_recplay_status[video_decoder].play_state = PLAY_STOPPED;
    }
 
    FUNCTION_FINISH(STB_PVRSetPlayStartMode);
@@ -255,8 +294,11 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    U8BIT *basename)
 {
    BOOLEAN play_started;
-   AM_ErrorCode_t am_error;
+   AM_ErrorCode_t am_error = AM_SUCCESS;
    AM_AV_TimeshiftPara_t ts_params;
+   U8BIT play_index;
+   U8BIT rec_index;
+   BOOLEAN is_timeshift = FALSE;
 
    FUNCTION_START(STB_PVRPlayStart);
 
@@ -264,57 +306,95 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
    play_started = FALSE;
 
-   if (video_decoder < num_players)
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+
+   if (play_index != INVALID_RES_ID)
    {
-      /* Only timeshift is supported, so check the recording being played is timeshift */
-      if ((s_timeshift_status.rec_handle != NULL) &&
-         (s_timeshift_status.disk_id == disk_id) &&
-         (strcmp((char *)s_timeshift_status.basename, (char *)basename) == 0))
+      rec_index = getRecIndex(disk_id, basename);
+      if (rec_index != INVALID_RES_ID)
       {
-         /* This is the timeshift recording */
-         s_timeshift_status.play_demux = demux;
-
-         memset(&ts_params, 0, sizeof(AM_AV_TimeshiftPara_t));
-
-         ts_params.dmx_id = demux;
-         ts_params.mode = AM_AV_TIMESHIFT_MODE_TIMESHIFTING;
-         ts_params.tfile = s_timeshift_status.tfile;
-
-         if (s_timeshift_status.play_mode == START_PAUSED)
+         if (s_recplay_status[rec_index].play_mode == START_PAUSED)
          {
-            ts_params.start_paused = AM_TRUE;
-            s_timeshift_status.play_speed = 0;
+            is_timeshift = TRUE;
+         }
+      }
+
+      s_recplay_status[play_index].play_demux = demux;
+
+      memset(&ts_params, 0, sizeof(AM_AV_TimeshiftPara_t));
+
+      ts_params.dmx_id = demux;
+
+      if (is_timeshift)
+      {
+         ts_params.mode = AM_AV_TIMESHIFT_MODE_TIMESHIFTING;
+         ts_params.tfile = s_rec_status[rec_index].tfile;
+         ts_params.start_paused = AM_TRUE;
+         s_recplay_status[play_index].play_speed = 0;
+         s_recplay_status[play_index].has_video = s_rec_status[rec_index].has_video;
+         s_recplay_status[play_index].has_audio = s_rec_status[rec_index].has_audio;
+
+         ts_params.media_info.duration = s_rec_status[rec_index].timeshift_duration;
+
+         /* The media info to be played back is the same as is being recorded */
+         memcpy(&ts_params.media_info, &s_rec_status[rec_index].media_info,
+            sizeof(AM_AV_TimeshiftMediaInfo_t));
+      }
+      else
+      {
+         char file_path[256];
+         ts_params.mode = AM_AV_TIMESHIFT_MODE_PLAYBACK;
+         STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+         snprintf(ts_params.file_path, sizeof(ts_params.file_path), "%s.ts", file_path);
+         ts_params.start_paused = AM_FALSE;
+         s_recplay_status[play_index].play_speed = 100;
+
+         am_error = AM_REC_GetMediaInfoFromFile(ts_params.file_path, &ts_params.media_info);
+         if (am_error == AM_SUCCESS)
+         {
+            if (ts_params.media_info.vid_pid >= 0 && ts_params.media_info.vid_pid < 0x1fff)
+            {
+               s_recplay_status[play_index].has_video = TRUE;
+            }
+            else
+            {
+               s_recplay_status[play_index].has_video = FALSE;
+            }
+            if (ts_params.media_info.aud_cnt > 0)
+            {
+               s_recplay_status[play_index].has_audio = TRUE;
+            }
+            else
+            {
+               s_recplay_status[play_index].has_audio = FALSE;
+            }
          }
          else
          {
-            ts_params.start_paused = AM_FALSE;
-            s_timeshift_status.play_speed = 100;
+            PLAY_DBG("Get Mediainfo from \"%s\" error: %x", ts_params.file_path, am_error);
          }
+      }
 
-         ts_params.media_info.duration = s_timeshift_status.timeshift_duration;
+      s_recplay_status[play_index].play_state = PLAY_STARTING;
 
-         /* The media info to be played back is the same as is being recorded */
-         memcpy(&ts_params.media_info, &s_timeshift_status.media_info,
-            sizeof(AM_AV_TimeshiftMediaInfo_t));
-
-         s_timeshift_status.play_state = PLAY_STARTING;
-
+      if (am_error == AM_SUCCESS)
+      {
          am_error = AM_AV_StartTimeshift(video_decoder, &ts_params);
          if (am_error == AM_SUCCESS)
          {
-            PLAY_DBG("Starting timeshift playback, speed=%u%%", s_timeshift_status.play_speed);
+            PLAY_DBG("Starting timeshift playback, speed=%u%%", s_recplay_status[play_index].play_speed);
 
             AM_EVT_Subscribe(video_decoder, AM_AV_EVT_PLAYER_STATE_CHANGED, PlayEventHandler,
-               &s_timeshift_status);
+               &s_recplay_status[play_index]);
             AM_EVT_Subscribe(video_decoder, AM_AV_EVT_PLAYER_SPEED_CHANGED, PlayEventHandler,
-               &s_timeshift_status);
+               &s_recplay_status[play_index]);
             AM_EVT_Subscribe(video_decoder, AM_AV_EVT_PLAYER_TIME_CHANGED, PlayEventHandler,
-               &s_timeshift_status);
+               &s_recplay_status[play_index]);
             AM_EVT_Subscribe(video_decoder, AM_AV_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
-               &s_timeshift_status);
+               &s_recplay_status[play_index]);
 #if 0
             am_error = AM_AV_PlayTimeshift(video_decoder);
-            if ((am_error == AM_SUCCESS) && (s_timeshift_status.play_speed == 0))
+            if ((am_error == AM_SUCCESS) && (s_recplay_status[play_index].play_speed == 0))
             {
                am_error = AM_AV_PauseTimeshift(video_decoder);
             }
@@ -330,10 +410,6 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          {
             PLAY_DBG("Failed to start timeshift, error %d", am_error);
          }
-      }
-      else
-      {
-         PLAY_DBG("Only timeshift playback is supported!");
       }
    }
    else
@@ -355,15 +431,16 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
 {
    BOOLEAN retval;
+   U8BIT play_index;
 
    FUNCTION_START(STB_PVRIsPlayStarted);
-   USE_UNWANTED_PARAM(audio_decoder);
 
    retval = FALSE;
 
-   if (video_decoder < num_players)
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
    {
-      if (s_timeshift_status.play_state == PLAY_STARTED)
+      if (s_recplay_status[play_index].play_state == PLAY_STARTED)
       {
          retval = TRUE;
       }
@@ -385,17 +462,18 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
 {
    BOOLEAN retval;
    AM_ErrorCode_t am_error;
+   U8BIT play_index;
 
    FUNCTION_START(STB_PVRPlaySetPosition);
-   USE_UNWANTED_PARAM(audio_decoder);
 
    retval = FALSE;
 
-   if (video_decoder < num_players)
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
    {
-      if (s_timeshift_status.play_state == PLAY_STARTED)
+      if (s_recplay_status[play_index].play_state == PLAY_STARTED)
       {
-         if (s_timeshift_status.play_speed == 0)
+         if (s_recplay_status[play_index].play_speed == 0)
          {
             am_error = AM_AV_SeekTimeshift(video_decoder, position_in_seconds * 1000, AM_FALSE);
             if (am_error == AM_SUCCESS)
@@ -441,13 +519,14 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
 void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 {
    AM_ErrorCode_t am_error;
+   U8BIT play_index;
 
    FUNCTION_START(STB_PVRPlayStop);
-   USE_UNWANTED_PARAM(audio_decoder);
 
-   if (video_decoder < num_players)
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
    {
-      if (s_timeshift_status.play_state != PLAY_STOPPED)
+      if (s_recplay_status[play_index].play_state != PLAY_STOPPED)
       {
          am_error = AM_AV_StopTimeshift(video_decoder);
          if (am_error == AM_SUCCESS)
@@ -459,16 +538,16 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
             PLAY_DBG("Failed to stop timeshift playback, error %d", am_error);
          }
 
-         s_timeshift_status.play_state = PLAY_STOPPED;
+         s_recplay_status[play_index].play_state = PLAY_STOPPED;
 
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_STATE_CHANGED, PlayEventHandler,
-            &s_timeshift_status);
+            &s_recplay_status[play_index]);
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_SPEED_CHANGED, PlayEventHandler,
-            &s_timeshift_status);
+            &s_recplay_status[play_index]);
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_TIME_CHANGED, PlayEventHandler,
-            &s_timeshift_status);
+            &s_recplay_status[play_index]);
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
-            &s_timeshift_status);
+            &s_recplay_status[play_index]);
 
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
       }
@@ -490,13 +569,15 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
  */
 void STB_PVRPlayEnabled(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN *video, BOOLEAN *audio)
 {
-   FUNCTION_START(STB_PVRPlayEnabled);
-   USE_UNWANTED_PARAM(audio_decoder);
+   U8BIT play_index;
 
-   if ((video_decoder < num_players) && (s_timeshift_status.play_state != PLAY_STOPPED))
+   FUNCTION_START(STB_PVRPlayEnabled);
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if ((play_index != INVALID_RES_ID) && (s_recplay_status[play_index].play_state != PLAY_STOPPED))
    {
-      *video = s_timeshift_status.has_video;
-      *audio = s_timeshift_status.has_audio;
+      *video = s_recplay_status[play_index].has_video;
+      *audio = s_recplay_status[play_index].has_audio;
    }
    else
    {
@@ -515,20 +596,19 @@ void STB_PVRPlayEnabled(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN *video
  */
 U8BIT STB_PVRAcquireRecorderIndex(U8BIT tuner, U8BIT demux)
 {
-   U8BIT rec_index;
+   U8BIT rec_index = INVALID_RES_ID;
+   int i;
 
    FUNCTION_START(STB_PVRAcquireRecorderIndex);
 
-   /* Check whether the timeshift recorder is available */
-   if (s_timeshift_status.tuner == INVALID_RES_ID)
+   for (i = 0; (i < num_recorders) && (rec_index == INVALID_RES_ID); i++)
    {
-      s_timeshift_status.tuner = tuner;
-      s_timeshift_status.rec_demux = demux;
-      rec_index = s_timeshift_status.rec_index;
-   }
-   else
-   {
-      rec_index = INVALID_RES_ID;
+      if (s_rec_status[i].tuner == INVALID_RES_ID)
+      {
+         s_rec_status[i].tuner = tuner;
+         s_rec_status[i].rec_demux = demux;
+         rec_index = s_rec_status[i].rec_index;
+      }
    }
 
    REC_DBG("Acquired recorder %u", rec_index);
@@ -550,8 +630,8 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
 
    if (rec_index < num_recorders)
    {
-      s_timeshift_status.tuner = INVALID_RES_ID;
-      s_timeshift_status.rec_demux = INVALID_RES_ID;
+      s_rec_status[rec_index].tuner = INVALID_RES_ID;
+      s_rec_status[rec_index].rec_demux = INVALID_RES_ID;
    }
 
    FUNCTION_FINISH(STB_PVRReleaseRecorderIndex);
@@ -599,6 +679,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    AM_REC_CreatePara_t create_params;
    AM_REC_RecPara_t rec_params;
    int tfile_flags;
+   BOOLEAN is_timeshift;
 
    FUNCTION_START(STB_PVRRecordStart);
 
@@ -606,131 +687,166 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
    if (rec_index < num_recorders)
    {
-      if (s_timeshift_status.rec_mode == START_PAUSED)
+      if (s_rec_status[rec_index].rec_mode == START_PAUSED)
       {
-         memset(&create_params, 0, sizeof(AM_REC_CreatePara_t));
+         is_timeshift = TRUE;
+      }
+      else
+      {
+         is_timeshift = FALSE;
+      }
 
-         create_params.fend_dev = s_timeshift_status.tuner;
-         create_params.dvr_dev = s_timeshift_status.rec_demux;
-         create_params.async_fifo_id = 0;
+      memset(&create_params, 0, sizeof(AM_REC_CreatePara_t));
 
-         STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
-            sizeof(create_params.store_dir));
+      create_params.fend_dev = s_rec_status[rec_index].tuner;
+      create_params.dvr_dev = s_rec_status[rec_index].rec_demux;
+      if (is_timeshift)
+      {
+         create_params.async_fifo_id = 0;//tf
+      }
+      else
+      {
+         create_params.async_fifo_id = 1;//rec
+      }
 
-         REC_DBG("Starting recording in directory \"%s\"", create_params.store_dir);
+      STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
+         sizeof(create_params.store_dir));
 
-         am_error = AM_REC_Create(&create_params, &s_timeshift_status.rec_handle);
+      REC_DBG("Starting recording in directory \"%s\"", create_params.store_dir);
+
+      am_error = AM_REC_Create(&create_params, &s_rec_status[rec_index].rec_handle);
+      if (am_error == AM_SUCCESS)
+      {
+         s_rec_status[rec_index].disk_id = disk_id;
+         strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename));
+         if (is_timeshift)
+         {
+            AM_REC_SetTFile(s_rec_status[rec_index].rec_handle, NULL, REC_TFILE_FLAG_AUTO_CREATE);
+
+            AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_START,
+               RecEventHandler, &s_rec_status[rec_index]);
+            AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_END,
+               RecEventHandler, &s_rec_status[rec_index]);
+         }
+
+         s_rec_status[rec_index].has_video = FALSE;
+         s_rec_status[rec_index].has_audio = FALSE;
+
+         memset(&rec_params, 0, sizeof(AM_REC_RecPara_t));
+         memset(&s_rec_status[rec_index].media_info, 0, sizeof(AM_AV_TimeshiftMediaInfo_t));
+
+         /* Setup the initial set of PIDs that are to be recorded */
+         REC_DBG("Recording PIDs:");
+         for (i = 0; i < num_pids; i++)
+         {
+            if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
+            {
+               s_rec_status[rec_index].has_video = TRUE;
+               s_rec_status[rec_index].media_info.vid_pid = pid_array[i].pid;
+
+               switch (pid_array[i].u.video_codec)
+               {
+                  case AV_VIDEO_CODEC_MPEG1:
+                  case AV_VIDEO_CODEC_MPEG2:
+                     s_rec_status[rec_index].media_info.vid_fmt = VFORMAT_MPEG12;
+                     break;
+                  case AV_VIDEO_CODEC_H264:
+                     s_rec_status[rec_index].media_info.vid_fmt = VFORMAT_H264;
+                     break;
+                  default:
+                     break;
+               }
+               REC_DBG("  VIDEO %u", pid_array[i].pid);
+            }
+            else if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
+            {
+               s_rec_status[rec_index].has_audio = TRUE;
+               s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].pid = pid_array[i].pid;
+
+               switch(pid_array[i].u.audio_codec)
+               {
+                  case AV_AUDIO_CODEC_AC3:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_AC3;
+                     break;
+                  case AV_AUDIO_CODEC_EAC3:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_EAC3;
+                     break;
+                  case AV_AUDIO_CODEC_AAC:
+                  case AV_AUDIO_CODEC_HEAAC:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_AAC;
+                     break;
+                  case AV_AUDIO_CODEC_MP2:
+                  case AV_AUDIO_CODEC_MP3:
+                     s_rec_status[rec_index].media_info.audios[s_rec_status[rec_index].media_info.aud_cnt].fmt = AFORMAT_MPEG;
+                     break;
+                  default:
+                     break;
+               }
+
+               s_rec_status[rec_index].media_info.aud_cnt++;
+               REC_DBG("  AUDIO %u", pid_array[i].pid);
+            }
+            else if (pid_array[i].type == PVR_PID_TYPE_SUBTITLES)
+            {
+               s_rec_status[rec_index].media_info.subtitles[s_rec_status[rec_index].media_info.sub_cnt].pid = pid_array[i].pid;
+               s_rec_status[rec_index].media_info.sub_cnt++;
+               REC_DBG("  SUBTITLES %u", pid_array[i].pid);
+            }
+            else if (pid_array[i].type == PVR_PID_TYPE_TELETEXT)
+            {
+               s_rec_status[rec_index].media_info.teletexts[s_rec_status[rec_index].media_info.ttx_cnt].pid = pid_array[i].pid;
+               s_rec_status[rec_index].media_info.ttx_cnt++;
+               REC_DBG("  TELETEXT %u", pid_array[i].pid);
+            }
+            else
+            {
+               REC_DBG("  Not recording %u, type %u", pid_array[i].pid, pid_array[i].type);
+            }
+         }
+
+         memcpy(&rec_params.media_info, &s_rec_status[rec_index].media_info,
+            sizeof(AM_AV_TimeshiftMediaInfo_t));
+
+         if (is_timeshift)
+         {
+            strncpy(rec_params.prefix_name, "TimeShifting", AM_REC_NAME_MAX);
+            rec_params.is_timeshift = true;
+         }
+         else
+         {
+            strncpy(rec_params.prefix_name, s_rec_status[rec_index].basename, AM_REC_NAME_MAX);
+            rec_params.is_timeshift = false;
+         }
+
+         strncpy(rec_params.suffix_name, "ts", AM_REC_SUFFIX_MAX);
+         rec_params.total_time = s_rec_status[rec_index].timeshift_duration;
+
+         if (is_timeshift)
+         {
+            REC_DBG("Starting timeshift recording %p for %lu secs, [%s.ts]", s_rec_status[rec_index].rec_handle,
+               rec_params.total_time, rec_params.prefix_name);
+         }
+         else
+         {
+            REC_DBG("Starting normal recording %p for %lu secs, [%s.ts]", s_rec_status[rec_index].rec_handle,
+               rec_params.total_time, rec_params.prefix_name);
+         }
+
+         am_error = AM_REC_StartRecord(s_rec_status[rec_index].rec_handle, &rec_params);
          if (am_error == AM_SUCCESS)
          {
-            s_timeshift_status.disk_id = disk_id;
-            strncpy((char *)s_timeshift_status.basename, (char *)basename, sizeof(s_timeshift_status.basename));
-
-            AM_REC_SetTFile(s_timeshift_status.rec_handle, NULL, REC_TFILE_FLAG_AUTO_CREATE);
-
-            AM_EVT_Subscribe((long)s_timeshift_status.rec_handle, AM_REC_EVT_RECORD_START,
-               RecEventHandler, &s_timeshift_status);
-            AM_EVT_Subscribe((long)s_timeshift_status.rec_handle, AM_REC_EVT_RECORD_END,
-               RecEventHandler, &s_timeshift_status);
-
-            s_timeshift_status.has_video = FALSE;
-            s_timeshift_status.has_audio = FALSE;
-
-            memset(&rec_params, 0, sizeof(AM_REC_RecPara_t));
-            memset(&s_timeshift_status.media_info, 0, sizeof(AM_AV_TimeshiftMediaInfo_t));
-
-            /* Setup the initial set of PIDs that are to be recorded */
-            REC_DBG("Recording PIDs:");
-            for (i = 0; i < num_pids; i++)
+            if (is_timeshift)
             {
-               if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
-               {
-                  s_timeshift_status.has_video = TRUE;
-                  s_timeshift_status.media_info.vid_pid = pid_array[i].pid;
-
-                  switch (pid_array[i].u.video_codec)
-                  {
-                     case AV_VIDEO_CODEC_MPEG1:
-                     case AV_VIDEO_CODEC_MPEG2:
-                        s_timeshift_status.media_info.vid_fmt = VFORMAT_MPEG12;
-                        break;
-                     case AV_VIDEO_CODEC_H264:
-                        s_timeshift_status.media_info.vid_fmt = VFORMAT_H264;
-                        break;
-                     default:
-                        break;
-                  }
-                  REC_DBG("  VIDEO %u", pid_array[i].pid);
-               }
-               else if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
-               {
-                  s_timeshift_status.has_audio = TRUE;
-                  s_timeshift_status.media_info.audios[s_timeshift_status.media_info.aud_cnt].pid = pid_array[i].pid;
-
-                  switch(pid_array[i].u.audio_codec)
-                  {
-                     case AV_AUDIO_CODEC_AC3:
-                        s_timeshift_status.media_info.audios[s_timeshift_status.media_info.aud_cnt].fmt = AFORMAT_AC3;
-                        break;
-                     case AV_AUDIO_CODEC_EAC3:
-                        s_timeshift_status.media_info.audios[s_timeshift_status.media_info.aud_cnt].fmt = AFORMAT_EAC3;
-                        break;
-                     case AV_AUDIO_CODEC_AAC:
-                     case AV_AUDIO_CODEC_HEAAC:
-                        s_timeshift_status.media_info.audios[s_timeshift_status.media_info.aud_cnt].fmt = AFORMAT_AAC;
-                        break;
-                     case AV_AUDIO_CODEC_MP2:
-                     case AV_AUDIO_CODEC_MP3:
-                        s_timeshift_status.media_info.audios[s_timeshift_status.media_info.aud_cnt].fmt = AFORMAT_MPEG;
-                        break;
-                     default:
-                        break;
-                  }
-
-                  s_timeshift_status.media_info.aud_cnt++;
-                  REC_DBG("  AUDIO %u", pid_array[i].pid);
-               }
-               else if (pid_array[i].type == PVR_PID_TYPE_SUBTITLES)
-               {
-                  s_timeshift_status.media_info.subtitles[s_timeshift_status.media_info.sub_cnt].pid = pid_array[i].pid;
-                  s_timeshift_status.media_info.sub_cnt++;
-                  REC_DBG("  SUBTITLES %u", pid_array[i].pid);
-               }
-               else if (pid_array[i].type == PVR_PID_TYPE_TELETEXT)
-               {
-                  s_timeshift_status.media_info.teletexts[s_timeshift_status.media_info.ttx_cnt].pid = pid_array[i].pid;
-                  s_timeshift_status.media_info.ttx_cnt++;
-                  REC_DBG("  TELETEXT %u", pid_array[i].pid);
-               }
-               else
-               {
-                  REC_DBG("  Not recording %u, type %u", pid_array[i].pid, pid_array[i].type);
-               }
-            }
-
-            memcpy(&rec_params.media_info, &s_timeshift_status.media_info,
-               sizeof(AM_AV_TimeshiftMediaInfo_t));
-
-            strncpy(rec_params.prefix_name, "TimeShifting", AM_REC_NAME_MAX);
-            strncpy(rec_params.suffix_name, "ts", AM_REC_SUFFIX_MAX);
-            rec_params.is_timeshift = true;
-            rec_params.total_time = s_timeshift_status.timeshift_duration;
-
-            REC_DBG("Starting timeshift recording %p for %lu secs", s_timeshift_status.rec_handle,
-               rec_params.total_time);
-
-            am_error = AM_REC_StartRecord(s_timeshift_status.rec_handle, &rec_params);
-            if (am_error == AM_SUCCESS)
-            {
-               am_error = AM_REC_GetTFile(s_timeshift_status.rec_handle,
-                  &s_timeshift_status.tfile, &tfile_flags);
+               am_error = AM_REC_GetTFile(s_rec_status[rec_index].rec_handle,
+                  &s_rec_status[rec_index].tfile, &tfile_flags);
                if (am_error == AM_SUCCESS)
                {
-                  AM_EVT_Subscribe((long)s_timeshift_status.tfile, AM_TFILE_EVT_START_TIME_CHANGED,
-                     RecEventHandler, &s_timeshift_status);
-                  AM_EVT_Subscribe((long)s_timeshift_status.tfile, AM_TFILE_EVT_END_TIME_CHANGED,
-                     RecEventHandler, &s_timeshift_status);
+                  AM_EVT_Subscribe((long)s_rec_status[rec_index].tfile, AM_TFILE_EVT_START_TIME_CHANGED,
+                     RecEventHandler, &s_rec_status[rec_index]);
+                  AM_EVT_Subscribe((long)s_rec_status[rec_index].tfile, AM_TFILE_EVT_END_TIME_CHANGED,
+                     RecEventHandler, &s_rec_status[rec_index]);
 
-                  am_error = AM_TFile_TimeStart(s_timeshift_status.tfile);
+                  am_error = AM_TFile_TimeStart(s_rec_status[rec_index].tfile);
                   if (am_error != AM_SUCCESS)
                   {
                      REC_DBG("AM_TFile_TimeStart failed, error %d", am_error);
@@ -740,30 +856,29 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                {
                   REC_DBG("Failed to get recording tfile, error %d", am_error);
                }
-
-               retval = TRUE;
             }
-            else
-            {
-               REC_DBG("Failed to start recording, error %d", am_error);
 
-               AM_EVT_Unsubscribe((long)s_timeshift_status.rec_handle, AM_REC_EVT_RECORD_START,
-                  RecEventHandler, &s_timeshift_status);
-               AM_EVT_Unsubscribe((long)s_timeshift_status.rec_handle, AM_REC_EVT_RECORD_END,
-                  RecEventHandler, &s_timeshift_status);
-
-               AM_REC_Destroy(s_timeshift_status.rec_handle);
-               s_timeshift_status.rec_handle = NULL;
-            }
+            retval = TRUE;
          }
          else
          {
-            REC_DBG("Failed to create recording, error %d", am_error);
+            REC_DBG("Failed to start recording, error %d", am_error);
+
+            if (is_timeshift)
+            {
+               AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_START,
+                  RecEventHandler, &s_rec_status[rec_index]);
+               AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_END,
+                  RecEventHandler, &s_rec_status[rec_index]);
+            }
+
+            AM_REC_Destroy(s_rec_status[rec_index].rec_handle);
+            s_rec_status[rec_index].rec_handle = NULL;
          }
       }
       else
       {
-         REC_DBG("Only recording for timeshift is supported!");
+         REC_DBG("Failed to create recording, error %d", am_error);
       }
    }
    else
@@ -816,28 +931,28 @@ void STB_PVRRecordStop(U8BIT rec_index)
 
    if (rec_index < num_recorders)
    {
-      REC_DBG("Stopping recording %u, handle %p", rec_index, s_timeshift_status.rec_handle);
+      REC_DBG("Stopping recording %u, handle %p", rec_index, s_rec_status[rec_index].rec_handle);
 
-      if (s_timeshift_status.rec_handle != NULL)
+      if (s_rec_status[rec_index].rec_handle != NULL)
       {
-         am_error = AM_REC_StopRecord(s_timeshift_status.rec_handle);
+         am_error = AM_REC_StopRecord(s_rec_status[rec_index].rec_handle);
          if (am_error != AM_SUCCESS)
          {
-            REC_DBG("Failed to stop recording %u, error %d", s_timeshift_status.rec_handle, am_error);
+            REC_DBG("Failed to stop recording %u, error %d", s_rec_status[rec_index].rec_handle, am_error);
          }
 
-         AM_EVT_Unsubscribe((long)s_timeshift_status.rec_handle, AM_REC_EVT_RECORD_START,
-            RecEventHandler, &s_timeshift_status);
-         AM_EVT_Unsubscribe((long)s_timeshift_status.rec_handle, AM_REC_EVT_RECORD_END,
-            RecEventHandler, &s_timeshift_status);
-         AM_EVT_Unsubscribe((long)s_timeshift_status.tfile, AM_TFILE_EVT_START_TIME_CHANGED,
-            RecEventHandler, &s_timeshift_status);
-         AM_EVT_Unsubscribe((long)s_timeshift_status.tfile, AM_TFILE_EVT_END_TIME_CHANGED,
-            RecEventHandler, &s_timeshift_status);
+         AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_START,
+            RecEventHandler, &s_rec_status[rec_index]);
+         AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_END,
+            RecEventHandler, &s_rec_status[rec_index]);
+         AM_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, AM_TFILE_EVT_START_TIME_CHANGED,
+            RecEventHandler, &s_rec_status[rec_index]);
+         AM_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, AM_TFILE_EVT_END_TIME_CHANGED,
+            RecEventHandler, &s_rec_status[rec_index]);
 
-         AM_REC_Destroy(s_timeshift_status.rec_handle);
-         s_timeshift_status.rec_handle = NULL;
-         s_timeshift_status.tfile = NULL;
+         AM_REC_Destroy(s_rec_status[rec_index].rec_handle);
+         s_rec_status[rec_index].rec_handle = NULL;
+         s_rec_status[rec_index].tfile = NULL;
       }
    }
 
@@ -883,8 +998,8 @@ void STB_PVRSetRecordStartMode(U8BIT rec_index, E_STB_PVR_START_MODE mode, U32BI
 
    if (rec_index < num_recorders)
    {
-      s_timeshift_status.rec_mode = mode;
-      s_timeshift_status.timeshift_duration = param;
+      s_rec_status[rec_index].rec_mode = mode;
+      s_rec_status[rec_index].timeshift_duration = param;
    }
 
    FUNCTION_FINISH(STB_PVRSetRecordStartMode);
@@ -905,7 +1020,7 @@ BOOLEAN STB_PVRIsRecordStarted(U8BIT rec_index)
 
    if (rec_index < num_recorders)
    {
-      if (s_timeshift_status.rec_handle != NULL)
+      if (s_rec_status[rec_index].rec_handle != NULL)
       {
          retval = TRUE;
       }
@@ -928,10 +1043,10 @@ void STB_PVRRecordEnabled(U8BIT rec_index, BOOLEAN *video, BOOLEAN *audio)
 {
    FUNCTION_START(STB_PVRRecordEnabled);
 
-   if ((rec_index < num_recorders) && (s_timeshift_status.rec_handle != NULL))
+   if ((rec_index < num_recorders) && (s_rec_status[rec_index].rec_handle != NULL))
    {
-      *video = s_timeshift_status.has_video;
-      *audio = s_timeshift_status.has_audio;
+      *video = s_rec_status[rec_index].has_video;
+      *audio = s_rec_status[rec_index].has_audio;
    }
    else
    {
@@ -971,15 +1086,19 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
    BOOLEAN retval;
    AM_ErrorCode_t am_error;
    int am_speed;
+   U8BIT play_index = INVALID_RES_ID;
+   int i;
 
    FUNCTION_START(STB_PVRSetPlaySpeed);
    USE_UNWANTED_PARAM(audio_decoder);
 
    retval = FALSE;
 
-   if ((video_decoder < num_players) && (s_timeshift_status.play_state == PLAY_STARTED))
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+
+   if (play_index != INVALID_RES_ID && s_recplay_status[play_index].play_state == PLAY_STARTED)
    {
-      if (speed != s_timeshift_status.play_speed)
+      if (speed != s_recplay_status[play_index].play_speed)
       {
          if (speed == 0)
          {
@@ -1026,7 +1145,7 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
          if (am_error == AM_SUCCESS)
          {
             PLAY_DBG("Set play speed to %d%%", speed);
-            s_timeshift_status.play_speed = speed;
+            s_recplay_status[play_index].play_speed = speed;
             retval = TRUE;
          }
          else
@@ -1050,13 +1169,15 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
 S16BIT STB_PVRGetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder)
 {
    S16BIT speed;
+   U8BIT play_index;
 
    FUNCTION_START(STB_PVRGetPlaySpeed);
-   USE_UNWANTED_PARAM(audio_decoder);
 
-   if (video_decoder < num_players)
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+
+   if (play_index != INVALID_RES_ID)
    {
-      speed = s_timeshift_status.play_speed;
+      speed = s_recplay_status[play_index].play_speed;
    }
    else
    {
@@ -1098,7 +1219,7 @@ BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
 
    FUNCTION_FINISH(STB_PVRIsValidRecording);
 
-   return(FALSE);
+   return(TRUE);
 }
 
 /**
@@ -1148,15 +1269,20 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
    BOOLEAN retval;
    AM_ErrorCode_t am_error;
    AM_REC_RecInfo_t rec_info;
+   U8BIT rec_index;
+   AM_TFile_t tfile;
+   char file_path[256];
 
    FUNCTION_START(STB_PVRGetRecordingInfo);
 
    retval = FALSE;
+   *rec_size_kb = 0;
 
-   if ((s_timeshift_status.rec_handle != NULL) && (s_timeshift_status.disk_id == disk_id) &&
-      (strcmp((char *)basename, (char *)s_timeshift_status.basename) == 0))
+/*
+   rec_index = getRecIndex(disk_id, basename);
+   if (rec_index != INVALID_RES_ID)
    {
-      am_error = AM_REC_GetRecordInfo(s_timeshift_status.rec_handle, &rec_info);
+      am_error = AM_REC_GetRecordInfo(s_rec_status[rec_index].rec_handle, &rec_info);
       if (am_error == AM_SUCCESS)
       {
          *rec_size_kb = rec_info.file_size / 1024;
@@ -1164,13 +1290,23 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
       }
       else
       {
-         REC_DBG("Failed to get info on recording %p, error %d", s_timeshift_status.rec_handle,
+         REC_DBG("Failed to get info on recording %p, error %d", s_rec_status[rec_index].rec_handle,
             am_error);
       }
    }
+*/
+   STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+   snprintf(file_path, sizeof(file_path), "%s.ts", file_path);
+   am_error = AM_TFile_Open(&tfile, file_path, AM_FALSE, 0, 0);
+   if (am_error == AM_SUCCESS)
+   {
+      *rec_size_kb = tfile->size / 1024;
+      retval = TRUE;
+      AM_TFile_Close(tfile);
+   }
    else
    {
-      *rec_size_kb = 0;
+      REC_DBG("Failed to get size on recording \"%s\", error %d", file_path, am_error);
    }
 
    FUNCTION_FINISH(STB_PVRGetRecordingInfo);
@@ -1194,16 +1330,16 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
    AM_ErrorCode_t am_error;
    AM_AV_TimeshiftInfo_t info;
    U32BIT seconds;
+   U8BIT play_index;
 
    FUNCTION_START(STB_PVRGetElapsedTime);
 
-   USE_UNWANTED_PARAM(audio_decoder);
-
    retval = FALSE;
 
-   if (video_decoder < num_players)
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
    {
-      am_error = AM_AV_GetTimeshiftInfo(video_decoder, &info);
+      am_error = AM_AV_GetTimeshiftInfo(s_recplay_status[play_index].video_decoder, &info);
       if (am_error == AM_SUCCESS)
       {
          seconds = info.current_time / 1000;
@@ -1323,21 +1459,55 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
 
 //---local function definitions------------------------------------------------
 
+static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
+{
+   U8BIT i;
+   U8BIT play_index = INVALID_RES_ID;
+
+   for (i = 0; i < num_players && play_index == INVALID_RES_ID; i++)
+   {
+      if (s_recplay_status[i].video_decoder == video_decoder
+         && s_recplay_status[i].audio_decoder == audio_decoder)
+      {
+         play_index = i;
+      }
+   }
+   return play_index;
+}
+
+static U8BIT getRecIndex(U8BIT disk_id, U8BIT *basename)
+{
+   U8BIT i;
+   U8BIT rec_index = INVALID_RES_ID;
+
+   for (i = 0; i < num_recorders && rec_index == INVALID_RES_ID; i++)
+   {
+      if ((s_rec_status[i].rec_handle != NULL) &&
+         (s_rec_status[i].disk_id == disk_id) &&
+         (strcmp((char *)s_rec_status[i].basename, (char *)basename) == 0))
+      {
+         rec_index = i;
+      }
+   }
+
+   return rec_index;
+}
+
 static void RecEventHandler(long dev_no, int event_type, void *param, void *data)
 {
-   S_TIMESHIFT_STATUS *ts_status;
+   S_REC_STATUS *rec_status;
 
    if (data != NULL)
    {
-      ts_status = (S_TIMESHIFT_STATUS *)data;
+      rec_status = (S_REC_STATUS *)data;
 
       switch (event_type)
       {
          case AM_REC_EVT_RECORD_START:
          {
-            REC_DBG("Timeshift recording started, handle %p", ts_status->rec_handle);
+            REC_DBG("Timeshift recording started, handle %p", rec_status->rec_handle);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,
-               &ts_status->rec_index, sizeof(U8BIT));
+               &rec_status->rec_index, sizeof(U8BIT));
             break;
          }
 
@@ -1345,7 +1515,7 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
          {
             REC_DBG("Timeshift recording stopped");
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
-               &ts_status->rec_index, sizeof(U8BIT));
+               &rec_status->rec_index, sizeof(U8BIT));
             break;
          }
 
@@ -1374,11 +1544,11 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
 {
    static int last_status = AV_TIMESHIFT_STATUS_EXIT;
 
-   S_TIMESHIFT_STATUS *ts_status;
+   S_RECPLAY_STATUS *play_status;
 
    if (data != NULL)
    {
-      ts_status = (S_TIMESHIFT_STATUS *)data;
+      play_status = (S_RECPLAY_STATUS *)data;
 
       switch (event_type)
       {
@@ -1410,14 +1580,14 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
                PLAY_DBG("Info update: current=%d, full=%d, status=%d", info->current_time,
                   info->full_time, info->status);
 
-               if ((ts_status->play_state == PLAY_STARTING) &&
+               if ((play_status->play_state == PLAY_STARTING) &&
                   ((info->status == AV_TIMESHIFT_STATUS_PLAY) ||
                    (info->status == AV_TIMESHIFT_STATUS_PAUSE) ||
                    (info->status == AV_TIMESHIFT_STATUS_FFFB)))
                {
                   /* Playback has started successfully */
                   PLAY_DBG("Timeshift playback has started");
-                  ts_status->play_state = PLAY_STARTED;
+                  play_status->play_state = PLAY_STARTED;
                   STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, NULL, 0);
                }
 

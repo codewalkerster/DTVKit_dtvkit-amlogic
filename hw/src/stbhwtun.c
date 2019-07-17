@@ -660,7 +660,8 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
       {
          if (ioctl(tuner_status[path].frontend_fd, FE_READ_BER, &ber) >= 0)
          {
-            TUN_DBG("%u: BER=%lu", path, ber);
+             retval = (U8BIT)ber;
+             TUN_DBG("%u: BER=%u%%", path, retval);
          }
          else
          {

@@ -1249,12 +1249,25 @@ BOOLEAN STB_PVRCanBeUsedForRecording(U16BIT disk_id, U8BIT *basename)
  */
 BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
 {
+   AM_TFile_t file_handle;
+   AM_ErrorCode_t am_error;
+   char file_path[256];
+
    FUNCTION_START(STB_PVRDeleteRecording);
-   USE_UNWANTED_PARAM(disk_id);
-   USE_UNWANTED_PARAM(basename);
+
+   STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+   snprintf(file_path, sizeof(file_path), "%s.ts", file_path);
+
+   am_error = AM_TFile_Open(&file_handle, file_path, AM_FALSE, 0, 0);
+   if (am_error == AM_SUCCESS)
+   {
+      file_handle->delete_on_close = 1;
+      am_error = AM_TFile_Close(file_handle);
+   }
+
    FUNCTION_FINISH(STB_PVRDeleteRecording);
 
-   return(FALSE);
+   return (am_error == AM_SUCCESS) ? TRUE : FALSE;
 }
 
 /**

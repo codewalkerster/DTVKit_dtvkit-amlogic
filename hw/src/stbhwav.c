@@ -217,7 +217,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             else
             {
                //need add offset 4,(ts0 ts1 ts2 hiu hiu1 dmx0 dmx1 dmx2)change demux id to enum value
-               AM_AV_SetTSSource(av_path, aml_hw_cfg.demux + 5);
+               AM_AV_SetTSSource(av_path, aml_hw_cfg.demux + AM_AV_TS_SRC_DMX0);
 
                /* Prevent AMLogic AV code from applying any video scaling */
                //AM_FileEcho("/sys/class/video/screen_mode", "5");
@@ -545,7 +545,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
    {
       AUD_DBG("path=%u", path);
 
-      DMXGetDecodePIDs(av_paths_status->demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
       audio_format = av_paths_status[path].audio_format;
       video_format = av_paths_status[path].video_format;
       
@@ -591,6 +591,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
             av_paths_status[path].video_pid = video_pid;
             av_paths_status[path].pcr_pid = pcr_pid;
             //AM_AV_DisableVideo(path);
+            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
@@ -621,7 +622,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
    {
       VID_DBG("path=%u", path);
 
-      DMXGetDecodePIDs(av_paths_status->demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
 
       audio_format = av_paths_status[path].audio_format;
       video_format = av_paths_status[path].video_format;
@@ -659,6 +660,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
             {
                VID_DBG("video PID changed %u->%u, decoding restarted", av_paths_status[path].video_pid, video_pid);
                AM_AV_StopTS(path);
+               AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
                AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
             }
             else
@@ -676,6 +678,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
             av_paths_status[path].pcr_pid = pcr_pid;
 
             /*There seems to be a problem with using invalid pids, so just start up the audio decoder early*/
+            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
 
             av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
@@ -708,6 +711,7 @@ void  STB_AVPauseVideoDecoding(U8BIT path)
          case DECODER_A_START_V_START:
          {
             /*restart the decoder in audio only, but leave last frame onscreen*/
+            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, INVALID_PID, av_paths_status[path].audio_pid, INVALID_PID, -1, av_paths_status[path].audio_format);
             break;
          }
@@ -744,6 +748,7 @@ void  STB_AVResumeVideoDecoding(U8BIT path)
       {
          case DECODER_A_START_V_START:
          {
+            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, av_paths_status[path].video_pid,
                                  av_paths_status[path].audio_pid,
                                  av_paths_status[path].pcr_pid,
@@ -753,6 +758,7 @@ void  STB_AVResumeVideoDecoding(U8BIT path)
          }
          case DECODER_A_STOP_V_START:
          {
+            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, av_paths_status[path].video_pid,
                                  av_paths_status[path].audio_pid,
                                  av_paths_status[path].pcr_pid,
@@ -818,6 +824,7 @@ void STB_AVStopVideoDecoding(U8BIT path)
             info.status = DECODER_STATUS_NONE;
 
             //AM_AV_DisableVideo(path);
+            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, INVALID_PID, av_paths_status[path].audio_pid, INVALID_PID, -1, av_paths_status[path].audio_format);
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
             av_paths_status[path].video_pid = INVALID_PID;
@@ -930,7 +937,7 @@ void STB_AVSetVideoSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
    {
       if (source == AV_DEMUX)
       {
-         av_paths_status[path].demux = param;
+         av_paths_status[path].demux = param & 0xff;
       }
    }
 
@@ -953,7 +960,7 @@ void STB_AVSetAudioSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
    {
       if (source == AV_DEMUX)
       {
-         av_paths_status[path].demux = param;
+         av_paths_status[path].demux = param & 0xff;
       }
    }
 
@@ -1840,7 +1847,7 @@ BOOLEAN AV_StartInjection(U8BIT path)
 
    FUNCTION_START(AV_StartInjection);
 
-   DMXGetDecodePIDs(av_paths_status->demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+   DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
 
    para.vid_fmt = av_paths_status[path].video_format;
    para.aud_fmt = av_paths_status[path].audio_format;
@@ -1890,7 +1897,7 @@ BOOLEAN AV_StopInjection(U8BIT path)
       }
       else
       {
-         retval = AM_AV_SetTSSource(path, AM_AV_TS_SRC_DMX0);
+         retval = AM_AV_SetTSSource(path, aml_hw_cfg.demux + AM_AV_TS_SRC_DMX0);
          if (retval != AM_SUCCESS)
          {
             ERR_DBG("AM_AV_SetTSSource failed, err %d", retval-AM_AV_ERROR_BASE);

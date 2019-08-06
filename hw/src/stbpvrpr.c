@@ -700,14 +700,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       create_params.fend_dev = s_rec_status[rec_index].tuner;
       create_params.dvr_dev = s_rec_status[rec_index].rec_demux;
-      if (is_timeshift)
-      {
-         create_params.async_fifo_id = 0;//tf
-      }
-      else
-      {
-         create_params.async_fifo_id = 1;//rec
-      }
+      create_params.async_fifo_id = rec_index;
 
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
          sizeof(create_params.store_dir));
@@ -719,10 +712,10 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       {
          s_rec_status[rec_index].disk_id = disk_id;
          strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename));
-         if (is_timeshift)
-         {
-            AM_REC_SetTFile(s_rec_status[rec_index].rec_handle, NULL, REC_TFILE_FLAG_AUTO_CREATE);
 
+         AM_REC_SetTFile(s_rec_status[rec_index].rec_handle, NULL, REC_TFILE_FLAG_AUTO_CREATE);
+
+         {
             AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_START,
                RecEventHandler, &s_rec_status[rec_index]);
             AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_END,
@@ -864,7 +857,6 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          {
             REC_DBG("Failed to start recording, error %d", am_error);
 
-            if (is_timeshift)
             {
                AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, AM_REC_EVT_RECORD_START,
                   RecEventHandler, &s_rec_status[rec_index]);
@@ -1518,7 +1510,7 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
       {
          case AM_REC_EVT_RECORD_START:
          {
-            REC_DBG("Timeshift recording started, handle %p", rec_status->rec_handle);
+            REC_DBG("Recording started, handle %p", rec_status->rec_handle);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,
                &rec_status->rec_index, sizeof(U8BIT));
             break;
@@ -1526,7 +1518,7 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
 
          case AM_REC_EVT_RECORD_END:
          {
-            REC_DBG("Timeshift recording stopped");
+            REC_DBG("Recording stopped");
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
                &rec_status->rec_index, sizeof(U8BIT));
             break;

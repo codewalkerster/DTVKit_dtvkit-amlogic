@@ -1844,7 +1844,7 @@ static void TunerTask(void *param)
                //ClearTuner(tstatus);
 
                STB_OSMutexLock(tstatus->mutex);
-               tstatus->state = TUNER_IDLE;
+               tstatus->state = TUNER_RELOCKING;
                STB_OSMutexUnlock(tstatus->mutex);
 
                STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,

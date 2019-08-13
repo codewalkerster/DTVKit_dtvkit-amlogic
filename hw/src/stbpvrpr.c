@@ -1470,6 +1470,43 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
    FUNCTION_FINISH(STB_PVRPlaySetRetentionLimit);
 }
 
+/**
+ * @brief get default disk by prop setting for android, which has high priority to the setting from apps
+*/
+U16BIT STB_PVRGetDefaultDiskForced(void)
+{
+   U8BIT forced_default_path[256] = { 0 };
+   U8BIT forced_default_path_prop[] = "tv.dtv.pvr.path";
+   U16BIT forced_default_disk_id = INVALID_DISK_ID;
+   U16BIT num_disks;
+   U16BIT index;
+   U16BIT disk_id;
+   U8BIT disk_path[256];
+
+   AM_PropRead(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
+   if (strlen(forced_default_path))
+   {
+      num_disks = STB_DSKGetNumDisks();
+      for (index = 0; index < num_disks; index++)
+      {
+         disk_id = STB_DSKGetDiskIdByIndex(index);
+         if (disk_id != INVALID_DISK_ID)
+         {
+            if (STB_DSKFullPathname(disk_id, (U8BIT *)"", disk_path, sizeof(disk_path)))
+            {
+               if (strcmp((char *)disk_path, forced_default_path) == 0 )
+               {
+                  forced_default_disk_id = disk_id;
+                  REC_DBG("default disk forced to [%d][%s]", forced_default_disk_id, forced_default_path);
+                  break;
+               }
+            }
+         }
+      }
+   }
+   return forced_default_disk_id;
+}
+
 //---local function definitions------------------------------------------------
 
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)

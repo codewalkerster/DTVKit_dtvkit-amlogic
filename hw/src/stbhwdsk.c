@@ -1176,50 +1176,61 @@ void STB_DSKSetStandby(BOOLEAN state)
    FUNCTION_FINISH(STB_DSKSetStandby);
 }
 
-static void DiskAddApkDir(void) {
+BOOLEAN STB_DSKAddDevicePath(char *device, char *path)
+{
 
    BOOLEAN send_events = TRUE;
-   char device_name[128];
-   char mount_path[128];
+   char device_name[256];
+   char mount_path[256];
    char fs_type[32];
    char read_write[8];
    S_DISK_INFO* disk;
    S_DISK_INFO* next_disk;
+   BOOLEAN added = FALSE;
+
    STB_OSMutexLock(disk_mutex);
-   if (add_flag == 0) {
-      add_flag = 1;
+
+   for (disk = disk_list; (disk != NULL) &&
+      ((strcmp(disk->device_name, device) != 0) || (strcmp(disk->mount_path, path) != 0)); )
+   {
+      DISK_DBG("Existed disk: %s, mounted on %s", disk->device_name, disk->mount_path);
+      disk = disk->next;
+   }
+
+   if (disk != NULL)
+   {
+      DISK_DBG("Existed disk: %s, mounted on %s", disk->device_name, disk->mount_path);
+   }
+   else
+   {
       //init device name and mount path
-      memset(device_name, 0, 128);
-      memset(mount_path, 0, 128);
-      strcpy(device_name, "/data/data");
-      strcpy(mount_path, "/data/data/org.dtvkit.inputsource");
-      for (disk = disk_list; (disk != NULL) &&
-         ((strcmp(disk->device_name, device_name) != 0) || (strcmp(disk->mount_path, mount_path) != 0)); )
-      {
-         disk = disk->next;
-      }
+      memset(device_name, 0, sizeof(device_name));
+      memset(mount_path, 0, sizeof(mount_path));
+      strncpy(device_name, device, sizeof(device_name) - 1);
+      strncpy(mount_path, path, sizeof(mount_path) - 1);
 
-      if (disk == NULL)
-      {
-         /* Add this disk to the list */
-         disk = AddDisk(device_name, mount_path);
+      /* Add this disk to the list */
+      disk = AddDisk(device_name, mount_path);
 
-         if (disk != NULL)
+      if (disk != NULL)
+      {
+         added = TRUE;
+
+         DISK_DBG("Added disk %s, mounted on %s, ID 0x%04x, size %lu KB, removeable %s",
+            disk->device_name, disk->mount_path, disk->disk_id, disk->disk_size, disk->is_removeable? "true":"false");
+
+         if (send_events)
          {
-            DISK_DBG("Added disk %s, mounted on %s, ID 0x%04x, size %lu KB",
-               disk->device_name, disk->mount_path, disk->disk_id, disk->disk_size);
-
-            if (send_events)
-            {
-               /* Send an event to indicate a device has been attached */
-               STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_CONNECTED,
-                  &(disk->disk_id), sizeof(disk->disk_id));
-            }
+            /* Send an event to indicate a device has been attached */
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_CONNECTED,
+               &(disk->disk_id), sizeof(disk->disk_id));
          }
       }
-
    }
+
    STB_OSMutexUnlock(disk_mutex);
+
+   return (added);
 }
 
 /*---local function definitions----------------------------------------------*/
@@ -1228,14 +1239,15 @@ static void DiskMonitorTask(void *param)
    USE_UNWANTED_PARAM(param);
 
    /* Create the initial list of disks, but don't send events on start up */
-   //RefreshDiskList(FALSE);
-   DiskAddApkDir();
+   RefreshDiskList(FALSE);
+   STB_DSKAddDevicePath("user", "/data/data/org.dtvkit.inputsource");
+
    while (TRUE)
    {
       /* Run the task every 3 seconds */
       STB_OSTaskDelay(3000);
 
-      //RefreshDiskList(TRUE);
+      RefreshDiskList(TRUE);
    }
 }
 
@@ -1258,14 +1270,17 @@ static void RefreshDiskList(BOOLEAN send_events)
       /* Mark all disks as not found so that any that have been removed can be detected */
       for (disk = disk_list; disk != NULL; disk = disk->next)
       {
+         if (disk->is_removeable) {
             disk->found = FALSE;
+         }
       }
 
       STB_OSMutexUnlock(disk_mutex);
 
       while (fscanf(fp, "%127s %127s %31s %7[^,] %*[^\r\n]\n", device_name, mount_path, fs_type, read_write) == 4)
       {
-//printf("  dev=\"%s\", mnt=\"%s\", fs=\"%s\", rw=\"%s\"\n", device_name, mount_path, fs_type, read_write);
+         /* DISK_DBG("  dev=\"%s\", mnt=\"%s\", fs=\"%s\", rw=\"%s\"\n", device_name, mount_path, fs_type, read_write); */
+
          /* Check to see if the device is one of the filesystem types used for PVR
           * and it's mounted for read/write access */
          if (SupportedFSType(fs_type) && (strcmp(read_write, "rw") == 0))
@@ -1286,8 +1301,8 @@ static void RefreshDiskList(BOOLEAN send_events)
 
                if (disk != NULL)
                {
-                  DISK_DBG("Added %s disk %s, mounted on %s, ID 0x%04x, size %lu KB", fs_type,
-                     disk->device_name, disk->mount_path, disk->disk_id, disk->disk_size);
+                  DISK_DBG("Added %s disk %s, mounted on %s, ID 0x%04x, size %lu KB removeable %s", fs_type,
+                     disk->device_name, disk->mount_path, disk->disk_id, disk->disk_size, disk->is_removeable? "true":"false");
 
                   if (send_events)
                   {

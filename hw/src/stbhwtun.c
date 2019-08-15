@@ -1898,7 +1898,7 @@ static void TunerTask(void *param)
             {
                if (tuner_locked)
                {
-                  if (!locked)
+                  if (!locked || state == TUNER_RELOCKING)
                   {
                      /* Tuner has relocked */
                      TUN_DBG("%u: Tuner has relocked", tstatus->path);

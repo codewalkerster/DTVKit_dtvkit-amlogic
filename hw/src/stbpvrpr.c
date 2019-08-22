@@ -130,13 +130,24 @@ static U8BIT num_players = 0;
 static S_REC_STATUS *s_rec_status = NULL;
 static S_RECPLAY_STATUS *s_recplay_status = NULL;
 
-
 //---local function prototypes for this file-----------------------------------
 //   (internal functions declared static to make them local)
 static void RecEventHandler(long dev_no, int event_type, void *param, void *data);
 static void PlayEventHandler(long dev_no, int event_type, void *param, void *data);
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder);
 static U8BIT getRecIndex(U8BIT disk_id, U8BIT *name);
+
+static void *des_open();
+static int des_close(void *cryptor);
+static void des_crypt(void *cryptor, uint8_t *dst, uint8_t *src, int len, int decrypt);
+
+static uint8_t des_key[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+static AM_Crypt_Ops_t des_ops = {
+    .open = des_open,
+    .close = des_close,
+    .crypt = des_crypt,
+};
+
 
 //---global function definitions-----------------------------------------------
 
@@ -379,6 +390,9 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
       if (am_error == AM_SUCCESS)
       {
+         if (aml_hw_cfg.pvr.encrypt & (1 << ((is_timeshift)? 1 : 0)))
+            AM_AV_SetCryptOps(video_decoder, &des_ops);
+
          am_error = AM_AV_StartTimeshift(video_decoder, &ts_params);
          if (am_error == AM_SUCCESS)
          {
@@ -824,6 +838,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
             REC_DBG("Starting normal recording %p for %lu secs, [%s.ts]", s_rec_status[rec_index].rec_handle,
                rec_params.total_time, rec_params.prefix_name);
          }
+
+         if (aml_hw_cfg.pvr.encrypt & (1 << ((is_timeshift)? 1 : 0)))
+             rec_params.crypt_ops = &des_ops;
 
          am_error = AM_REC_StartRecord(s_rec_status[rec_index].rec_handle, &rec_params);
          if (am_error == AM_SUCCESS)
@@ -1645,4 +1662,35 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
       }
    }
 }
+
+static void *des_open()
+{
+    char buf[4096];
+    char *p1, *p2;
+
+    AM_FileRead("/proc/cpuinfo", buf, sizeof(buf));
+    if ((p1 = strstr(buf, "Serial"))) {
+        if ((p2 = strstr(p1, ": ")))
+            sscanf(p2, ": %02hhx%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx",
+                &des_key[0], &des_key[1], &des_key[2], &des_key[3],
+                &des_key[4], &des_key[5], &des_key[6], &des_key[7]);
+    }
+
+    printf("des key: %02x%02x%02x%02x%02x%02x%02x%02x\n",
+        des_key[0], des_key[1], des_key[2], des_key[3],
+        des_key[4], des_key[5], des_key[6], des_key[7]);
+
+    return AM_CRYPT_des_open(des_key, 64);
+}
+
+static int des_close(void *cryptor)
+{
+    return AM_CRYPT_des_close(cryptor);
+}
+
+static void des_crypt(void *cryptor, uint8_t *dst, uint8_t *src, int len, int decrypt)
+{
+    AM_CRYPT_des_crypt(cryptor, dst, src, len, NULL, decrypt);
+}
+
 

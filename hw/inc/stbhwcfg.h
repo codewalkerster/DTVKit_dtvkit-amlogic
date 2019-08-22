@@ -30,6 +30,11 @@ typedef struct
 	char          encodec_source[16];
 }stb_cam_cfg;
 
+typedef struct
+{
+	int           encrypt;
+} stb_pvr_cfg;
+
 typedef struct {
 	stb_tuner_cfg tuners[AML_MAX_TUNER_NUM];
 	stb_cam_cfg   cam[AML_MAX_CAM_NUM];
@@ -41,6 +46,7 @@ typedef struct {
 	int           adec_num;
 	int           demux;
 	int           cam_num;
+	stb_pvr_cfg   pvr;
 } stb_hardware_cfg;
 
 extern stb_hardware_cfg aml_hw_cfg;

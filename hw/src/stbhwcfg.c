@@ -57,6 +57,9 @@ stb_hardware_cfg aml_hw_cfg = {
 .adec_num     = 2,
 .demux        = 0,
 .cam_num      = 0,
+.pvr = {
+    .encrypt = 0,
+	},
 };
 
 static void
@@ -171,6 +174,16 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			att += 2;
 		}
 
+	} else if (!strcmp(name, "pvr")) {
+		att = atts;
+		an = att[0];
+		av = att[1];
+		if (!strcmp(an, "encrypt")) {
+			long int i;
+			i = strtol(av, NULL, 0);
+			if ((i != LONG_MIN) && (i != LONG_MAX))
+				cfg->pvr.encrypt = i;
+		}
 	}
 }
 

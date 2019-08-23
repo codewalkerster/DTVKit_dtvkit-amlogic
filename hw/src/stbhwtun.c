@@ -1755,226 +1755,194 @@ static void TunerTask(void *param)
 
       if (state == TUNER_IDLE)
       {
-         /* Wait until tuning has been started */
-         TUN_DBG("%u: Waiting for tune request....", tstatus->path);
+          /* Wait until tuning has been started */
+          TUN_DBG("%u: Waiting for tune request....", tstatus->path);
 
-         STB_OSSemaphoreWait(tstatus->tune_sem);
+          STB_OSSemaphoreWait(tstatus->tune_sem);
 
-         STB_OSMutexLock(tstatus->mutex);
-         tstatus->state = TUNER_TUNING;
-         stop = tstatus->stop;
-         STB_OSMutexUnlock(tstatus->mutex);
+          STB_OSMutexLock(tstatus->mutex);
+          tstatus->state = TUNER_TUNING;
+          stop = tstatus->stop;
+          STB_OSMutexUnlock(tstatus->mutex);
 
-         TUN_DBG("%u: Tuning started, checking LOCK status", tstatus->path);
+          TUN_DBG("%u: Tuning started, checking LOCK status", tstatus->path);
 
-         pfd.fd = tstatus->frontend_fd;
-         pfd.events = POLLIN;
-         pfd.revents = 0;
+          pfd.fd = tstatus->frontend_fd;
+          pfd.events = POLLIN;
+          pfd.revents = 0;
 
-         for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
-            !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
-         {
-            if (poll(&pfd, 1, 50) == 1)
-            {
-               if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
-               {
+          for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
+                       !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
+          {
+          if (poll(&pfd, 1, 50) == 1)
+          {
+              if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
+              {
                   TUN_DBG("status=0x%02x", fe_event.status);
 
                   if ((fe_event.status & FE_HAS_LOCK) != 0)
                   {
-                     locked = TRUE;
+                      locked = TRUE;
                   }
                   else if ((fe_event.status & FE_TIMEDOUT) != 0)
                   {
-                     /* Failed to lock */
-                     break;
+                      /* Failed to lock */
+                      break;
                   }
-               }
-            }
+              }
+          }
 
-            STB_OSMutexLock(tstatus->mutex);
-            stop = tstatus->stop;
-            STB_OSMutexUnlock(tstatus->mutex);
-         }
+          STB_OSMutexLock(tstatus->mutex);
+          stop = tstatus->stop;
+          STB_OSMutexUnlock(tstatus->mutex);
+          }
 
-         if (stop)
-         {
-            TUN_DBG("%u: Tuning stopped", tstatus->path);
-            STB_OSMutexLock(tstatus->mutex);
-            tstatus->state = TUNER_IDLE;
-            STB_OSMutexUnlock(tstatus->mutex);
-         }
-         else
-         {
-            if (locked)
-            {
-               /* The tuner locks when set to T or T2, so check whether the mode is correct for what was set */
-               struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
-               struct dtv_properties props = {.num = 1, .props = &p};
-               if(ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props)!=-1)
-               {
-                  if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
-                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2))) &&
-                     (tstatus->signal_type != TUNE_SIGNAL_QAM))
+          if (stop)
+          {
+              TUN_DBG("%u: Tuning stopped", tstatus->path);
+              STB_OSMutexLock(tstatus->mutex);
+              tstatus->state = TUNER_IDLE;
+              STB_OSMutexUnlock(tstatus->mutex);
+          }
+          else
+          {
+              if (locked)
+              {
+                  /* The tuner locks when set to T or T2, so check whether the mode is correct for what was set */
+                  struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
+                  struct dtv_properties props = {.num = 1, .props = &p};
+                  if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
                   {
-                     locked = FALSE;
-                     TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
-                        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
-                        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
-                        ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
+                  if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
+                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2))) &&
+                  (tstatus->signal_type != TUNE_SIGNAL_QAM))
+                  {
+                  locked = FALSE;
+                  TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
+                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
+                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
+                  ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
                   }
-               }
-            }
+                  }
+              }
 
-            if (locked)
-            {
-               TUN_DBG("%u: LOCKED", tstatus->path);
+              if (locked)
+              {
+                  TUN_DBG("%u: LOCKED", tstatus->path);
 
-               STB_OSMutexLock(tstatus->mutex);
-               tstatus->state = TUNER_LOCKED;
-               STB_OSMutexUnlock(tstatus->mutex);
+                  STB_OSMutexLock(tstatus->mutex);
+                  tstatus->state = TUNER_LOCKED;
+                  STB_OSMutexUnlock(tstatus->mutex);
 
-               STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
                   sizeof(U8BIT));
-            }
-            else
-            {
-               TUN_DBG("%u: NOT LOCKED", tstatus->path);
+              }
+              else
+              {
+                  TUN_DBG("%u: NOT LOCKED", tstatus->path);
 
-               //ClearTuner(tstatus);
+                  //ClearTuner(tstatus);
 
-               STB_OSMutexLock(tstatus->mutex);
-               tstatus->state = TUNER_RELOCKING;
-               STB_OSMutexUnlock(tstatus->mutex);
+                  STB_OSMutexLock(tstatus->mutex);
+                  tstatus->state = TUNER_RELOCKING;
+                  STB_OSMutexUnlock(tstatus->mutex);
 
-               STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
                   sizeof(U8BIT));
-            }
-         }
+              }
+          }
       }
       else
       {
-         /* Monitor tuner lock status */
-         locked = TRUE;
-         tuner_locked = TRUE;
+          /* Monitor tuner lock status */
+          if (state == TUNER_LOCKED)
+          {
+              locked = TRUE;
+              tuner_locked = TRUE;
+          }else if (state = TUNER_RELOCKING)
+          {
+              locked = FALSE;
+              tuner_locked = FALSE;
+          }
 
-         pfd.fd = tstatus->frontend_fd;
-         pfd.events = POLLIN;
-         pfd.revents = 0;
+          pfd.fd = tstatus->frontend_fd;
+          pfd.events = POLLIN;
+          pfd.revents = 0;
 
-         while ((state == TUNER_LOCKED) || (state == TUNER_RELOCKING))
-         {
-            if (poll(&pfd, 1, 300) == 1)
-            {
-               if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
-               {
-                  if ((fe_event.status & FE_HAS_LOCK) != 0)
+          while ((state == TUNER_LOCKED) || (state == TUNER_RELOCKING))
+          {
+              if (poll(&pfd, 1, 300) == 1)
+              {
+                  if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
                   {
-                     tuner_locked = TRUE;
+                      if ((fe_event.status & FE_HAS_LOCK) != 0)
+                      {
+                          tuner_locked = TRUE;
+                          TUN_ERR("FE_GET_EVENT LOCKED:%d state:%d", locked, state);
+                      }
+                      else
+                      {
+                          tuner_locked = FALSE;
+                          TUN_ERR("FE_GET_EVENT UNLOCKED:%d state:%d", locked, state);
+                      }
                   }
                   else
                   {
-                     tuner_locked = FALSE;
+                      TUN_ERR("%u: FE_GET_EVENT failed, errno %d", tstatus->path, errno);
                   }
-               }
-               else
-               {
-                  TUN_ERR("%u: FE_GET_EVENT failed, errno %d", tstatus->path, errno);
-               }
-            }
+              }
 
-            STB_OSMutexLock(tstatus->mutex);
-            stop = tstatus->stop;
-            STB_OSMutexUnlock(tstatus->mutex);
+              STB_OSMutexLock(tstatus->mutex);
+              stop = tstatus->stop;
+              STB_OSMutexUnlock(tstatus->mutex);
 
-            if (stop)
-            {
-               STB_OSMutexLock(tstatus->mutex);
-               tstatus->stop = FALSE;
-               tstatus->state = TUNER_IDLE;
-               STB_OSMutexUnlock(tstatus->mutex);
-            }
-            else
-            {
-               if (tuner_locked)
-               {
-                  if (!locked || state == TUNER_RELOCKING)
+              if (stop)
+              {
+                  STB_OSMutexLock(tstatus->mutex);
+                  tstatus->stop = FALSE;
+                  tstatus->state = TUNER_IDLE;
+                  TUN_DBG("%u: Tuned stopped", tstatus->path);
+                  STB_OSMutexUnlock(tstatus->mutex);
+              }
+              else
+              {
+                  if (tuner_locked)
                   {
-                     /* Tuner has relocked */
-                     TUN_DBG("%u: Tuner has relocked", tstatus->path);
-                     locked = TRUE;
+                      if (!locked)
+                      {
+                          /* Tuner has relocked */
+                          TUN_DBG("%u: Tuner has relocked", tstatus->path);
+                          locked = TRUE;
 
-                     STB_OSMutexLock(tstatus->mutex);
-                     tstatus->state = TUNER_LOCKED;
-                     STB_OSMutexUnlock(tstatus->mutex);
-
-                     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
-                        sizeof(U8BIT));
+                          STB_OSMutexLock(tstatus->mutex);
+                          tstatus->state = TUNER_LOCKED;
+                          STB_OSMutexUnlock(tstatus->mutex);
+                          STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
+                      }
                   }
-               }
-               else
-               {
-                  if (locked)
+                  else
                   {
-                     /* Lost lock */
-                     TUN_DBG("%u: Lost LOCK, relock %u", tstatus->path, tstatus->auto_relock);
+                      if (locked)
+                      {
+                          /* Lost lock */
+                          TUN_DBG("%u: Lost LOCK, relock %u", tstatus->path, tstatus->auto_relock);
 
-                     locked = FALSE;
-
-                     if (tstatus->auto_relock)
-                     {
-                        /* Check whether the tuner says it can recover from lost lock automatically */
-                        if ((tstatus->fe_info.caps & FE_CAN_RECOVER) == 0)
-                        {
-                           /* Tuner needs to be retuned to recover lock */
-                           if (StartTune(tstatus))
-                           {
+                          locked = FALSE;
+                          if (state == TUNER_LOCKED)
+                          {
                               STB_OSMutexLock(tstatus->mutex);
                               tstatus->state = TUNER_RELOCKING;
                               STB_OSMutexUnlock(tstatus->mutex);
-                           }
-                           else
-                           {
-                              /* Failed to retune */
-                              TUN_ERR("%u: Failed to retune after losing LOCK", tstatus->path);
-                              STB_OSMutexLock(tstatus->mutex);
-                              tstatus->state = TUNER_IDLE;
-                              STB_OSMutexUnlock(tstatus->mutex);
-                           }
-
-                           STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED,
-                              &tstatus->path, sizeof(U8BIT));
-                        }
-                        else
-                        {
-                           /* Tuner will recover lock automatically */
-                           STB_OSMutexLock(tstatus->mutex);
-                           tstatus->state = TUNER_RELOCKING;
-                           STB_OSMutexUnlock(tstatus->mutex);
-
-                           STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED,
-                              &tstatus->path, sizeof(U8BIT));
-                        }
-                     }
-                     else
-                     {
-                        //ClearTuner(tstatus);
-
-                        STB_OSMutexLock(tstatus->mutex);
-                        tstatus->state = TUNER_IDLE;
-                        STB_OSMutexUnlock(tstatus->mutex);
-
-                        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
-                           sizeof(U8BIT));
-                     }
+                              STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
+                          }
+                      }
                   }
-               }
-            }
+              }
 
-            STB_OSMutexLock(tstatus->mutex);
-            state = tstatus->state;
-            STB_OSMutexUnlock(tstatus->mutex);
-         }
+              STB_OSMutexLock(tstatus->mutex);
+              state = tstatus->state;
+              STB_OSMutexUnlock(tstatus->mutex);
+          }
       }
    }
 }

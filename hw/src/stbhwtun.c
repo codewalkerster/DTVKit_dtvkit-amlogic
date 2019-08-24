@@ -1290,23 +1290,20 @@ void STB_TuneSetPLP(U8BIT path, U8BIT plp)
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD) &&
       (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2))
    {
-      if (IsTunerLocked(&tuner_status[path]))
-      {
-         TUN_DBG("%u: PLP %u", path, plp);
+       TUN_DBG("%u: PLP %u", path, plp);
 
-         memset(&cmd, 0, sizeof(struct dtv_property));
+       memset(&cmd, 0, sizeof(struct dtv_property));
 
-         cmd.cmd = DTV_DVBT2_PLP_ID;
-         cmd.u.data = plp;
+       cmd.cmd = DTV_DVBT2_PLP_ID;
+       cmd.u.data = plp;
 
-         props.num = 1;
-         props.props = &cmd;
+       props.num = 1;
+       props.props = &cmd;
 
-         if (ioctl(tuner_status[path].frontend_fd, FE_SET_PROPERTY, &props) < 0)
-         {
-            TUN_ERR("%u: Failed to set number of PLPs, errno %d", path, errno);
-         }
-      }
+       if (ioctl(tuner_status[path].frontend_fd, FE_SET_PROPERTY, &props) < 0)
+       {
+          TUN_ERR("%u: Failed to set number of PLPs, errno %d", path, errno);
+       }
    }
 
    FUNCTION_FINISH(STB_TuneSetPLP);

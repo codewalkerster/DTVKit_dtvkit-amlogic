@@ -67,6 +67,7 @@
 #define NUM_CI_SLOTS             (aml_hw_cfg.ci_slot_num)
 
 #define HW_EV_TYPE_VIDEO_RECTANGLE_CHANGED   100
+#define HW_EV_TYPE_VIDEO_CROPPING_CHANGED    101
 
 //---Enumerations for public use-----------------------------------------------
 

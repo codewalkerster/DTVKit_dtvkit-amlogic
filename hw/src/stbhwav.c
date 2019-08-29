@@ -580,7 +580,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
             /*starting audio when video is already started*/
             AUD_DBG("video already started, audio PID=%u", audio_pid);
             av_paths_status[path].audio_pid = audio_pid;
-            AM_AV_SwitchTSAudio(path,audio_pid,audio_format);
+            //AM_AV_SwitchTSAudio(path,audio_pid,audio_format); //The audio pid and fmt have been set when video decoding
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
             break;

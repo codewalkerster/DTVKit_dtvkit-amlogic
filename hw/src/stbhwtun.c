@@ -526,7 +526,7 @@ void STB_TuneStopTuner(U8BIT path)
 
          while (state != TUNER_IDLE)
          {
-            STB_OSTaskDelay(50);
+            STB_OSTaskDelay(30);
 
             STB_OSMutexLock(tstatus->mutex);
             state = tstatus->state;
@@ -1868,7 +1868,7 @@ static void TunerTask(void *param)
 
           while ((state == TUNER_LOCKED) || (state == TUNER_RELOCKING))
           {
-              if (poll(&pfd, 1, 300) == 1)
+              if (poll(&pfd, 1, 50) == 1)
               {
                   if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
                   {

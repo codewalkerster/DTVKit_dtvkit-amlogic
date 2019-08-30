@@ -48,7 +48,7 @@
 
 /*---macro definitions for this file-----------------------------------------*/
 //#define AV_DEBUG
-//#define VIDEO_DEBUG
+#define VIDEO_DEBUG
 //#define AUDIO_DEBUG
 
 
@@ -361,14 +361,15 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 
    if ((src != NULL) && (dest != NULL))
    {
+      /*used as a Quad, not the literal meaning*/
+      S_RECTANGLE crop = {src->top, src->left, src->top, src->left};
+
       VID_DBG("video: (%u, %u), (%u x %u) out: (%u, %u), (%u x %u)",
          src->left, src->top, src->width, src->height,
          dest->left, dest->top, dest->width, dest->height);
 
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_CROPPING_CHANGED, &crop, sizeof(S_RECTANGLE));
       STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_RECTANGLE_CHANGED, dest, sizeof(S_RECTANGLE));
-      AM_AV_SetVideoCropping(path, src->top, src->left, src->top, src->left);
-      //AM_AV_SetVideoWindow(path, dest->left, dest->top, dest->width-1, dest->height-1);
-      //AM_AV_EnableVideo(path);
    }
 
    FUNCTION_FINISH(STB_AVApplyVideoTransformation);

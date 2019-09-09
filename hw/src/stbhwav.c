@@ -194,7 +194,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].decoder = av_path;
             av_paths_status[av_path].source = AV_DEMUX;
             av_paths_status[av_path].injecting = FALSE;
-            
+
             av_paths_status[av_path].iframe_shown = FALSE;
             av_paths_status[av_path].iframe_codec = AV_VIDEO_CODEC_AUTO;
             av_paths_status[av_path].iframe_data = NULL;
@@ -243,6 +243,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
 
          display_info.screen_width = 1920;
          display_info.screen_height = 1080;
+         display_info.screen_aspect_ratio = ASPECT_RATIO_16_9;
          STB_OSDResize(FALSE, display_info.screen_width, display_info.screen_height, 0, 0);
 
          STB_OSSendEvent(FALSE, HW_EV_CLASS_HDMI, HW_EV_TYPE_HDMI_CONNECT, NULL, 0);
@@ -520,7 +521,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
       DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
       audio_format = av_paths_status[path].audio_format;
       video_format = av_paths_status[path].video_format;
-      
+
       if(video_pid == 0 )
       {
          video_pid = INVALID_PID;

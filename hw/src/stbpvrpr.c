@@ -760,6 +760,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                   case AV_VIDEO_CODEC_H264:
                      s_rec_status[rec_index].media_info.vid_fmt = VFORMAT_H264;
                      break;
+                  case AV_VIDEO_CODEC_H265:
+                     s_rec_status[rec_index].media_info.vid_fmt = VFORMAT_HEVC;
+                     break;
                   default:
                      break;
                }

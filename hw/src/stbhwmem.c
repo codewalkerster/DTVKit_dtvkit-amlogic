@@ -42,6 +42,7 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 
+#include "stbhwdef.h"
 #include "stbhwc.h"
 #include "stbhwmem.h"
 
@@ -404,7 +405,21 @@ const void* STB_MEMReadSecureConstant(U8BIT key, U32BIT *len)
 {
    FUNCTION_START(STB_MEMReadSecureConstant);
    USE_UNWANTED_PARAM(key);
-   USE_UNWANTED_PARAM(len);
+
+   /*If the private global encrypt procedure for pvr data is on,
+     return a fake key to make the encrypt procedure correct in DVBCore.*/
+
+   /*But for now, the secure things are not ready in dtvkit,
+     we temporarily make the encrypt request all pass,
+     even the private global encrypt procedure is off,
+     fix me later.*/
+   int force_fake = 1;
+
+   if (force_fake || aml_hw_cfg.pvr.encrypt) {
+      *len = 64;
+      return "012345678abcdef";
+   }
+
    FUNCTION_FINISH(STB_MEMReadSecureConstant);
 
    return(NULL);

@@ -676,6 +676,43 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
 }
 
 /**
+ * @brief   Returns the current signal quality
+ * @param   path the tuner path to query
+ * @return  the signal quality
+ * @todo     Confirm DVB API BER units
+ */
+U8BIT STB_TuneGetSignalQuality(U8BIT path)
+{
+   U8BIT retval;
+   uint16_t quality;
+
+   FUNCTION_START(STB_TuneGetSignalQuality);
+
+   retval = 0;
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      if (IsTunerLocked(&tuner_status[path]))
+      {
+         if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, &quality) >= 0)
+         {
+             retval = (U8BIT)quality;
+             TUN_DBG("%u: Quality=%u%%", path, retval);
+         }
+         else
+         {
+            TUN_ERR("%u: FE_READ_SNRfailed, errno %d", path, errno);
+         }
+      }
+   }
+
+   FUNCTION_FINISH(STB_TuneGetSignalQuality);
+
+   return retval;
+}
+
+
+/**
  * @brief   Returns the actual frequency of the current terrestrial signal
  * @param   path the tuner path to query
  * @return  the frequency in Hz

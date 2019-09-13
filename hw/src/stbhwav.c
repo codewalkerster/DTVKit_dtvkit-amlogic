@@ -47,9 +47,9 @@
 #include "stbhwdef.h"
 
 /*---macro definitions for this file-----------------------------------------*/
-//#define AV_DEBUG
+#define AV_DEBUG
 #define VIDEO_DEBUG
-//#define AUDIO_DEBUG
+#define AUDIO_DEBUG
 
 
 #ifdef AV_DEBUG
@@ -609,17 +609,22 @@ void STB_AVStartVideoDecoding(U8BIT path)
       {
          //AM_AV_SetVideoAspectRatio(path, AM_AV_VIDEO_ASPECT_AUTO);
          //AM_AV_SetVideoAspectMatchMode(path,AM_AV_VIDEO_ASPECT_MATCH_IGNORE);
-
          switch (av_paths_status[path].av_decoder_state)
          {
          case DECODER_A_STOP_V_START:
          case DECODER_A_START_V_START:
             /*Just in case we get two calls to audio start without a stop
               There's an API to switch, so we'll use it*/
-            VID_DBG("Video decoder already started");
+            VID_DBG("99 Video decoder already started");
             if (video_pid != av_paths_status[path].video_pid)
             {
-               VID_DBG("PID changed but already running");
+               VID_DBG("#### video PID changed %u->%u, decoding restarted ####", av_paths_status[path].video_pid, video_pid);
+               AM_AV_StopTS(path);
+               AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
+               AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
+               av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
+               av_paths_status[path].video_pid = video_pid;
+               av_paths_status[path].pcr_pid = pcr_pid;
             }
             /*state*/
             break;

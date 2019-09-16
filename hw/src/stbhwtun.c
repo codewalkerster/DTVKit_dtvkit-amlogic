@@ -1069,6 +1069,32 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
    FUNCTION_FINISH(STB_TuneSetLNBVoltage);
 }
 
+void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
+{
+    FUNCTION_START(STB_TuneSetVoltageInterface);
+    fe_sec_voltage_t voltage;
+    switch (vol)
+    {
+        case LNB_VOLTAGE_14V:
+           voltage = SEC_VOLTAGE_13;
+           break;
+        case LNB_VOLTAGE_18V:
+           voltage = SEC_VOLTAGE_18;
+           break;
+        case LNB_VOLTAGE_OFF:
+        default:
+           voltage = SEC_VOLTAGE_OFF;
+           break;
+    }
+
+    if (ioctl(tuner_status[path].frontend_fd, FE_SET_VOLTAGE, voltage) == -1)
+    {
+        TUN_DBG("ioctl FE_DISEQC_SEND_MASTER_CMD failed, path:%d error:%d", path, errno);
+    }
+    FUNCTION_FINISH(STB_TuneSetVoltageInterface);
+}
+
+
 /**
  * @brief   Sets the type of modulation for the specified tuner
  * @param   path tuner path
@@ -1657,94 +1683,73 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
       }
       case TUNE_SIGNAL_QPSK:
       {
-         switch (tstatus->u.sat.lnb_voltage)
+         if (tstatus->u.sat.use_22khz)
          {
-            case LNB_VOLTAGE_14V:
-               voltage = SEC_VOLTAGE_13;
-               break;
-            case LNB_VOLTAGE_18V:
-               voltage = SEC_VOLTAGE_18;
-               break;
-            case LNB_VOLTAGE_OFF:
-            default:
-               voltage = SEC_VOLTAGE_OFF;
-               break;
-         }
-
-         if (ioctl(tstatus->frontend_fd, FE_SET_VOLTAGE, voltage) >= 0)
-         {
-            if (tstatus->u.sat.use_22khz)
-            {
-               tone = SEC_TONE_ON;
-            }
-            else
-            {
-               tone = SEC_TONE_OFF;
-            }
-            if (ioctl(tstatus->frontend_fd, FE_SET_TONE, tone) >= 0)
-            {
-               fe_params.frequency = tstatus->freq;
-               fe_params.inversion = INVERSION_AUTO;
-               fe_params.u.qpsk.symbol_rate = tstatus->u.sat.srate;
-
-               switch (tstatus->u.sat.fec)
-               {
-                  case TUNE_FEC_1_2:
-                     fe_params.u.qpsk.fec_inner = FEC_1_2;
-                     break;
-                  case TUNE_FEC_2_3:
-                     fe_params.u.qpsk.fec_inner = FEC_2_3;
-                     break;
-                  case TUNE_FEC_3_4:
-                     fe_params.u.qpsk.fec_inner = FEC_3_4;
-                     break;
-                  case TUNE_FEC_5_6:
-                     fe_params.u.qpsk.fec_inner = FEC_5_6;
-                     break;
-                  case TUNE_FEC_7_8:
-                     fe_params.u.qpsk.fec_inner = FEC_7_8;
-                     break;
-                  case TUNE_FEC_2_5:
-                     fe_params.u.qpsk.fec_inner = FEC_2_5;
-                     break;
-                  case TUNE_FEC_8_9:
-                     fe_params.u.qpsk.fec_inner = FEC_8_9;
-                     break;
-                  case TUNE_FEC_9_10:
-                     fe_params.u.qpsk.fec_inner = FEC_9_10;
-                     break;
-                  default:
-                     fe_params.u.qpsk.fec_inner = FEC_AUTO;
-                     break;
-               }
-
-               if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND, &fe_params) >= 0)
-               {
-                  TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
-                  retval = TRUE;
-               }
-               else
-               {
-                  TUN_ERR("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
-               }
-            }
-            else
-            {
-               TUN_ERR("%u: Failed to set tone, errno %d", tstatus->path, errno);
-            }
+            tone = SEC_TONE_ON;
          }
          else
          {
-            TUN_ERR("%u: Failed to set voltage, errno %d", tstatus->path, errno);
+            tone = SEC_TONE_OFF;
          }
-         break;
+         if (ioctl(tstatus->frontend_fd, FE_SET_TONE, tone) >= 0)
+         {
+            fe_params.frequency = tstatus->freq;
+            fe_params.inversion = INVERSION_AUTO;
+            fe_params.u.qpsk.symbol_rate = tstatus->u.sat.srate;
+
+            switch (tstatus->u.sat.fec)
+            {
+                case TUNE_FEC_1_2:
+                   fe_params.u.qpsk.fec_inner = FEC_1_2;
+                   break;
+                case TUNE_FEC_2_3:
+                   fe_params.u.qpsk.fec_inner = FEC_2_3;
+                   break;
+                case TUNE_FEC_3_4:
+                   fe_params.u.qpsk.fec_inner = FEC_3_4;
+                   break;
+                case TUNE_FEC_5_6:
+                   fe_params.u.qpsk.fec_inner = FEC_5_6;
+                   break;
+                case TUNE_FEC_7_8:
+                   fe_params.u.qpsk.fec_inner = FEC_7_8;
+                   break;
+                case TUNE_FEC_2_5:
+                   fe_params.u.qpsk.fec_inner = FEC_2_5;
+                   break;
+                case TUNE_FEC_8_9:
+                   fe_params.u.qpsk.fec_inner = FEC_8_9;
+                   break;
+                case TUNE_FEC_9_10:
+                   fe_params.u.qpsk.fec_inner = FEC_9_10;
+                   break;
+                   default:
+                   fe_params.u.qpsk.fec_inner = FEC_AUTO;
+                   break;
+            }
+
+            if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND, &fe_params) >= 0)
+            {
+                TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+                retval = TRUE;
+            }
+            else
+            {
+                 TUN_ERR("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+            }
+        }
+        else
+        {
+           TUN_ERR("%u: Failed to set tone, errno %d", tstatus->path, errno);
+        }
+        break;
       }
 
-      default:
-      {
-         TUN_ERR("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
-         break;
-      }
+       default:
+       {
+           TUN_ERR("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
+           break;
+       }
    }
    return(retval);
 }

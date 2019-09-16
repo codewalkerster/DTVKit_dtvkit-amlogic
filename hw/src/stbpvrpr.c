@@ -390,8 +390,11 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
       if (am_error == AM_SUCCESS)
       {
-         if (aml_hw_cfg.pvr.encrypt & (1 << ((is_timeshift)? 1 : 0)))
+         if (aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
             AM_AV_SetCryptOps(video_decoder, &des_ops);
+         else
+            AM_AV_SetCryptOps(video_decoder, NULL);
+
 
          am_error = AM_AV_StartTimeshift(video_decoder, &ts_params);
          if (am_error == AM_SUCCESS)
@@ -842,7 +845,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                rec_params.total_time, rec_params.prefix_name);
          }
 
-         if (aml_hw_cfg.pvr.encrypt & (1 << ((is_timeshift)? 1 : 0)))
+         if (aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
              rec_params.crypt_ops = &des_ops;
 
          am_error = AM_REC_StartRecord(s_rec_status[rec_index].rec_handle, &rec_params);

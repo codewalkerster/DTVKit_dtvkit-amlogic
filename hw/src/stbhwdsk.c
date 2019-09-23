@@ -86,7 +86,7 @@ static BOOLEAN SupportedFSType(char *fs_type);
 static S_DISK_INFO* AddDisk(char *device_name, char *mount_path);
 static void RemoveDisk(S_DISK_INFO* del_disk);
 static S_DISK_INFO* FindDisk(U16BIT disk_id);
-
+static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load);
 
 /*---global function definitions----------------------------------------------*/
 
@@ -1178,8 +1178,13 @@ void STB_DSKSetStandby(BOOLEAN state)
 
 BOOLEAN STB_DSKAddDevicePath(char *device, char *path)
 {
+   return STB_DSKAddDevicePathAndLoad(device, path, TRUE);
+}
 
-   BOOLEAN send_events = TRUE;
+static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load)
+{
+
+   BOOLEAN send_events = load;
    char device_name[256];
    char mount_path[256];
    char fs_type[32];
@@ -1240,7 +1245,7 @@ static void DiskMonitorTask(void *param)
 
    /* Create the initial list of disks, but don't send events on start up */
    RefreshDiskList(FALSE);
-   STB_DSKAddDevicePath("user", "/data/data/org.dtvkit.inputsource");
+   STB_DSKAddDevicePathAndLoad("user", "/data/data/org.dtvkit.inputsource", FALSE);
 
    while (TRUE)
    {

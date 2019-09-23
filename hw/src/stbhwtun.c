@@ -1089,7 +1089,7 @@ void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
 
     if (ioctl(tuner_status[path].frontend_fd, FE_SET_VOLTAGE, voltage) == -1)
     {
-        TUN_DBG("ioctl FE_DISEQC_SEND_MASTER_CMD failed, path:%d error:%d", path, errno);
+        TUN_DBG("ioctl FE_SET_VOLTAGE failed, path:%d error:%d", path, errno);
     }
     FUNCTION_FINISH(STB_TuneSetVoltageInterface);
 }

@@ -105,6 +105,11 @@ typedef struct {
    BOOLEAN has_video;
    BOOLEAN has_audio;
 
+   U16BIT video_pid;
+   U16BIT audio_pid;
+   U16BIT pcr_pid;
+   U16BIT ad_pid;
+
 } S_RECPLAY_STATUS;
 
 /* The following enums are taken from vendor/amlogic/dvb/am_adp/am_av/aml/aml.c
@@ -185,6 +190,10 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
             s_recplay_status[index].play_state = PLAY_STOPPED;
             s_recplay_status[index].video_decoder = INVALID_RES_ID;
             s_recplay_status[index].audio_decoder = INVALID_RES_ID;
+            s_recplay_status[index].video_pid = 0;
+            s_recplay_status[index].audio_pid = 0;
+            s_recplay_status[index].pcr_pid = 0;
+            s_recplay_status[index].ad_pid = 0;
          }
       }
    }
@@ -344,6 +353,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          s_recplay_status[play_index].play_speed = 0;
          s_recplay_status[play_index].has_video = s_rec_status[rec_index].has_video;
          s_recplay_status[play_index].has_audio = s_rec_status[rec_index].has_audio;
+         s_recplay_status[play_index].video_pid = s_rec_status[rec_index].media_info.vid_pid;
+         s_recplay_status[play_index].audio_pid = s_rec_status[rec_index].media_info.audios[0].pid;
 
          ts_params.media_info.duration = s_rec_status[rec_index].timeshift_duration;
 
@@ -470,6 +481,35 @@ BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
 }
 
 /**
+ * @brief   Returns status of playback with the given decoders
+ * @param   audio_decoder audio decoder being used for playback
+ * @param   video_decoder video decoder being used for playback
+ * @return  TRUE if playback is not in progress with the given decoders
+ */
+BOOLEAN STB_PVRIsPlayStopped(U8BIT audio_decoder, U8BIT video_decoder)
+{
+   BOOLEAN retval;
+   U8BIT play_index;
+
+   FUNCTION_START(STB_PVRIsPlayStopped);
+
+   retval = TRUE;
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
+   {
+      if (s_recplay_status[play_index].play_state > PLAY_STOPPED)
+      {
+         retval = FALSE;
+      }
+   }
+
+   FUNCTION_FINISH(STB_PVRIsPlayStopped);
+
+   return(retval);
+}
+
+/**
  * @brief   Sets the playback position after playback has started (i.e. jump to bookmark)
  * @param   audio_decoder audio decoder being used for playback
  * @param   video_decoder video decoder being used for playback
@@ -557,6 +597,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          }
 
          s_recplay_status[play_index].play_state = PLAY_STOPPED;
+         s_recplay_status[play_index].video_decoder = INVALID_RES_ID;
+         s_recplay_status[play_index].audio_decoder = INVALID_RES_ID;
 
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_STATE_CHANGED, PlayEventHandler,
             &s_recplay_status[play_index]);
@@ -1523,6 +1565,82 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
    return forced_default_disk_id;
 }
 
+/**
+ * @brief   Internal function that returns the decode PIDs for the given pvr
+ * @param   audio_decoder decoder id of the audio
+ * @param   video_decoder decoder id of the video
+ * @param   pcr_pid pointer for returned PCR PID value
+ * @param   video_pid pointer for returned video PID value
+ * @param   audio_pid pointer for returned audio PID value
+ * @param   ad_pid pointer for returned AD PID value
+ * @return  TRUE if pvr is valid and PIDs are returned, FALSE otherwise
+ */
+BOOLEAN PVRGetDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
+   U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid, U16BIT *ad_pid)
+{
+   BOOLEAN retval;
+   U8BIT play_index;
+
+   FUNCTION_START(PVRGetDecodePIDs);
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
+   {
+      *pcr_pid = s_recplay_status[play_index].pcr_pid;
+      *video_pid = s_recplay_status[play_index].video_pid;
+      *audio_pid = s_recplay_status[play_index].audio_pid;
+      *ad_pid = s_recplay_status[play_index].ad_pid;
+   }
+   else
+   {
+      retval = FALSE;
+   }
+
+   FUNCTION_FINISH(PVRGetDecodePIDs);
+
+   return(retval);
+}
+
+/**
+ * @brief   Changes the packet IDs for the PCR Video, Audio, Text and Data
+ * @param   audio_decoder decoder id of the pvr audio
+ * @param   video_decoder decoder id of the pvr video
+ * @param   pcr_pid The PID to use for the Program Clock Reference
+ * @param   video_pid The PID to use for the Video PES
+ * @param   audio_pid The PID to use for the Audio PES
+ * @param   ad_pid The PID to use for the AD PES
+ */
+void PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
+   U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid, U16BIT ad_pid)
+{
+   U16BIT *pids;
+   U8BIT play_index;
+
+   FUNCTION_START(PVRChangeDecodePIDs);
+
+   PLAY_DBG("%u: pcr=%u, video=%u, audio=%u, ad=%u", play_index, pcr_pid, video_pid, audio_pid, ad_pid);
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
+   {
+      if (s_recplay_status[play_index].audio_pid != audio_pid)
+      {
+         s_recplay_status[play_index].audio_pid = audio_pid;
+         PLAY_DBG("audio pid changed.");
+      }
+      if (s_recplay_status[play_index].video_pid != video_pid)
+      {
+         s_recplay_status[play_index].video_pid = video_pid;
+         s_recplay_status[play_index].pcr_pid = pcr_pid;
+         PLAY_DBG("video pid changed.");
+         //should do something.
+      }
+   }
+
+   FUNCTION_FINISH(PVRChangeDecodePIDs);
+}
+
+
 //---local function definitions------------------------------------------------
 
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
@@ -1533,7 +1651,7 @@ static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
    for (i = 0; i < num_players && play_index == INVALID_RES_ID; i++)
    {
       if (s_recplay_status[i].video_decoder == video_decoder
-         && s_recplay_status[i].audio_decoder == audio_decoder)
+         || s_recplay_status[i].audio_decoder == audio_decoder)
       {
          play_index = i;
       }

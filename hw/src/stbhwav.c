@@ -514,7 +514,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
    FUNCTION_START(STB_AVStartAudioDecoding);
 
-   if (!STB_PVRIsPlayStarted(path, path))
+   if (STB_PVRIsPlayStopped(path, path))
    {
       AUD_DBG("path=%u", path);
 
@@ -575,6 +575,66 @@ void STB_AVStartAudioDecoding(U8BIT path)
          }
       }
    }
+   else
+   {
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      audio_format = av_paths_status[path].audio_format;
+
+      AUD_DBG("av-pvr: path=%u state=%u, apid:%d vpid:%d", path, av_paths_status[path].av_decoder_state, audio_pid, video_pid);
+
+      if (video_pid == 0)
+      {
+         video_pid = INVALID_PID;
+         pcr_pid = INVALID_PID;
+         video_format = -1;
+         av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_STOP;
+      }
+
+      if (audio_pid != 0 && audio_pid != INVALID_PID)
+      {
+         switch (av_paths_status[path].av_decoder_state)
+         {
+         case DECODER_A_START_V_STOP:
+         case DECODER_A_START_V_START:
+            /*Just in case we get two calls to audio start without a stop
+              There's an API to switch, so we'll use it*/
+            AUD_DBG("av-pvr: Audio decoder already started");
+            if (audio_pid != av_paths_status[path].audio_pid)
+            {
+               AUD_DBG("av-pvr: changing audio PID %u->%d", av_paths_status[path].audio_pid, audio_pid);
+
+               AM_AV_SwitchTSAudio(path,audio_pid,audio_format);
+               av_paths_status[path].audio_pid = audio_pid;
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
+            }
+            /*state*/
+            break;
+
+         case DECODER_A_STOP_V_START:
+            /*starting audio when video is already started*/
+            AUD_DBG("av-pvr: video already started, audio PID=%u", audio_pid);
+            if (audio_pid != av_paths_status[path].audio_pid)
+            {
+               av_paths_status[path].audio_pid = audio_pid;
+               AM_AV_SwitchTSAudio(path,audio_pid,audio_format); //The audio pid and fmt have been set when video decoding
+               av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
+            }
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
+            break;
+
+         case DECODER_A_STOP_V_STOP:
+            AUD_DBG("av-pvr: av should be started, audio PID=%u, PCR PID=%u", audio_pid, pcr_pid);
+            /*too complicated to get here. the pvr should callback to sync decoding status*/
+            PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
+            break;
+
+         default:
+            break;
+         }
+      }
+
+   }
 
    FUNCTION_FINISH(STB_AVStartAudioDecoding);
 }
@@ -591,7 +651,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
 
    FUNCTION_START(STB_AVStartVideoDecoding);
 
-   if (!STB_PVRIsPlayStarted(path, path))
+   if (STB_PVRIsPlayStopped(path, path))
    {
       VID_DBG("path=%u", path);
 
@@ -660,6 +720,50 @@ void STB_AVStartVideoDecoding(U8BIT path)
             AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
 
             av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
+            break;
+         default:
+            break;
+         }
+      }
+   }
+   else
+   {
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      VID_DBG("av-pvr: path=%u state=%u, apid:%d vpid:%d", path, av_paths_status[path].av_decoder_state, audio_pid, video_pid);
+
+      if (audio_pid == 0)
+      {
+         audio_pid = INVALID_PID;
+      }
+
+      if (video_pid != 0)
+      {
+         switch (av_paths_status[path].av_decoder_state)
+         {
+         case DECODER_A_STOP_V_START:
+         case DECODER_A_START_V_START:
+            /*Just in case we get two calls to audio start without a stop
+              There's an API to switch, so we'll use it*/
+            VID_DBG("av-pvr: Video decoder already started");
+            if (video_pid != av_paths_status[path].video_pid)
+            {
+               VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[path].video_pid, video_pid);
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
+            }
+            /*state*/
+            break;
+         case DECODER_A_START_V_STOP:
+            VID_DBG("av-pvr: audio already started, video PID=%u", video_pid);
+
+            if (video_pid != av_paths_status[path].video_pid)
+            {
+               VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[path].video_pid, video_pid);
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
+            }
+            break;
+         case DECODER_A_STOP_V_STOP:
+            VID_DBG("pvr: video PID=%u, PCR=%u", video_pid,pcr_pid);
+            PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
             break;
          default:
             break;
@@ -1691,7 +1795,77 @@ void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
    USE_UNWANTED_PARAM(copy_protection);
    FUNCTION_FINISH(STB_AVSetCopyProtection);
 }
+/**
+ * @brief   Sync decoding info from pvr
+ * @param   path the audio decoder path to be started
+ */
+void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
+{
+   U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+   U8BIT path;
 
+   FUNCTION_START(STB_AVSyncDecodingFromPVR);
+
+   if (!STB_PVRIsPlayStopped(audio_decoder, video_decoder))
+   {
+      int path = audio_decoder;
+      if (path > num_paths)
+          path = video_decoder;
+
+      PVRGetDecodePIDs(audio_decoder, video_decoder, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+
+      if (video_pid == 0)
+      {
+         video_pid = INVALID_PID;
+         pcr_pid = INVALID_PID;
+         av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_STOP;
+      }
+      if (audio_pid == 0)
+      {
+         audio_pid = INVALID_PID;
+      }
+
+      if (audio_pid != 0 && audio_pid != INVALID_PID)
+      {
+         switch (av_paths_status[path].av_decoder_state)
+         {
+         case DECODER_A_STOP_V_STOP:
+            av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
+            break;
+         case DECODER_A_STOP_V_START:
+            av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
+            break;
+         default:
+            break;
+         }
+      }
+
+      if (video_pid != 0 && video_pid != INVALID_PID)
+      {
+         switch (av_paths_status[path].av_decoder_state)
+         {
+         case DECODER_A_START_V_STOP:
+            av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
+            break;
+         case DECODER_A_STOP_V_STOP:
+            av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
+            break;
+         default:
+            break;
+         }
+      }
+
+      /*refresh the current pvr pid status*/
+      av_paths_status[path].video_pid = video_pid;
+      av_paths_status[path].audio_pid = audio_pid;
+      av_paths_status[path].pcr_pid = pcr_pid;
+      av_paths_status[path].ad_pid = ad_pid;
+
+      AV_DBG("av-pvr: state=%u, apid:%d vpid:%d", av_paths_status[path].av_decoder_state, audio_pid, video_pid);
+   }
+
+   FUNCTION_FINISH(STB_AVSyncDecodingFromPVR);
+}
 /*---local function definitions----------------------------------------------*/
 
 static void AVEventHandler(long dev_no, int event_type, void *param, void *data)

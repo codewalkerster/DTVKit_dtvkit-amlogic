@@ -140,6 +140,7 @@ typedef struct
 
 /*---local (static) variable declarations for this file----------------------*/
 static AV_PATH_STATUS *av_paths_status = NULL;
+static BOOLEAN av_start_flag = FALSE;
 static U8BIT num_paths = 0;
 static S_DISPLAY_INFO display_info;
 static S_VIDEO_MODE video_modes[] =
@@ -552,8 +553,11 @@ void STB_AVStartAudioDecoding(U8BIT path)
          case DECODER_A_STOP_V_START:
             /*starting audio when video is already started*/
             AUD_DBG("video already started, audio PID=%u", audio_pid);
+            if (!av_start_flag) {
+                AM_AV_SwitchTSAudio(path,audio_pid,audio_format); //The audio pid and fmt have been set when video decoding
+            }
+            av_start_flag = FALSE;
             av_paths_status[path].audio_pid = audio_pid;
-            AM_AV_SwitchTSAudio(path,audio_pid,audio_format); //The audio pid and fmt have been set when video decoding
             av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
             break;
@@ -682,6 +686,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
                AM_AV_StopTS(path);
                AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
                AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
+               av_start_flag = TRUE;
                av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
                av_paths_status[path].video_pid = video_pid;
                av_paths_status[path].pcr_pid = pcr_pid;
@@ -700,6 +705,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
                AM_AV_StopTS(path);
                AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
                AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
+               av_start_flag = TRUE;
             }
             else
             {
@@ -719,6 +725,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
             AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
             AM_AV_StartTSWithPCR(path, video_pid, audio_pid, pcr_pid, video_format, audio_format);
 
+            av_start_flag = TRUE;
             av_paths_status[path].av_decoder_state = DECODER_A_STOP_V_START;
             break;
          default:

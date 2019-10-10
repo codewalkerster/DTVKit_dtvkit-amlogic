@@ -47,11 +47,19 @@ typedef struct {
 	int           demux;
 	int           cam_num;
 	stb_pvr_cfg   pvr;
+	char          country_code[3];
 } stb_hardware_cfg;
 
 extern stb_hardware_cfg aml_hw_cfg;
 
 extern void STB_CfgInitialise(void);
 extern int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source);
+
+/**
+ * @brief   get country code from cfg
+ * @param   country code
+ */
+int STB_Get_Country_Code(char *country_code);
+
 #endif
 

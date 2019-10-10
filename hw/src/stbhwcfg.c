@@ -60,6 +60,7 @@ stb_hardware_cfg aml_hw_cfg = {
 .pvr = {
     .encrypt = 0,
 	},
+.country_code = {'d', 'e', 'u'},
 };
 
 static void
@@ -184,6 +185,14 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			if ((i != LONG_MIN) && (i != LONG_MAX))
 				cfg->pvr.encrypt = i;
 		}
+	}else if (!strcmp(name, "country")) {
+        att = atts;
+		an = att[0];
+		av = att[1];
+		if (!strcmp(an, "code") && strlen(av) == 3) {
+			STB_SPDebugWrite("cfg country_code:%c%c%c", av[0], av[1], av[2]);
+			memcpy(cfg->country_code, av, strlen(av));
+		}
 	}
 }
 
@@ -279,3 +288,17 @@ int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source)
 	memcpy(encodec_source, aml_hw_cfg.cam[0].encodec_source, strlen(aml_hw_cfg.cam[0].encodec_source));
 	return 0;
 }
+
+/**
+ * @brief   get country code from cfg
+ * @param   country code
+ */
+int STB_Get_Country_Code(char *country_code)
+{
+	if (country_code == NULL) {
+		return -1;
+	}
+	memcpy(country_code, aml_hw_cfg.country_code, strlen(aml_hw_cfg.country_code));
+	return 0;
+}
+

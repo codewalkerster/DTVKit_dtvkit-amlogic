@@ -46,6 +46,8 @@
 
 //---constant definitions for this file----------------------------------------
 #define INVALID_RES_ID           255
+#define DVR_MODE_PROP    "tv.dtv.dvr.mode"
+
 
 
 #ifdef PLAY_DEBUG
@@ -141,6 +143,8 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
 static void PlayEventHandler(long dev_no, int event_type, void *param, void *data);
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder);
 static U8BIT getRecIndex(U8BIT disk_id, U8BIT *name);
+static void setDvrMode(U8BIT dvr_id);
+
 
 static void *des_open();
 static int des_close(void *cryptor);
@@ -762,6 +766,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       create_params.dvr_dev = s_rec_status[rec_index].rec_demux;
       create_params.async_fifo_id = rec_index;
 
+      setDvrMode(create_params.dvr_dev);
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
          sizeof(create_params.store_dir));
 
@@ -1565,6 +1570,7 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
    return forced_default_disk_id;
 }
 
+
 /**
  * @brief   Internal function that returns the decode PIDs for the given pvr
  * @param   audio_decoder decoder id of the audio
@@ -1642,6 +1648,27 @@ void PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
 
 //---local function definitions------------------------------------------------
+/**
+ * @brief set dvr mode. This function is used for dvr
+ * @param U8BIT  dvr device num
+ */
+static void setDvrMode(U8BIT dvr_id)
+{
+   U8BIT dvr_mode[128];
+
+   BOOLEAN dvr_ts_enable = property_get_int32(DVR_MODE_PROP, 0);
+   sprintf(dvr_mode, "/sys/class/stb/dvr%d_mode", dvr_id);
+   if (dvr_ts_enable)
+   {
+       STB_SPDebugWrite("setDvrMode: ts");
+       AM_FileEcho(dvr_mode, "ts");
+   }
+   else
+   {
+       STB_SPDebugWrite("setDvrMode: pid");
+       AM_FileEcho(dvr_mode, "pid");
+   }
+}
 
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
 {

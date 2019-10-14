@@ -143,7 +143,8 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
 static void PlayEventHandler(long dev_no, int event_type, void *param, void *data);
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder);
 static U8BIT getRecIndex(U8BIT disk_id, U8BIT *name);
-static void setDvrMode(U8BIT dvr_id);
+static U8BIT getDvrMode();
+static void setDvrMode(U8BIT dvr_id, U8BIT mode);
 
 
 static void *des_open();
@@ -405,7 +406,9 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
       if (am_error == AM_SUCCESS)
       {
-         if (aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
+         U8BIT dvr_mode = getDvrMode();
+         if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
+             && (dvr_mode == 0))
             AM_AV_SetCryptOps(video_decoder, &des_ops);
          else
             AM_AV_SetCryptOps(video_decoder, NULL);
@@ -744,6 +747,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    AM_REC_RecPara_t rec_params;
    int tfile_flags;
    BOOLEAN is_timeshift;
+   U8BIT dvr_mode;
 
    FUNCTION_START(STB_PVRRecordStart);
 
@@ -766,7 +770,8 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       create_params.dvr_dev = s_rec_status[rec_index].rec_demux;
       create_params.async_fifo_id = rec_index;
 
-      setDvrMode(create_params.dvr_dev);
+      dvr_mode = getDvrMode();
+      setDvrMode(create_params.dvr_dev, dvr_mode);
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
          sizeof(create_params.store_dir));
 
@@ -893,7 +898,8 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                rec_params.total_time, rec_params.prefix_name);
          }
 
-         if (aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
+         if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
+             && (dvr_mode == 0))
              rec_params.crypt_ops = &des_ops;
 
          am_error = AM_REC_StartRecord(s_rec_status[rec_index].rec_handle, &rec_params);
@@ -1649,14 +1655,33 @@ void PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
 //---local function definitions------------------------------------------------
 /**
- * @brief set dvr mode. This function is used for dvr
- * @param U8BIT  dvr device num
+ * @brief get dvr mode. This function is used for dvr
+ * @return U8BIT mode
  */
-static void setDvrMode(U8BIT dvr_id)
+static U8BIT getDvrMode()
 {
-   U8BIT dvr_mode[128];
+   U8BIT mode = 0;
 
    BOOLEAN dvr_ts_enable = property_get_int32(DVR_MODE_PROP, 0);
+   if (dvr_ts_enable)
+   {
+       mode = 1;
+   }
+   else
+   {
+       mode = 0;
+   }
+   return mode;
+}
+/**
+ * @brief set dvr mode. This function is used for dvr
+ * @param U8BIT dvr device num
+ * @param U8BIT mode
+ */
+static void setDvrMode(U8BIT dvr_id, U8BIT mode)
+{
+   U8BIT dvr_mode[128];
+   BOOLEAN dvr_ts_enable = (mode == 1)? TRUE : FALSE;
    sprintf(dvr_mode, "/sys/class/stb/dvr%d_mode", dvr_id);
    if (dvr_ts_enable)
    {
@@ -1669,6 +1694,7 @@ static void setDvrMode(U8BIT dvr_id)
        AM_FileEcho(dvr_mode, "pid");
    }
 }
+
 
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
 {

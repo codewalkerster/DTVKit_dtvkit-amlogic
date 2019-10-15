@@ -427,6 +427,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                &s_recplay_status[play_index]);
             AM_EVT_Subscribe(video_decoder, AM_AV_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
                &s_recplay_status[play_index]);
+            AM_EVT_Subscribe(video_decoder, AM_AV_EVT_PLAYER_EOF, PlayEventHandler,
+               &s_recplay_status[play_index]);
 #if 0
             am_error = AM_AV_PlayTimeshift(video_decoder);
             if ((am_error == AM_SUCCESS) && (s_recplay_status[play_index].play_speed == 0))
@@ -614,6 +616,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_TIME_CHANGED, PlayEventHandler,
             &s_recplay_status[play_index]);
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
+            &s_recplay_status[play_index]);
+         AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_EOF, PlayEventHandler,
             &s_recplay_status[play_index]);
 
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
@@ -1830,6 +1834,13 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
 
                last_status = info->status;
             }
+            break;
+         }
+         case AM_AV_EVT_PLAYER_EOF:
+         {
+            /**< File player's EOF*/
+            PLAY_DBG("EOF");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_EOF, NULL, 0);
             break;
          }
          default:

@@ -382,6 +382,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             if (ts_params.media_info.vid_pid >= 0 && ts_params.media_info.vid_pid < 0x1fff)
             {
                s_recplay_status[play_index].has_video = TRUE;
+               s_recplay_status[play_index].video_pid = ts_params.media_info.vid_pid;
             }
             else
             {
@@ -390,6 +391,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             if (ts_params.media_info.aud_cnt > 0)
             {
                s_recplay_status[play_index].has_audio = TRUE;
+               s_recplay_status[play_index].audio_pid = ts_params.media_info.audios[0].pid;
             }
             else
             {

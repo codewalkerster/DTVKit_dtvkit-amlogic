@@ -36,12 +36,8 @@
 #include "stbhwos.h"
 #include "stbhwc.h"
 #include "stbhwosd.h"
-#ifdef SUPPORT_DTVKIT_IN_VENDOR
-#include "DTVKitInterface.h"
-#else
-#include "binderservice.h"
-#endif
 #include "stb_osd.h"
+#include "stbhw_overlay.h"
 
 
 /*---constant definitions for this file--------------------------------------*/
@@ -65,28 +61,31 @@
    #define MHEG_DBG(x,...)
 #endif
 
+#define OVERLAY_TASK_PRIORITY   10
 
 /*---local typedef structs for this file-------------------------------------*/
 typedef struct
 {
-   U8BIT *surface_data;
-   U16BIT width;
-   U16BIT height;
-   U8BIT depth;
-   U32BIT pitch;
+    U8BIT *pixels;
+    U16BIT width;
+    U16BIT height;
+    U16BIT pitch;
+    U8BIT depth;
 } S_OSD_SURFACE;
 
 typedef struct
 {
-   U16BIT screen_width;
-   U16BIT screen_height;
+    U16BIT screen_width;
+    U16BIT screen_height;
+    S_OSD_SURFACE subt_surface;
+    S_OSD_SURFACE mheg_surface;
 
-   S_OSD_SURFACE *subtitle_surface;
-   U16BIT subtitle_width;
-   U16BIT subtitle_height;
-
-   S_OSD_SURFACE *mheg_screen;
-   S_OSD_SURFACE *mheg_backbuffer;
+    U8BIT*  mheg_pixels;
+    BOOLEAN subt_resoln;
+    BOOLEAN subt_update;
+    BOOLEAN subt_visible;
+    BOOLEAN mheg_update;
+    BOOLEAN mheg_visible;
 } S_OSD_STATUS;
 
 typedef struct
@@ -119,17 +118,24 @@ static S_OSD_STATUS display_status = {0};
 
 static S_OSD_REGION *osd_regions = NULL;
 static void *subtitle_mutex = NULL;
-static void *update_mutex = NULL;
 
 static U8BIT mheg_colourdepth = SCREEN_COLOUR_DEPTH;
 static void *mheg_mutex = NULL;
+static void* overlay_sem = NULL;
+static void* update_sem = NULL;
+
+static F_OverlaySetSize OverlaySetSize;
+static F_OverlayUpdate OverlayUpdate;
+static F_OverlayDisplay OverlayDisplay;
 
 /*---local function prototypes for this file---------------------------------*/
 /*   (internal functions declared static to make them local) */
 static void* CreateSurface(U16BIT width, U16BIT height, U8BIT depth);
 static void DestroySurface(void *surface);
-static void FillSurface(void *surface, S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg);
-static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE *dest, S_RECTANGLE *drect);
+static void FillSurface(S_OSD_SURFACE *surface, S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg);
+static void BlitBlendSurface32(U8BIT *dst, U32BIT *src, U32BIT width, U32BIT height, U16BIT s_pitch, U16BIT d_pitch);
+static void BlitCopySurface32(U8BIT *dst, U32BIT *src, U32BIT width, U32BIT height, U16BIT s_pitch, U16BIT d_pitch);
+static void OverlayTask(void *param);
 
 
 /*---global variable definitions---------------------------------------------*/
@@ -145,26 +151,31 @@ void STB_OSDInitialise(U8BIT num_max_regions)
    FUNCTION_START(STB_OSDInitialise);
 
    USE_UNWANTED_PARAM(num_max_regions);
-
-   if (update_mutex == NULL)
-   {
-      display_status.screen_width = SCREEN_WIDTH;
-      display_status.screen_height = SCREEN_HEIGHT;
-
-      display_status.subtitle_surface = NULL;
-      display_status.subtitle_width = 0;
-      display_status.subtitle_height = 0;
-
-      display_status.mheg_screen = NULL;
-      display_status.mheg_backbuffer = NULL;
-
-      update_mutex = STB_OSCreateMutex();
-      subtitle_mutex = STB_OSCreateMutex();
-      mheg_mutex = STB_OSCreateMutex();
-   }
+   memset(&display_status, 0, sizeof(S_OSD_STATUS));
+   display_status.screen_width = SCREEN_WIDTH;
+   display_status.screen_height = SCREEN_HEIGHT;
+   subtitle_mutex = STB_OSCreateMutex();
+   mheg_mutex = STB_OSCreateMutex();
+   overlay_sem = STB_OSCreateSemaphore();
+   update_sem = STB_OSCreateSemaphore();
 
    FUNCTION_FINISH(STB_OSDInitialise);
 }
+
+/**
+ * @brief Register Android overlay functions.
+ */
+void STB_OSDRegisterOverlayFuncs(F_OverlaySetSize setsize, F_OverlayUpdate update, F_OverlayDisplay display)
+{
+    OverlaySetSize = setsize;
+    OverlayUpdate = update;
+    OverlayDisplay = display;
+
+    if (STB_OSCreateTask(OverlayTask, NULL, 4096, OVERLAY_TASK_PRIORITY, (U8BIT*)"OverlayTesk") == NULL)
+    {
+        STB_SPDebugWrite("Failed to create overlay task");
+    }
+ }
 
 /**
  * @brief   Reconfigures the OSD for a new screen size
@@ -185,60 +196,14 @@ void STB_OSDResize(BOOLEAN scaling, U16BIT width, U16BIT height, U16BIT x_offset
 
    if ((display_status.screen_width != width) || (display_status.screen_height != height))
    {
-      STB_OSMutexLock(update_mutex);
-
       OSD_DBG("old=%ux%u, new=%ux%u", display_status.screen_width, display_status.screen_height,
          width, height);
 
       display_status.screen_width = width;
       display_status.screen_height = height;
-
-      STB_OSMutexUnlock(update_mutex);
    }
 
    FUNCTION_FINISH(STB_OSDResize);
-}
-
-/**
- * @brief   Commit invisible buffer to visible surface and copy back
- */
-void STB_OSDUpdate(void)
-{
-   FUNCTION_START(STB_OSDUpdate);
-
-   STB_OSMutexLock(update_mutex);
-
-   BinderService_OverlayClear();
-
-   /* Display the subtitles */
-   STB_OSMutexLock(subtitle_mutex);
-
-   if (display_status.subtitle_surface != NULL)
-   {
-      BinderService_OverlayDraw(display_status.subtitle_surface->width,
-         display_status.subtitle_surface->height, 0, 0, display_status.screen_width,
-         display_status.screen_height, display_status.subtitle_surface->surface_data);
-   }
-
-   STB_OSMutexUnlock(subtitle_mutex);
-
-   /* Display MHEG */
-   STB_OSMutexLock(mheg_mutex);
-
-   if (display_status.mheg_screen != NULL)
-   {
-      BinderService_OverlayDraw(display_status.mheg_screen->width, display_status.mheg_screen->height,
-         0, 0, display_status.screen_width, display_status.screen_height,
-         display_status.mheg_screen->surface_data);
-   }
-
-   STB_OSMutexUnlock(mheg_mutex);
-
-   BinderService_OverlayDrawFinished();
-
-   STB_OSMutexUnlock(update_mutex);
-
-   FUNCTION_FINISH(STB_OSDUpdate);
 }
 
 /**
@@ -792,35 +757,38 @@ void STB_OSDUpdateRegions(void)
    U16BIT x, y;
    U32BIT dest_pitch;
    U32BIT src_pitch;
+   BOOLEAN visible;
 
    FUNCTION_START(STB_OSDUpdateRegions);
 
    STB_OSMutexLock(subtitle_mutex);
 
-   if (display_status.subtitle_surface != NULL)
+   if (display_status.subt_surface.pixels != NULL)
    {
       bytes_per_pixel = SCREEN_COLOUR_DEPTH / 8;
 
       /* Clear the subtitle surface before drawing currently visible subtitle regions on to it */
       rect.top = 0;
       rect.left = 0;
-      rect.width = display_status.subtitle_surface->width;
-      rect.height = display_status.subtitle_surface->height;
+      rect.width = display_status.subt_surface.width;
+      rect.height = display_status.subt_surface.height;
 
-      FillSurface((void*)display_status.subtitle_surface, &rect, 0, STB_BLIT_COPY);
+      FillSurface(&display_status.subt_surface, &rect, 0, STB_BLIT_COPY);
+      visible = FALSE;
 
       /* Blit the subtitles */
       for (region = osd_regions; region != NULL; region = region->next)
       {
          if (region->visible)
          {
+            visible = TRUE;
             STB_OSSemaphoreWait(region->locked_sem);
 
             bitmap = (U8BIT *)region->region_data;
             src_pitch = region->width * region->depth / 8;
 
-            dest_pitch = display_status.subtitle_surface->pitch;
-            dest_buff = display_status.subtitle_surface->surface_data + region->y * dest_pitch +
+            dest_pitch = display_status.subt_surface.pitch;
+            dest_buff = display_status.subt_surface.pixels + region->y * dest_pitch +
                region->x * bytes_per_pixel;
 
             base = dest_buff;
@@ -832,16 +800,18 @@ void STB_OSDUpdateRegions(void)
                   for (x = 0; x < region->width; x += 2)
                   {
                      clut = &region->clut[(bitmap[x >> 1] >> 4)];
-                     *(base + (x << 2) + 0) = clut->a;
-                     *(base + (x << 2) + 1) = clut->r;
-                     *(base + (x << 2) + 2) = clut->g;
-                     *(base + (x << 2) + 3) = clut->b;
+                    *(base + (x << 2) + 0) = clut->r;
+                    *(base + (x << 2) + 1) = clut->g;
+                    *(base + (x << 2) + 2) = clut->b;
+                    *(base + (x << 2) + 3) = clut->a;
+
 
                      clut = &region->clut[(bitmap[x >> 1] & 0x0f)];
-                     *(base + (x << 2) + 4) = clut->a;
-                     *(base + (x << 2) + 5) = clut->r;
-                     *(base + (x << 2) + 6) = clut->g;
-                     *(base + (x << 2) + 7) = clut->b;
+                     *(base + (x << 2) + 4) = clut->r;
+                     *(base + (x << 2) + 5) = clut->g;
+                     *(base + (x << 2) + 6) = clut->b;
+                     *(base + (x << 2) + 7) = clut->a;
+
                   }
 
                   base += dest_pitch;
@@ -856,10 +826,10 @@ void STB_OSDUpdateRegions(void)
                   for (x = 0; x < region->width; x++)
                   {
                      clut = &region->clut[bitmap[x]];
-                     *(base + (x << 2) + 0) = clut->a;
-                     *(base + (x << 2) + 1) = clut->r;
-                     *(base + (x << 2) + 2) = clut->g;
-                     *(base + (x << 2) + 3) = clut->b;
+                     *(base + (x << 2) + 0) = clut->r;
+                     *(base + (x << 2) + 1) = clut->g;
+                     *(base + (x << 2) + 2) = clut->b;
+                     *(base + (x << 2) + 3) = clut->a;
                   }
 
                   base += dest_pitch;
@@ -870,11 +840,13 @@ void STB_OSDUpdateRegions(void)
             STB_OSSemaphoreSignal(region->locked_sem);
          }
       }
+      display_status.subt_update = TRUE;
+      display_status.subt_visible= visible;
+      STB_OSSemaphoreSignal(overlay_sem);
+      STB_OSSemaphoreWait(update_sem);
    }
 
    STB_OSMutexUnlock(subtitle_mutex);
-
-   STB_OSDUpdate();
 
    FUNCTION_FINISH(STB_OSDUpdateRegions);
 }
@@ -1014,26 +986,27 @@ void STB_OSDSetRegionDisplaySize(U16BIT width, U16BIT height)
 
    SUBT_DBG("w=%u, h=%u", width, height);
 
-   if ((display_status.subtitle_width != width) || (display_status.subtitle_height != height))
-   {
-      STB_OSMutexLock(subtitle_mutex);
+    if ((display_status.subt_surface.width != width) || (display_status.subt_surface.height != height))
+    {
+        STB_OSMutexLock(subtitle_mutex);
 
-      DestroySurface(display_status.subtitle_surface);
-
-      if ((width != 0) && (height != 0))
-      {
-         display_status.subtitle_surface = CreateSurface(width, height, SCREEN_COLOUR_DEPTH);
-      }
-      else
-      {
-         display_status.subtitle_surface = NULL;
-      }
-
-      display_status.subtitle_width = width;
-      display_status.subtitle_height = height;
-
-      STB_OSMutexUnlock(subtitle_mutex);
-   }
+        if (display_status.subt_surface.pixels != NULL)
+        {
+           STB_MEMFreeSysRAM(display_status.subt_surface.pixels);
+        }
+        display_status.subt_surface.pixels = STB_MEMGetSysRAM(width * height * SCREEN_COLOUR_DEPTH / 8);
+        display_status.subt_surface.width = width;
+        display_status.subt_surface.height = height;
+        display_status.subt_surface.depth = SCREEN_COLOUR_DEPTH;
+        display_status.subt_surface.pitch = width * SCREEN_COLOUR_DEPTH / 8;
+        if (display_status.subt_surface.pixels != NULL)
+        {
+           display_status.subt_resoln = TRUE;
+           STB_OSSemaphoreSignal(overlay_sem);
+           STB_OSSemaphoreWait(update_sem);
+        }
+        STB_OSMutexUnlock(subtitle_mutex);
+    }
 
    FUNCTION_FINISH(STB_OSDSetRegionDisplaySize);
 }
@@ -1154,37 +1127,32 @@ void* STB_OSDMhegSetResolution(U16BIT width, U16BIT height, U8BIT bits)
    /*destroy the MHEG OSD region and backbuffer if they exists*/
    STB_OSMutexLock(mheg_mutex);
 
-   if(display_status.mheg_screen != NULL)
-   {
-      STB_OSDMhegDestroySurface((void*)display_status.mheg_screen);
-      display_status.mheg_screen = NULL;
-   }
+    if (display_status.mheg_surface.pixels != NULL)
+    {
+        STB_MEMFreeSysRAM(display_status.mheg_surface.pixels);
+    }
 
-   if(display_status.mheg_backbuffer != NULL)
-   {
-      STB_OSDMhegDestroySurface((void*)display_status.mheg_backbuffer);
-      display_status.mheg_backbuffer = NULL;
-   }
+    display_status.mheg_surface.width = width;
+    display_status.mheg_surface.height= height;
+    display_status.mheg_surface.pitch = width * bits / 8;
+    display_status.mheg_surface.depth = bits;
+    display_status.mheg_surface.pixels = STB_MEMGetSysRAM(display_status.mheg_surface.pitch * height);
+    if (display_status.mheg_surface.pixels == NULL)
+    {
+        STB_SPDebugWrite("malloc fail: MHEG pixel buffer");
+    }
 
-   /*create/recreate the osd region*/
-   mheg_colourdepth = bits;
+    display_status.mheg_pixels = STB_MEMGetSysRAM(display_status.mheg_surface.pitch * height);
+    if (display_status.mheg_pixels == NULL)
+    {
+        STB_SPDebugWrite("Failed to create MHEG pixel buffer");
+    }
 
-   display_status.mheg_screen = STB_OSDMhegCreateSurface(width,height,FALSE,0);
-   if(display_status.mheg_screen != NULL)
-   {
-      display_status.mheg_backbuffer = STB_OSDMhegCreateSurface(width,height,FALSE,0);
-      if (display_status.mheg_backbuffer == NULL)
-      {
-         STB_OSDMhegDestroySurface((void*)display_status.mheg_screen);
-         display_status.mheg_screen = NULL;
-      }
-   }
+    STB_OSMutexUnlock(mheg_mutex);
 
-   STB_OSMutexUnlock(mheg_mutex);
+    FUNCTION_FINISH(STB_OSDMhegSetResolution);
 
-   FUNCTION_FINISH(STB_OSDMhegSetResolution);
-
-   return (void*)display_status.mheg_backbuffer;
+    return (void*)&display_status.mheg_surface;
 }
 
 
@@ -1218,7 +1186,7 @@ void* STB_OSDMhegCreateSurface(U16BIT width, U16BIT height, BOOLEAN init, U32BIT
       rect.width = width;
       rect.height = height;
 
-      FillSurface((void*)surface, &rect, colour, STB_BLIT_COPY);
+      FillSurface(surface, &rect, colour, STB_BLIT_COPY);
    }
 
    FUNCTION_FINISH(STB_OSDMhegCreateSurface);
@@ -1247,7 +1215,7 @@ void* STB_OSDMhegLockBuffer( void *surface, U32BIT *pPitch )
 
    if (buffer != NULL)
    {
-      data = buffer->surface_data;
+      data = buffer->pixels;
       *pPitch = buffer->pitch;
    }
 
@@ -1307,49 +1275,31 @@ void STB_OSDMhegBlitBitmap( void *surface, S_RECTANGLE *pRect, U32BIT pitch,
    U16BIT screen_x, U16BIT screen_y, E_BLIT_OP bflg )
 {
    S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
-   U8BIT* cursor_src;
-   U8BIT* cursor_dest;
-   U32BIT x,y;
-   S_RECTANGLE dest_rect;
+   U32BIT* cursor_src;
+   U8BIT* cursor_dst;
+
 
    FUNCTION_START(STB_OSDMhegBlitBitmap);
 
-   if (display_status.mheg_backbuffer != NULL)
+   if (display_status.mheg_surface.pixels != NULL)
    {
-      MHEG_DBG("");
+      cursor_src = (U32BIT *)buffer->pixels;
+      cursor_src += (buffer->width * pRect->top) + pRect->left;
 
-      if(bflg == STB_BLIT_A_BLEND)
+      cursor_dst = display_status.mheg_surface.pixels;
+      cursor_dst += display_status.mheg_surface.pitch * screen_y;
+      cursor_dst += screen_x * display_status.mheg_surface.depth / 8;
+      if (bflg == STB_BLIT_A_BLEND)
       {
-         dest_rect.top = screen_y;
-         dest_rect.left = screen_x;
-         dest_rect.width = pRect->width;
-         dest_rect.height = pRect->height;
-         BlitBlend32(buffer,pRect,display_status.mheg_backbuffer,&dest_rect);
+         MHEG_DBG("BlitBlend32(%d,%d,%u,%u) pitch=%u w=%u", screen_x, screen_y, pRect->width, pRect->height, pitch, buffer->width);
+         BlitBlendSurface32(cursor_dst, cursor_src, pRect->width, pRect->height, pitch/4, display_status.mheg_surface.pitch);
       }
       else
       {
-         cursor_src = buffer->surface_data;
-         cursor_dest = display_status.mheg_backbuffer->surface_data;
-
-         cursor_dest +=  display_status.mheg_backbuffer->pitch * screen_y;
-         cursor_src += buffer->pitch * pRect->top;
-
-         for(y=0;y< pRect->height;y++)
-         {
-            /*jump to left edge*/
-            cursor_src += pRect->left * buffer->depth / 8;
-            cursor_dest += screen_x * display_status.mheg_backbuffer->depth / 8;
-            for(x=0;x < pRect->width * buffer->depth / 8;x+=4)
-            {
-               *(cursor_dest+x+0)=*(cursor_src+x+0)&0xFF;
-               *(cursor_dest+x+1)=*(cursor_src+x+1)&0xFF;
-               *(cursor_dest+x+2)=*(cursor_src+x+2)&0xFF;
-               *(cursor_dest+x+3)=*(cursor_src+x+3)&0xFF;
-            }
-            cursor_src += buffer->pitch-(buffer->depth * pRect->left / 8);
-            cursor_dest += display_status.mheg_backbuffer->pitch-(screen_x * display_status.mheg_backbuffer->depth / 8);
-         }
+         MHEG_DBG("BlitCopy32(%d,%d,%u,%u) pitch=%u w=%u", screen_x, screen_y, pRect->width, pRect->height, pitch, buffer->width);
+         BlitCopySurface32(cursor_dst, cursor_src, pRect->width, pRect->height, pitch/4, display_status.mheg_surface.pitch);
       }
+      display_status.mheg_visible = TRUE;
    }
 
    FUNCTION_FINISH(STB_OSDMhegBlitBitmap);
@@ -1369,9 +1319,14 @@ void STB_OSDMhegFillRectangle( S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg
 {
    FUNCTION_START(STB_OSDMhegFillRectangle);
 
-   if (display_status.mheg_backbuffer != NULL)
+   if (display_status.mheg_surface.pixels != NULL)
    {
-      FillSurface((void*)display_status.mheg_backbuffer, pRect, colour, bflg);
+        MHEG_DBG("FillSurface(%d,%d,%u,%u) colour=%x bflg=%u", pRect->left, pRect->top, pRect->width, pRect->height, colour, bflg);
+        FillSurface(&display_status.mheg_surface, pRect, colour, bflg);
+        if (colour != 0)
+        {
+            display_status.mheg_visible = TRUE;
+        }
    }
 
    FUNCTION_FINISH(STB_OSDMhegFillRectangle);
@@ -1411,7 +1366,8 @@ void STB_OSDMhegFillSurface( void *surface, S_RECTANGLE *pRect, U32BIT colour, E
 {
    FUNCTION_START(STB_OSDMhegFillSurface);
 
-   FillSurface(surface, pRect, colour, bflg);
+   MHEG_DBG("FillSurface(%d,%d,%u,%u) colour=%x bflg=%u", pRect->left, pRect->top, pRect->width, pRect->height, colour, bflg);
+   FillSurface((S_OSD_SURFACE *)surface, pRect, colour, bflg);
 
    FUNCTION_FINISH(STB_OSDMhegFillSurface);
 }
@@ -1430,23 +1386,15 @@ void STB_OSDMhegUpdate(void)
 
    STB_OSMutexLock(mheg_mutex);
 
-   if ((display_status.mheg_screen != NULL) && (display_status.mheg_backbuffer != NULL))
+   if (display_status.mheg_surface.pixels != NULL && display_status.mheg_pixels != NULL)
    {
-      size_bytes = display_status.mheg_screen->width * display_status.mheg_screen->height *
-         display_status.mheg_screen->depth / 8;
-
-      for(pixel=0; pixel < size_bytes; pixel += 4)
-      {
-         display_status.mheg_screen->surface_data[pixel+0] = display_status.mheg_backbuffer->surface_data[pixel+3];
-         display_status.mheg_screen->surface_data[pixel+1] = display_status.mheg_backbuffer->surface_data[pixel+2];
-         display_status.mheg_screen->surface_data[pixel+2] = display_status.mheg_backbuffer->surface_data[pixel+1];
-         display_status.mheg_screen->surface_data[pixel+3] = display_status.mheg_backbuffer->surface_data[pixel+0];
-      }
+        memcpy(display_status.mheg_pixels, display_status.mheg_surface.pixels, display_status.mheg_surface.pitch * display_status.mheg_surface.height);
+        display_status.mheg_update = TRUE;
+        STB_OSSemaphoreSignal(overlay_sem);
+        STB_OSSemaphoreWait(update_sem);
    }
 
    STB_OSMutexUnlock(mheg_mutex);
-
-   STB_OSDUpdate();
 
    FUNCTION_FINISH(STB_OSDMhegUpdate);
 }
@@ -1456,30 +1404,28 @@ void STB_OSDMhegUpdate(void)
  */
 void STB_OSDMhegClear(void)
 {
-   S_RECTANGLE rect;
+    S_RECTANGLE rect;
 
-   FUNCTION_START(STB_OSDMhegClear);
+    FUNCTION_START(STB_OSDMhegClear);
 
-   if (display_status.mheg_backbuffer != NULL)
-   {
-      MHEG_DBG("");
+    MHEG_DBG("");
 
-      rect.top = 0;
-      rect.left = 0;
-      rect.width = display_status.mheg_backbuffer->width;
-      rect.height = display_status.mheg_backbuffer->height;
+    rect.top = 0;
+    rect.left = 0;
+    rect.width = display_status.mheg_surface.width;
+    rect.height = display_status.mheg_surface.height;
+    display_status.mheg_visible = FALSE;
 
-      STB_OSDMhegFillRectangle(&rect, 0x00, STB_BLIT_COPY);
-   }
+    STB_OSDMhegFillRectangle(&rect, 0x00, STB_BLIT_COPY);
 
-   FUNCTION_FINISH(STB_OSDMhegClear);
+    FUNCTION_FINISH(STB_OSDMhegClear);
 }
 
 
 /*---local function definitions----------------------------------------------*/
 
 static void* CreateSurface(U16BIT width, U16BIT height, U8BIT depth)
-{ 
+{
    S_OSD_SURFACE *surface;
 
    FUNCTION_START(CreateSurface);
@@ -1487,8 +1433,8 @@ static void* CreateSurface(U16BIT width, U16BIT height, U8BIT depth)
    surface = STB_MEMGetSysRAM(sizeof(S_OSD_SURFACE));
    if (surface != NULL)
    {
-      surface->surface_data = STB_MEMGetSysRAM(width * height * depth / 8);
-      if (surface->surface_data != NULL)
+      surface->pixels = STB_MEMGetSysRAM(width * height * depth / 8);
+      if (surface->pixels != NULL)
       {
          surface->depth = depth;
          surface->width = width;
@@ -1513,183 +1459,215 @@ static void DestroySurface(void *surface)
 
    if (surface != NULL)
    {
-      STB_MEMFreeSysRAM(((S_OSD_SURFACE *)surface)->surface_data);
+      STB_MEMFreeSysRAM(((S_OSD_SURFACE *)surface)->pixels);
       STB_MEMFreeSysRAM(surface);
    }
 
    FUNCTION_FINISH(DestroySurface);
 }
 
-static void FillSurface(void *surface, S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg)
+static void FillSurface(S_OSD_SURFACE *surface, S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg)
 {
-   U8BIT* cursor;
+   U32BIT *pixel;
    U32BIT x,y;
-   S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
-   U32BIT Bmask = 0xFF;
-   U32BIT Rmask = 0xFF00;
-   U32BIT Gmask = 0xFF0000;
-   U32BIT Amask = 0xFF000000;
-   U32BIT Ashift = 24;
-   U32BIT R, G, B, A;
-   U32BIT source_alpha;
-   U32BIT dc;
+   U32BIT src_a;
+   U32BIT jump;
 
    FUNCTION_START(FillSurface);
 
-   /*jump to the first line of the rectangle*/
-   cursor = buffer->surface_data;  
-   cursor += buffer->pitch * pRect->top;
 
-   for(y = 0; y < pRect->height; y++)
+   pixel = (U32BIT *)surface->pixels;
+   pixel += (surface->width * pRect->top) + pRect->left;
+
+   src_a = (colour >> 24) & 0xFF;
+   jump = surface->width - pRect->width;
+
+   if (bflg == STB_BLIT_A_BLEND && src_a != 0xFF)
    {
-      cursor += buffer->depth * pRect->left / 8; 
+      int source_transparency = 0xff - src_a;
+      U32BIT src_r, src_g, src_b;
 
-      source_alpha = (colour & Amask) >> Ashift;
-      for(x = 0; x < pRect->width * buffer->depth / 8; x+=4)
+      src_r = (colour >> 16) & 0xFF;
+      src_g = (colour >> 8)  & 0xFF;
+      src_b = colour & 0xFF;
+
+      y = pRect->height;
+      while (y--)
       {
-         if(bflg == STB_BLIT_A_BLEND && source_alpha !=0xFF)
+         x = pRect->width;
+         while (x--)
          {
-            U32BIT *pixel = (U32BIT *)(cursor+x);
+            U32BIT R, G, B, A;
+            U32BIT dc = *pixel;
+            R = dc & 0xFF;
+            G = (dc >> 8) & 0xFF;
+            B = (dc >> 16) & 0xFF;
+            R = (R + ((src_r - R) * src_a >> 8));
+            G = (G + ((src_g - G) * src_a >> 8)) << 8;
+            B = (B + ((src_b - B) * src_a >> 8)) << 16;
 
-            dc = *pixel;
-
-            R = colour & Rmask;
-            G = colour & Gmask;
-            B = colour & Bmask;
-            R = ((dc & Rmask) + ((R - (dc & Rmask)) * source_alpha >> 8)) & Rmask;
-            G = ((dc & Gmask) + ((G - (dc & Gmask)) * source_alpha >> 8)) & Gmask;
-            B = ((dc & Bmask) + ((B - (dc & Bmask)) * source_alpha >> 8)) & Bmask;
-
-            int dest_opacity = ((dc & Amask) >> Ashift);
+            int dest_opacity = (dc >> 24) & 0xFF;
             int dest_transparency = 0xff - dest_opacity;
-            int source_transparency = 0xff - source_alpha;
             int final_transparency = (dest_transparency * source_transparency) >> 8;
-            int final_opacity = 0xff - final_transparency;
-            A = final_opacity << Ashift;
-            *pixel = R | G | B | A;
+            A = (0xff - final_transparency) << 24;
+            *pixel++ = R | G | B | A;
+         }
+         pixel += jump;
+      }
+   }
+   else
+   {
+      U32BIT col = (colour & 0xFF00FF00) | ((colour & 0xFF) << 16) | ((colour >> 16) & 0xFF);
+      y = pRect->height;
+      while (y--)
+      {
+         x = pRect->width;
+         while (x--)
+         {
+
+            *pixel++ = col;
+         }
+         pixel += jump;
+      }
+    }
+
+    FUNCTION_FINISH(FillSurface);
+ }
+
+
+static void BlitBlendSurface32(U8BIT *dst, U32BIT *src, U32BIT width, U32BIT height, U16BIT s_pitch, U16BIT d_pitch)
+{
+   U32BIT x;
+   d_pitch -= (width * 4);
+   s_pitch -= width;
+   MHEG_DBG("d_pitch=%u s_pitch=%u", d_pitch, s_pitch );
+   while (height--)
+   {
+      x = width;
+      while (x--)
+      {
+         U32BIT scol = *src++;
+         U32BIT src_a = scol >> 24;
+         if (src_a == 0)
+         {
+            // Skip pixel - source has no effect
+            dst += 4;
+         }
+         else if (src_a == 0xFF)
+         {
+            *dst++ = (scol >> 16) & 0xFF; // Red
+            *dst++ = (scol >> 8) & 0xFF;  // Green
+            *dst++ = scol & 0xFF;         // Blue
+            *dst++ = 0xFF;                // Alpha
          }
          else
          {
-            *(cursor+x+0)=(colour>>0)&0xFF;
-            *(cursor+x+1)=(colour>>8)&0xFF;
-            *(cursor+x+2)=(colour>>16)&0xFF;
-            *(cursor+x+3)=(colour>>24)&0xFF;
+            U32BIT src_r, src_g, src_b;
+            U32BIT R, G, B;
+            int dst_trans = 0xFF - dst[3];
+            int src_trans = 0xFF - src_a;
+
+            src_r = (scol >> 16) & 0xFF;
+            src_g = (scol >> 8)  & 0xFF;
+            src_b = scol & 0xFF;
+
+            R = dst[0];
+            G = dst[1];
+            B = dst[2];
+
+            *dst++ = (U8BIT)((R + ((src_r - R) * src_a >> 8)) & 0xFF);
+            *dst++ = (U8BIT)((G + ((src_g - G) * src_a >> 8)) & 0xFF);
+            *dst++ = (U8BIT)((B + ((src_b - B) * src_a >> 8)) & 0xFF);
+            *dst++ = 0xFF - ((dst_trans * src_trans) >> 8);
          }
       }
-      cursor += buffer->pitch-(buffer->depth * pRect->left / 8);       
+      dst += d_pitch;
+      src += s_pitch;
    }
-
-   FUNCTION_FINISH(FillSurface);
 }
 
-static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE *dest, S_RECTANGLE *drect)
+static void BlitCopySurface32(U8BIT *dst, U32BIT *src, U32BIT width, U32BIT height, U16BIT s_pitch, U16BIT d_pitch)
 {
-   U32BIT lowSX, highSX, lowSY, highSY;
-   U32BIT lowDX, /*highDX,*/ lowDY, highDY;
+   U32BIT x;
 
-   // Ready the recycling loop variables
-   int sx = 0, sy = 0, dx = 0, dy = 0;
-
-   U32BIT Bmask = 0xFF;
-   U32BIT Rmask = 0xFF00;
-   U32BIT Gmask = 0xFF0000;
-   U32BIT Amask = 0xFF000000;
-   U32BIT Ashift= 24;
-
-   U32BIT colour;
-   U8BIT a;
-
-   if (srect)
+   d_pitch -= (width * 4);
+   s_pitch -= width;
+   MHEG_DBG("d_pitch=%u s_pitch=%u", d_pitch, s_pitch );
+   while (height--)
    {
-      lowSX = srect->left;
-      highSX = srect->left + srect->width;
-      lowSY = srect->top;
-      highSY = srect->top + srect->height;
-   }
-   else
-   {
-      lowSX = 0;
-      highSX = dest->width;
-      lowSY = 0;
-      highSY = dest->height;
-   }
-
-   if (drect)
-   {
-      lowDX = drect->left;
-      //highDX = drect->x + drect->w;
-      lowDY = drect->top;
-      highDY = drect->top + drect->height;
-   }
-   else
-   {
-      lowDX = 0;
-      //highDX = dest->w;
-      lowDY = 0;
-      highDY = dest->height;
-   }
-
-   // Go through the rect we made
-   for (sx = lowSX, sy = lowSY, dx = lowDX, dy = lowDY; (sy < highSY) && (dy < highDY); )
-   {
-      // Get the source colour
-      colour = *((U32BIT*)source->surface_data + (sy * source->pitch) / 4 + sx);
-      if (colour != 0)
+      x = width;
+      while (x--)
       {
-         a = (colour & Amask) >> Ashift;
+         U32BIT scol = *src++;
+         *dst++ = (scol >> 16) & 0xFF; // Red
+         *dst++ = (scol >> 8) & 0xFF;  // Green
+         *dst++ = scol & 0xFF;         // Blue
+         *dst++ = (scol >> 24) & 0xFF; // Alpha
       }
-      else
-      {
-         a = 0;
-      }
-    
-      // If not fully transparent, mix in the colour
-      if (a > 0)
-      {
-         U32BIT *pixel;
-         U32BIT R, G, B, A;
-         U32BIT dc;
-         pixel = (U32BIT *)dest->surface_data + (dy * dest->pitch) / 4 + dx;
-         dc = *pixel;
+      dst += d_pitch;
+      src += s_pitch;
+   }
+}
 
-         R = colour & Rmask;
-         G = colour & Gmask;
-         B = colour & Bmask;
-         A = 0xFF << Ashift;
-         if (a != 0xFF)
+static void OverlayTask(void *param)
+{
+   BOOLEAN redraw;
+   ASSERT(mheg_mutex);
+
+   OverlaySetSize(SCREEN_ID, display_status.screen_width, display_status.screen_height);
+   OverlaySetSize(MHEG5_ID, display_status.mheg_surface.width, display_status.mheg_surface.height);
+
+   redraw = FALSE;
+   while (1)
+   {
+      STB_OSSemaphoreWait(overlay_sem);
+      if (display_status.subt_resoln)
+      {
+         display_status.subt_resoln = FALSE;
+         OverlaySetSize(SUBTITLE_ID, display_status.subt_surface.width, display_status.subt_surface.height);
+      }
+      if (display_status.subt_update)
+      {
+         STB_OSMutexLock(subtitle_mutex);
+         display_status.subt_update = FALSE;
+         if (display_status.subt_visible)
          {
-            R = ((dc & Rmask) + ((R - (dc & Rmask)) * a >> 8)) & Rmask;
-            G = ((dc & Gmask) + ((G - (dc & Gmask)) * a >> 8)) & Gmask;
-            B = ((dc & Bmask) + ((B - (dc & Bmask)) * a >> 8)) & Bmask;
-            A = 0;
-            if (Amask)
-            {
-               int dest_opacity = ((dc & Amask) >> Ashift);
-               int dest_transparency = 0xff - dest_opacity;
-               int source_opacity = a;
-               int source_transparency = 0xff - source_opacity;
-               int final_transparency = (dest_transparency * source_transparency) >> 8;
-               int final_opacity = 0xff - final_transparency;
-               ASSERT(final_opacity >= 0 && final_opacity < 256);
-               A = final_opacity << Ashift; /*final_opacity << surface->format->Ashift;*/
-            }
+            OverlayUpdate(SUBTITLE_ID, 0, 0, display_status.subt_surface.width, display_status.subt_surface.height,
+               display_status.subt_surface.pixels);
+         }
+         else
+         {
+             OverlayUpdate(SUBTITLE_ID, 0, 0, 0, 0, NULL);
+         }
+         STB_OSMutexUnlock(subtitle_mutex);
+         redraw = TRUE;
+      }
+
+      if (display_status.mheg_update)
+      {
+         STB_OSMutexLock(mheg_mutex);
+         display_status.mheg_update = FALSE;
+         if (display_status.mheg_visible)
+         {
+            OverlayUpdate(MHEG5_ID, 0, 0, display_status.mheg_surface.width, display_status.mheg_surface.height,
+               display_status.mheg_pixels);
+         }
+         else
+         {
+             OverlayUpdate(MHEG5_ID, 0, 0, 0, 0, NULL);
          }
 
-         *pixel = R | G | B | A;
+         STB_OSMutexUnlock(mheg_mutex);
+         redraw = TRUE;
       }
-      // Increment here so we can use the auto test on dy
-      sx++;
-      dx++;
 
-      // Check sx bound to move on to the next horizontal line
-      if (sx >= highSX)
+      if (redraw)
       {
-         sx = lowSX;
-         sy++;
-         dx = lowDX;
-         dy++;
+         redraw = FALSE;
+         OverlayDisplay();
       }
-   }
+      STB_OSSemaphoreSignal(update_sem);
+    }
+ }
 
-}
 

@@ -48,6 +48,7 @@
 #include "swdmx_timeshift_player.h"
 #include "swdmx_tfile.h"
 #include "swdmx_rec.h"
+#include "swdmx_evt.h"
 #endif
 
 //---constant definitions for this file----------------------------------------
@@ -489,7 +490,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          {
             PLAY_DBG("Starting timeshift playback, speed=%u%%", s_recplay_status[play_index].play_speed);
 
-            AM_EVT_Subscribe((long)s_recplay_status[play_index].player_handle, SWDMX_TPLAYER_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
+            SWDMX_EVT_Subscribe((long)s_recplay_status[play_index].player_handle, SWDMX_TPLAYER_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
                &s_recplay_status[play_index]);
             play_started = TRUE;
          }
@@ -891,7 +892,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          AM_EVT_Unsubscribe(video_decoder, AM_AV_EVT_PLAYER_EOF, PlayEventHandler,
             &s_recplay_status[play_index]);
 #else
-         AM_EVT_Unsubscribe((long)s_recplay_status[play_index].player_handle, SWDMX_TPLAYER_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
+         SWDMX_EVT_Unsubscribe((long)s_recplay_status[play_index].player_handle, SWDMX_TPLAYER_EVT_PLAYER_UPDATE_INFO, PlayEventHandler,
             &s_recplay_status[play_index]);
          SWDMX_TShiftPlayer_Destory(s_recplay_status[play_index].player_handle);
 #endif
@@ -1087,7 +1088,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       setDvrMode(create_params.dvr, dvr_mode);
 
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
-               sizeof(create_params.store_dir));
+                     sizeof(create_params.store_dir));
 
       REC_DBG("Starting recording in directory \"%s\" is_timeshift [%d] ", create_params.store_dir, is_timeshift);
       STB_PVRRECCreatParamOpsInit(&create_params);
@@ -1099,9 +1100,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
          if (is_timeshift)
          {
-            AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
+            SWDMX_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
                RecEventHandler, &s_rec_status[rec_index]);
-            AM_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
+            SWDMX_EVT_Subscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
                RecEventHandler, &s_rec_status[rec_index]);
          }
 
@@ -1232,9 +1233,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                   &s_rec_status[rec_index].tfile);
                if (am_error == 0)
                {
-                  AM_EVT_Subscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_START_TIME_CHANGED,
+                  SWDMX_EVT_Subscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_START_TIME_CHANGED,
                      RecEventHandler, &s_rec_status[rec_index]);
-                  AM_EVT_Subscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_END_TIME_CHANGED,
+                  SWDMX_EVT_Subscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_END_TIME_CHANGED,
                      RecEventHandler, &s_rec_status[rec_index]);
 
                   am_error = SWDMX_TFile_TimeStart(s_rec_status[rec_index].tfile);
@@ -1256,9 +1257,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
             REC_DBG("Failed to start recording, error %d", am_error);
 
             {
-               AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
+               SWDMX_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
                   RecEventHandler, &s_rec_status[rec_index]);
-               AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
+               SWDMX_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
                   RecEventHandler, &s_rec_status[rec_index]);
             }
 
@@ -1598,13 +1599,13 @@ void STB_PVRRecordStop(U8BIT rec_index)
         REC_DBG("Failed to stop recording %u, error %d", s_rec_status[rec_index].rec_handle, am_error);
      }
 
-     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
+     SWDMX_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_START,
         RecEventHandler, &s_rec_status[rec_index]);
-     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
+     SWDMX_EVT_Unsubscribe((long)s_rec_status[rec_index].rec_handle, SWDMX_REC_EVT_RECORD_END,
         RecEventHandler, &s_rec_status[rec_index]);
-     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_START_TIME_CHANGED,
+     SWDMX_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_START_TIME_CHANGED,
         RecEventHandler, &s_rec_status[rec_index]);
-     AM_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_END_TIME_CHANGED,
+     SWDMX_EVT_Unsubscribe((long)s_rec_status[rec_index].tfile, SWDMX_TFILE_EVT_END_TIME_CHANGED,
         RecEventHandler, &s_rec_status[rec_index]);
 
 

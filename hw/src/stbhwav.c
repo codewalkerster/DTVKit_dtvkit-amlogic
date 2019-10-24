@@ -53,11 +53,11 @@
 #define AUDIO_DEBUG
 
 
-//#define MEDIACODEC_PLAYER
-
 #ifdef MEDIACODEC_PLAYER
 //for mediaplayer
 #include "swdemux.h"
+#include "swdmx_evt.h"
+#include "swdmx_types.h"
 #endif
 
 #ifdef AV_DEBUG
@@ -243,6 +243,18 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
                /* Prevent AMLogic AV code from applying any video scaling */
                //AM_FileEcho("/sys/class/video/screen_mode", "5");
 
+#ifdef MEDIACODEC_PLAYER
+               SWDMX_EVT_Subscribe(av_path, SWDMX_TPLAYER_EVT_VIDEO_AVAILABLE, AVEventHandler,
+                  &av_paths_status[av_path]);
+               SWDMX_EVT_Subscribe(av_path, SWDMX_TPLAYER_EVT_VIDEO_ASPECT_RATIO_CHANGED, AVEventHandler,
+                  &av_paths_status[av_path]);
+               SWDMX_EVT_Subscribe(av_path, SWDMX_TPLAYER_EVT_VIDEO_RESOLUTION_CHANGED, AVEventHandler,
+                  &av_paths_status[av_path]);
+               SWDMX_EVT_Subscribe(av_path, SWDMX_TPLAYER_EVT_VIDEO_WINDOW_CHANGED, AVEventHandler,
+                  &av_paths_status[av_path]);
+               SWDMX_EVT_Subscribe(av_path, SWDMX_TPLAYER_EVT_VIDEO_AFD_CHANGED, AVEventHandler,
+                  &av_paths_status[av_path]);
+#else
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_AVAILABLE, AVEventHandler,
                   &av_paths_status[av_path]);
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_ASPECT_RATIO_CHANGED, AVEventHandler,
@@ -253,6 +265,9 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
                   &av_paths_status[av_path]);
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_AFD_CHANGED, AVEventHandler,
                   &av_paths_status[av_path]);
+#endif
+
+
             }
          }
 

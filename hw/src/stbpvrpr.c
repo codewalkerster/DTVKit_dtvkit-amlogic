@@ -545,15 +545,26 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          ts_params.start_paused = AM_TRUE;
          s_recplay_status[play_index].play_speed = 0;
          s_recplay_status[play_index].has_video = s_rec_status[rec_index].has_video;
-         s_recplay_status[play_index].has_audio = s_rec_status[rec_index].has_audio;
          s_recplay_status[play_index].video_pid = s_rec_status[rec_index].media_info.vid_pid;
-         s_recplay_status[play_index].audio_pid = s_rec_status[rec_index].media_info.audios[0].pid;
 
          ts_params.media_info.duration = s_rec_status[rec_index].timeshift_duration;
 
          /* The media info to be played back is the same as is being recorded */
          memcpy(&ts_params.media_info, &s_rec_status[rec_index].media_info,
             sizeof(AM_AV_TimeshiftMediaInfo_t));
+
+         /* wait for the correct audio track(except radio), do no guess*/
+         if (s_recplay_status[play_index].has_video)
+            ts_params.media_info.aud_cnt = 0;
+
+         if (ts_params.media_info.aud_cnt) {
+            s_recplay_status[play_index].has_audio = TRUE;
+            s_recplay_status[play_index].audio_pid = s_rec_status[rec_index].media_info.audios[0].pid;
+         }
+         else
+         {
+            s_recplay_status[play_index].has_audio = FALSE;
+         }
       }
       else
       {
@@ -576,6 +587,11 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             {
                s_recplay_status[play_index].has_video = FALSE;
             }
+
+            /* wait for the correct audio track(except radio), do no guess*/
+            if (s_recplay_status[play_index].has_video)
+                ts_params.media_info.aud_cnt = 0;
+
             if (ts_params.media_info.aud_cnt > 0)
             {
                s_recplay_status[play_index].has_audio = TRUE;
@@ -632,7 +648,9 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             }
 #endif
             play_started = TRUE;
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &audio_decoder, sizeof(U8BIT));
+
+            if (s_recplay_status[play_index].has_audio)
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &audio_decoder, sizeof(U8BIT));
          }
          else
          {

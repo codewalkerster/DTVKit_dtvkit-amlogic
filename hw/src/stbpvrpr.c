@@ -564,6 +564,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          else
          {
             s_recplay_status[play_index].has_audio = FALSE;
+            s_recplay_status[play_index].audio_pid = 0;
          }
       }
       else
@@ -586,6 +587,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             else
             {
                s_recplay_status[play_index].has_video = FALSE;
+               s_recplay_status[play_index].video_pid = 0;
             }
 
             /* wait for the correct audio track(except radio), do no guess*/
@@ -600,6 +602,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             else
             {
                s_recplay_status[play_index].has_audio = FALSE;
+               s_recplay_status[play_index].audio_pid = 0;
             }
          }
          else
@@ -2243,8 +2246,17 @@ BOOLEAN PVRGetDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    if (play_index != INVALID_RES_ID)
    {
       *pcr_pid = s_recplay_status[play_index].pcr_pid;
-      *video_pid = s_recplay_status[play_index].video_pid;
-      *audio_pid = s_recplay_status[play_index].audio_pid;
+
+      if (s_recplay_status[play_index].has_video)
+         *video_pid = s_recplay_status[play_index].video_pid;
+      else
+         *video_pid = 0;
+
+      if (s_recplay_status[play_index].has_audio)
+         *audio_pid = s_recplay_status[play_index].audio_pid;
+      else
+         *audio_pid = 0;
+
       *ad_pid = s_recplay_status[play_index].ad_pid;
    }
    else
@@ -2282,15 +2294,29 @@ void PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
       if (s_recplay_status[play_index].audio_pid != audio_pid)
       {
          s_recplay_status[play_index].audio_pid = audio_pid;
+
+         if (s_recplay_status[play_index].audio_pid > 0
+             && s_recplay_status[play_index].audio_pid < 0x1fff)
+             s_recplay_status[play_index].has_audio = TRUE;
+         else
+             s_recplay_status[play_index].has_audio = FALSE;
+
          PLAY_DBG("audio pid changed.");
       }
       if (s_recplay_status[play_index].video_pid != video_pid)
       {
          s_recplay_status[play_index].video_pid = video_pid;
-         s_recplay_status[play_index].pcr_pid = pcr_pid;
+
+         if (s_recplay_status[play_index].video_pid > 0
+             && s_recplay_status[play_index].video_pid < 0x1fff)
+             s_recplay_status[play_index].has_video = TRUE;
+         else
+             s_recplay_status[play_index].has_video = FALSE;
+
          PLAY_DBG("video pid changed.");
          //should do something.
       }
+      s_recplay_status[play_index].pcr_pid = pcr_pid;
    }
 
    FUNCTION_FINISH(PVRChangeDecodePIDs);

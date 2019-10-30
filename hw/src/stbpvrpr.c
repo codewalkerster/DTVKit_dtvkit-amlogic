@@ -163,7 +163,7 @@ static S_RECPLAY_STATUS *s_recplay_status = NULL;
 static void RecEventHandler(long dev_no, int event_type, void *param, void *data);
 static void PlayEventHandler(long dev_no, int event_type, void *param, void *data);
 static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder);
-static U8BIT getRecIndex(U8BIT disk_id, U8BIT *name);
+static U8BIT getRecIndex(U16BIT disk_id, U8BIT *name);
 static U8BIT getDvrMode();
 static void setDvrMode(U8BIT dvr_id, U8BIT mode);
 
@@ -2382,7 +2382,7 @@ static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
    return play_index;
 }
 
-static U8BIT getRecIndex(U8BIT disk_id, U8BIT *basename)
+static U8BIT getRecIndex(U16BIT disk_id, U8BIT *basename)
 {
    U8BIT i;
    U8BIT rec_index = INVALID_RES_ID;

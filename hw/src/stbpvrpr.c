@@ -166,7 +166,8 @@ static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder);
 static U8BIT getRecIndex(U8BIT disk_id, U8BIT *name);
 static U8BIT getDvrMode();
 static void setDvrMode(U8BIT dvr_id, U8BIT mode);
-
+static U32BIT getPVRConfigInt(const char *config, U32BIT def);
+static U16BIT getDiskIdByRecIndex(U8BIT index);
 
 static void *des_open();
 static int des_close(void *cryptor);
@@ -2322,8 +2323,47 @@ void PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    FUNCTION_FINISH(PVRChangeDecodePIDs);
 }
 
+/**
+ * @brief   PVR will not start if less than this minimum free space
+ * @return  minimum free space in KB
+ */
+U32BIT STB_PVRGetMinDiskSpace()
+{
+   return getPVRConfigInt("tv.dtv.pvr.disk_free_min_to_start_kb", 0);
+}
+
+/**
+ * @brief   PVR will stop if less than this minimum free space(default 10MB)
+ * @return  minimum free space in KB
+ */
+U32BIT STB_PVRGetMinDiskSpaceLeft()
+{
+   return getPVRConfigInt("tv.dtv.pvr.disk_free_min_to_stop_kb", 10*1024);
+}
+
+void STB_PVRCheckDiskSpace(void)
+{
+   U8BIT index;
+   for (index = 0; index < num_recorders; index++)
+   {
+      if (STB_PVRIsRecordStarted(index))
+      {
+         U16BIT disk_id = getDiskIdByRecIndex(index);
+         if (disk_id != INVALID_RES_ID && STB_DSKIsMounted(disk_id))
+         {
+            STB_DSKCheckSpace(disk_id);
+         }
+      }
+   }
+}
+
 
 //---local function definitions------------------------------------------------
+
+static U32BIT getPVRConfigInt(const char *config, U32BIT def)
+{
+    return property_get_int32(config, def);
+}
 /**
  * @brief get dvr mode. This function is used for dvr
  * @return U8BIT mode
@@ -2399,6 +2439,12 @@ static U8BIT getRecIndex(U8BIT disk_id, U8BIT *basename)
 
    return rec_index;
 }
+
+static U16BIT getDiskIdByRecIndex(U8BIT index)
+{
+   return s_rec_status[index].disk_id;
+}
+
 #ifdef MEDIACODEC_PLAYER
 static void RecEventHandler(long dev_no, int event_type, void *param, void *data)
 {

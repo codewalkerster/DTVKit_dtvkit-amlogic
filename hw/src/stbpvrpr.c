@@ -527,7 +527,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       rec_index = getRecIndex(disk_id, basename);
       if (rec_index != INVALID_RES_ID)
       {
-         if (s_recplay_status[rec_index].play_mode == START_PAUSED)
+         if (s_rec_status[rec_index].rec_mode == START_PAUSED)
          {
             is_timeshift = TRUE;
          }

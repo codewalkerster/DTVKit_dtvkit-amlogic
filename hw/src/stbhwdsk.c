@@ -1181,6 +1181,20 @@ BOOLEAN STB_DSKAddDevicePath(char *device, char *path)
    return STB_DSKAddDevicePathAndLoad(device, path, TRUE);
 }
 
+void STB_DSKCheckSpace(U16BIT disk_id)
+{
+    U32BIT free = STB_DSKGetSize(disk_id) - STB_DSKGetUsed(disk_id);
+    DISK_DBG("Disk: id[0x%x] free[%uKB]", disk_id, free);
+    if (free < STB_PVRGetMinDiskSpaceLeft())
+    {
+       DISK_DBG("Disk: Exceed the free space limit[%uKB] for PVR, now[%uKB]",
+          STB_PVRGetMinDiskSpaceLeft(), free);
+       STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_FULL,
+          &disk_id, sizeof(U16BIT));
+    }
+}
+
+/*---local function definitions----------------------------------------------*/
 static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load)
 {
 
@@ -1238,7 +1252,6 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
    return (added);
 }
 
-/*---local function definitions----------------------------------------------*/
 static void DiskMonitorTask(void *param)
 {
    USE_UNWANTED_PARAM(param);
@@ -1253,6 +1266,9 @@ static void DiskMonitorTask(void *param)
       STB_OSTaskDelay(3000);
 
       RefreshDiskList(TRUE);
+
+      /*check for the free space of the disk which has recording running*/
+      STB_PVRCheckDiskSpace();
    }
 }
 

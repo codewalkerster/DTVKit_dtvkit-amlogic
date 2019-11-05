@@ -137,12 +137,14 @@ static U8BIT num_paths;
 
 
 /*---local function prototypes for this file---------------------------------*/
-static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
+static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
 static void CloseTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
 static void TunerTask(void *param);
 static void ClearTuner(S_TUNER_STATUS *tstatus);
+static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
+static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus);
 
 
 /*---global function definitions---------------------------------------------*/
@@ -203,6 +205,10 @@ void STB_TuneInitialise(U8BIT paths)
                TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
             {
                TUN_ERR("Failed to create task for tuner %u", i);
+            }
+            else
+            {
+               OpenTuner(&tuner_status[i]);
             }
          }
       }
@@ -288,7 +294,7 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
 
       if (tstatus->signal_type != type)
       {
-         if (tstatus->frontend_fd != INVALID_FD)
+         if (tstatus->frontend_fd != INVALID_FD && type == TUNE_SIGNAL_NONE)
          {
             STB_OSMutexLock(tstatus->mutex);
             state = tstatus->state;
@@ -303,12 +309,9 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
             tstatus->signal_type = TUNE_SIGNAL_NONE;
          }
 
-         if ((type != TUNE_SIGNAL_NONE) && ((tstatus->tuner_types & type) != 0))
+         if (type != TUNE_SIGNAL_NONE && ((tstatus->tuner_types & type) != 0) && SetSysType(tstatus, type))
          {
-            if (OpenTuner(tstatus, type))
-            {
-               tstatus->signal_type = type;
-            }
+            tstatus->signal_type = type;
          }
       }
    }
@@ -398,7 +401,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
       {
          start_tuning = FALSE;
 
-         if ((tstatus->tuned_sys_type != tstatus->sys_type) && (tstatus->signal_type != TUNE_SIGNAL_QAM))
+         if (IsDiffSysType(tstatus))
          {
             start_tuning = TRUE;
             tstatus->tuned_sys_type = tstatus->sys_type;
@@ -1472,10 +1475,29 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSupportedSystemType(U8BIT path)
    return type;
 }
 
+void STB_TnueAllStart()
+{
+    U8BIT i;
+
+    for (i = 0; i != num_paths; i++)
+    {
+       OpenTuner(&tuner_status[i]);
+    }
+}
+
+void STB_TuneAllStop()
+{
+    U8BIT i;
+
+    for (i = 0; i != num_paths; i++)
+    {
+       STB_TuneSetSignalType(i, TUNE_SIGNAL_NONE);
+    }
+}
 
 /*---local function definitions----------------------------------------------*/
 
-static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type)
+static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type)
 {
    BOOLEAN retval;
    char fe_name[24];
@@ -1483,79 +1505,85 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_typ
 
    retval = FALSE;
 
+   if (tstatus->frontend_fd != INVALID_FD)
+   {
+	  switch (sig_type)
+	  {
+		 case TUNE_SIGNAL_QPSK:
+			if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS2)
+				tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBS;
+			break;
+		 case TUNE_SIGNAL_COFDM:
+			if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT2)
+				tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBT;
+			break;
+		 case TUNE_SIGNAL_QAM:
+			if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBC)
+				tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBC;
+			break;
+		 default:
+			TUN_ERR("not support sig_type:%d\n", sig_type);
+			return retval;
+	  }
+
+	  if (SetFeProperty(tstatus->frontend_fd, tstatus->tuned_sys_type))
+	  {
+		  memset(&tstatus->fe_info, 0, sizeof(tstatus->fe_info));
+		  if (ioctl(tstatus->frontend_fd, FE_GET_INFO, &(tstatus->fe_info)) >= 0)
+		  {
+			  TUN_DBG("fe_info.type=%d", tstatus->fe_info.type);
+			  if (tstatus->fe_info.type == FE_OFDM)
+			  {
+				  TUN_DBG("Tuner %s configured as DVB-T/T2, min_freq=%lu, max_freq=%lu", fe_name,
+				  tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
+				  tstatus->signal_type = TUNE_SIGNAL_COFDM;
+				  tstatus->delivery_system = SYS_DVBT2;
+			  }
+			  else if (tstatus->fe_info.type == FE_QAM)
+			  {
+				  TUN_DBG("Tuner %s configured as DVBC, min_freq=%lu, max_freq=%lu", fe_name,
+				  tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
+				  tstatus->signal_type = TUNE_SIGNAL_QAM;
+				  tstatus->delivery_system = SYS_DVBC_ANNEX_A;
+			  }
+			  else
+			  {
+				  TUN_DBG("Tuner %s configured as DVB-S/S2, freq min/max=%lu/%lu, symbol rate min/max=%lu/%lu",
+						  fe_name, tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max,
+						  tstatus->fe_info.symbol_rate_min, tstatus->fe_info.symbol_rate_max);
+				  tstatus->signal_type = TUNE_SIGNAL_QPSK;
+				  tstatus->delivery_system = SYS_DVBS2;
+			  }
+
+			  retval = TRUE;
+		  }
+		  else
+		  {
+			  TUN_DBG("Failed to get FE_INFO for %s, errno %d", fe_name, errno);
+		  }
+	  }
+	  else
+	  {
+		  TUN_DBG("Failed to SetFeProperty for %s, errno %d", fe_name, errno);
+	  }
+   }
+
+   return(retval);
+}
+
+static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
+{
+   BOOLEAN retval;
+   char fe_name[24];
+
+   retval = TRUE;
+
    snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", tstatus->path);
 
    if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
    {
       TUN_ERR("Failed to open %s, errno %d", fe_name, errno);
-   }
-   else
-   {
-      switch (sig_type)
-      {
-         case TUNE_SIGNAL_QPSK:
-            if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS2)
-                tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBS;
-            break;
-         case TUNE_SIGNAL_COFDM:
-            if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT2)
-                tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBT;
-            break;
-         case TUNE_SIGNAL_QAM:
-            if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBC)
-                tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBC;
-            break;
-         default:
-            TUN_ERR("not support sig_type:%d\n", sig_type);
-            goto openError_end;
-      }
-
-      if (SetFeProperty(tstatus->frontend_fd, tstatus->tuned_sys_type))
-      {
-          memset(&tstatus->fe_info, 0, sizeof(tstatus->fe_info));
-          if (ioctl(tstatus->frontend_fd, FE_GET_INFO, &(tstatus->fe_info)) >= 0)
-          {
-              TUN_DBG("fe_info.type=%d", tstatus->fe_info.type);
-              if (tstatus->fe_info.type == FE_OFDM)
-              {
-                  TUN_DBG("Tuner %s configured as DVB-T/T2, min_freq=%lu, max_freq=%lu", fe_name,
-                  tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
-                  tstatus->signal_type = TUNE_SIGNAL_COFDM;
-                  tstatus->delivery_system = SYS_DVBT2;
-              }
-              else if (tstatus->fe_info.type == FE_QAM)
-              {
-                  TUN_DBG("Tuner %s configured as DVBC, min_freq=%lu, max_freq=%lu", fe_name,
-                  tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
-                  tstatus->signal_type = TUNE_SIGNAL_QAM;
-                  tstatus->delivery_system = SYS_DVBC_ANNEX_A;
-              }
-              else
-              {
-                  TUN_DBG("Tuner %s configured as DVB-S/S2, freq min/max=%lu/%lu, symbol rate min/max=%lu/%lu",
-                          fe_name, tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max,
-                          tstatus->fe_info.symbol_rate_min, tstatus->fe_info.symbol_rate_max);
-                  tstatus->signal_type = TUNE_SIGNAL_QPSK;
-                  tstatus->delivery_system = SYS_DVBS2;
-              }
-
-              retval = TRUE;
-          }
-          else
-          {
-              TUN_DBG("Failed to get FE_INFO for %s, errno %d", fe_name, errno);
-          }
-      }
-      else
-      {
-          TUN_DBG("Failed to FE_SET_MODE for %s, errno %d", fe_name, errno);
-      }
-
-openError_end:
-      if (!retval)
-      {
-         CloseTuner(tstatus);
-      }
+	  retval = FALSE;
    }
 
    return(retval);
@@ -2000,5 +2028,32 @@ static void ClearTuner(S_TUNER_STATUS *tstatus)
    {
       TUN_ERR("%u: DTV_CLEAR failed, errno %d", tstatus->path, errno);
    }
+}
+
+static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus)
+{
+    BOOLEAN is_diff = FALSE;
+
+    struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
+    struct dtv_properties props = {.num = 1, .props = &p};
+    if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
+    {
+       if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
+       ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2)) ||
+       ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) && (p.u.data != SYS_DVBS)) ||
+       ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (p.u.data != SYS_DVBS2))) &&
+       (tstatus->signal_type != TUNE_SIGNAL_QAM))
+       {
+          TUN_DBG(" different sys_type %s, delivery system is %d",
+          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
+          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
+          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
+          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" : "UNKNOW")))),
+          p.u.data);
+          is_diff = TRUE;
+       }
+    }
+
+    return is_diff;
 }
 

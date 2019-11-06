@@ -297,18 +297,19 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       DMX_DBG("No demuxes found!");
    }
 
+   for (i = 0; i < 2; i++)
    {
       AM_DSC_OpenPara_t dsc_para;
       AM_ErrorCode_t ret;
       memset(&dsc_para, 0, sizeof(dsc_para));
-      ret = AM_DSC_Open(DSC_DEV_NO, &dsc_para);
+      ret = AM_DSC_Open(i, &dsc_para);
       if (ret != AM_SUCCESS)
       {
          DMX_ERR("AM_DSC_Open error=%x", ret);
       }
       else
       {
-         ret = AM_DSC_SetSource(DSC_DEV_NO, AM_DSC_SRC_BYPASS);
+         ret = AM_DSC_SetSource(i, i);
          if (ret != AM_SUCCESS)
          {
             DMX_ERR("AM_DSC_SetSource error=%x", ret);

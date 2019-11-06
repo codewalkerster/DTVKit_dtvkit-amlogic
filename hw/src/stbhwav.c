@@ -713,6 +713,18 @@ void STB_AVStartAudioDecoding(U8BIT path)
    FUNCTION_FINISH(STB_AVStartAudioDecoding);
 }
 
+#ifdef SUPPORT_CAS
+/*
+ * Drm Mode on the given video path
+ * @param   path video decoder path
+ * @param   mode Drm Mode
+ */
+void STB_AVSetDrmMode(U8BIT path, E_STB_DRM_TYPE mode)
+{
+   AM_AV_SetDRMMode(path, mode);
+}
+#endif
+
 /**
  * @brief   Starts the video decoder
  * @param   path the video decode path to be started

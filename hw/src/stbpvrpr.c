@@ -104,6 +104,10 @@ typedef struct
 
    U16BIT disk_id;
    U8BIT basename[16];
+
+#ifdef SUPPORT_CAS
+   S_CAS_STATUS cas_status;
+#endif
 } S_REC_STATUS;
 
 typedef struct {
@@ -130,6 +134,10 @@ typedef struct {
 
 #ifdef MEDIACODEC_PLAYER
    SWDMX_TShiftPlayer_Handle_t *player_handle;
+#endif
+
+#ifdef SUPPORT_CAS
+   S_CAS_STATUS cas_status;
 #endif
 
 } S_RECPLAY_STATUS;
@@ -408,6 +416,14 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       params.dmx_id = demux;
       params.surface = STB_AVGetSurface(0);
 
+#ifdef SUPPORT_CAS
+      if (s_recplay_status[play_index].cas_status.is_smp)
+      {
+	 ts_params.secure_enable = 1;
+	 ts_params.dec_cb = s_recplay_status[play_index].cas_status.crypto_cb;
+      }
+#endif
+
       if (is_timeshift)
       {
          params.mode = SWDMX_TFILE_OPENMODE_TIMESHIFT;
@@ -574,6 +590,11 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          ts_params.mode = AM_AV_TIMESHIFT_MODE_PLAYBACK;
          STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
          snprintf(ts_params.file_path, sizeof(ts_params.file_path), "%s.ts", file_path);
+
+#ifdef SUPPORT_CAS
+         snprintf(ts_params.cas_file_path, sizeof(ts_params.cas_file_path), "%s.dat", file_path);
+#endif
+
          ts_params.start_paused = AM_FALSE;
          s_recplay_status[play_index].play_speed = 100;
 
@@ -913,6 +934,35 @@ void STB_PVRPlayEnabled(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN *video
 
    FUNCTION_FINISH(STB_PVRPlayEnabled);
 }
+
+#ifdef SUPPORT_CAS
+/**
+ * @brief   Sets the cas status for a pvr play. This function should be called
+ *          before the timeshift is started and is used to when pausing live TV.
+ * @param   audio_decoder audio decoder being used for playback
+ * @param   video_decoder video decoder being used for playback
+ * @param   cas_status cas status
+ */
+void STB_PVRPlaySetCASStatus(U8BIT audio_decoder, U8BIT video_decoder, S_CAS_STATUS *cas_status)
+{
+   U8BIT play_index;
+
+   FUNCTION_START(STB_PVRPlaySetCASStatus);
+
+   REC_DBG("dec_cb[%#x], is_smp[%u], cb_param[%#x]",
+		cas_status->crypto_cb,
+		cas_status->is_smp,
+		cas_status->cb_param);
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
+   {
+      memcpy(&s_recplay_status[play_index].cas_status, cas_status, sizeof(S_CAS_STATUS));
+   }
+
+   FUNCTION_FINISH(STB_PVRPlaySetCASStatus);
+}
+#endif
 
 /**
  * @brief   Acquires an index to be used to reference a recording
@@ -1258,12 +1308,31 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       create_params.dvr_dev = s_rec_status[rec_index].rec_demux;
       create_params.async_fifo_id = rec_index;
 
+#ifdef SUPPORT_CAS
+      create_params.is_smp = s_rec_status[rec_index].cas_status.is_smp;
+#endif
+
       dvr_mode = getDvrMode();
       setDvrMode(create_params.dvr_dev, dvr_mode);
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)create_params.store_dir,
          sizeof(create_params.store_dir));
 
+#ifdef SUPPORT_CAS
+      REC_DBG("is_timeshift = %d", is_timeshift);
+      if (!is_timeshift)
+      {
+	 snprintf(create_params.cas_dat_path, AM_REC_PATH_MAX, "%s/%s.dat",
+			(U8BIT *)create_params.store_dir, (char *)basename);
+      }
+
+      REC_DBG("Starting recording in directory \"%s\" \"%s\"",
+		create_params.store_dir, create_params.cas_dat_path);
+      REC_DBG("Starting recording on fend%d, dvr%d, asyncfifo%d, is_smp[%d]",
+		create_params.fend_dev, create_params.dvr_dev,
+		create_params.async_fifo_id, create_params.is_smp);
+#else
       REC_DBG("Starting recording in directory \"%s\"", create_params.store_dir);
+#endif
 
       am_error = AM_REC_Create(&create_params, &s_rec_status[rec_index].rec_handle);
       if (am_error == AM_SUCCESS)
@@ -1373,7 +1442,18 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          }
 
          strncpy(rec_params.suffix_name, "ts", AM_REC_SUFFIX_MAX);
+#ifdef SUPPORT_CAS
+	 s_rec_status[rec_index].timeshift_duration = 120;
+#endif
          rec_params.total_time = s_rec_status[rec_index].timeshift_duration;
+
+#ifdef SUPPORT_CAS
+	 if (s_rec_status[rec_index].cas_status.is_smp)
+	 {
+	    rec_params.cb_param = s_rec_status[rec_index].cas_status.cb_param;
+	    rec_params.enc_cb = s_rec_status[rec_index].cas_status.crypto_cb;
+	 }
+#endif
 
          if (is_timeshift)
          {
@@ -1562,6 +1642,30 @@ BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO
 
    return(FALSE);
 }
+
+#ifdef SUPPORT_CAS
+/**
+ * @brief   Sets the cas status for a recording. This function should be called
+ *          before the recording is started and is used to when pausing live TV.
+ * @param   rec_index recording index to be used for the recording
+ * @param   cas_status cas status
+ */
+void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
+{
+   FUNCTION_START(STB_PVRRecordSetCASStatus);
+
+   REC_DBG("index %u, enc_cb[%#x], is_smp[%u], cb_param[%#x]",
+		rec_index, cas_status->crypto_cb,
+		cas_status->is_smp, cas_status->cb_param);
+
+   if (rec_index < num_recorders)
+   {
+      memcpy(&s_rec_status[rec_index].cas_status, cas_status, sizeof(S_CAS_STATUS));
+   }
+
+   FUNCTION_FINISH(STB_PVRRecordSetCASStatus);
+}
+#endif
 
 /**
  * @brief   Sets the startup mode for a recording. This function should be called
@@ -2605,11 +2709,14 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
          {
             /**< File player's state changed, the parameter is the new state(AM_AV_MPState_t)*/
             PLAY_DBG("State changed: %d", (AM_AV_MPState_t)param);
+#ifdef SUPPORT_CAS
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PLAY, HW_EV_TYPE_PLAY_STATE_CHANGED, NULL, 0);
+#endif
             break;
          }
          case AM_AV_EVT_PLAYER_SPEED_CHANGED:
          {
-            /**< File player's playing speed changed, the parameter is the new speed(0:normalï¼Œ<0:backwardï¼Œ>0:fast forward)*/
+            /**< File player's playing speed changed, the parameter is the new speed(0:normalï¼?0:backwardï¼?0:fast forward)*/
             PLAY_DBG("Speed changed: %ld", (long)param);
             break;
          }

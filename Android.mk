@@ -16,6 +16,10 @@ else
 LOCAL_CFLAGS += -g
 endif
 
+DTVKIT_WITH_CAS ?= 0
+ifeq ($(DTVKIT_WITH_CAS), 1)
+    LOCAL_CFLAGS += -DSUPPORT_CAS
+endif
 
 LOCAL_MODULE := libdtvkit_platform
 LOCAL_MODULE_TAGS := optional

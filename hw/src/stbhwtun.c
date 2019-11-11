@@ -1488,10 +1488,22 @@ void STB_TnueAllStart()
 void STB_TuneAllStop()
 {
     U8BIT i;
+    E_TUNER_STATE state;
 
     for (i = 0; i != num_paths; i++)
     {
-       STB_TuneSetSignalType(i, TUNE_SIGNAL_NONE);
+       if (tuner_status[i].frontend_fd != INVALID_FD)
+       {
+          STB_OSMutexLock(tuner_status[i].mutex);
+          state = tuner_status[i].state;
+          STB_OSMutexUnlock(tuner_status[i].mutex);
+          if (state != TUNER_IDLE)
+          {
+              STB_TuneStopTuner(i);
+          }
+       }
+       CloseTuner(&tuner_status[i]);
+       tuner_status[i].signal_type = TUNE_SIGNAL_NONE;
     }
 }
 
@@ -1583,7 +1595,11 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
    if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
    {
       TUN_ERR("Failed to open %s, errno %d", fe_name, errno);
-	  retval = FALSE;
+      retval = FALSE;
+   }
+   else
+   {
+      TUN_DBG("open frontend_fd:%d", tstatus->frontend_fd);
    }
 
    return(retval);
@@ -1593,6 +1609,7 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
 {
    if (tstatus->frontend_fd != INVALID_FD)
    {
+      TUN_DBG("close frontend_fd:%d", tstatus->frontend_fd);
       close(tstatus->frontend_fd);
       tstatus->frontend_fd = INVALID_FD;
    }
@@ -1884,11 +1901,11 @@ static void TunerTask(void *param)
                   ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2))) &&
                   (tstatus->signal_type != TUNE_SIGNAL_QAM))
                   {
-                  locked = FALSE;
-                  TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
-                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
-                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
-                  ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
+                     locked = FALSE;
+                     TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
+                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
+                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
+                     ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
                   }
                   }
               }

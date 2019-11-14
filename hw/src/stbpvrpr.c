@@ -1177,6 +1177,14 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                s_rec_status[rec_index].media_info.ttx_cnt++;
                REC_DBG("  TELETEXT %u", pid_array[i].pid);
             }
+            else if (pid_array[i].type == PVR_PID_TYPE_SECTION)
+            {
+               if (rec_params.ext_pids.count < AM_DVR_MAX_PID_COUNT) {
+                  rec_params.ext_pids.pids[rec_params.ext_pids.count] = pid_array[i].pid;
+                  rec_params.ext_pids.count++;
+                  REC_DBG("  SECTION %u", pid_array[i].pid);
+               }
+            }
             else
             {
                REC_DBG("  Not recording %u, type %u", pid_array[i].pid, pid_array[i].type);
@@ -1420,6 +1428,14 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                s_rec_status[rec_index].media_info.teletexts[s_rec_status[rec_index].media_info.ttx_cnt].pid = pid_array[i].pid;
                s_rec_status[rec_index].media_info.ttx_cnt++;
                REC_DBG("  TELETEXT %u", pid_array[i].pid);
+            }
+            else if (pid_array[i].type == PVR_PID_TYPE_SECTION)
+            {
+               if (rec_params.ext_pids.count < AM_DVR_MAX_PID_COUNT) {
+                  rec_params.ext_pids.pids[rec_params.ext_pids.count] = pid_array[i].pid;
+                  rec_params.ext_pids.count++;
+                  REC_DBG("  SECTION %u", pid_array[i].pid);
+               }
             }
             else
             {

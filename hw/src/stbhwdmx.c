@@ -258,23 +258,8 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                      demux_status[i].text_mutex = STB_OSCreateMutex();
                      demux_status[i].text_bytes_available = 0;
                      demux_status[i].text_started = FALSE;
-
-                     /* Open a demux instance for the text (subtitle) PES */
-                     am_result = AM_DMX_AllocateFilter(i, &demux_status[i].text_fhandle);
-                     if (am_result == AM_SUCCESS)
-                     {
-                        DMX_DBG("%u: Opened text PES filter, handle=%d", i, demux_status[i].text_fhandle);
-                        AM_DMX_SetBufferSize(i, demux_status[i].text_fhandle, TEXT_BUFFER_SIZE);
-                     }
-                     else
-                     {
-                        DMX_ERR("Failed to open PES filter on demux %u, error %d", i, am_result);
-                     }
                   }
-                  else
-                  {
-                     demux_status[i].text_fhandle = -1;
-                  }
+                  demux_status[i].text_fhandle = -1;
 
                   OpenSectionFilters(&demux_status[i]);
 
@@ -423,7 +408,9 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
             /* Stop the filter and clear the callback */
             AM_DMX_StopFilter(path, demux_status[path].text_fhandle);
             AM_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
+            AM_DMX_FreeFilter(path, demux_status[path].text_fhandle);
 
+            demux_status[path].text_fhandle = -1;
             demux_status[path].text_started = FALSE;
 
             /* PID has been changed or filter has been stopped so clear record of any
@@ -434,75 +421,91 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
             demux_status[path].text_bytes_available = 0;
             STB_OSMutexUnlock(demux_status[path].text_mutex);
          }
+      }
 
-         if (demux_status[path].pids[DMX_TEXT] != text_pid)
+      if (demux_status[path].pids[DMX_TEXT] != text_pid)
+      {
+         demux_status[path].pids[DMX_TEXT] = text_pid;
+         if (text_pid != 0)
          {
-            demux_status[path].pids[DMX_TEXT] = text_pid;
-            if (text_pid != 0)
+            ApplyKey(path, DESC_TRACK_TEXT);
+         }
+         else
+         {
+            ClearKey(path, DESC_TRACK_TEXT);
+         }
+      }
+
+      if ((text_pid == 0) || (text_pid == 0xffff))
+      {
+         /* Set invalid PID value */
+         text_pid = INVALID_PID;
+      }
+
+      if (text_pid != INVALID_PID)
+      {
+         /* Open a demux instance for the text (subtitle) PES */
+         am_result = AM_DMX_AllocateFilter(path, &demux_status[path].text_fhandle);
+         if (am_result == AM_SUCCESS)
+         {
+            DMX_DBG("%u: Opened text PES filter, handle=%d", path, demux_status[path].text_fhandle);
+            AM_DMX_SetBufferSize(path, demux_status[path].text_fhandle, TEXT_BUFFER_SIZE);
+
+            memset(&pes_params, 0, sizeof(pes_params));
+
+            if (demux_status[path].source == DMX_MEMORY)
             {
-               ApplyKey(path, DESC_TRACK_TEXT);
+               pes_params.input = DMX_IN_DVR;
             }
             else
             {
-               ClearKey(path, DESC_TRACK_TEXT);
+               pes_params.input = DMX_IN_FRONTEND;
             }
-         }
 
-         if ((text_pid == 0) || (text_pid == 0xffff))
-         {
-            /* Set invalid PID value */
-            text_pid = INVALID_PID;
-         }
+            pes_params.output = DMX_OUT_TAP;
+            pes_params.pes_type = DMX_PES_SUBTITLE;
+            pes_params.pid = text_pid;
 
-         memset(&pes_params, 0, sizeof(pes_params));
-
-         if (demux_status[path].source == DMX_MEMORY)
-         {
-            pes_params.input = DMX_IN_DVR;
-         }
-         else
-         {
-            pes_params.input = DMX_IN_FRONTEND;
-         }
-
-         pes_params.output = DMX_OUT_TAP;
-         pes_params.pes_type = DMX_PES_SUBTITLE;
-         pes_params.pid = text_pid;
-
-         am_result = AM_DMX_SetPesFilter(path, demux_status[path].text_fhandle, &pes_params);
-         if (am_result != AM_SUCCESS)
-         {
-            DMX_ERR("%u: Failed to set PID %u, handle %u, error %d",
-               path, text_pid, demux_status[path].text_fhandle, am_result);
-         }
-         else
-         {
-            if (demux_status[path].pids[DMX_TEXT] != 0)
+            am_result = AM_DMX_SetPesFilter(path, demux_status[path].text_fhandle, &pes_params);
+            if (am_result != AM_SUCCESS)
             {
-               am_result = AM_DMX_SetCallback(path, demux_status[path].text_fhandle, PesCallback,
-                  (void *)&demux_status[path]);
-               if (am_result == AM_SUCCESS)
+               DMX_ERR("%u: Failed to set PID %u, handle %u, error %d",
+                  path, text_pid, demux_status[path].text_fhandle, am_result);
+            }
+            else
+            {
+               if (demux_status[path].pids[DMX_TEXT] != 0)
                {
-                  /* Can now restart PES collection and the PES task */
-                  am_result = AM_DMX_StartFilter(path, demux_status[path].text_fhandle);
+                  am_result = AM_DMX_SetCallback(path, demux_status[path].text_fhandle, PesCallback,
+                     (void *)&demux_status[path]);
                   if (am_result == AM_SUCCESS)
                   {
-                     demux_status[path].text_started = TRUE;
+                     /* Can now restart PES collection and the PES task */
+                     am_result = AM_DMX_StartFilter(path, demux_status[path].text_fhandle);
+                     if (am_result == AM_SUCCESS)
+                     {
+                        demux_status[path].text_started = TRUE;
+                     }
+                     else
+                     {
+                        /* Filter not started so clear the callback */
+                        AM_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
+
+                        DMX_ERR("Failed to start demux %u text filter, error %d", path, am_result);
+                     }
                   }
                   else
                   {
-                     /* Filter not started so clear the callback */
-                     AM_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
-
-                     DMX_ERR("Failed to start demux %u text filter, error %d", path, am_result);
+                     DMX_ERR("Failed to set demux %u callback, error %d", path, am_result);
                   }
-               }
-               else
-               {
-                  DMX_ERR("Failed to set demux %u callback, error %d", path, am_result);
                }
             }
          }
+         else
+         {
+            DMX_ERR("Failed to open PES filter on demux %u, error %d", path, am_result);
+         }
+
       }
    }
 
@@ -824,7 +827,7 @@ void  STB_DMXStartPIDFilter(U8BIT path, U16BIT pfilt_id)
    U16BIT filter_index;
    U16BIT handler_index;
    S_PID_FILTER_INFO *pid_filter;
-   AM_ErrorCode_t am_result;
+   AM_ErrorCode_t am_result = AM_SUCCESS;
 
    FUNCTION_START(STB_DMXStartPIDFilter);
 
@@ -847,28 +850,47 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
 
       if (!pid_filter->started)
       {
-         am_result = AM_DMX_SetCallback(path, pid_filter->fhandle, PidCallback, (void *)pid_filter);
-         if (am_result == AM_SUCCESS)
+         if (pid_filter->fhandle == -1)
          {
-            am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
+            am_result = AM_DMX_AllocateFilter(path, &pid_filter->fhandle);
             if (am_result == AM_SUCCESS)
             {
-               pid_filter->started = TRUE;
+               am_result = AM_DMX_SetBufferSize(path, pid_filter->fhandle,
+                  8 * MAX_SECTION_SIZE);
+               if (am_result != AM_SUCCESS)
+               {
+                  DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", path,
+                     filter_index, am_result);
+               }
+            }
+            UpdateSectionFilter(path, filter_index);
+         }
 
-               demux_status[path].num_pid_filters_started++;
+         if (pid_filter->fhandle != -1)
+         {
+            am_result = AM_DMX_SetCallback(path, pid_filter->fhandle, PidCallback, (void *)pid_filter);
+            if (am_result == AM_SUCCESS)
+            {
+               am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
+               if (am_result == AM_SUCCESS)
+               {
+                  pid_filter->started = TRUE;
+
+                  demux_status[path].num_pid_filters_started++;
+               }
+               else
+               {
+                  /* Failed to start filter so clear the callback */
+                  AM_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
+
+                  DMX_ERR("%u: Failed to start PID filter 0x%04x, error %d", path, pfilt_id, am_result);
+               }
             }
             else
             {
-               /* Failed to start filter so clear the callback */
-               AM_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
-
-               DMX_ERR("%u: Failed to start PID filter 0x%04x, error %d", path, pfilt_id, am_result);
+               DMX_ERR("%u: Failed to set callback for PID filter 0x%04x, error %d", path,
+                  pfilt_id, am_result);
             }
-         }
-         else
-         {
-            DMX_ERR("%u: Failed to set callback for PID filter 0x%04x, error %d", path,
-               pfilt_id, am_result);
          }
       }
 
@@ -937,7 +959,9 @@ printf(" - STOP");
             }
 
             AM_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
+            AM_DMX_FreeFilter(path, pid_filter->fhandle);
 
+            pid_filter->fhandle = -1;
             pid_filter->started = FALSE;
 
             demux_status[path].num_pid_filters_started--;
@@ -1574,6 +1598,7 @@ BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT 
  */
 static void OpenSectionFilters(S_DMX_STATUS *pdmx)
 {
+#if 0
    U8BIT j;
    AM_ErrorCode_t am_result;
 
@@ -1595,6 +1620,7 @@ static void OpenSectionFilters(S_DMX_STATUS *pdmx)
          DMX_ERR("%u: Failed to open section filter %u, error %d", pdmx->path, j, am_result);
       }
    }
+#endif
 }
 
 #if 0
@@ -1993,31 +2019,52 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 #endif
       if (pid_filter->started)
       {
-         /* Stop the filter while it's updated */
-         am_result = AM_DMX_StopFilter(path, pid_filter->fhandle);
-         if (am_result != AM_SUCCESS)
+         if (pid_filter->fhandle != -1)
          {
-            DMX_ERR("%u: Failed to stop PID filter %d, error %d", path, pid_filter->fhandle, am_result);
+            /* Stop the filter while it's updated */
+            am_result = AM_DMX_StopFilter(path, pid_filter->fhandle);
+            if (am_result != AM_SUCCESS)
+            {
+               DMX_ERR("%u: Failed to stop PID filter %d, error %d", path, pid_filter->fhandle, am_result);
+            }
          }
       }
 
-      am_result = AM_DMX_SetSecFilter(path, pid_filter->fhandle, &dvb_filt_p);
-      if (am_result == AM_SUCCESS)
+      if (pid_filter->fhandle == -1)
       {
-         success = TRUE;
-      }
-      else
-      {
-         DMX_ERR("%u: Failed to setup section filter %d, error %d", path, pid_filter->fhandle, am_result);
+         am_result = AM_DMX_AllocateFilter(path, &pid_filter->fhandle);
+         if (am_result == AM_SUCCESS)
+         {
+            am_result = AM_DMX_SetBufferSize(path, pid_filter->fhandle,
+               8 * MAX_SECTION_SIZE);
+            if (am_result != AM_SUCCESS)
+            {
+               DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", path,
+                  filter_index, am_result);
+            }
+         }
       }
 
-      if (pid_filter->started)
+      if (pid_filter->fhandle != -1)
       {
-         /* Restart the filter */
-         am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
-         if (am_result != AM_SUCCESS)
+         am_result = AM_DMX_SetSecFilter(path, pid_filter->fhandle, &dvb_filt_p);
+         if (am_result == AM_SUCCESS)
          {
-            DMX_ERR("%u: Failed to restart PID filter %d, error %d", path, pid_filter->fhandle, am_result);
+            success = TRUE;
+         }
+         else
+         {
+            DMX_ERR("%u: Failed to setup section filter %d, error %d", path, pid_filter->fhandle, am_result);
+         }
+
+         if (pid_filter->started)
+         {
+            /* Restart the filter */
+            am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
+            if (am_result != AM_SUCCESS)
+            {
+               DMX_ERR("%u: Failed to restart PID filter %d, error %d", path, pid_filter->fhandle, am_result);
+            }
          }
       }
    }

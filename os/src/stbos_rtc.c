@@ -178,8 +178,8 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
    temp_time = (int64_t)num_seconds - system_time;
 
    sprintf(prop_time, "%ld000", temp_time);//prop need ms
-   //property_set("tv.stream.realtime", prop_time);
-   AM_PropEcho("tv.stream.realtime", prop_time);
+   //property_set("vendor.sys.tv.stream.realtime", prop_time);
+   AM_PropEcho("vendor.sys.tv.stream.realtime", prop_time);
    RTC_DBG("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
 
    FUNCTION_FINISH(STB_OSSetClockGMT);

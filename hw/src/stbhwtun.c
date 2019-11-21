@@ -911,11 +911,11 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
 
    FUNCTION_START(STB_TuneGetActualTerrHierarchy);
 
-   retval = TUNE_THIERARCHY_UNDEFINED;
+   retval = TUNE_THIERARCHY_NONE;
 
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
    {
-      if (IsTunerLocked(&tuner_status[path]))
+      if (GetTunerLockStatus(tuner_status[path].frontend_fd) == TUNER_STATE_LOCKED)
       {
          memset(&cmd, 0, sizeof(struct dtv_property));
 
@@ -969,7 +969,7 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
                      retval = TUNE_THIERARCHY_4;
                      break;
                   default:
-                     retval = TUNE_THIERARCHY_UNDEFINED;
+                     retval = TUNE_THIERARCHY_NONE;
                      break;
                }
             }

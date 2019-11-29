@@ -1689,8 +1689,10 @@ void STB_AVChangeADMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
  * @brief   Starts decoding audio description on the given audio path
  * @param   path audio decoder path to be started
  */
-void STB_AVStartADDecoding(U8BIT path)
+BOOLEAN STB_AVStartADDecoding(U8BIT path)
 {
+   BOOLEAN ret = TRUE;
+   AM_ErrorCode_t err = AM_SUCCESS;
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
 
    FUNCTION_START(STB_AVStartADDecoding);
@@ -1699,9 +1701,12 @@ void STB_AVStartADDecoding(U8BIT path)
 #ifdef MEDIACODEC_PLAYER
    swdemux_av_startAdAudio(path, ad_pid, av_paths_status[path].ad_format);
 #else
-   AM_AV_SetAudioAd(path,1,ad_pid,av_paths_status[path].ad_format);
+   err = AM_AV_SetAudioAd(path,1,ad_pid,av_paths_status[path].ad_format);
+   if (err != AM_SUCCESS)
+       ret = FALSE;
 #endif
    FUNCTION_FINISH(STB_AVStartADDecoding);
+   return ret;
 }
 
 /**

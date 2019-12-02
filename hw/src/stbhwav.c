@@ -698,9 +698,18 @@ void STB_AVStartAudioDecoding(U8BIT path)
             break;
 
          case DECODER_A_STOP_V_STOP:
-            AUD_DBG("av-pvr: av should be started, audio PID=%u, PCR PID=%u", audio_pid, pcr_pid);
+            AUD_DBG("av-pvr: av all stopped, audio PID=%u, PCR PID=%u", audio_pid, pcr_pid);
             /*too complicated to get here. the pvr should callback to sync decoding status*/
-            PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
+            /*pvr radio will get here*/
+            if (audio_pid != av_paths_status[path].audio_pid)
+            {
+               av_paths_status[path].audio_pid = audio_pid;
+               av_paths_status[path].video_pid = video_pid;
+               AM_AV_SwitchTSAudio(path, audio_pid, audio_format);
+               av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid);
+            }
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
             break;
 
          default:

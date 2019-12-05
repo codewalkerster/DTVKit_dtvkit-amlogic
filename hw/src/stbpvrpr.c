@@ -634,8 +634,6 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          }
       }
 
-      s_recplay_status[play_index].play_state = PLAY_STARTING;
-
       if (am_error == AM_SUCCESS)
       {
          U8BIT dvr_mode = getDvrMode();
@@ -674,6 +672,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             }
 #endif
             play_started = TRUE;
+            s_recplay_status[play_index].play_state = PLAY_STARTING;
 
             if (s_recplay_status[play_index].has_audio)
                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &audio_decoder, sizeof(U8BIT));
@@ -1998,15 +1997,23 @@ void STB_PVRSaveFrame(U8BIT audio_decoder, U8BIT video_decoder)
  */
 BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
 {
+   BOOLEAN ret = FALSE;
+   U32BIT rec_size_kb;
+
    FUNCTION_START(STB_PVRIsValidRecording);
-   USE_UNWANTED_PARAM(disk_id);
-   USE_UNWANTED_PARAM(basename);
 
    REC_DBG("disk 0x%04x, name %s", disk_id, basename);
 
+   ret = STB_PVRGetRecordingSize(disk_id, basename, &rec_size_kb);
+   if (ret = TRUE)
+   {
+       if (rec_size_kb == 0)
+           ret = FALSE;
+   }
+
    FUNCTION_FINISH(STB_PVRIsValidRecording);
 
-   return(TRUE);
+   return(ret);
 }
 
 /**
@@ -2683,7 +2690,15 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
 
          case AM_REC_EVT_RECORD_END:
          {
+            AM_REC_RecEndPara_t *ret = (AM_REC_RecEndPara_t *)param;
             REC_DBG("Recording stopped");
+            if (ret->error_code == AM_REC_ERR_CANNOT_WRITE_FILE)
+            {
+               U16BIT disk_id = getDiskIdByRecIndex(rec_status->rec_index);
+               REC_DBG("Recording write fail, disk may be removed.");
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED,
+                  &disk_id, sizeof(disk_id));
+            }
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
                &rec_status->rec_index, sizeof(U8BIT));
             break;

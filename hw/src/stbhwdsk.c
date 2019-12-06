@@ -1352,19 +1352,20 @@ static void RefreshDiskList(BOOLEAN send_events)
       {
          if (!disk->found)
          {
+            U16BIT disk_id = disk->disk_id;
             DISK_DBG("Removed disk 0x%04x, mounted on %s", disk->disk_id, disk->mount_path);
-
-            if (send_events)
-            {
-               /* Send an event to indicate a device has been removed */
-               STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED,
-                  &(disk->disk_id), sizeof(disk->disk_id));
-            }
 
             /* Now the disk has disappeared, delete it from the list of known disks */
             next_disk = disk->next;
             RemoveDisk(disk);
             disk = next_disk;
+
+            if (send_events)
+            {
+               /* Send an event to indicate a device has been removed */
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED,
+                  &disk_id, sizeof(disk_id));
+            }
          }
          else
          {

@@ -58,7 +58,6 @@
 #define TUN_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 /*---constant definitions for this file--------------------------------------*/
-#define INVALID_FD               -1
 
 #define TUNE_TASK_PRIORITY       11
 #define TUNE_TASK_STACK_SIZE     8192
@@ -153,6 +152,7 @@ static void ClearTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
 static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus);
 static E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd);
+
 
 
 
@@ -1088,6 +1088,11 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
 
    FUNCTION_FINISH(STB_TuneSetLNBVoltage);
 }
+void STB_TuneSetFrontendFd(U8BIT path, U32BIT fe_fd)
+{
+   tuner_status[path].frontend_fd = fe_fd;
+   TUN_DBG("STB_TuneSetFrontendFd path:%d fd:%d", path, tuner_status[path].frontend_fd);
+}
 
 void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
 {
@@ -1109,7 +1114,7 @@ void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
 
     if (ioctl(tuner_status[path].frontend_fd, FE_SET_VOLTAGE, voltage) == -1)
     {
-        TUN_DBG("ioctl FE_SET_VOLTAGE failed, path:%d error:%d", path, errno);
+        TUN_DBG("ioctl FE_SET_VOLTAGE failed, path:%d fd:%d error:%d", path, tuner_status[path].frontend_fd, errno);
     }
     FUNCTION_FINISH(STB_TuneSetVoltageInterface);
 }
@@ -1524,6 +1529,26 @@ void STB_TuneAllStop()
     }
 }
 
+static BOOLEAN STB_TuneSetTone(int frontend_fd, BOOLEAN use_22khz)
+{
+    BOOLEAN ret = FALSE;
+    fe_sec_tone_mode_t tone;
+
+    if (use_22khz)
+    {
+        tone = SEC_TONE_ON;
+    }
+    else
+    {
+        tone = SEC_TONE_OFF;
+    }
+    if (ioctl(frontend_fd, FE_SET_TONE, tone) >= 0)
+        ret = TRUE;
+
+    return ret;
+}
+
+
 /*---local function definitions----------------------------------------------*/
 
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type)
@@ -1745,15 +1770,7 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
       }
       case TUNE_SIGNAL_QPSK:
       {
-         if (tstatus->u.sat.use_22khz)
-         {
-            tone = SEC_TONE_ON;
-         }
-         else
-         {
-            tone = SEC_TONE_OFF;
-         }
-         if (ioctl(tstatus->frontend_fd, FE_SET_TONE, tone) >= 0)
+         if (STB_TuneSetTone(tstatus->frontend_fd, tstatus->u.sat.use_22khz))
          {
             fe_params.frequency = tstatus->freq;
             fe_params.inversion = INVERSION_AUTO;

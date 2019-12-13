@@ -1861,6 +1861,7 @@ static void TunerTask(void *param)
    BOOLEAN tuner_locked;
    U32BIT start_time;
    BOOLEAN stop;
+   U8BIT delay_step;
    struct dvb_frontend_parameters fe_params;
    struct pollfd pfd;
    struct dvb_frontend_event fe_event;
@@ -1882,6 +1883,7 @@ static void TunerTask(void *param)
           if (tstatus->state == TUNER_LOCKED)
           {
               STB_OSMutexUnlock(tstatus->mutex);
+              state = tstatus->state;
               TUN_DBG("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
               goto Already_Tuned;
           }
@@ -2004,7 +2006,7 @@ Already_Tuned:
                           tuner_locked = TRUE;
                           TUN_ERR("FE_GET_EVENT LOCKED:%d state:%d", locked, state);
                       }
-                      else
+                      else if ((fe_event.status & FE_TIMEDOUT) != 0)
                       {
                           tuner_locked = FALSE;
                           TUN_ERR("FE_GET_EVENT UNLOCKED:%d state:%d", locked, state);
@@ -2027,6 +2029,7 @@ Already_Tuned:
                   tstatus->state = TUNER_IDLE;
                   TUN_DBG("%u: Tuned stopped", tstatus->path);
                   STB_OSMutexUnlock(tstatus->mutex);
+                  delay_step = 0;
               }
               else
               {
@@ -2043,6 +2046,7 @@ Already_Tuned:
                           STB_OSMutexUnlock(tstatus->mutex);
                           STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
                       }
+                      delay_step = 0;
                   }
                   else
                   {
@@ -2058,6 +2062,15 @@ Already_Tuned:
                               tstatus->state = TUNER_RELOCKING;
                               STB_OSMutexUnlock(tstatus->mutex);
                               STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
+                          }
+                      }
+                      else if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS || tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2)
+                      {
+                          delay_step++;
+                          if (delay_step >= 40)
+                          {
+                              delay_step = 0;
+                              STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_SIGNAL_RECOVER, &tstatus->path, sizeof(U8BIT));
                           }
                       }
                   }

@@ -63,6 +63,8 @@
 #define TUNE_TASK_STACK_SIZE     8192
 
 #define WAIT_LOCK_TIMEOUT        3000
+#define TUNER_MIN_SRATE          900
+#define TUNER_MAX_SRATE          45100
 
 
 /*---local typedef structs for this file-------------------------------------*/
@@ -569,6 +571,49 @@ void STB_TuneStopTuner(U8BIT path)
 
    FUNCTION_FINISH(STB_TuneStopTuner);
 }
+
+/**
+ * @brief   Returns the minimum tuner symbol rate
+ * @param   path the tuner path to query
+ * @return  minimum tuner symbol rate
+ */
+U32BIT STB_TuneGetMinTunerSymbolRate(U8BIT path)
+{
+   U32BIT symbol_rate = 0;
+
+   FUNCTION_START(STB_TuneGetMinTunerSymbolRate);
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+      symbol_rate = tuner_status[path].fe_info.symbol_rate_min ? tuner_status[path].fe_info.symbol_rate_min : TUNER_MIN_SRATE;
+   }
+
+   FUNCTION_FINISH(STB_TuneGetMinTunerSymbolRate);
+
+   return(symbol_rate);
+}
+
+/**
+ * @brief   Returns the maxmum tuner symbol rate
+ * @param   path the tuner path to query
+ * @return  maxmum tuner symbol rate
+ */
+U32BIT STB_TuneGetMaxTunerSymbolRate(U8BIT path)
+{
+   U32BIT symbol_rate = 0;
+
+   FUNCTION_START(STB_TuneGetMaxTunerSymbolRate);
+
+   if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+   {
+	  symbol_rate = tuner_status[path].fe_info.symbol_rate_max ? tuner_status[path].fe_info.symbol_rate_max : TUNER_MAX_SRATE;
+   }
+
+   FUNCTION_FINISH(STB_TuneGetMaxTunerSymbolRate);
+
+   return(symbol_rate);
+}
+
 
 /**
  * @brief   Returns the minimum tuner frequency in KHz

@@ -37,6 +37,12 @@ typedef struct
 	int           encrypt;
 } stb_pvr_cfg;
 
+typedef struct
+{
+   int           net_id_max;
+   int           orig_net_id_max;
+} stb_network_id_cfg;
+
 
 typedef struct {
 	stb_tuner_cfg tuners[AML_MAX_TUNER_NUM];
@@ -52,6 +58,7 @@ typedef struct {
 	int           cam_num;
 	stb_pvr_cfg   pvr;
 	char          country_code[3];
+	stb_network_id_cfg network;
 } stb_hardware_cfg;
 
 extern stb_hardware_cfg aml_hw_cfg;
@@ -64,6 +71,13 @@ extern int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source);
  * @param   country code
  */
 int STB_Get_Country_Code(char *country_code);
+
+/**
+ * @brief   get max value that orig_net_id_max and net_id_max from cfg
+ * @param   net_id_max
+ * @param   orig_net_id_max
+ */
+void STB_Get_Max_Network_Id(int            *net_id_max, int *orig_net_id_max);
 
 #endif
 

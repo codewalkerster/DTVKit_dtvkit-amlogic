@@ -62,8 +62,12 @@ stb_hardware_cfg aml_hw_cfg = {
 .cam_num      = 0,
 .pvr = {
     .encrypt = 0,
-	},
+    },
 .country_code = {'d', 'e', 'u'},
+.network = {
+    .net_id_max = 0xffff,
+    .orig_net_id_max = 0xffff,
+    },
 };
 
 static void
@@ -215,6 +219,25 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			STB_SPDebugWrite("cfg country_code:%c%c%c", av[0], av[1], av[2]);
 			memcpy(cfg->country_code, av, strlen(av));
 		}
+	}else if (!strcmp(name, "network")) {
+            long int i;
+            cfg->network.net_id_max = 0xffff;
+            cfg->network.orig_net_id_max = 0xffff;
+            att = atts;
+            while (*att) {
+                an = att[0];
+                av = att[1];
+                if (!strcmp(an, "net_id_max")) {
+                    i = strtol(av, NULL, 0);
+                    if ((i != LONG_MIN) && (i != LONG_MAX))
+                        cfg->network.net_id_max = i;
+                }else if (!strcmp(an, "orig_net_id_max")) {
+                    i = strtol(av, NULL, 0);
+                    if ((i != LONG_MIN) && (i != LONG_MAX))
+                        cfg->network.orig_net_id_max = i;
+                }
+                att += 2;
+            }
 	}
 }
 
@@ -322,5 +345,18 @@ int STB_Get_Country_Code(char *country_code)
 	}
 	memcpy(country_code, aml_hw_cfg.country_code, strlen(aml_hw_cfg.country_code));
 	return 0;
+}
+
+/**
+ * @brief   get max value that orig_net_id_max and net_id_max from cfg
+ * @param   net_id_max
+ * @param   orig_net_id_max
+ */
+void STB_Get_Max_Network_Id(int *net_id_max, int *orig_net_id_max)
+{
+    if (net_id_max != NULL && orig_net_id_max != NULL) {
+        *net_id_max = aml_hw_cfg.network.net_id_max;
+        *orig_net_id_max = aml_hw_cfg.network.orig_net_id_max;
+    }
 }
 

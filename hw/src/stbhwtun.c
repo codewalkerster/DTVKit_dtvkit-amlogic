@@ -579,7 +579,7 @@ void STB_TuneStopTuner(U8BIT path)
  */
 U32BIT STB_TuneGetMinTunerSymbolRate(U8BIT path)
 {
-   U32BIT symbol_rate = 0;
+   U32BIT symbol_rate = TUNER_MIN_SRATE;
 
    FUNCTION_START(STB_TuneGetMinTunerSymbolRate);
 
@@ -600,7 +600,7 @@ U32BIT STB_TuneGetMinTunerSymbolRate(U8BIT path)
  */
 U32BIT STB_TuneGetMaxTunerSymbolRate(U8BIT path)
 {
-   U32BIT symbol_rate = 0;
+   U32BIT symbol_rate = TUNER_MAX_SRATE;
 
    FUNCTION_START(STB_TuneGetMaxTunerSymbolRate);
 

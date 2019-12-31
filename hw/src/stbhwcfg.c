@@ -67,7 +67,19 @@ stb_hardware_cfg aml_hw_cfg = {
 .network = {
     .net_id_max = 0xffff,
     .orig_net_id_max = 0xffff,
+    .usr_def_orig_net_id = 0xffff,
     },
+.sipsi = {
+    .sdt_timeout = 15000,
+    .pat_timeout = 800,
+    .pmt_timeout = 3000,
+    .nit_timeout = 10000,
+    .cat_timeout = 2000,
+    .bat_timeout = 12000,
+    .tot_timeout = 32000,
+    .tdt_timeout = 32000,
+    .eit_timeout = 3000,
+},
 };
 
 static void
@@ -219,26 +231,84 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			STB_SPDebugWrite("cfg country_code:%c%c%c", av[0], av[1], av[2]);
 			memcpy(cfg->country_code, av, strlen(av));
 		}
-	}else if (!strcmp(name, "network")) {
-            long int i;
-            cfg->network.net_id_max = 0xffff;
-            cfg->network.orig_net_id_max = 0xffff;
-            att = atts;
-            while (*att) {
-                an = att[0];
-                av = att[1];
-                if (!strcmp(an, "net_id_max")) {
-                    i = strtol(av, NULL, 0);
-                    if ((i != LONG_MIN) && (i != LONG_MAX))
-                        cfg->network.net_id_max = i;
-                }else if (!strcmp(an, "orig_net_id_max")) {
-                    i = strtol(av, NULL, 0);
-                    if ((i != LONG_MIN) && (i != LONG_MAX))
-                        cfg->network.orig_net_id_max = i;
-                }
-                att += 2;
+    }else if (!strcmp(name, "network")) {
+        long int i;
+        cfg->network.net_id_max = 0xffff;
+        cfg->network.orig_net_id_max = 0xffff;
+        cfg->network.usr_def_orig_net_id = 0xffff;
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "net_id_max")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->network.net_id_max = i;
+            }else if (!strcmp(an, "orig_net_id_max")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->network.orig_net_id_max = i;
+            }else if (!strcmp(an, "usr_def_orig_net_id")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->network.usr_def_orig_net_id = i;
             }
-	}
+            att += 2;
+        }
+    }else if (!strcmp(name, "sipsi")) {
+        long int i;
+        cfg->sipsi.sdt_timeout = 15000;
+        cfg->sipsi.pat_timeout = 800;
+        cfg->sipsi.pmt_timeout = 3000;
+        cfg->sipsi.nit_timeout = 10000;
+        cfg->sipsi.cat_timeout = 2000;
+        cfg->sipsi.bat_timeout = 12000;
+        cfg->sipsi.tot_timeout = 32000;
+        cfg->sipsi.tdt_timeout = 32000;
+        cfg->sipsi.eit_timeout = 3000;
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "sdt_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->sipsi.sdt_timeout = i;
+            }else if (!strcmp(an, "pat_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->sipsi.pat_timeout = i;
+            }else if (!strcmp(an, "pmt_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                     cfg->sipsi.pmt_timeout = i;
+            }else if (!strcmp(an, "nit_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->sipsi.nit_timeout = i;
+            }else if (!strcmp(an, "cat_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->sipsi.cat_timeout = i;
+            }else if (!strcmp(an, "bat_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                     cfg->sipsi.bat_timeout = i;
+            }else if (!strcmp(an, "tot_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->sipsi.tot_timeout = i;
+            }else if (!strcmp(an, "tdt_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->sipsi.tdt_timeout = i;
+            }else if (!strcmp(an, "eit_timeout")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->sipsi.eit_timeout = i;
+            }
+        }
+    }
 }
 
 static void
@@ -358,5 +428,78 @@ void STB_Get_Max_Network_Id(int *net_id_max, int *orig_net_id_max)
         *net_id_max = aml_hw_cfg.network.net_id_max;
         *orig_net_id_max = aml_hw_cfg.network.orig_net_id_max;
     }
+}
+
+/**
+ * @brief   get user define value about orig_net_id from cfg
+ * @return  usr_def_orig_net_id
+ */
+int STB_Get_Usr_Orig_Net_Id()
+{
+   return aml_hw_cfg.network.usr_def_orig_net_id;
+}
+
+/**
+ * @brief   get si/psi timeout from cfg
+ * @param   si/psi type
+ * @return  si/psi timeout about this type
+ */
+int STB_Get_SI_PSI_Timeout(E_SI_PSI_TYPE sipsi_type)
+{
+   int si_psi_timeout = 0;
+
+   switch (sipsi_type)
+   {
+      case SIPSI_PAT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.pat_timeout;
+          break;
+      }
+      case SIPSI_PMT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.pmt_timeout;
+          break;
+      }
+      case SIPSI_SDT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.sdt_timeout;
+          break;
+      }
+      case SIPSI_NIT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.nit_timeout;
+          break;
+      }
+      case SIPSI_CAT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.cat_timeout;
+          break;
+      }
+      case SIPSI_BAT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.bat_timeout;
+          break;
+      }
+      case SIPSI_TOT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.tot_timeout;
+          break;
+      }
+      case SIPSI_TDT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.tdt_timeout;
+          break;
+      }
+      case SIPSI_EIT:
+      {
+          si_psi_timeout = aml_hw_cfg.sipsi.eit_timeout;
+          break;
+      }
+      default:
+      {
+          break;
+      }
+   }
+   return si_psi_timeout;
 }
 

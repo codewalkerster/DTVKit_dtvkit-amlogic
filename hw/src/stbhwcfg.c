@@ -307,6 +307,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                 if ((i != LONG_MIN) && (i != LONG_MAX))
                     cfg->sipsi.eit_timeout = i;
             }
+            att += 2;
         }
     }
 }

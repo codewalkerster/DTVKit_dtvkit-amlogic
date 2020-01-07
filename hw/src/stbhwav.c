@@ -265,6 +265,10 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
                   &av_paths_status[av_path]);
                AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_AFD_CHANGED, AVEventHandler,
                   &av_paths_status[av_path]);
+               AM_EVT_Subscribe(av_path, AM_AV_EVT_VIDEO_SCAMBLED, AVEventHandler,
+                  &av_paths_status[av_path]);
+               AM_EVT_Subscribe(av_path, AM_AV_EVT_AUDIO_SCAMBLED, AVEventHandler,
+                  &av_paths_status[av_path]);
 #endif
 
 
@@ -2173,6 +2177,18 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
          info.flags = VIDEO_INFO_AFD;
          info.afd = afd->af & 0x7;
          VID_DBG("[evt] video afd changed: flg[0x%x] fmt[0x%x]\n", afd->af_flag, afd->af);
+         break;
+      }
+      case AM_AV_EVT_VIDEO_SCAMBLED:
+      {
+         VID_DBG("Video Scambled");
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_SCAMBLED, &status->decoder, sizeof(U8BIT));
+         break;
+      }
+      case AM_AV_EVT_AUDIO_SCAMBLED:
+      {
+         VID_DBG("Audio Scambled");
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_SCAMBLED, &status->decoder, sizeof(U8BIT));
          break;
       }
 

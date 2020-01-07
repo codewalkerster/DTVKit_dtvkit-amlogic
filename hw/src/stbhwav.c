@@ -2118,6 +2118,8 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
                VID_DBG("Unhandled video aspect ratio %d", (int)param);
                break;
          }
+         info.flags |= VIDEO_INFO_DECODER_STATUS;
+         info.status = DECODER_STATUS_VIDEO;
          break;
       }
 
@@ -2139,8 +2141,8 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
 
       case AM_AV_EVT_VIDEO_AVAILABLE:
       {
-         info.flags = VIDEO_INFO_DECODER_STATUS;
-         info.status = DECODER_STATUS_VIDEO;
+         //info.flags = VIDEO_INFO_DECODER_STATUS;
+         //info.status = DECODER_STATUS_VIDEO;
          VID_DBG("Video decoding started");
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
          break;

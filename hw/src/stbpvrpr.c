@@ -643,6 +643,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          else
             AM_AV_SetCryptOps(video_decoder, NULL);
 
+         PLAY_DBG("ready to start play...");
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, NULL, 0);
 
          am_error = AM_AV_StartTimeshift(video_decoder, &ts_params);
          if (am_error == AM_SUCCESS)

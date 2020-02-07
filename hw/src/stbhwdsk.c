@@ -1257,8 +1257,8 @@ static void DiskMonitorTask(void *param)
    USE_UNWANTED_PARAM(param);
 
    /* Create the initial list of disks, but don't send events on start up */
-   RefreshDiskList(FALSE);
    STB_DSKAddDevicePathAndLoad("user", "/data/data/org.dtvkit.inputsource", FALSE);
+   RefreshDiskList(FALSE);
 
    while (TRUE)
    {

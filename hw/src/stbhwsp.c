@@ -64,7 +64,39 @@ static char debug_msg_buff[512];
 /*   (internal functions declared static to make them local) */
 
 /*---local function definitions-----------------------------------------------*/
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
+#include "am_misc.h"
+
+static char *lf_file()
+{
+    char buf[256] = { 0 };
+    char log_prop[] = "tv.dtvkit.logfile";
+    //AM_PropRead(log_prop, buf, sizeof(buf));
+    strncpy(buf, "/data/data/org.dtvkit.inputsource/dtvkit.log", sizeof(buf));
+    return strlen(buf)? buf : NULL;
+}
+
+static void lf_write(const char *log)
+{
+   static int fd = -1;
+   char *rn = "\n";
+
+   if (fd == -1) {
+       char *f = lf_file();
+       if (f)
+           fd = open(f, O_WRONLY | O_APPEND | O_CREAT,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+   }
+   if (fd != -1) {
+       write(fd, log, strlen(log));
+       write(fd, rn, strlen(rn));
+   } else {
+       DTVKIT_DEBUG("lf open fail(%d:%s)", errno, strerror(errno));
+   }
+}
 
 /*---global function definitions----------------------------------------------*/
 
@@ -88,6 +120,7 @@ void STB_SPDebugWrite(const char *format, ... )
 
    //printf("%s\n", debug_msg_buff);
    DTVKIT_DEBUG("%s", debug_msg_buff);
+   lf_write(debug_msg_buff);
    //fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugWrite);

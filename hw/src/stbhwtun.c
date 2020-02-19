@@ -563,7 +563,7 @@ void STB_TuneStopTuner(U8BIT path)
 
          //ClearTuner(tstatus);
 
-         tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
+         //tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
       }
 
       TUN_DBG("%u: Tuner stopped", tstatus->path);

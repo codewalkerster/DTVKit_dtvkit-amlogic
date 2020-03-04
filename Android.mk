@@ -54,10 +54,23 @@ LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
 endif
 
 
-DVB_PATH := vendor/amlogic/common/external/dvb
+ifeq (,$(wildcard $(LOCAL_PATH)/../../dvb))
+    DVB_PATH := vendor/amlogic/common/prebuilt/dvb
+else
+    DVB_PATH := vendor/amlogic/common/external/dvb
+endif
 
+ifeq (,$(wildcard $(LOCAL_PATH)/../../dvb))
+LOCAL_C_INCLUDES := \
+    $(DVB_PATH)/ndk/include \
+	$(DVB_PATH)/ndk/include/linux
+else
+LOCAL_C_INCLUDES := \
+    $(DVB_PATH)/android/ndk/include/linux \
+    $(DVB_PATH)/android/ndk/include
+endif
 
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/../DVBCore/platform/inc \
     $(LOCAL_PATH)/../CI-Plus/include \
     $(LOCAL_PATH)/../MHEG5/include \
@@ -67,8 +80,6 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../DVBCore/inc \
     $(DVB_PATH)/include \
     $(DVB_PATH)/include/am_adp \
     $(DVB_PATH)/include/am_mw \
-    $(DVB_PATH)/android/ndk/include/linux \
-    $(DVB_PATH)/android/ndk/include \
     external/sqlite/dist \
     bionic/libc/kernel/uapi \
     bionic/libc/kernel/android/uapi \

@@ -21,6 +21,11 @@ ifeq ($(DTVKIT_WITH_CAS), 1)
     LOCAL_CFLAGS += -DSUPPORT_CAS
 endif
 
+DTVKIT_WITH_TSPLAYER ?= 0
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29&& echo OK),OK)
+    DTVKIT_WITH_TSPLAYER = 1
+endif
+
 LOCAL_MODULE := libdtvkit_platform
 LOCAL_MODULE_TAGS := optional
 
@@ -70,6 +75,10 @@ LOCAL_C_INCLUDES := \
     $(DVB_PATH)/android/ndk/include
 endif
 
+ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
+    LOCAL_C_INCLUDES += $(TOP)/media_hal/AmTsplayer/include/
+endif
+
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/../DVBCore/platform/inc \
     $(LOCAL_PATH)/../CI-Plus/include \
@@ -86,6 +95,7 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/stdio \
     bionic/libc/include \
     bionic/libc/../libm/include \
+
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux
@@ -106,7 +116,6 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwmem.c \
     hw/src/stbhwtun.c \
     hw/src/stbhwdmx.c \
-    hw/src/stbhwav.c  \
     hw/src/stbhwdsk.c \
     hw/src/stbhwfp.c  \
     hw/src/stbhwsp.c  \
@@ -124,6 +133,12 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     os/src/stbos_rtc.c        \
     os/src/stbos_semaphore.c  \
     os/src/stbos_task.c
+
+ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
+    LOCAL_SRC_FILES += hw/src/stbhwav_tsplayer.c
+else
+    LOCAL_SRC_FILES += hw/src/stbhwav.c
+endif
 
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false

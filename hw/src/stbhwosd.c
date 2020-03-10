@@ -75,12 +75,16 @@ typedef struct
 
 typedef struct
 {
+    BOOLEAN scale;
+    U16BIT screen_start_x;
+    U16BIT screen_start_y;
     U16BIT screen_width;
     U16BIT screen_height;
     S_OSD_SURFACE subt_surface;
     S_OSD_SURFACE mheg_surface;
 
     U8BIT*  mheg_pixels;
+    BOOLEAN osd_resoln;
     BOOLEAN subt_resoln;
     BOOLEAN subt_update;
     BOOLEAN subt_visible;
@@ -117,6 +121,7 @@ typedef struct s_osd_region
 static S_OSD_STATUS display_status = {0};
 
 static S_OSD_REGION *osd_regions = NULL;
+static void *osd_mutex = NULL;
 static void *subtitle_mutex = NULL;
 
 static U8BIT mheg_colourdepth = SCREEN_COLOUR_DEPTH;
@@ -154,6 +159,7 @@ void STB_OSDInitialise(U8BIT num_max_regions)
    memset(&display_status, 0, sizeof(S_OSD_STATUS));
    display_status.screen_width = SCREEN_WIDTH;
    display_status.screen_height = SCREEN_HEIGHT;
+   osd_mutex = STB_OSCreateMutex();
    subtitle_mutex = STB_OSCreateMutex();
    mheg_mutex = STB_OSCreateMutex();
    overlay_sem = STB_OSCreateSemaphore();
@@ -178,6 +184,39 @@ void STB_OSDRegisterOverlayFuncs(F_OverlaySetSize setsize, F_OverlayUpdate updat
  }
 
 /**
+ * @brief modify osd posion and size.
+ */
+void STB_OSDModifyPosition(BOOLEAN scaling, U16BIT width, U16BIT height, U16BIT x_offset, U16BIT y_offset)
+{
+    FUNCTION_START(STB_OSDModifyPosition);
+
+   if ((display_status.screen_width != width) || (display_status.screen_height != height) ||
+           display_status.scale != scaling || display_status.screen_start_x != x_offset || display_status.screen_start_y != y_offset)
+   {
+      OSD_DBG("old=(%u,%u) %ux%u, new=(%u,%u) %ux%u", display_status.screen_start_x, display_status.screen_start_y, display_status.screen_width, display_status.screen_height,
+         x_offset, y_offset, width, height);
+      /*STB_OSMutexLock(osd_mutex);
+      display_status.scale = scaling;
+      display_status.screen_start_x = x_offset;
+      display_status.screen_start_y = y_offset;
+      display_status.screen_width = width;
+      display_status.screen_height = height;
+      display_status.osd_resoln = true;
+      STB_OSMutexUnlock(osd_mutex);
+      STB_OSSemaphoreSignal(overlay_sem);
+      STB_OSSemaphoreWait(update_sem);*/
+
+      STB_OSMutexLock(osd_mutex);
+      display_status.subt_update = TRUE;
+      STB_OSSemaphoreSignal(overlay_sem);
+      STB_OSSemaphoreWait(update_sem);
+      STB_OSMutexUnlock(osd_mutex);
+   }
+
+   FUNCTION_FINISH(STB_OSDModifyPosition);
+ }
+
+/**
  * @brief   Reconfigures the OSD for a new screen size
  * @param   scaling - TRUE if osd scaling is required due to MHEG scene
  *          aspect ratio, FALSE otherwise
@@ -196,9 +235,7 @@ void STB_OSDResize(BOOLEAN scaling, U16BIT width, U16BIT height, U16BIT x_offset
 
    if ((display_status.screen_width != width) || (display_status.screen_height != height))
    {
-      OSD_DBG("old=%ux%u, new=%ux%u", display_status.screen_width, display_status.screen_height,
-         width, height);
-
+      OSD_DBG("old=%ux%u, new=%ux%u", display_status.screen_width, display_status.screen_height, width, height);
       display_status.screen_width = width;
       display_status.screen_height = height;
    }
@@ -1614,17 +1651,22 @@ static void OverlayTask(void *param)
    BOOLEAN redraw;
    ASSERT(mheg_mutex);
 
-   OverlaySetSize(SCREEN_ID, display_status.screen_width, display_status.screen_height);
-   OverlaySetSize(MHEG5_ID, display_status.mheg_surface.width, display_status.mheg_surface.height);
+   OverlaySetSize(SCREEN_ID, display_status.scale, display_status.screen_start_x, display_status.screen_start_y, display_status.screen_width, display_status.screen_height);
+   OverlaySetSize(MHEG5_ID,  0, 0, 0, display_status.mheg_surface.width, display_status.mheg_surface.height);
 
    redraw = FALSE;
    while (1)
    {
       STB_OSSemaphoreWait(overlay_sem);
+      if (display_status.osd_resoln) {
+         display_status.osd_resoln = false;
+         OverlaySetSize(SCREEN_ID, display_status.scale, display_status.screen_start_x, display_status.screen_start_y, display_status.screen_width, display_status.screen_height);
+         redraw = TRUE;
+      }
       if (display_status.subt_resoln)
       {
          display_status.subt_resoln = FALSE;
-         OverlaySetSize(SUBTITLE_ID, display_status.subt_surface.width, display_status.subt_surface.height);
+         OverlaySetSize(SUBTITLE_ID, 0, 0, 0, display_status.subt_surface.width, display_status.subt_surface.height);
       }
       if (display_status.subt_update)
       {

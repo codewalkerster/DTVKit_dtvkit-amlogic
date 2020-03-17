@@ -78,6 +78,7 @@ endif
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     #LOCAL_C_INCLUDES += $(TOP)/media_hal/AmTsplayer/include/
     LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/mediahal_sdk/include/
+    LOCAL_C_INCLUDES += vendor/amlogic/common/libdvr/include
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
@@ -124,7 +125,6 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwupg.c \
     hw/src/stbhwci.c \
     hw/src/stbhwosd.c \
-    hw/src/stbpvrpr.c \
     hw/src/stbhwnet.c \
     hw/src/stbhwvbi.c \
     hw/src/stbhwcfg.c \
@@ -137,8 +137,10 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     LOCAL_SRC_FILES += hw/src/stbhwav_tsplayer.c
+    LOCAL_SRC_FILES += hw/src/stbpvrpr_tsplayer.c
 else
     LOCAL_SRC_FILES += hw/src/stbhwav.c
+    LOCAL_SRC_FILES += hw/src/stbpvrpr.c
 endif
 
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)

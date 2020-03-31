@@ -556,6 +556,14 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
       ts_params.dmx_id = demux;
 
+#ifdef SUPPORT_CAS
+      if (s_recplay_status[play_index].cas_status.is_smp)
+      {
+	 ts_params.secure_enable = 1;
+	 ts_params.dec_cb = s_recplay_status[play_index].cas_status.crypto_cb;
+      }
+#endif
+
       if (is_timeshift)
       {
          ts_params.mode = AM_AV_TIMESHIFT_MODE_TIMESHIFTING;

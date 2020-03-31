@@ -76,7 +76,8 @@ LOCAL_C_INCLUDES := \
 endif
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-    LOCAL_C_INCLUDES += $(TOP)/media_hal/AmTsplayer/include/
+    #LOCAL_C_INCLUDES += $(TOP)/media_hal/AmTsplayer/include/
+    LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/mediahal_sdk/include/
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \

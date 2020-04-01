@@ -182,6 +182,10 @@ typedef struct
    U16BIT audio_pid;
    U16BIT pcr_pid;
    U16BIT ad_pid;
+
+#ifdef SUPPORT_CAS
+   E_STB_DRM_TYPE drm_mode;
+#endif
 } AV_PATH_STATUS;
 
 #if 0
@@ -788,7 +792,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
  */
 void STB_AVSetDrmMode(U8BIT path, E_STB_DRM_TYPE mode)
 {
-   //AM_AV_SetDRMMode(path, mode);
+   av_paths_status[path].drm_mode = mode;
 }
 #endif
 
@@ -2425,16 +2429,20 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
     am_tsplayer_init_params parm;
     am_tsplayer_handle player_handle;
 
+    memset(&parm, 0, sizeof(am_tsplayer_init_params));
     parm.source = source_type;
     parm.dmx_dev_id = dmx_dev_id;
     parm.event_mask = event_mask;
+#ifdef SUPPORT_CAS
+    parm.drmmode = av_paths_status[path].drm_mode;
+#endif
     ret = AmTsPlayer_create(parm, &player_handle);
     if (ret == AM_TSPLAYER_OK)
     {
         av_paths_status[path].player_handle = player_handle;
         ret = AmTsPlayer_getInstansNo(player_handle, &numb);
         ret = AmTsPlayer_registerCb(player_handle, AVEventHandler, &av_paths_status[path]);
-        AV_DBG("Create Ts player success. player_hdle[%d]:%u instance_no:%d dxm_id:%d", path, player_handle, numb, dmx_dev_id);
+        AV_DBG("Create Ts player success. player_hdle[%d]:%u instance_no:%d dxm_id:%d drmmode:%d", path, player_handle, numb, dmx_dev_id, parm.drmmode);
     }
     else
     {

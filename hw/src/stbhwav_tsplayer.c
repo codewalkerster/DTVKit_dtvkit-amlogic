@@ -185,6 +185,7 @@ typedef struct
 
 #ifdef SUPPORT_CAS
    E_STB_DRM_TYPE drm_mode;
+   uint8_t *secmem_session;
 #endif
 } AV_PATH_STATUS;
 
@@ -287,6 +288,10 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].volume = 100;
             av_paths_status[av_path].mute = FALSE;
             av_paths_status[av_path].audio_mode = AV_AUDIO_STEREO_TSP;
+#ifdef SUPPORT_CAS
+            av_paths_status[av_path].drm_mode = DRM_NONE;
+            av_paths_status[av_path].secmem_session = NULL;
+#endif
          }
 
          display_info.screen_width = 1920;
@@ -2431,6 +2436,29 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
     parm.event_mask = event_mask;
 #ifdef SUPPORT_CAS
     parm.drmmode = av_paths_status[path].drm_mode;
+
+//TODO: will remove the following after include secmem head file
+extern uint32_t Secure_V2_Init(void *session, uint32_t source,
+  uint32_t flags, uint32_t paddr, uint32_t msize);
+extern uint32_t Secure_V2_SessionCreate(void **session);
+extern uint32_t Secure_V2_SessionDestroy(void **session);
+
+enum {
+  SECMEM_SOURCE_NONE = 0,
+  SECMEM_SOURCE_VDEC,
+  SECMEM_SOURCE_CODEC_MM
+};
+//
+    if (parm.drmmode != DRM_NONE)
+    {
+        if (Secure_V2_SessionCreate(&av_paths_status[path].secmem_session)) {
+            AV_DEBUG("Create live secmem session failed.");
+        } else {
+            if (Secure_V2_Init(av_paths_status[path].secmem_session, SECMEM_SOURCE_VDEC, 0x1, 0, 0)) {
+                AV_DEBUG("Init live secmem session failed.");
+            }
+        }
+    }
 #endif
     ret = AmTsPlayer_create(parm, &player_handle);
     if (ret == AM_TSPLAYER_OK)
@@ -2471,6 +2499,13 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
             AV_DBG("Release Ts player, player_hdle[%d]:%u", path, av_paths_status[path].player_handle);
             av_paths_status[path].player_handle = INVALID_PLAYER_HANDLE;
         }
+#ifdef SUPPORT_CAS
+        if (av_paths_status[path].secmem_session)
+        {
+            Secure_V2_SessionDestroy(&av_paths_status[path].secmem_session);
+            av_paths_status[path].secmem_session = NULL;
+        }
+#endif
     }
 
     return ret;

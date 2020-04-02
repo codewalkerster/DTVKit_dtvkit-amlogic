@@ -86,6 +86,7 @@
 #define INVALID_RES_ID           255
 #define DVR_MODE_PROP    "vendor.tv.dtv.dvr.mode"
 //#define PRE_SET_AUDIO
+#define INVALID_PLAYER_HDLE -1
 
 
 #ifdef PLAY_DEBUG
@@ -716,6 +717,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          {
             /*release TsPlayer*/
             AmTsPlayer_release(s_recplay_status[play_index].tsplayer_handle);
+            s_recplay_status[play_index].tsplayer_handle = INVALID_PLAYER_HDLE;
          }
 
          s_recplay_status[play_index].play_state = PLAY_STOPPED;
@@ -1832,9 +1834,11 @@ BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **
    play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
    {
-      if (p_handle)
+      if (p_handle && s_recplay_status[play_index].tsplayer_handle != INVALID_PLAYER_HDLE)
+      {
          *p_handle = (void *)s_recplay_status[play_index].tsplayer_handle;
-      ret = TRUE;
+         ret = TRUE;
+      }
    }
    return ret;
 }

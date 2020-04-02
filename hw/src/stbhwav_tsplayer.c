@@ -118,7 +118,7 @@
 #define MAX_AV_SPEED     600
 #define MAX_PLAYER_NUM     32
 
-#define INVALID_PLAYER_HANDLE  -1
+#define INVALID_PLAYER_HANDLE -1
 #define IS_INVALID_PLAYER_HANDLE(_path_)    ((av_paths_status[_path_].player_handle) == INVALID_PLAYER_HANDLE)
 
 /*---constant definitions for this file--------------------------------------*/
@@ -239,7 +239,7 @@ static void* video_surface[MAX_PLAYER_NUM] =
 static void AVEventHandler(void *user_data, am_tsplayer_event *event);
 am_tsplayer_result AV_CreateTsPlayer(U8BIT path, am_tsplayer_input_source_type source_type, int32_t dmx_dev_id, int32_t event_mask);
 am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path);
-am_tsplayer_result AV_GetPlayerHandleByPath(U8BIT path, am_tsplayer_handle * play_hdle);
+am_tsplayer_result AV_GetPlayerHandleByPath(U8BIT path, am_tsplayer_handle * play_hdle, BOOLEAN recreat_hdl);
 am_tsplayer_result AV_StartAudioDecode(am_tsplayer_handle player_hdle, U16BIT a_pid, am_tsplayer_audio_codec format, am_tsplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute);
 am_tsplayer_result AV_SetAudioDecode(am_tsplayer_handle player_hdle, am_tsplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute);
 am_tsplayer_result AV_StartVideoDecode(am_tsplayer_handle player_hdle, U16BIT v_pid, U16BIT pcr_pid, am_tsplayer_video_codec format, am_tsplayer_avsync_mode mode);
@@ -414,7 +414,7 @@ void STB_AVBlankVideo(U8BIT path, BOOLEAN blank)
    am_tsplayer_handle player_handle;
    FUNCTION_START(STB_AVBlankVideo);
 
-   ret = AV_GetPlayerHandleByPath(path, &player_handle);
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
    if (ret != AM_TSPLAYER_OK)
    {
        VID_DBG("Cannot get player handle[%d]", path);
@@ -497,15 +497,20 @@ U8BIT STB_AVGetUhfModulatorChannel(void)
 void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 {
    am_tsplayer_result ret;
+   am_tsplayer_handle player_handle;
    FUNCTION_START(STB_AVSetAudioVolume);
 
-   if (!IS_INVALID_PLAYER_HANDLE(path))
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
+   if (ret != AM_TSPLAYER_OK)
    {
-       ret = AmTsPlayer_setAudioVolume(av_paths_status[path].player_handle, vol);
-       if (ret != AM_TSPLAYER_OK)
-       {
-          AUD_DBG("Set audio volume failed, vol:%d err:%d", vol, ret);
-       }
+       AUD_DBG("Cannot get player handle[%d]", path);
+       return;
+   }
+
+   ret = AmTsPlayer_setAudioVolume(player_handle, vol);
+   if (ret != AM_TSPLAYER_OK)
+   {
+       AUD_DBG("Set audio volume failed, vol:%d err:%d", vol, ret);
    }
 
    av_paths_status[path].volume = vol;
@@ -520,15 +525,17 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 U8BIT STB_AVGetAudioVolume(U8BIT path)
 {
    am_tsplayer_result ret;
+   am_tsplayer_handle player_handle;
    FUNCTION_START(STB_AVGetAudioVolume);
 
-   if (IS_INVALID_PLAYER_HANDLE(path))
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
+   if (ret != AM_TSPLAYER_OK)
    {
        AUD_DBG("Cannot get player handle[%d]", path);
        return av_paths_status[path].volume;
    }
 
-   ret = AmTsPlayer_getAudioVolume(av_paths_status[path].player_handle, &av_paths_status[path].volume);
+   ret = AmTsPlayer_getAudioVolume(player_handle, &av_paths_status[path].volume);
    if (ret == AM_TSPLAYER_OK)
    {
        AUD_DBG("Get audio volume, vol:%d", av_paths_status[path].volume);
@@ -550,15 +557,20 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
 void STB_AVSetAudioMute(U8BIT path, BOOLEAN mute)
 {
    am_tsplayer_result ret;
+   am_tsplayer_handle player_handle;
    FUNCTION_START(STB_AVSetAudioMute);
 
-   if (!IS_INVALID_PLAYER_HANDLE(path))
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
+   if (ret != AM_TSPLAYER_OK)
    {
-       ret = AmTsPlayer_setAudioMute(av_paths_status[path].player_handle, mute, mute);
-       if (ret != AM_TSPLAYER_OK)
-       {
-          AUD_DBG("Set audio mute failed, err:%d", ret);
-       }
+       AUD_DBG("Cannot get player handle[%d]", path);
+       return;
+   }
+
+   ret = AmTsPlayer_setAudioMute(player_handle, mute, mute);
+   if (ret != AM_TSPLAYER_OK)
+   {
+       AUD_DBG("Set audio mute failed, err:%d", ret);
    }
 
    av_paths_status[path].mute = mute;
@@ -575,15 +587,17 @@ BOOLEAN STB_AVGetAudioMute(U8BIT path)
    BOOLEAN retval = FALSE;
    am_tsplayer_result ret;
    bool_t analog_mute, digital_mute;
+   am_tsplayer_handle player_handle;
    FUNCTION_START(STB_AVGetAudioMute);
 
-   if (IS_INVALID_PLAYER_HANDLE(path))
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
+   if (ret != AM_TSPLAYER_OK)
    {
        AUD_DBG("Cannot get player handle[%d]", path);
        return FALSE;
    }
 
-   ret = AmTsPlayer_getAudioMute(av_paths_status[path].player_handle, &analog_mute, &digital_mute);
+   ret = AmTsPlayer_getAudioMute(player_handle, &analog_mute, &digital_mute);
    if (ret == AM_TSPLAYER_OK)
    {
       AUD_DBG("Get audio mute, mute:%d", digital_mute);
@@ -609,41 +623,46 @@ BOOLEAN STB_AVGetAudioMute(U8BIT path)
 void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
 {
    am_tsplayer_result ret;
+   am_tsplayer_handle player_handle;
    am_tsplayer_audio_stereo_mode audio_mode;
    FUNCTION_START(STB_AVChangeAudioMode);
 
-   if (!IS_INVALID_PLAYER_HANDLE(path))
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
+   if (ret != AM_TSPLAYER_OK)
    {
-       switch (mode)
-       {
-          case AV_AUDIO_STEREO:
-             audio_mode = AV_AUDIO_STEREO_TSP;
-             break;
-          case AV_AUDIO_RIGHT:
-             audio_mode = AV_AUDIO_RIGHT_TSP;
-             break;
-          case AV_AUDIO_LEFT:
-             audio_mode = AV_AUDIO_LEFT_TSP;
-             break;
-          case AV_AUDIO_MONO:
-             audio_mode = AV_AUDIO_MONO_TSP;
-             break;
-          case AV_AUDIO_MULTICHANNEL:
-             audio_mode = AV_AUDIO_MULTICHANNEL_TSP;
-             break;
-          default:
-             AUD_DBG("Not support audio mode:%d", mode);
-             return;
-       }
-
-       ret = AmTsPlayer_setAudioStereoMode(av_paths_status[path].player_handle, audio_mode);
-       if (ret != AM_TSPLAYER_OK)
-       {
-          AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
-          return;
-       }
-       AUD_DBG("Set aduio stereo mode[%d]", audio_mode);
+       AUD_DBG("Cannot get player handle[%d]", path);
+       return;
    }
+
+   switch (mode)
+   {
+      case AV_AUDIO_STEREO:
+         audio_mode = AV_AUDIO_STEREO_TSP;
+         break;
+      case AV_AUDIO_RIGHT:
+         audio_mode = AV_AUDIO_RIGHT_TSP;
+         break;
+      case AV_AUDIO_LEFT:
+         audio_mode = AV_AUDIO_LEFT_TSP;
+         break;
+      case AV_AUDIO_MONO:
+         audio_mode = AV_AUDIO_MONO_TSP;
+         break;
+      case AV_AUDIO_MULTICHANNEL:
+         audio_mode = AV_AUDIO_MULTICHANNEL_TSP;
+         break;
+      default:
+         AUD_DBG("Not support audio mode:%d", mode);
+         return;
+   }
+
+   ret = AmTsPlayer_setAudioStereoMode(player_handle, audio_mode);
+   if (ret != AM_TSPLAYER_OK)
+   {
+      AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
+      return;
+   }
+   AUD_DBG("Set aduio stereo mode[%d]", audio_mode);
 
    av_paths_status[path].audio_mode = audio_mode;
    FUNCTION_FINISH(STB_AVChangeAudioMode);
@@ -671,7 +690,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
       if (audio_pid != 0 && audio_pid != INVALID_PID)
       {
-         ret = AV_GetPlayerHandleByPath(path, &player_handle);
+         ret = AV_GetPlayerHandleByPath(path, &player_handle, TRUE);
          if (ret != AM_TSPLAYER_OK)
          {
              AUD_DBG("Cannot get player handle[%d]", path);
@@ -733,7 +752,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
       if (audio_pid != 0 && audio_pid != INVALID_PID)
       {
-         ret = AV_GetPlayerHandleByPath(path, &player_handle);
+         ret = AV_GetPlayerHandleByPath(path, &player_handle, TRUE);
          if (ret != AM_TSPLAYER_OK)
          {
             AUD_DBG("Cannot get player handle[%d]", path);
@@ -829,7 +848,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
 
       if (video_pid != 0)
       {
-         ret = AV_GetPlayerHandleByPath(path, &player_handle);
+         ret = AV_GetPlayerHandleByPath(path, &player_handle, TRUE);
          if (ret != AM_TSPLAYER_OK)
          {
              VID_DBG("Cannot get TsPlayer. path:%d", path);
@@ -1185,7 +1204,7 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
    am_tsplayer_vdec_stat vdec_stat;
    FUNCTION_START(STB_AVGetSTC);
    
-   ret = AV_GetPlayerHandleByPath(path, &player_handle);
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
    if (ret != AM_TSPLAYER_OK)
    {
        AUD_DBG("Cannot get player handle[%d]", path);
@@ -1780,7 +1799,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
    FUNCTION_START(STB_AVStartADDecoding);
 
-   err = AV_GetPlayerHandleByPath(path, &player_handle);
+   err = AV_GetPlayerHandleByPath(path, &player_handle, TRUE);
    if (err != AM_TSPLAYER_OK)
    {
        AUD_DBG("Cannot get player handle[%d]", path);
@@ -1947,17 +1966,19 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
  */
 void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 {
-   am_tsplayer_result err;
+   am_tsplayer_result ret;
+   am_tsplayer_handle player_handle;
    FUNCTION_START(STB_AVSetADVolume);
 
-   if (IS_INVALID_PLAYER_HANDLE(path))
+   ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
+   if (ret != AM_TSPLAYER_OK)
    {
        AUD_DBG("Cannot get player handle[%d]", path);
        return;
    }
 
-   err = AmTsPlayer_setAudioVolume(av_paths_status[path].player_handle, vol);
-   AUD_DBG("SetVolume ad path[%d] vol[%d] err:%d", path,  vol, err);
+   ret = AmTsPlayer_setAudioVolume(player_handle, vol);
+   AUD_DBG("SetVolume ad path[%d] vol[%d] err:%d", path,  vol, ret);
 
    FUNCTION_FINISH(STB_AVSetADVolume);
 }
@@ -2602,30 +2623,25 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
     return ret;
 }
 
-am_tsplayer_result AV_GetPlayerHandleByPath(U8BIT path, am_tsplayer_handle * play_hdle)
+am_tsplayer_result AV_GetPlayerHandleByPath(U8BIT path, am_tsplayer_handle * play_hdle, BOOLEAN recreat_hdl)
 {
-   am_tsplayer_result ret;
-   if (STB_PVRIsPlayStopped(path, path))
-   {
-      if (IS_INVALID_PLAYER_HANDLE(path))
-      {
-          ret = AV_CreateTsPlayer(path, TS_DEMOD, av_paths_status[path].demux, 0);
-          if (ret == AM_TSPLAYER_OK)
-              *play_hdle = av_paths_status[path].player_handle;
-          else
-              *play_hdle = INVALID_PLAYER_HANDLE;
-      }
-      else
-      {
-          *play_hdle = av_paths_status[path].player_handle;
-      }
-   }
-   else
-   {
-      if (STB_PVRGetPlayerHandle(path, path, (void **)play_hdle) == TRUE)
-         ret = AM_TSPLAYER_OK;
-   }
-   return ret;
+    am_tsplayer_result ret = AM_TSPLAYER_ERROR_MAX;
+
+    if (STB_PVRIsPlayStopped(path, path))
+    {
+       if (IS_INVALID_PLAYER_HANDLE(path) && recreat_hdl)
+           ret = AV_CreateTsPlayer(path, TS_DEMOD, av_paths_status[path].demux, 0);
+       else
+           ret = AM_TSPLAYER_OK;
+       *play_hdle = av_paths_status[path].player_handle;
+    }
+    else
+    {
+       if (STB_PVRGetPlayerHandle(path, path, (void **)play_hdle) == TRUE)
+       ret = AM_TSPLAYER_OK;
+    }
+
+    return ret;
 }
 
 am_tsplayer_result AV_StartAudioDecode(am_tsplayer_handle player_hdle, U16BIT a_pid,

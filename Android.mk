@@ -75,9 +75,13 @@ LOCAL_C_INCLUDES := \
     $(DVB_PATH)/android/ndk/include
 endif
 
+MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
+ifneq (,$(wildcard media_hal))
+  MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
+endif
+
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-    #LOCAL_C_INCLUDES += $(TOP)/media_hal/AmTsplayer/include/
-    LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/mediahal_sdk/include/
+    LOCAL_C_INCLUDES += $(MEDIAHAL_INCLUDE)
     LOCAL_C_INCLUDES += vendor/amlogic/common/libdvr/include
 endif
 

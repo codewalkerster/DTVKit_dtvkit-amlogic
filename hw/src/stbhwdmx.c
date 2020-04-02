@@ -299,6 +299,11 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
          {
             DMX_ERR("AM_DSC_SetSource error=%x", ret);
          }
+         ret = AM_DSC_Close(i);
+         if (ret != AM_SUCCESS)
+         {
+            DMX_ERR("AM_DSC_Close error=%x", ret);
+         }
       }
    }
 

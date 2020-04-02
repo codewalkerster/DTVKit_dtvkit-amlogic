@@ -84,7 +84,7 @@
 
 //---constant definitions for this file----------------------------------------
 #define INVALID_RES_ID           255
-#define DVR_MODE_PROP    "tv.dtv.dvr.mode"
+#define DVR_MODE_PROP    "vendor.tv.dtv.dvr.mode"
 //#define PRE_SET_AUDIO
 
 

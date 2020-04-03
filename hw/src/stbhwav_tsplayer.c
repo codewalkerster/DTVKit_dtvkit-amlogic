@@ -2629,16 +2629,20 @@ am_tsplayer_result AV_GetPlayerHandleByPath(U8BIT path, am_tsplayer_handle * pla
 
     if (STB_PVRIsPlayStopped(path, path))
     {
-       if (IS_INVALID_PLAYER_HANDLE(path) && recreat_hdl)
-           ret = AV_CreateTsPlayer(path, TS_DEMOD, av_paths_status[path].demux, 0);
-       else
+       if (!IS_INVALID_PLAYER_HANDLE(path)) {
            ret = AM_TSPLAYER_OK;
+       }
+       else if (recreat_hdl)
+       {
+           ret = AV_CreateTsPlayer(path, TS_DEMOD, av_paths_status[path].demux, 0);
+           ret = AM_TSPLAYER_OK;
+       }
        *play_hdle = av_paths_status[path].player_handle;
     }
     else
     {
        if (STB_PVRGetPlayerHandle(path, path, (void **)play_hdle) == TRUE)
-       ret = AM_TSPLAYER_OK;
+          ret = AM_TSPLAYER_OK;
     }
 
     return ret;

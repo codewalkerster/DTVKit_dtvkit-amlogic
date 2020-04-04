@@ -1281,6 +1281,8 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
          }
          else if (check_speed_ok(speed))
          {
+            if (s_recplay_status[play_index].play_speed == 0)
+               error = dvr_wrapper_resume_playback(s_recplay_status[play_index].player);
             error = dvr_wrapper_set_playback_speed(s_recplay_status[play_index].player, speed);
          }
          else
@@ -1291,7 +1293,8 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
 
          if (!error)
          {
-            PLAY_DBG("Set play speed to %d%%", speed);
+            PLAY_DBG("Set play speed to %d%% -> %d%%",
+               s_recplay_status[play_index].play_speed, speed);
             s_recplay_status[play_index].play_speed = speed;
             retval = TRUE;
          }

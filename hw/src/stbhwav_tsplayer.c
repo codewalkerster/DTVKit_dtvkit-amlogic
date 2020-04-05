@@ -1201,26 +1201,24 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
    uint64_t video_pts;
    am_tsplayer_result ret;
    am_tsplayer_handle player_handle;
-   am_tsplayer_vdec_stat vdec_stat;
    FUNCTION_START(STB_AVGetSTC);
-   
+
    ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
    if (ret != AM_TSPLAYER_OK)
    {
        AUD_DBG("Cannot get player handle[%d]", path);
        return;
    }
-
-   ret = AmTsPlayer_getVideoStat(player_handle, &vdec_stat);
-   if (ret == AM_TSPLAYER_OK && vdec_stat.pts_us64 != 0)
+   ret = AmTsPlayer_getPts(player_handle, TS_STREAM_VIDEO, &video_pts);
+   if (ret == AM_TSPLAYER_OK)
    {
        memset(stc, 0, 5);
-       stc[0] = (U8BIT)((vdec_stat.pts_us64 >> 32) & 0xff);
-       stc[1] = (U8BIT)((vdec_stat.pts_us64 >> 24) & 0xff);
-       stc[2] = (U8BIT)((vdec_stat.pts_us64 >> 16) & 0xff);
-       stc[3] = (U8BIT)((vdec_stat.pts_us64 >> 8) & 0xff);
-       stc[4] = (U8BIT)(vdec_stat.pts_us64 & 0xff);
-	   AUD_DBG("######### %x%x%x%x%x [%u] ########", stc[0],stc[1],stc[2],stc[3],stc[4], vdec_stat.pts_us64);
+       stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
+       stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
+       stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
+       stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
+       stc[4] = (U8BIT)(video_pts & 0xff);
+       AUD_DBG("######### %x%x%x%x%x [%u] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
    }
    FUNCTION_FINISH(STB_AVGetSTC);
 }

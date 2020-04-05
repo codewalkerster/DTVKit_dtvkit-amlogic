@@ -1079,9 +1079,10 @@ void STB_AVStopVideoDecoding(U8BIT path)
             VID_DBG("V NOW:A_STOP_V_START: Stop Video decoding");
             if (!IS_INVALID_PLAYER_HANDLE(path)) {
                ret = AmTsPlayer_stopVideoDecoding(av_paths_status[path].player_handle);
-               if (ret == AM_TSPLAYER_OK)
-               {
+               if (ret == AM_TSPLAYER_OK) {
                    AV_ReleaseTsPlayer(path);
+               }else {
+                   VID_DBG("AmTsPlayer_stopVideoDecoding failed, err:%d", ret);
                }
             }
             {
@@ -1158,9 +1159,10 @@ void STB_AVStopAudioDecoding(U8BIT path)
             AUD_DBG("A NOW:A_START_V_STOP, Stop Audio decoding");
             if (!IS_INVALID_PLAYER_HANDLE(path)) {
                ret = AmTsPlayer_stopAudioDecoding(av_paths_status[path].player_handle);
-               if (ret == AM_TSPLAYER_OK)
-               {
+               if (ret == AM_TSPLAYER_OK) {
                    AV_ReleaseTsPlayer(path);
+               }else {
+                   AUD_DBG("AmTsPlayer_stopAudioDecoding failed, err:%d", ret);
                }
             }
             {
@@ -1808,14 +1810,20 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
    if (STB_PVRIsPlayStopped(path, path))
    {
       DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      err = AmTsPlayer_enableADMix(player_handle);
+      if (err != AM_TSPLAYER_OK) {
+          AUD_DBG("Enable AD err:%d", err);
+          return FALSE;
+      }
       ad_param.pid = ad_pid;
       ad_param.codectype = av_paths_status[path].ad_format;
       err = AmTsPlayer_setADParams(player_handle, &ad_param);
       if (err != AM_TSPLAYER_OK) {
           ret = FALSE;
-          AUD_DBG("Start AD decoding err:%d", err);
+          AUD_DBG("Set AD Param err:%d, pid[%d] fmt[%d]", err, ad_pid, av_paths_status[path].ad_format);
       }else {
-          AUD_DBG("Start AD decoding ok");
+          AUD_DBG("Start AD decoding ok, pid[%d] fmt[%d]", ad_pid, av_paths_status[path].ad_format);
+          av_paths_status[path].ad_pid = ad_pid;
       }
    }
    else
@@ -1867,13 +1875,12 @@ void STB_AVStopADDecoding(U8BIT path)
 
    if (STB_PVRIsPlayStopped(path, path))
    {
-      ad_param.pid = INVALID_PID;
-      ad_param.codectype = AV_AUDIO_CODEC_AUTO;
-      ret = AmTsPlayer_setADParams(av_paths_status[path].player_handle, &ad_param);
+      ret = AmTsPlayer_disableADMix(av_paths_status[path].player_handle);
       if (ret != AM_TSPLAYER_OK) {
           AUD_DBG("Stop AD decoding err:%d", ret);
       }else {
           AUD_DBG("Stop AD decoding ok");
+          av_paths_status[path].ad_pid = INVALID_PID;
       }
       if (av_paths_status[path].av_decoder_state == DECODER_A_STOP_V_STOP)
       {
@@ -1930,24 +1937,30 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
    switch (codec)
    {
    case AV_AUDIO_CODEC_AC3:
+      AV_DBG("AD Codec[%d]: AC3", codec);
       av_paths_status[path].ad_format = AV_AUDIO_CODEC_AC3_TSP;
       break;
    case AV_AUDIO_CODEC_EAC3:
+      AV_DBG("AD Codec[%d]: EAC3", codec);
       av_paths_status[path].ad_format = AV_AUDIO_CODEC_EAC3_TSP;
       break;
    case AV_AUDIO_CODEC_AAC:
    case AV_AUDIO_CODEC_HEAAC:
    case AV_AUDIO_CODEC_HEAACV2:
+      AV_DBG("AD Codec[%d]: AAC/HEAAC/HEAACV2", codec);
       av_paths_status[path].ad_format = AV_AUDIO_CODEC_AAC_TSP;
       break;
    case AV_AUDIO_CODEC_MP2 :
-      av_paths_status[path].audio_format = AV_AUDIO_CODEC_MP2_TSP;
+      AV_DBG("AD Codec[%d]: MP2", codec);
+      av_paths_status[path].ad_format = AV_AUDIO_CODEC_MP2_TSP;
       break;
    case AV_AUDIO_CODEC_MP3 :
-      av_paths_status[path].audio_format = AV_AUDIO_CODEC_MP3_TSP;
+      AV_DBG("AD Codec[%d]: MP3", codec);
+      av_paths_status[path].ad_format = AV_AUDIO_CODEC_MP3_TSP;
       break;
    case AV_AUDIO_CODEC_AUTO :
    default:
+      AV_DBG("AD Codec[%d]: AUTO/OTHER", codec);
       av_paths_status[path].ad_format = AV_AUDIO_CODEC_MP2_TSP;
       success = FALSE;
       break;

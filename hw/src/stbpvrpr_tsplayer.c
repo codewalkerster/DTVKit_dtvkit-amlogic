@@ -137,6 +137,8 @@ typedef struct
 
 #ifdef SUPPORT_CAS
    S_CAS_STATUS cas_status;
+   uint8_t *secure_buf;
+   uint8_t *secmem_session;
 #endif
 
    E_REC_STATE rec_state;
@@ -171,6 +173,8 @@ typedef struct {
 
 #ifdef SUPPORT_CAS
    S_CAS_STATUS cas_status;
+   uint8_t *secure_buf;
+   uint8_t *secmem_session;
 #endif
 
    DVR_PlaybackFlag_t flags;
@@ -221,7 +225,20 @@ static BOOLEAN updatePlayback(U8BIT play_index);
 
 
 //---global function definitions-----------------------------------------------
+#ifdef SUPPORT_CAS
+//TODO: will remove the following after include secmem head file
+extern uint32_t Secure_V2_Init(void *session, uint32_t source,
+  uint32_t flags, uint32_t paddr, uint32_t msize);
+extern uint32_t Secure_V2_SessionCreate(void **session);
+extern uint32_t Secure_V2_SessionDestroy(void **session);
 
+enum {
+  SECMEM_SOURCE_NONE = 0,
+  SECMEM_SOURCE_VDEC,
+  SECMEM_SOURCE_CODEC_MM
+};
+//
+#endif
 
 #define DVR_STREAM_TYPE_TO_TYPE(_t) (((_t) >> 24) & 0xF)
 #define DVR_STREAM_TYPE_TO_FMT(_t)  ((_t) & 0xFFFFFF)
@@ -712,6 +729,24 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
             PLAY_DBG("Failed to stop timeshift playback, error %d", error);
          }
 
+#ifdef SUPPORT_CAS
+         if (s_recplay_status[play_index].cas_status.is_smp)
+         {
+             PLAY_DBG("rease secmem session:%#x, secure_buf:%#x",
+                s_recplay_status[play_index].secmem_session,
+                s_recplay_status[play_index].secure_buf);
+             if (s_recplay_status[play_index].secure_buf)
+             {
+                 Secure_V2_ResourceFree(s_recplay_status[play_index].secmem_session);
+                 s_recplay_status[play_index].secure_buf = NULL;
+             }
+             if (s_recplay_status[play_index].secmem_session)
+             {
+                 Secure_V2_SessionDestroy(&s_recplay_status[play_index].secmem_session);
+                 s_recplay_status[play_index].secmem_session = NULL;
+             }
+         }
+#endif
          error = dvr_wrapper_close_playback(s_recplay_status[play_index].player);
 
          {
@@ -927,6 +962,17 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       REC_DBG("Starting recording in directory \"%s\"", rec_open_params.location);
 
       rec_open_params.is_timeshift = (is_timeshift) ? DVR_TRUE : DVR_FALSE;
+
+#ifdef SUPPORT_CAS
+	 s_rec_status[rec_index].timeshift_duration = 120;  //TODO: will remove
+
+	 if (s_rec_status[rec_index].cas_status.is_smp)
+	 {
+	    rec_open_params.crypto_data = (void *)s_rec_status[rec_index].cas_status.cb_param;
+	    rec_open_params.crypto_fn = s_rec_status[rec_index].cas_status.crypto_cb;
+	 }
+#endif
+
       error = dvr_wrapper_open_record(&s_rec_status[rec_index].recorder, &rec_open_params);
       if (!error)
       {
@@ -991,15 +1037,42 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          s_rec_status[rec_index].pids_info.nb_pids = cnt;
 
 #ifdef SUPPORT_CAS
-	 s_rec_status[rec_index].timeshift_duration = 120;
-#endif
+        do
+        {
+            uint8_t *buf = NULL;
+            uint8_t *secmem_session = NULL;
+            uint32_t secmem_size = 512*1024; //TODO:
 
-#ifdef SUPPORT_CAS
-	 if (s_rec_status[rec_index].cas_status.is_smp)
-	 {
-	    rec_params.cb_param = s_rec_status[rec_index].cas_status.cb_param;
-	    rec_params.enc_cb = s_rec_status[rec_index].cas_status.crypto_cb;
-	 }
+            if (!s_rec_status[rec_index].cas_status.is_smp)
+                break;
+
+                REC_DBG("Create secmem session 00");
+            if (Secure_V2_SessionCreate(&secmem_session))
+            {
+                REC_DBG("Create secmem session failed.");
+                break;
+            }
+                REC_DBG("Create secmem session 00");
+            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x100, 0, 0)) {
+                REC_DBG("Init secmem session failed");
+                Secure_V2_SessionDestroy(&secmem_session);
+                break;
+            } 
+            if (Secure_V2_ResourceAlloc(secmem_session, &buf, &secmem_size)) {
+                REC_DBG("Alloc dvr secmem buffer failed");
+                Secure_V2_SessionDestroy(&secmem_session);
+                break;
+            }
+            s_rec_status[rec_index].secmem_session = secmem_session;
+            s_rec_status[rec_index].secure_buf = buf;
+            REC_DBG("secmem session: %#x, secure_buf:%#x, size:%#x",
+                    secmem_session, buf, secmem_size);
+
+            dvr_wrapper_set_record_secure_buffer(
+                s_rec_status[rec_index].recorder,
+                s_rec_status[rec_index].secure_buf,
+                secmem_size);
+        } while (0);
 #endif
 
          REC_DBG("Starting %s recording %p for %d secs/%llu B, [%s.ts]",
@@ -1021,6 +1094,24 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          }
          else
          {
+#ifdef SUPPORT_CAS
+             if (s_rec_status[rec_index].cas_status.is_smp)
+             {
+                 REC_DBG("rease secmem session:%#x, secure_buf:%#x",
+                    s_rec_status[rec_index].secmem_session,
+                    s_rec_status[rec_index].secure_buf);
+                 if (s_rec_status[rec_index].secure_buf)
+                 {
+                     Secure_V2_ResourceFree(s_rec_status[rec_index].secmem_session);
+                     s_rec_status[rec_index].secure_buf = NULL;
+                 }
+                 if (s_rec_status[rec_index].secmem_session)
+                 {
+                     Secure_V2_SessionDestroy(&s_rec_status[rec_index].secmem_session);
+                     s_rec_status[rec_index].secmem_session = NULL;
+                 }
+             }
+#endif
             REC_DBG("Failed to start recording, error %d", error);
 
             dvr_wrapper_close_record(s_rec_status[rec_index].recorder);
@@ -1092,6 +1183,24 @@ void STB_PVRRecordStop(U8BIT rec_index)
          {
             REC_DBG("Failed to stop recording %u, error %d", s_rec_status[rec_index].recorder, error);
          }
+#ifdef SUPPORT_CAS
+         if (s_rec_status[rec_index].cas_status.is_smp)
+         {
+             REC_DBG("rease secmem session:%#x, secure_buf:%#x",
+                s_rec_status[rec_index].secmem_session,
+                s_rec_status[rec_index].secure_buf);
+             if (s_rec_status[rec_index].secure_buf)
+             {
+                 Secure_V2_ResourceFree(s_rec_status[rec_index].secmem_session);
+                 s_rec_status[rec_index].secure_buf = NULL;
+             }
+             if (s_rec_status[rec_index].secmem_session)
+             {
+                 Secure_V2_SessionDestroy(&s_rec_status[rec_index].secmem_session);
+                 s_rec_status[rec_index].secmem_session = NULL;
+             }
+         }
+#endif
 
          dvr_wrapper_close_record(s_rec_status[rec_index].recorder);
          s_rec_status[rec_index].recorder = NULL;
@@ -1909,6 +2018,13 @@ static BOOLEAN updatePlayback(U8BIT play_index)
                | AM_TSPLAYER_EVENT_TYPE_SCRAMBLING_MASK
                | AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME_MASK,*/
          };
+#ifdef SUPPORT_CAS
+        if (s_recplay_status[play_index].cas_status.is_smp)
+        {
+            init_param.drmmode = TS_INPUT_BUFFER_TYPE_SECURE;
+            PLAY_DBG("hanyh: open drmmode:%d", init_param.drmmode);
+        }
+#endif
          am_tsplayer_result result =
             AmTsPlayer_create(init_param, &s_recplay_status[play_index].tsplayer_handle);
          PLAY_DBG("open TsPlayer %s, result(%d)", (result)? "FAIL" : "OK", result);
@@ -1938,6 +2054,16 @@ static BOOLEAN updatePlayback(U8BIT play_index)
       play_params.event_fn = PlayEventHandler;
       play_params.event_userdata = &s_recplay_status[play_index];
       play_params.block_size = 188 * 1024;
+#ifdef SUPPORT_CAS
+      PLAY_DBG("is_smp:%d", s_recplay_status[play_index].cas_status.is_smp);
+      if (s_recplay_status[play_index].cas_status.is_smp)
+      {
+          play_params.block_size = 256*1024;
+          play_params.crypto_fn = s_recplay_status[play_index].cas_status.crypto_cb;
+          play_params.crypto_data = NULL;
+          PLAY_DBG("dec_func:%#x", play_params.crypto_fn);
+      }
+#endif
       STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
          s_recplay_status[play_index].basename,
          play_params.location,
@@ -1950,6 +2076,42 @@ static BOOLEAN updatePlayback(U8BIT play_index)
          DVR_PlaybackFlag_t play_flag =
             (s_recplay_status[play_index].play_speed == 0)? DVR_PLAYBACK_STARTED_PAUSEDLIVE : 0;
 
+#ifdef SUPPORT_CAS
+        do
+        {
+            uint8_t *buf = NULL;
+            uint8_t *secmem_session = NULL;
+            uint32_t secmem_size = 512*1024; //TODO:
+
+            if (!s_recplay_status[play_index].cas_status.is_smp)
+                break;
+
+            if (Secure_V2_SessionCreate(&secmem_session))
+            {
+                PLAY_DEBUG("Create secmem session failed.");
+                break;
+            }
+            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x101, 0, 0)) {
+                PLAY_DEBUG("Init secmem session failed");
+                Secure_V2_SessionDestroy(&secmem_session);
+                break;
+            }
+            if (Secure_V2_ResourceAlloc(secmem_session, &buf, &secmem_size)) {
+                PLAY_DEBUG("Alloc secmem buffer failed");
+                Secure_V2_SessionDestroy(&secmem_session);
+                break;
+            }
+            s_recplay_status[play_index].secmem_session = secmem_session;
+            s_recplay_status[play_index].secure_buf = buf;
+            PLAY_DBG("secmem session: %#x, secure_buf:%#x, size:%#x",
+                    secmem_session, buf, secmem_size);
+
+            dvr_wrapper_set_playback_secure_buffer(
+                s_recplay_status[play_index].player,
+                s_recplay_status[play_index].secure_buf,
+                secmem_size);
+        } while (0);
+#endif
          PLAY_DBG("Starting pvr playback, speed=%u%%", s_recplay_status[play_index].play_speed);
 
          error = dvr_wrapper_start_playback(s_recplay_status[play_index].player, play_flag, &play_pids);

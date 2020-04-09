@@ -16,8 +16,7 @@ else
 LOCAL_CFLAGS += -g
 endif
 
-DTVKIT_WITH_CAS ?= 0
-ifeq ($(DTVKIT_WITH_CAS), 1)
+ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS
 endif
 

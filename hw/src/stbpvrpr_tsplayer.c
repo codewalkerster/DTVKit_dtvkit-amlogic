@@ -1053,7 +1053,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                 break;
             }
                 REC_DBG("Create secmem session 00");
-            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x100, 0, 0)) {
+            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x4000, 0, 0)) {
                 REC_DBG("Init secmem session failed");
                 Secure_V2_SessionDestroy(&secmem_session);
                 break;
@@ -2091,7 +2091,7 @@ static BOOLEAN updatePlayback(U8BIT play_index)
                 PLAY_DEBUG("Create secmem session failed.");
                 break;
             }
-            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x101, 0, 0)) {
+            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x6001, 0, 0)) {
                 PLAY_DEBUG("Init secmem session failed");
                 Secure_V2_SessionDestroy(&secmem_session);
                 break;

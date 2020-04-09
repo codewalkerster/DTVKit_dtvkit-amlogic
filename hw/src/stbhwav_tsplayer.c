@@ -2564,7 +2564,7 @@ enum {
         if (Secure_V2_SessionCreate(&av_paths_status[path].secmem_session)) {
             AV_DEBUG("Create live secmem session failed.");
         } else {
-            if (Secure_V2_Init(av_paths_status[path].secmem_session, SECMEM_SOURCE_VDEC, 0x1, 0, 0)) {
+            if (Secure_V2_Init(av_paths_status[path].secmem_session, SECMEM_SOURCE_VDEC, 0x2001, 0, 0)) {
                 AV_DEBUG("Init live secmem session failed.");
             }
         }

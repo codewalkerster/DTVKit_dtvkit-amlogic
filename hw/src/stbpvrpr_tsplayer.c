@@ -60,6 +60,7 @@
 #define  AV_AUDIO_CODEC_AC3    AV_AUDIO_CODEC_AC3_TSP
 
 #include "dvr_wrapper.h"
+#include "am_cas.h"
 
 #undef  AV_AUDIO_RIGHT
 #undef  AV_AUDIO_LEFT
@@ -137,8 +138,8 @@ typedef struct
 
 #ifdef SUPPORT_CAS
    S_CAS_STATUS cas_status;
-   uint8_t *secure_buf;
-   uint8_t *secmem_session;
+   void *secure_buf;
+   SecMemHandle secmem_handle;
 #endif
 
    E_REC_STATE rec_state;
@@ -173,8 +174,8 @@ typedef struct {
 
 #ifdef SUPPORT_CAS
    S_CAS_STATUS cas_status;
-   uint8_t *secure_buf;
-   uint8_t *secmem_session;
+   void *secure_buf;
+   SecMemHandle secmem_handle;
 #endif
 
    DVR_PlaybackFlag_t flags;
@@ -225,21 +226,6 @@ static BOOLEAN updatePlayback(U8BIT play_index);
 
 
 //---global function definitions-----------------------------------------------
-#ifdef SUPPORT_CAS
-//TODO: will remove the following after include secmem head file
-extern uint32_t Secure_V2_Init(void *session, uint32_t source,
-  uint32_t flags, uint32_t paddr, uint32_t msize);
-extern uint32_t Secure_V2_SessionCreate(void **session);
-extern uint32_t Secure_V2_SessionDestroy(void **session);
-
-enum {
-  SECMEM_SOURCE_NONE = 0,
-  SECMEM_SOURCE_VDEC,
-  SECMEM_SOURCE_CODEC_MM
-};
-//
-#endif
-
 #define DVR_STREAM_TYPE_TO_TYPE(_t) (((_t) >> 24) & 0xF)
 #define DVR_STREAM_TYPE_TO_FMT(_t)  ((_t) & 0xFFFFFF)
 
@@ -732,18 +718,15 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 #ifdef SUPPORT_CAS
          if (s_recplay_status[play_index].cas_status.is_smp)
          {
-             PLAY_DBG("rease secmem session:%#x, secure_buf:%#x",
-                s_recplay_status[play_index].secmem_session,
+             PLAY_DBG("destroy secmem handle:%#x, secure_buf:%#x",
+                s_recplay_status[play_index].secmem_handle,
                 s_recplay_status[play_index].secure_buf);
-             if (s_recplay_status[play_index].secure_buf)
+             
+             if (s_recplay_status[play_index].secmem_handle)
              {
-                 Secure_V2_ResourceFree(s_recplay_status[play_index].secmem_session);
+                 AM_CA_DestroySecmem(s_recplay_status[play_index].secmem_handle);
+                 s_recplay_status[play_index].secmem_handle = (SecMemHandle)NULL;
                  s_recplay_status[play_index].secure_buf = NULL;
-             }
-             if (s_recplay_status[play_index].secmem_session)
-             {
-                 Secure_V2_SessionDestroy(&s_recplay_status[play_index].secmem_session);
-                 s_recplay_status[play_index].secmem_session = NULL;
              }
          }
 #endif
@@ -966,6 +949,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 #ifdef SUPPORT_CAS
 	 s_rec_status[rec_index].timeshift_duration = 120;  //TODO: will remove
 
+      PLAY_DBG("is_smp:%d", s_rec_status[rec_index].cas_status.is_smp);
 	 if (s_rec_status[rec_index].cas_status.is_smp)
 	 {
 	    rec_open_params.crypto_data = (void *)s_rec_status[rec_index].cas_status.cb_param;
@@ -1039,34 +1023,23 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 #ifdef SUPPORT_CAS
         do
         {
-            uint8_t *buf = NULL;
-            uint8_t *secmem_session = NULL;
-            uint32_t secmem_size = 512*1024; //TODO:
+            void *buf = NULL;
+            SecMemHandle secmem_handle;
+            uint32_t secmem_size = 0;
 
             if (!s_rec_status[rec_index].cas_status.is_smp)
                 break;
-
-                REC_DBG("Create secmem session 00");
-            if (Secure_V2_SessionCreate(&secmem_session))
+            
+            secmem_handle = AM_CA_CreateSecmem(SERVICE_PVR_RECORDING, &buf, &secmem_size);
+            if (!secmem_handle)
             {
                 REC_DBG("Create secmem session failed.");
                 break;
             }
-                REC_DBG("Create secmem session 00");
-            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x4000, 0, 0)) {
-                REC_DBG("Init secmem session failed");
-                Secure_V2_SessionDestroy(&secmem_session);
-                break;
-            } 
-            if (Secure_V2_ResourceAlloc(secmem_session, &buf, &secmem_size)) {
-                REC_DBG("Alloc dvr secmem buffer failed");
-                Secure_V2_SessionDestroy(&secmem_session);
-                break;
-            }
-            s_rec_status[rec_index].secmem_session = secmem_session;
+            s_rec_status[rec_index].secmem_handle = secmem_handle;
             s_rec_status[rec_index].secure_buf = buf;
-            REC_DBG("secmem session: %#x, secure_buf:%#x, size:%#x",
-                    secmem_session, buf, secmem_size);
+            REC_DBG("secmem handle: %#x, secure_buf:%#x, size:%#x",
+                    secmem_handle, buf, secmem_size);
 
             dvr_wrapper_set_record_secure_buffer(
                 s_rec_status[rec_index].recorder,
@@ -1097,18 +1070,15 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 #ifdef SUPPORT_CAS
              if (s_rec_status[rec_index].cas_status.is_smp)
              {
-                 REC_DBG("rease secmem session:%#x, secure_buf:%#x",
-                    s_rec_status[rec_index].secmem_session,
+                 REC_DBG("rease secmem handle:%#x, secure_buf:%#x",
+                    s_rec_status[rec_index].secmem_handle,
                     s_rec_status[rec_index].secure_buf);
-                 if (s_rec_status[rec_index].secure_buf)
+
+                 if (s_rec_status[rec_index].secmem_handle)
                  {
-                     Secure_V2_ResourceFree(s_rec_status[rec_index].secmem_session);
+                     AM_CA_DestroySecmem(s_rec_status[rec_index].secmem_handle);
+                     s_rec_status[rec_index].secmem_handle = (SecMemHandle)NULL;
                      s_rec_status[rec_index].secure_buf = NULL;
-                 }
-                 if (s_rec_status[rec_index].secmem_session)
-                 {
-                     Secure_V2_SessionDestroy(&s_rec_status[rec_index].secmem_session);
-                     s_rec_status[rec_index].secmem_session = NULL;
                  }
              }
 #endif
@@ -1187,17 +1157,13 @@ void STB_PVRRecordStop(U8BIT rec_index)
          if (s_rec_status[rec_index].cas_status.is_smp)
          {
              REC_DBG("rease secmem session:%#x, secure_buf:%#x",
-                s_rec_status[rec_index].secmem_session,
+                s_rec_status[rec_index].secmem_handle,
                 s_rec_status[rec_index].secure_buf);
-             if (s_rec_status[rec_index].secure_buf)
+             if (s_rec_status[rec_index].secmem_handle)
              {
-                 Secure_V2_ResourceFree(s_rec_status[rec_index].secmem_session);
+                 AM_CA_DestroySecmem(s_rec_status[rec_index].secmem_handle);
+                 s_rec_status[rec_index].secmem_handle = (SecMemHandle)NULL;
                  s_rec_status[rec_index].secure_buf = NULL;
-             }
-             if (s_rec_status[rec_index].secmem_session)
-             {
-                 Secure_V2_SessionDestroy(&s_rec_status[rec_index].secmem_session);
-                 s_rec_status[rec_index].secmem_session = NULL;
              }
          }
 #endif
@@ -2079,32 +2045,24 @@ static BOOLEAN updatePlayback(U8BIT play_index)
 #ifdef SUPPORT_CAS
         do
         {
-            uint8_t *buf = NULL;
-            uint8_t *secmem_session = NULL;
-            uint32_t secmem_size = 512*1024; //TODO:
+            void *buf = NULL;
+            SecMemHandle secmem_handle;
+            uint32_t secmem_size = 0;
 
             if (!s_recplay_status[play_index].cas_status.is_smp)
                 break;
 
-            if (Secure_V2_SessionCreate(&secmem_session))
+            secmem_handle = AM_CA_CreateSecmem(SERVICE_PVR_PLAY, &buf, &secmem_size);
+            if (!secmem_handle)
             {
-                PLAY_DEBUG("Create secmem session failed.");
+                PLAY_DEBUG("Create replay secmem session failed.");
                 break;
             }
-            if (Secure_V2_Init(secmem_session, SECMEM_SOURCE_VDEC, 0x6001, 0, 0)) {
-                PLAY_DEBUG("Init secmem session failed");
-                Secure_V2_SessionDestroy(&secmem_session);
-                break;
-            }
-            if (Secure_V2_ResourceAlloc(secmem_session, &buf, &secmem_size)) {
-                PLAY_DEBUG("Alloc secmem buffer failed");
-                Secure_V2_SessionDestroy(&secmem_session);
-                break;
-            }
-            s_recplay_status[play_index].secmem_session = secmem_session;
+
+            s_recplay_status[play_index].secmem_handle = secmem_handle;
             s_recplay_status[play_index].secure_buf = buf;
             PLAY_DBG("secmem session: %#x, secure_buf:%#x, size:%#x",
-                    secmem_session, buf, secmem_size);
+                    secmem_handle, buf, secmem_size);
 
             dvr_wrapper_set_playback_secure_buffer(
                 s_recplay_status[play_index].player,

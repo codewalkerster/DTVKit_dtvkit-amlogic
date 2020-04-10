@@ -79,6 +79,10 @@ ifneq (,$(wildcard media_hal))
   MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
 endif
 
+ifeq ($(SUPPORT_CAS), true)
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include
+endif
+
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     LOCAL_C_INCLUDES += $(MEDIAHAL_INCLUDE)
     LOCAL_C_INCLUDES += vendor/amlogic/common/libdvr/include

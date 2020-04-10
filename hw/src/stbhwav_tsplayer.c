@@ -60,6 +60,7 @@
 #define  AV_AUDIO_CODEC_AAC    AV_AUDIO_CODEC_AAC_TSP
 #define  AV_AUDIO_CODEC_AC3    AV_AUDIO_CODEC_AC3_TSP
 
+#include "am_cas.h"
 #include "AmTsPlayer.h"
 
 #undef  AV_AUDIO_RIGHT
@@ -185,7 +186,7 @@ typedef struct
 
 #ifdef SUPPORT_CAS
    E_STB_DRM_TYPE drm_mode;
-   uint8_t *secmem_session;
+   SecMemHandle secmem_handle;
 #endif
 } AV_PATH_STATUS;
 
@@ -292,7 +293,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].audio_mode = AV_AUDIO_STEREO_TSP;
 #ifdef SUPPORT_CAS
             av_paths_status[av_path].drm_mode = DRM_NONE;
-            av_paths_status[av_path].secmem_session = NULL;
+            av_paths_status[av_path].secmem_handle = (SecMemHandle)NULL;
 #endif
          }
 
@@ -2547,26 +2548,12 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
 #ifdef SUPPORT_CAS
     parm.drmmode = av_paths_status[path].drm_mode;
 
-//TODO: will remove the following after include secmem head file
-extern uint32_t Secure_V2_Init(void *session, uint32_t source,
-  uint32_t flags, uint32_t paddr, uint32_t msize);
-extern uint32_t Secure_V2_SessionCreate(void **session);
-extern uint32_t Secure_V2_SessionDestroy(void **session);
-
-enum {
-  SECMEM_SOURCE_NONE = 0,
-  SECMEM_SOURCE_VDEC,
-  SECMEM_SOURCE_CODEC_MM
-};
-//
     if (parm.drmmode != DRM_NONE)
     {
-        if (Secure_V2_SessionCreate(&av_paths_status[path].secmem_session)) {
-            AV_DEBUG("Create live secmem session failed.");
-        } else {
-            if (Secure_V2_Init(av_paths_status[path].secmem_session, SECMEM_SOURCE_VDEC, 0x2001, 0, 0)) {
-                AV_DEBUG("Init live secmem session failed.");
-            }
+        av_paths_status[path].secmem_handle =
+                AM_CA_CreateSecmem(SERVICE_LIVE_PLAY, NULL, NULL);
+        if (!av_paths_status[path].secmem_handle) {
+            AV_DEBUG("Create live secmem failed.");
         }
     }
 #endif
@@ -2610,10 +2597,10 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
             av_paths_status[path].player_handle = INVALID_PLAYER_HANDLE;
         }
 #ifdef SUPPORT_CAS
-        if (av_paths_status[path].secmem_session)
+        if (av_paths_status[path].secmem_handle)
         {
-            Secure_V2_SessionDestroy(&av_paths_status[path].secmem_session);
-            av_paths_status[path].secmem_session = NULL;
+            AM_CA_DestroySecmem(av_paths_status[path].secmem_handle);
+            av_paths_status[path].secmem_handle = (SecMemHandle)NULL;
         }
 #endif
     }

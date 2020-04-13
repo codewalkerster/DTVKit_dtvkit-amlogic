@@ -60,7 +60,10 @@
 #define  AV_AUDIO_CODEC_AC3    AV_AUDIO_CODEC_AC3_TSP
 
 #include "dvr_wrapper.h"
+
+#ifdef SUPPORT_CAS
 #include "am_cas.h"
+#endif
 
 #undef  AV_AUDIO_RIGHT
 #undef  AV_AUDIO_LEFT

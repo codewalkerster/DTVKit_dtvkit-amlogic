@@ -60,7 +60,10 @@
 #define  AV_AUDIO_CODEC_AAC    AV_AUDIO_CODEC_AAC_TSP
 #define  AV_AUDIO_CODEC_AC3    AV_AUDIO_CODEC_AC3_TSP
 
+#ifdef SUPPORT_CAS
 #include "am_cas.h"
+#endif
+
 #include "AmTsPlayer.h"
 
 #undef  AV_AUDIO_RIGHT

@@ -1349,19 +1349,17 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
    {
       if (speed != s_recplay_status[play_index].play_speed)
       {
-         if (speed == 0 && s_recplay_status[play_index].play_speed == 100)
-         {
-            error = dvr_wrapper_pause_playback(s_recplay_status[play_index].player);
-         }
-         else if (speed == 100 && s_recplay_status[play_index].play_speed == 0)
+         if (speed == 100 && s_recplay_status[play_index].play_speed == 0)
          {
             error = dvr_wrapper_resume_playback(s_recplay_status[play_index].player);
          }
+         else if (speed == 0)
+         {
+            error = dvr_wrapper_pause_playback(s_recplay_status[play_index].player);
+         }
          else if (check_speed_ok(speed))
          {
-            if (s_recplay_status[play_index].play_speed == 0)
-               error = dvr_wrapper_resume_playback(s_recplay_status[play_index].player);
-            error = dvr_wrapper_set_playback_speed(s_recplay_status[play_index].player, speed);
+               error = dvr_wrapper_set_playback_speed(s_recplay_status[play_index].player, speed);
          }
          else
          {

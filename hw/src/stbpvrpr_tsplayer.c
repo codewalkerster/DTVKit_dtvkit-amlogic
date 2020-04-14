@@ -2227,6 +2227,15 @@ static DVR_Result_t RecEventHandler(DVR_RecordEvent_t event, void *params, void 
             }
             break;
          }
+         case DVR_RECORD_EVENT_WRITE_ERROR:
+         {
+            REC_DBG("## Recording stopped ##");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP, &rec_status->rec_index, sizeof(U8BIT));
+            U16BIT disk_id = getDiskIdByRecIndex(rec_status->rec_index);
+            REC_DBG("## Recording write fail, disk may be removed. ##");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED, &disk_id, sizeof(disk_id));
+            break;
+         }
          default:
          {
             REC_DBG("Unhandled recording event %d", event);

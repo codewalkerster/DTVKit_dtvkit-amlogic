@@ -951,8 +951,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
 #ifdef SUPPORT_CAS
 	 s_rec_status[rec_index].timeshift_duration = 120;  //TODO: will remove
-
-      PLAY_DBG("is_smp:%d", s_rec_status[rec_index].cas_status.is_smp);
+     PLAY_DBG("is_smp:%d", s_rec_status[rec_index].cas_status.is_smp);
 	 if (s_rec_status[rec_index].cas_status.is_smp)
 	 {
 	    rec_open_params.crypto_data = (void *)s_rec_status[rec_index].cas_status.cb_param;
@@ -1173,6 +1172,8 @@ void STB_PVRRecordStop(U8BIT rec_index)
 
          dvr_wrapper_close_record(s_rec_status[rec_index].recorder);
          s_rec_status[rec_index].recorder = NULL;
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
+                        &rec_index, sizeof(U8BIT));
          s_rec_status[rec_index].rec_state = REC_STOPPED;
       }
    }
@@ -1991,7 +1992,7 @@ static BOOLEAN updatePlayback(U8BIT play_index)
         if (s_recplay_status[play_index].cas_status.is_smp)
         {
             init_param.drmmode = TS_INPUT_BUFFER_TYPE_SECURE;
-            PLAY_DBG("hanyh: open drmmode:%d", init_param.drmmode);
+            PLAY_DBG("open drmmode:%d", init_param.drmmode);
         }
 #endif
          am_tsplayer_result result =

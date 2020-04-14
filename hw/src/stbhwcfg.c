@@ -68,6 +68,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .net_id_max = 0xffff,
     .orig_net_id_max = 0xffff,
     .usr_def_orig_net_id = 0xffff,
+    .net_id_change_update = 0,
     },
 .sipsi = {
     .sdt_timeout = 15000,
@@ -236,6 +237,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         cfg->network.net_id_max = 0xffff;
         cfg->network.orig_net_id_max = 0xffff;
         cfg->network.usr_def_orig_net_id = 0xffff;
+        cfg->network.net_id_change_update = 0;
         att = atts;
         while (*att) {
             an = att[0];
@@ -252,6 +254,10 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                 i = strtol(av, NULL, 0);
                 if ((i != LONG_MIN) && (i != LONG_MAX))
                     cfg->network.usr_def_orig_net_id = i;
+            }else if (!strcmp(an, "net_id_change_update")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->network.net_id_change_update = i;
             }
             att += 2;
         }
@@ -438,6 +444,15 @@ void STB_Get_Max_Network_Id(int *net_id_max, int *orig_net_id_max)
 int STB_Get_Usr_Orig_Net_Id()
 {
    return aml_hw_cfg.network.usr_def_orig_net_id;
+}
+
+/**
+ * @brief   get support that network id changed whether auto update channels
+ * @return  net_id_change_update
+ */
+int STB_NetId_Change_Update_Ch()
+{
+   return aml_hw_cfg.network.net_id_change_update == 1 ? 1 : 0;
 }
 
 /**

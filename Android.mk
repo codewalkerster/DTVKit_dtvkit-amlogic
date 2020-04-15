@@ -83,9 +83,14 @@ ifeq ($(SUPPORT_CAS), true)
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include
 endif
 
+LIBDVR_PATH:=vendor/amlogic/common/libdvr_release/include
+ifneq (,$(wildcard vendor/amlogic/common/libdvr))
+LIBDVR_PATH:=vendor/amlogic/common/libdvr/include
+endif
+
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     LOCAL_C_INCLUDES += $(MEDIAHAL_INCLUDE)
-    LOCAL_C_INCLUDES += vendor/amlogic/common/libdvr/include
+    LOCAL_C_INCLUDES += $(LIBDVR_PATH)
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \

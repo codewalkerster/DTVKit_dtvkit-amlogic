@@ -2739,7 +2739,7 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
 
 static void PlayEventHandler(long dev_no, int event_type, void *param, void *data)
 {
-   static int last_status = AV_TIMESHIFT_STATUS_EXIT;
+   static int last_status = -1;
 
    S_RECPLAY_STATUS *play_status;
 
@@ -2780,15 +2780,30 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
                PLAY_DBG("Info update: current=%d, full=%d, status=%d", info->current_time,
                   info->full_time, info->status);
 
-               if ((play_status->play_state == PLAY_STARTING) &&
-                  ((info->status == AV_TIMESHIFT_STATUS_PLAY) ||
-                   (info->status == AV_TIMESHIFT_STATUS_PAUSE) ||
-                   (info->status == AV_TIMESHIFT_STATUS_FFFB)))
+               if ((play_status->play_state == PLAY_STARTING)
+                  && ((info->status == AV_TIMESHIFT_STATUS_PLAY) ||
+                      (info->status == AV_TIMESHIFT_STATUS_PAUSE) ||
+                      (info->status == AV_TIMESHIFT_STATUS_FFFB)))
                {
                   /* Playback has started successfully */
                   PLAY_DBG("Timeshift playback has started");
                   play_status->play_state = PLAY_STARTED;
                   STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, NULL, 0);
+               }
+
+               if ((play_status->play_state == PLAY_STARTING
+                  || play_status->play_state == PLAY_STARTED)
+                  && (info->status == AV_TIMESHIFT_STATUS_EXIT))
+               {
+                  /* Playback exit due to some reason*/
+                  PLAY_DBG("Timeshift playback has stopped");
+
+                  /*do not reset the status, like following line doing,
+                    this is an event that upper layer does not expect,
+                    will call back, and clean the battlefield soon*/
+                  /*play_status->play_status = PLAY_STOPPED;*/
+
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
                }
 
                last_status = info->status;

@@ -2288,6 +2288,20 @@ static DVR_Result_t PlayEventHandler(DVR_PlaybackEvent_t event, void *params, vo
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_EOF, NULL, 0);
             break;
          }
+         case DVR_PLAYBACK_EVENT_ERROR:
+         {
+            /**< Playback fail*/
+            PLAY_DBG("Playback has been failed");
+
+            /*do not reset the status, like following line doing,
+              this is an event that upper layer does not expect,
+              will call back, and clean the battlefield soon*/
+            /*play_status->play_status = PLAY_STOPPED;*/
+
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
+            break;
+         }
+
          default:
          {
             PLAY_DBG("Unhandled event %d", event);

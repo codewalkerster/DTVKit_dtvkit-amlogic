@@ -177,7 +177,7 @@ void STB_TuneInitialise(U8BIT paths)
    /* Find out how many tuners are available */
    for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < aml_hw_cfg.tuner_num); )
    {
-      snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", num_paths);
+      snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[num_paths].frontend_idx);
       if (stat(fe_name, &file_status) == 0)
       {
          TUN_DBG("found %s", fe_name);
@@ -1674,19 +1674,19 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
 {
    BOOLEAN retval;
    char fe_name[24];
-
+   int tuner_index;
    retval = TRUE;
 
-   snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", tstatus->path);
-
+   tuner_index = tstatus->path >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : tstatus->path;
+   snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[tuner_index].frontend_idx);
    if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
    {
-      TUN_ERR("Failed to open %s, errno %d", fe_name, errno);
+      TUN_ERR("Failed to open tune[%d] %s, errno %d", tuner_index, fe_name, errno);
       retval = FALSE;
    }
    else
    {
-      TUN_DBG("open frontend_fd:%d", tstatus->frontend_fd);
+      TUN_DBG("Open tune[%d] %s frontend_fd:%d ", tuner_index, fe_name, tstatus->frontend_fd);
    }
 
    return(retval);

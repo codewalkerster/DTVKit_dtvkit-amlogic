@@ -33,6 +33,7 @@ stb_hardware_cfg aml_hw_cfg = {
 .tuners = {
 	{
 	.ts_input_idx  = 2,
+	.frontend_idx  = 0,
 	.signal_types  = 0,
 	.support_dvbt2 = 1,
 	.support_dvbs2 = 1
@@ -98,6 +99,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 		tun = &cfg->tuners[cfg->tuner_num ++];
 
 		tun->ts_input_idx  = 0;
+		tun->frontend_idx  = 0;
 		tun->signal_types  = 0;
 		tun->support_dvbt2 = 0;
 		tun->support_dvbs2 = 0;
@@ -113,7 +115,14 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 				i = strtol(av, NULL, 0);
 				if ((i != LONG_MIN) && (i != LONG_MAX))
 					tun->ts_input_idx = i;
-			} else if (!strcmp(an, "dvbt") && !strcmp(av, "yes")) {
+			} else if (!strcmp(an, "frontend")) {
+				long int i;
+				i = strtol(av, NULL, 0);
+				if ((i != LONG_MIN) && (i != LONG_MAX)) {
+					STB_SPDebugWrite("find cfg, frontend:%d", i);
+					tun->frontend_idx = i;
+				}
+			}else if (!strcmp(an, "dvbt") && !strcmp(av, "yes")) {
 				tun->signal_types  |= TUNE_SIGNAL_COFDM;
 			} else if (!strcmp(an, "dvbt2") && !strcmp(av, "yes")) {
 				tun->signal_types  |= TUNE_SIGNAL_COFDM;
@@ -384,9 +393,10 @@ void STB_CfgInitialise(void)
 	for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
 		stb_tuner_cfg *tun = &aml_hw_cfg.tuners[i];
 
-		CFG_DBG("tuner%d ts_input:%d signal_types:%d dvbt2:%d dvbs2:%d",
+		CFG_DBG("tuner%d ts_input:%d frontend:%d signal_types:%d dvbt2:%d dvbs2:%d",
 				i,
 				tun->ts_input_idx,
+				tun->frontend_idx,
 				tun->signal_types,
 				tun->support_dvbt2,
 				tun->support_dvbs2);

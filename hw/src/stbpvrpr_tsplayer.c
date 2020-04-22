@@ -129,12 +129,14 @@ typedef struct
 
    DVR_WrapperRecord_t recorder;
    DVR_WrapperPidsInfo_t pids_info;
+   DVR_WrapperRecordStatus_t status;
 
    BOOLEAN has_video;
    BOOLEAN has_audio;
 
    E_STB_PVR_START_MODE rec_mode;
    U32BIT timeshift_duration;
+   U32BIT timeshift_size;/*unit:MB*/
 
    U16BIT disk_id;
    U8BIT basename[16];
@@ -892,6 +894,11 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
    return(FALSE);
 }
 
+U32BIT STB_PVRGetRecordingSegmentSizeKB()
+{
+   return getPVRConfigInt("vendor.tv.dtv.pvr.segment_size_kb", 100 * 1024/*100MB*/);
+}
+
 /**
  * @brief   Starts recording
  * @param   disk_id disk on which the recording is to be saved
@@ -901,7 +908,6 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
  * @param   pid_array PIDs to be recorded
  * @return  TRUE if recording is started, FALSE otherwise
  */
-
 BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    U16BIT num_pids, S_PVR_PID_INFO *pid_array)
 {
@@ -932,9 +938,13 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       memset(&rec_open_params, 0, sizeof(DVR_WrapperRecordOpenParams_t));
 
       rec_open_params.dmx_dev_id = s_rec_status[rec_index].rec_demux;
-      rec_open_params.segment_size = 100 * 1024 * 1024;/*100MB*/
+      rec_open_params.segment_size = STB_PVRGetRecordingSegmentSizeKB() * 1024;
       rec_open_params.max_size = 0;
       rec_open_params.max_time = 0;
+      if (is_timeshift) {
+        rec_open_params.max_time = s_rec_status[rec_index].timeshift_duration * 1000;
+        rec_open_params.max_size = s_rec_status[rec_index].timeshift_size * 1024 * 1024;
+      }
       rec_open_params.event_fn = RecEventHandler;
       rec_open_params.event_userdata = &s_rec_status[rec_index];
       rec_open_params.flags = 0;
@@ -955,7 +965,6 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       rec_open_params.is_timeshift = (is_timeshift) ? DVR_TRUE : DVR_FALSE;
 
 #ifdef SUPPORT_CAS
-	 s_rec_status[rec_index].timeshift_duration = 120;  //TODO: will remove
      PLAY_DBG("is_smp:%d", s_rec_status[rec_index].cas_status.is_smp);
 	 if (s_rec_status[rec_index].cas_status.is_smp)
 	 {
@@ -1239,18 +1248,22 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
  * @param   rec_index recording index to be used for the recording
  * @param   mode startup mode
  * @param   param additional parameter linked to the mode. When pausing live TV,
-                    this is the length of the pause buffer, in seconds.
+ *          this is the length of the pause buffer, in seconds.
+ *          format:
+ *             [0] - duration, in seconds
+ *             [1] - size, in megabytes
  */
-void STB_PVRSetRecordStartMode(U8BIT rec_index, E_STB_PVR_START_MODE mode, U32BIT param)
+void STB_PVRSetRecordStartMode(U8BIT rec_index, E_STB_PVR_START_MODE mode, U32BIT *param)
 {
    FUNCTION_START(STB_PVRSetRecordStartMode);
 
-   REC_DBG("index %u, mode %u, param %lu", rec_index, mode, param);
+   REC_DBG("index %u, mode %u, duration %lus, size %luMB", rec_index, mode, param[0], param[1]);
 
    if (rec_index < num_recorders)
    {
       s_rec_status[rec_index].rec_mode = mode;
-      s_rec_status[rec_index].timeshift_duration = param;
+      s_rec_status[rec_index].timeshift_duration = param[0];
+      s_rec_status[rec_index].timeshift_size = param[1];
       s_rec_status[rec_index].rec_state = REC_STOPPED;
    }
 
@@ -1604,7 +1617,7 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
       error = dvr_wrapper_get_playback_status(s_recplay_status[play_index].player, &status);
       if (!error)
       {
-         seconds = status.info_cur.time / 1000;
+         seconds = (status.info_cur.time + status.info_obsolete.time) / 1000;
 
          *elapsed_hours = seconds / 3600;
          *elapsed_mins = seconds / 60 - (*elapsed_hours * 60);
@@ -1624,6 +1637,34 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
    FUNCTION_FINISH(STB_PVRGetElapsedTime);
 
    return(retval);
+}
+
+/**
+ * @brief   Returns the length in time of the recording
+ * @param   rec_index recording index to be set
+ * @param   secs returned length of recording in seconds
+ * @param   secs_truncated returned truncated length of recording in seconds
+ * @return  TRUE if the information is successfully gathered
+ */
+BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT *secs_truncated)
+{
+   BOOLEAN retval;
+
+   FUNCTION_START(STB_PVRGetRecordingLengthTruncated);
+
+   retval = FALSE;
+
+   if (secs)
+      *secs = (s_rec_status[rec_index].status.info.time + s_rec_status[rec_index].status.info_obsolete.time) / 1000;
+
+   if (secs_truncated)
+      *secs_truncated = s_rec_status[rec_index].status.info_obsolete.time / 1000;
+
+   retval = TRUE;
+
+   FUNCTION_FINISH(STB_PVRGetRecordingLengthTruncated);
+
+   return retval;
 }
 
 /**
@@ -1881,7 +1922,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
  */
 U32BIT STB_PVRGetMinDiskSpace()
 {
-   return getPVRConfigInt("tv.dtv.pvr.disk_free_min_to_start_kb", 0);
+   return getPVRConfigInt("vendor.tv.dtv.pvr.disk_free_min_to_start_kb", 0);
 }
 
 /**
@@ -1890,7 +1931,7 @@ U32BIT STB_PVRGetMinDiskSpace()
  */
 U32BIT STB_PVRGetMinDiskSpaceLeft()
 {
-   return getPVRConfigInt("tv.dtv.pvr.disk_free_min_to_stop_kb", 10*1024);
+   return getPVRConfigInt("vendor.tv.dtv.pvr.disk_free_min_to_stop_kb", 10*1024);
 }
 
 void STB_PVRCheckDiskSpace(void)
@@ -1927,7 +1968,6 @@ BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **
    }
    return ret;
 }
-
 //---local function definitions------------------------------------------------
 
 static BOOLEAN updatePlayback(U8BIT play_index)
@@ -2211,6 +2251,7 @@ static DVR_Result_t RecEventHandler(DVR_RecordEvent_t event, void *params, void 
    {
       rec_status = (S_REC_STATUS *)userdata;
       DVR_WrapperRecordStatus_t *status = (DVR_WrapperRecordStatus_t *)params;
+      rec_status->status = *status;
 
       switch (event)
       {
@@ -2270,9 +2311,10 @@ static DVR_Result_t PlayEventHandler(DVR_PlaybackEvent_t event, void *params, vo
             /**< Update the current player information*/
             DVR_WrapperPlaybackStatus_t *status = (DVR_WrapperPlaybackStatus_t *)params;
             {
-               PLAY_DBG("Info update: current=%d, full=%d, state=%d",
+               PLAY_DBG("Info update: current=%lu, full=%lu, state=%d, obsolete=%lu",
                   status->info_cur.time,
                   status->info_full.time,
+                  status->info_obsolete.time,
                   status->state);
 
                if ((play_status->play_state == PLAY_STARTING) &&

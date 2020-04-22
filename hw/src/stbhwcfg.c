@@ -17,6 +17,8 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
+#include "am_types.h"
+
 #define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
 
 #define CFG_PARSER_BUF_SIZE 512
@@ -529,3 +531,24 @@ int STB_Get_SI_PSI_Timeout(E_SI_PSI_TYPE sipsi_type)
    return si_psi_timeout;
 }
 
+/**
+ * @brief   get dynamic prop
+   @param   name prop name
+   @param   buf returned value
+   @param   len length of buf
+   @return  TRUE if got, FALSE otherwise
+ */
+BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
+{
+   return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
+}
+
+/**
+ * @brief   set dynamic prop
+   @param   name prop name
+   @param   value set value
+ */
+void STB_Set_Prop(const char *name, const char *value)
+{
+    AM_PropEcho(name, value);
+}

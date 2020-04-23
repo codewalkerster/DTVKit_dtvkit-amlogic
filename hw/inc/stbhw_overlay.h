@@ -20,8 +20,6 @@
  * @date    August 2019
  */
 
-#include <stdbool.h>
-
 #ifndef STBHW_OVERLAY_H
 #define STBHW_OVERLAY_H
 
@@ -32,7 +30,7 @@
 /**
  * @brief Method for setting overlay surface size (Android specific).
  */
-typedef void (*F_OverlaySetSize)(int id, bool scale, unsigned int startx, unsigned int starty, unsigned int width, unsigned int height);
+typedef void (*F_OverlaySetSize)(int id, unsigned int width, unsigned int height);
 
 /**
  * @brief Method for updating to an overlay surface (Android specific).
@@ -48,16 +46,5 @@ typedef void (*F_OverlayDisplay)(void);
  * @brief Register Android overlay functions.
  */
 void STB_OSDRegisterOverlayFuncs(F_OverlaySetSize, F_OverlayUpdate, F_OverlayDisplay);
-
-/**
- * @brief   Reconifugres the OSD for a new screen size
- * @param   scaling TRUE if osd scaling is required due to MHEG scene
- *          aspect ratio, FALSE otherwise
- * @param   width width of OSD in pixels
- * @param   height height of OSD in pixels
- * @param   x_offset offset of OSD from left of screen, in pixels
- * @param   y_offset offset of OSD from top of screen, in pixels
- */
-void STB_OSDModifyPosition(BOOLEAN scaling, U16BIT width, U16BIT height, U16BIT x_offset, U16BIT y_offset);
 
 #endif /*STBHW_OVERLAY_H*/

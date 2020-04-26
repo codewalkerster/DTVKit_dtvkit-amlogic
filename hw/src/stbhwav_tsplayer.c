@@ -1128,6 +1128,10 @@ void STB_AVStopVideoDecoding(U8BIT path)
    }
    if ((info.flags != 0) && (av_paths_status[path].callback != NULL))
    {
+      /*reset the afd*/
+      info.flags |= VIDEO_INFO_AFD;
+      info.afd = 0;
+
       av_paths_status[path].callback(&info, av_paths_status[path].user_data);
    }
 

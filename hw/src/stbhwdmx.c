@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <errno.h>
 
 /* third party header files */
 #include <linux/dvb/dmx.h>
@@ -174,6 +176,7 @@ static void CloseSectionFilters(U8BIT path);
 static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void STB_SetTsoutSource(void);
+static int dmx_file_echo(const char *name, const char *cmd);
 /*---global function definitions---------------------------------------------*/
 
 
@@ -188,6 +191,9 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
    AM_DMX_OpenPara_t open_params;
    U16BIT i;
    U16BIT j;
+
+   char buf[128];
+   char cmd[32];
 
    FUNCTION_START(STB_DMXInitialise);
 
@@ -247,8 +253,20 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                   }
 
                   /* Default sources for each path */
-                  demux_status[i].source = DMX_MEMORY;
-                  demux_status[i].source_param = 255;
+                  memset(buf, 0, sizeof(buf));
+                  memset(cmd, 0, sizeof(cmd));
+                  snprintf(buf, sizeof(buf), "/sys/class/stb/demux%d_source", i);
+                  snprintf(cmd, sizeof(cmd), "ts%d", aml_hw_cfg.tuners[0].ts_input_idx);
+                  am_result = dmx_file_echo(buf, cmd);
+                  if (am_result == AM_SUCCESS)
+                  {
+                      demux_status[i].source = DMX_TUNER;
+                      demux_status[i].source_param = 0;
+                  } else {
+                      demux_status[i].source = DMX_MEMORY;
+                      demux_status[i].source_param = 255;
+                  }
+                  DMX_ERR("dmx%d ts_input:ts%d ret:%d", i, aml_hw_cfg.tuners[0].ts_input_idx, am_result);
 
                   if (inc_pes_collection)
                   {
@@ -2135,3 +2153,30 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
    FUNCTION_FINISH(PesCallback);
 }
 
+/**
+ * @brief   file echo
+ * @param   param - name cmd
+ */
+static int dmx_file_echo(const char *name, const char *cmd)
+{
+    int fd, ret, len;
+    fd = open(name, O_WRONLY);
+    if(fd==-1)
+    {
+        DMX_ERR("cannot open file \"%s\"", name);
+        return -1;
+    }
+
+    len = strlen(cmd);
+
+    ret = write(fd, cmd, len);
+    if(ret!=len)
+    {
+        DMX_ERR("write failed file:\"%s\" cmd:\"%s\" error:\"%s\"", name, cmd, strerror(errno));
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+    return 0;
+}

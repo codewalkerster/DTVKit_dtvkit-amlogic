@@ -724,6 +724,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
              PLAY_DBG("destroy secmem handle:%#x, secure_buf:%#x",
                 s_recplay_status[play_index].secmem_handle,
                 s_recplay_status[play_index].secure_buf);
+
+             memset(&s_recplay_status[play_index].cas_status, 0, sizeof(S_CAS_STATUS));
              
              if (s_recplay_status[play_index].secmem_handle)
              {

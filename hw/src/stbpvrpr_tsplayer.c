@@ -486,7 +486,11 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
          {
             DVR_WrapperPidsInfo_t *p_pids_info = &s_rec_status[rec_index].pids_info;
+            BOOLEAN has_audio;
+            U16BIT audio_pid;
+            DVR_AudioFormat_t audio_fmt;
 
+            has_audio = FALSE;
             for (i = 0; i < p_pids_info->nb_pids; i++) {
                switch (DVR_STREAM_TYPE_TO_TYPE(p_pids_info->pids[i].type))
                {
@@ -495,16 +499,28 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                   s_recplay_status[play_index].video_pid = p_pids_info->pids[i].pid;
                   s_recplay_status[play_index].video_fmt = DVR_STREAM_TYPE_TO_FMT(p_pids_info->pids[i].type);
                   break;
-#ifdef PRE_SET_AUDIO
-                  /*audio track will be resolved from upper layer*/
+
+                  /*audio track will be resolved from upper layer, except radio*/
                   case DVR_STREAM_TYPE_AUDIO:
-                  s_recplay_status[play_index].has_audio = s_rec_status[rec_index].has_audio;
-                  s_recplay_status[play_index].audio_pid = p_pids_info->pids[i].pid;
-                  s_recplay_status[play_index].audio_fmt = DVR_STREAM_TYPE_TO_FMT(p_pids_info->pids[i].type);
+                  has_audio = s_rec_status[rec_index].has_audio;
+                  audio_pid = p_pids_info->pids[i].pid;
+                  audio_fmt = DVR_STREAM_TYPE_TO_FMT(p_pids_info->pids[i].type);
                   break;
-#endif
+
                   default:
                   break;
+               }
+            }
+
+#ifndef PRE_SET_AUDIO
+            if (!s_recplay_status[play_index].has_video)
+#endif
+            {
+               if (has_audio)
+               {
+                  s_recplay_status[play_index].has_audio = has_audio;
+                  s_recplay_status[play_index].audio_pid = audio_pid;
+                  s_recplay_status[play_index].audio_fmt = audio_fmt;
                }
             }
          }
@@ -527,13 +543,20 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                 sizeof(location));
 
             error = dvr_segment_get_list(location, &segment_nb, &p_segment_ids);
-            if (!error && segment_nb) {
+            if (!error && segment_nb)
+            {
                error = dvr_segment_get_info(location, p_segment_ids[0], &seg_info);
                free(p_segment_ids);
             }
 
-            if (!error) {
-               for (i = 0; i < seg_info.nb_pids; i++) {
+            if (!error)
+            {
+               BOOLEAN has_audio;
+               U16BIT audio_pid;
+               DVR_AudioFormat_t audio_fmt;
+
+               for (i = 0; i < seg_info.nb_pids; i++)
+               {
                   switch (DVR_STREAM_TYPE_TO_TYPE(seg_info.pids[i].type))
                   {
                      case DVR_STREAM_TYPE_VIDEO:
@@ -541,15 +564,27 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                      s_recplay_status[play_index].video_pid = seg_info.pids[i].pid;
                      s_recplay_status[play_index].video_fmt = DVR_STREAM_TYPE_TO_FMT(seg_info.pids[i].type);
                      break;
-#ifdef PRE_SET_AUDIO
+
                      case DVR_STREAM_TYPE_AUDIO:
-                     s_recplay_status[play_index].has_audio = TRUE;
-                     s_recplay_status[play_index].audio_pid = seg_info.pids[i].pid;
-                     s_recplay_status[play_index].audio_fmt = DVR_STREAM_TYPE_TO_FMT(seg_info.pids[i].type);
+                     has_audio = TRUE;
+                     audio_pid = seg_info.pids[i].pid;
+                     audio_fmt = DVR_STREAM_TYPE_TO_FMT(seg_info.pids[i].type);
                      break;
-#endif
+
                      default:
                      break;
+                  }
+               }
+
+#ifndef PRE_SET_AUDIO
+               if (!s_recplay_status[play_index].has_video)
+#endif
+               {
+                  if (has_audio)
+                  {
+                     s_recplay_status[play_index].has_audio = has_audio;
+                     s_recplay_status[play_index].audio_pid = audio_pid;
+                     s_recplay_status[play_index].audio_fmt = audio_fmt;
                   }
                }
             }
@@ -973,8 +1008,6 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 	 }
 #endif
 
-      error = dvr_wrapper_open_record(&s_rec_status[rec_index].recorder, &rec_open_params);
-      if (!error)
       {
          s_rec_status[rec_index].disk_id = disk_id;
          strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename));
@@ -1035,6 +1068,15 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
             }
          }
          s_rec_status[rec_index].pids_info.nb_pids = cnt;
+      }
+
+      /*flush size for radio*/
+      if (!s_rec_status[rec_index].has_video)
+         rec_open_params.flush_size = 1024;
+
+      error = dvr_wrapper_open_record(&s_rec_status[rec_index].recorder, &rec_open_params);
+      if (!error)
+      {
 
 #ifdef SUPPORT_CAS
         do

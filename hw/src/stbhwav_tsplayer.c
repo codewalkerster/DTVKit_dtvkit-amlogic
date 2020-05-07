@@ -159,7 +159,7 @@ typedef struct
    U8BIT decoder;
    E_STB_AV_DECODE_SOURCE source;
    U8BIT demux;
-
+   pthread_rwlock_t lock;
    am_tsplayer_handle player_handle;
    am_tsplayer_video_codec video_format;
    am_tsplayer_audio_codec audio_format;
@@ -298,6 +298,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].drm_mode = DRM_NONE;
             av_paths_status[av_path].secmem_handle = (SecMemHandle)NULL;
 #endif
+            pthread_rwlock_init(&av_paths_status[av_path].lock, NULL);
          }
 
          display_info.screen_width = 1920;
@@ -1212,14 +1213,18 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
    am_tsplayer_result ret;
    am_tsplayer_handle player_handle;
    FUNCTION_START(STB_AVGetSTC);
+   pthread_rwlock_rdlock(&av_paths_status[path].lock);
 
    ret = AV_GetPlayerHandleByPath(path, &player_handle, FALSE);
    if (ret != AM_TSPLAYER_OK)
    {
        AUD_DBG("Cannot get player handle[%d]", path);
+	   pthread_rwlock_unlock(&av_paths_status[path].lock);
        return;
    }
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
    ret = AmTsPlayer_getPts(player_handle, TS_STREAM_VIDEO, &video_pts);
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
    if (ret == AM_TSPLAYER_OK)
    {
        memset(stc, 0, 5);
@@ -1230,6 +1235,7 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
        stc[4] = (U8BIT)(video_pts & 0xff);
        AUD_DBG("######### %x%x%x%x%x [%u] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
    }
+   pthread_rwlock_unlock(&av_paths_status[path].lock);
    FUNCTION_FINISH(STB_AVGetSTC);
 }
 
@@ -2304,6 +2310,16 @@ void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event)
    FUNCTION_FINISH(STB_AVNotifyEventHandler);
 }
 
+pthread_rwlock_t * STB_AVGetLockByPath(U8BIT path)
+{
+    FUNCTION_START(STB_AVGetLockByPath);
+
+    if (path < num_paths)
+        return &(av_paths_status[path].lock);
+    return NULL;
+
+    FUNCTION_FINISH(STB_AVGetLockByPath);
+}
 
 /*---local function definitions----------------------------------------------*/
 
@@ -2577,6 +2593,7 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
         }
     }
 #endif
+    pthread_rwlock_wrlock(&av_paths_status[path].lock);
     ret = AmTsPlayer_create(parm, &player_handle);
     if (ret == AM_TSPLAYER_OK)
     {
@@ -2590,14 +2607,14 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
         av_paths_status[path].player_handle = INVALID_PLAYER_HANDLE;
         AV_DBG("Create Ts player failed, err:%d", ret);
     }
-
+    pthread_rwlock_unlock(&av_paths_status[path].lock);
     return ret;
 }
 
 am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
 {
     am_tsplayer_result ret;
-
+    pthread_rwlock_wrlock(&av_paths_status[path].lock);
 	AV_DBG("Will Release Ts player");
     if (IS_INVALID_PLAYER_HANDLE(path))
     {
@@ -2624,6 +2641,7 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
         }
 #endif
     }
+	pthread_rwlock_unlock(&av_paths_status[path].lock);
 
     return ret;
 }

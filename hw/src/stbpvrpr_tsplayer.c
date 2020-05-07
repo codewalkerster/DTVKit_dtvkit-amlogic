@@ -739,8 +739,11 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 
          {
             /*release TsPlayer*/
+            pthread_rwlock_t *lock = STB_AVGetLockByPath(s_recplay_status[play_index].video_decoder);
+            pthread_rwlock_wrlock(lock);
             AmTsPlayer_release(s_recplay_status[play_index].tsplayer_handle);
             s_recplay_status[play_index].tsplayer_handle = INVALID_PLAYER_HDLE;
+            pthread_rwlock_unlock(lock);
          }
 
          s_recplay_status[play_index].play_state = PLAY_STOPPED;
@@ -1930,6 +1933,7 @@ BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **
 static BOOLEAN updatePlayback(U8BIT play_index)
 {
    BOOLEAN done;
+   pthread_rwlock_t *lock = NULL;
    DVR_PlaybackPids_t play_pids;
    int error;
 
@@ -1995,6 +1999,8 @@ static BOOLEAN updatePlayback(U8BIT play_index)
             PLAY_DBG("open drmmode:%d", init_param.drmmode);
         }
 #endif
+         lock = STB_AVGetLockByPath(s_recplay_status[play_index].video_decoder);
+         pthread_rwlock_wrlock(lock);
          am_tsplayer_result result =
             AmTsPlayer_create(init_param, &s_recplay_status[play_index].tsplayer_handle);
          PLAY_DBG("open TsPlayer %s, result(%d)", (result)? "FAIL" : "OK", result);
@@ -2019,7 +2025,7 @@ static BOOLEAN updatePlayback(U8BIT play_index)
          play_params.playback_handle =
             (Playback_DeviceHandle_t)s_recplay_status[play_index].tsplayer_handle;
       }
-
+	  pthread_rwlock_unlock(lock);
       play_params.dmx_dev_id = s_recplay_status[play_index].play_demux;
       play_params.event_fn = PlayEventHandler;
       play_params.event_userdata = &s_recplay_status[play_index];

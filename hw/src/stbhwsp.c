@@ -42,6 +42,8 @@
 #define DTVKIT_MACRO_END     } while(0)
 
 #define log_print(...) __android_log_print(ANDROID_LOG_INFO, "DTVKIT_LOG" TAG_EXT, __VA_ARGS__)
+#define time_consuming_print(...) __android_log_print(ANDROID_LOG_INFO, "time-consuming" TAG_EXT, __VA_ARGS__)
+
 #define DTVKIT_DEBUG(_fmt...) \
    DTVKIT_MACRO_BEGIN\
    if (1)\
@@ -99,6 +101,18 @@ static void lf_write(const char *log)
 }
 
 /*---global function definitions----------------------------------------------*/
+
+void STB_TimeConsumeDebug(const char *format, ... )
+{
+   FUNCTION_START(STB_TimeConsumeDebug);
+
+   ASSERT(format != NULL);
+
+   //printf("%s\n", debug_msg_buff);
+   time_consuming_print("%s", format);
+
+   FUNCTION_FINISH(STB_TimeConsumeDebug);
+}
 
 
 /**

@@ -410,7 +410,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
          ((tstatus->signal_type == TUNE_SIGNAL_QAM) && (tstatus->delivery_system == SYS_DVBC_ANNEX_A)))
       {
          start_tuning = FALSE;
-
+         STB_TimeConsumeDebug("Tune lock start");
          if (IsDiffSysType(tstatus))
          {
             start_tuning = TRUE;
@@ -1930,6 +1930,7 @@ static void TunerTask(void *param)
               STB_OSMutexUnlock(tstatus->mutex);
               state = tstatus->state;
               TUN_DBG("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
+              STB_TimeConsumeDebug("Tune lock end");
               goto Already_Tuned;
           }
           tstatus->state = TUNER_TUNING;
@@ -1999,6 +2000,7 @@ static void TunerTask(void *param)
               if (locked)
               {
                   TUN_DBG("%u: LOCKED", tstatus->path);
+                  STB_TimeConsumeDebug("Tune lock end");
 
                   STB_OSMutexLock(tstatus->mutex);
                   tstatus->state = TUNER_LOCKED;
@@ -2010,6 +2012,7 @@ static void TunerTask(void *param)
               else
               {
                   TUN_DBG("%u: NOT LOCKED", tstatus->path);
+                  STB_TimeConsumeDebug("Tune lock end");
 
                   //ClearTuner(tstatus);
 

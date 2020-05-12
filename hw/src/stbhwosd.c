@@ -36,7 +36,7 @@
 #include "stbhwos.h"
 #include "stbhwc.h"
 #include "stbhwosd.h"
-#ifdef SUPPORT_DTVKIT_IN_VENDOR
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
 #include "DTVKitInterface.h"
 #else
 #include "binderservice.h"

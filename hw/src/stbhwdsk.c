@@ -1257,7 +1257,11 @@ static void DiskMonitorTask(void *param)
    USE_UNWANTED_PARAM(param);
 
    /* Create the initial list of disks, but don't send events on start up */
+   #if ANDROID_PLATFORM_SDK_VERSION >= 30
+   STB_DSKAddDevicePathAndLoad("user", "/data/vendor/dtvkit", FALSE);
+   #else
    STB_DSKAddDevicePathAndLoad("user", "/data/data/org.dtvkit.inputsource", FALSE);
+   #endif
    RefreshDiskList(FALSE);
 
    while (TRUE)

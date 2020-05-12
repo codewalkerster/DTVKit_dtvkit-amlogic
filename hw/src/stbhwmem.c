@@ -65,7 +65,11 @@
 #define  SEC_DBG(x,...)
 #endif
 
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
+#define NVM_PATH "/data/vendor/dtvkit/NVM/"
+#else
 #define NVM_PATH "/data/data/org.dtvkit.inputsource/NVM/"
+#endif
 
 /*---constant definitions for this file--------------------------------------*/
 

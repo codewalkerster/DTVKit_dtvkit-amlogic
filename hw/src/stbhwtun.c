@@ -130,6 +130,7 @@ typedef struct
    BOOLEAN tuning_params_changed;
 
    U32BIT freq;
+   U8BIT plp_id;
    union
    {
       S_TERR_STATUS terr;
@@ -143,7 +144,6 @@ typedef struct
 static S_TUNER_STATUS *tuner_status = NULL;
 static U8BIT num_paths;
 
-
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
 static void CloseTuner(S_TUNER_STATUS *tstatus);
@@ -154,7 +154,7 @@ static void ClearTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
 static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus);
 static E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd);
-
+static void SetTunerT2PLP(U32BIT frontend_fd, U8BIT plp_id);
 
 
 
@@ -211,6 +211,7 @@ void STB_TuneInitialise(U8BIT paths)
             tuner_status[i].tuning_params_changed = FALSE;
             tuner_status[i].mutex = STB_OSCreateMutex();
             tuner_status[i].tune_sem = STB_OSCreateCountSemaphore(0);
+            tuner_status[i].plp_id = -1;
 
             if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
                TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
@@ -473,6 +474,10 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             }
 
             tstatus->tuning_params_changed = FALSE;
+            if (tstatus->delivery_system == SYS_DVBT2)
+            {
+                SetTunerT2PLP(tstatus->frontend_fd, tstatus->plp_id);
+            }
 
             if (StartTune(tstatus))
             {
@@ -1408,6 +1413,8 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSystemType(U8BIT path)
    return(type);
 }
 
+
+
 /**
  * @brief   Sets the Physical Layer Pipe to be acquired
  * @param   path the tuner path to set up
@@ -1415,27 +1422,16 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSystemType(U8BIT path)
  */
 void STB_TuneSetPLP(U8BIT path, U8BIT plp)
 {
-   struct dtv_property cmd;
-   struct dtv_properties props;
-
    FUNCTION_START(STB_TuneSetPLP);
 
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD) &&
       (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2))
    {
-       TUN_DBG("%u: PLP %u", path, plp);
-
-       memset(&cmd, 0, sizeof(struct dtv_property));
-
-       cmd.cmd = DTV_DVBT2_PLP_ID;
-       cmd.u.data = plp;
-
-       props.num = 1;
-       props.props = &cmd;
-
-       if (ioctl(tuner_status[path].frontend_fd, FE_SET_PROPERTY, &props) < 0)
+       TUN_DBG("%u: PLP new:old [%u:%u]", path, plp, tuner_status[path].plp_id);
+       if (tuner_status[path].plp_id != plp)
        {
-          TUN_ERR("%u: Failed to set number of PLPs, errno %d", path, errno);
+          tuner_status[path].plp_id = plp;
+          tuner_status[path].tuning_params_changed = TRUE;
        }
    }
 
@@ -2200,4 +2196,23 @@ static E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd)
 
     return tune_event;
 }
+
+static void SetTunerT2PLP(U32BIT frontend_fd, U8BIT plp_id)
+{
+    struct dtv_property cmd;
+    struct dtv_properties props;
+
+    TUN_DBG("Set PLP %u", plp_id);
+    memset(&cmd, 0, sizeof(struct dtv_property));
+    cmd.cmd = DTV_DVBT2_PLP_ID;
+    cmd.u.data = plp_id;
+    props.num = 1;
+    props.props = &cmd;
+
+    if (ioctl(frontend_fd, FE_SET_PROPERTY, &props) < 0)
+    {
+        TUN_ERR(" Failed to set number of PLPs, errno %d", errno);
+    }
+}
+
 

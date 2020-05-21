@@ -102,6 +102,7 @@ typedef struct
 
    E_STB_PVR_START_MODE rec_mode;
    U32BIT timeshift_duration;
+   U32BIT timeshift_size;/*unit:MB*/
 
    U16BIT disk_id;
    U8BIT basename[16];
@@ -109,6 +110,9 @@ typedef struct
 #ifdef SUPPORT_CAS
    S_CAS_STATUS cas_status;
 #endif
+
+   U32BIT secs_truncated;
+   U32BIT secs;
 } S_REC_STATUS;
 
 typedef struct {
@@ -1472,6 +1476,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 	 s_rec_status[rec_index].timeshift_duration = 120;
 #endif
          rec_params.total_time = s_rec_status[rec_index].timeshift_duration;
+         rec_params.total_size = s_rec_status[rec_index].timeshift_size * 1024 * 1024;
 
 #ifdef SUPPORT_CAS
 	 if (s_rec_status[rec_index].cas_status.is_smp)
@@ -1703,16 +1708,17 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
  * @param   param additional parameter linked to the mode. When pausing live TV,
                     this is the length of the pause buffer, in seconds.
  */
-void STB_PVRSetRecordStartMode(U8BIT rec_index, E_STB_PVR_START_MODE mode, U32BIT param)
+void STB_PVRSetRecordStartMode(U8BIT rec_index, E_STB_PVR_START_MODE mode, U32BIT *param)
 {
    FUNCTION_START(STB_PVRSetRecordStartMode);
 
-   REC_DBG("index %u, mode %u, param %lu", rec_index, mode, param);
+   REC_DBG("index %u, mode %u, duration %lus, size %luMB", rec_index, mode, param[0], param[1]);
 
    if (rec_index < num_recorders)
    {
       s_rec_status[rec_index].rec_mode = mode;
-      s_rec_status[rec_index].timeshift_duration = param;
+      s_rec_status[rec_index].timeshift_duration = param[0];
+      s_rec_status[rec_index].timeshift_size = param[1];
    }
 
    FUNCTION_FINISH(STB_PVRSetRecordStartMode);
@@ -2169,6 +2175,33 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
    return(retval);
 }
 
+/**
+ * @brief   Returns the length in time of the recording
+ * @param   rec_index recording index to be set
+ * @param   secs returned length of recording in seconds
+ * @param   secs_truncated returned truncated length of recording in seconds
+ * @return  TRUE if the information is successfully gathered
+ */
+BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT *secs_truncated)
+{
+   BOOLEAN retval;
+
+   FUNCTION_START(STB_PVRGetRecordingLengthTruncated);
+
+   retval = FALSE;
+
+   if (secs)
+      *secs = s_rec_status[rec_index].secs;
+
+   if (secs_truncated)
+      *secs_truncated = s_rec_status[rec_index].secs_truncated;
+
+   retval = TRUE;
+
+   FUNCTION_FINISH(STB_PVRGetRecordingLengthTruncated);
+
+   return retval;
+}
 /**
  * @brief   Returns the elapsed playback time in hours, mins & secs
  * @param   audio_decoder audio decoder being used for playback
@@ -2719,12 +2752,14 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
          case AM_TFILE_EVT_START_TIME_CHANGED:
          {
 //            REC_DBG("TFile start changed: %ld", (long)param);
+            rec_status->secs_truncated = (long)param / 1000;
             break;
          }
 
          case AM_TFILE_EVT_END_TIME_CHANGED:
          {
 //            REC_DBG("TFile end changed: %ld", (long)param);
+            rec_status->secs = (long)param / 1000;
             break;
          }
 

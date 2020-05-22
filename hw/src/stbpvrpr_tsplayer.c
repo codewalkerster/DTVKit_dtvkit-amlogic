@@ -2268,9 +2268,10 @@ static DVR_Result_t RecEventHandler(DVR_RecordEvent_t event, void *params, void 
                   }
                break;
                case DVR_RECORD_STATE_STOPPED:
-                  REC_DBG("Recording stopped, handle %p", rec_status->recorder);
-                  STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
-                     &rec_status->rec_index, sizeof(U8BIT));
+                  REC_DBG("Recording stopped evt, handle %p", rec_status->recorder);
+                  //move HW_EV_TYPE_PVR_REC_STOP to STB_PVRRecordStop
+                  //STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
+                  //   &rec_status->rec_index, sizeof(U8BIT));
                break;
                default:
                break;

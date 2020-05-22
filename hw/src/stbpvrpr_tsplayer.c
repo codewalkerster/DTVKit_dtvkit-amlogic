@@ -89,6 +89,8 @@
 //---constant definitions for this file----------------------------------------
 #define INVALID_RES_ID           255
 #define DVR_MODE_PROP    "vendor.tv.dtv.dvr.mode"
+#define DEFAULT_TIMESHIFT_BASENAME   "timeshif"
+
 //#define PRE_SET_AUDIO
 #define INVALID_PLAYER_HDLE -1
 
@@ -953,16 +955,25 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       dvr_mode = getDvrMode();
       setDvrMode(rec_open_params.dmx_dev_id, dvr_mode);
+      rec_open_params.is_timeshift = (is_timeshift) ? DVR_TRUE : DVR_FALSE;
 
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)rec_open_params.location,
          sizeof(rec_open_params.location));
       strncpy((char*)s_rec_status[rec_index].basename, (char*)basename, sizeof(s_rec_status[rec_index].basename));
-      snprintf(rec_open_params.location, DVR_MAX_LOCATION_SIZE,
-            "%s/%s", rec_open_params.location, s_rec_status[rec_index].basename);
-
-      REC_DBG("Starting recording in directory \"%s\"", rec_open_params.location);
 
       rec_open_params.is_timeshift = (is_timeshift) ? DVR_TRUE : DVR_FALSE;
+
+      if (rec_open_params.is_timeshift == DVR_TRUE) {
+        snprintf(rec_open_params.location, DVR_MAX_LOCATION_SIZE,
+              "%s/%s", rec_open_params.location, DEFAULT_TIMESHIFT_BASENAME);
+      } else {
+        snprintf(rec_open_params.location, DVR_MAX_LOCATION_SIZE,
+              "%s/%s", rec_open_params.location, s_rec_status[rec_index].basename);
+      }
+
+      REC_DBG("Starting recording in directory \"%s\" :: \"%s\"  len:%d \"%s\"", rec_open_params.location, strrchr(rec_open_params.location, '/'), strlen(strrchr(rec_open_params.location, '/')), s_rec_status[rec_index].basename);
+
+
 
 #ifdef SUPPORT_CAS
      PLAY_DBG("is_smp:%d", s_rec_status[rec_index].cas_status.is_smp);
@@ -2080,11 +2091,20 @@ static BOOLEAN updatePlayback(U8BIT play_index)
           PLAY_DBG("dec_func:%#x", play_params.crypto_fn);
       }
 #endif
-      STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
-         s_recplay_status[play_index].basename,
-         play_params.location,
-         sizeof(play_params.location));
+
       play_params.is_timeshift = (s_recplay_status[play_index].is_timeshift)? DVR_TRUE : DVR_FALSE;
+
+      if (play_params.is_timeshift == DVR_TRUE) {
+        STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
+           DEFAULT_TIMESHIFT_BASENAME,
+           play_params.location,
+           sizeof(play_params.location));
+      } else {
+        STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
+           s_recplay_status[play_index].basename,
+           play_params.location,
+           sizeof(play_params.location));
+      }
 
       error = dvr_wrapper_open_playback(&s_recplay_status[play_index].player, &play_params);
       if (!error)

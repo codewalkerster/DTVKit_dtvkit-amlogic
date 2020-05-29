@@ -1321,6 +1321,7 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
       break;
    case AV_AUDIO_CODEC_AAC:
    case AV_AUDIO_CODEC_HEAAC:
+   case AV_AUDIO_CODEC_HEAACV2:
       av_paths_status[path].audio_format = AFORMAT_AAC;
       AUD_DBG("AAC");
       break;

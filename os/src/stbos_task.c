@@ -72,8 +72,6 @@ void* STB_OSCreateTask(void (*function)(void *), void *param, U32BIT stack, U8BI
 
    FUNCTION_START(STB_OSCreateTask);
 
-   USE_UNWANTED_PARAM(name);
-
    // Create a set of default creation attributes
    pthread_attr_init(&attr);
 
@@ -97,6 +95,7 @@ void* STB_OSCreateTask(void (*function)(void *), void *param, U32BIT stack, U8BI
       TASK_DBG("Failed to create task %s, err=%d (%s)", name, err, strerror(err));
       handle = 0;
    }
+   pthread_setname_np(handle, name);
 
    // Destroy the creation attributes
    pthread_attr_destroy(&attr);

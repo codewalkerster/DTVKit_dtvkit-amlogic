@@ -1260,13 +1260,109 @@ BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO
    FUNCTION_START(STB_PVRRecordChangePids);
 
    REC_DBG("Recording %u", rec_index);
+   int cnt, i, j;
+   DVR_WrapperPidsInfo_t pids_info;
 
-   USE_UNWANTED_PARAM(rec_index);
-   USE_UNWANTED_PARAM(num_pids);
-   USE_UNWANTED_PARAM(pids_array);
+   pids_info.nb_pids = s_rec_status[rec_index].pids_info.nb_pids;
+   memcpy(&pids_info.pids, s_rec_status[rec_index].pids_info.pids,
+      sizeof(pids_info.pids));
+
+   if (rec_index < num_recorders)
+   {
+       REC_DBG("update recording %u, handle %p", rec_index, s_rec_status[rec_index].recorder);
+       if (s_rec_status[rec_index].recorder != NULL)
+       {
+          /* Setup the initial set of PIDs that are to be recorded */
+          REC_DBG("Recording PIDs:");
+          cnt = s_rec_status[rec_index].pids_info.nb_pids = 0;
+          for (i = 0; i < num_pids && cnt < DVR_MAX_RECORD_PIDS_COUNT; i++)
+          {
+             if (pids_array[i].type == PVR_PID_TYPE_VIDEO)
+             {
+                s_rec_status[rec_index].has_video = TRUE;
+                s_rec_status[rec_index].pids_info.pids[cnt].type =
+                   (DVR_STREAM_TYPE_VIDEO << 24) | toDvrVideoFormat(pids_array[i].u.video_codec);
+                s_rec_status[rec_index].pids_info.pids[cnt].pid = pids_array[i].pid;
+                cnt++;
+                REC_DBG("  VIDEO %u", pids_array[i].pid);
+             }
+             else if (pids_array[i].type == PVR_PID_TYPE_AUDIO)
+             {
+                s_rec_status[rec_index].has_audio = TRUE;
+                s_rec_status[rec_index].pids_info.pids[cnt].type =
+                   (DVR_STREAM_TYPE_AUDIO << 24) | toDvrAudioFormat(pids_array[i].u.audio_codec);
+                s_rec_status[rec_index].pids_info.pids[cnt].pid = pids_array[i].pid;
+                cnt++;
+                REC_DBG("  AUDIO %u", pids_array[i].pid);
+             }
+             else if (pids_array[i].type == PVR_PID_TYPE_SUBTITLES)
+             {
+                s_rec_status[rec_index].pids_info.pids[cnt].type = DVR_STREAM_TYPE_SUBTITLE << 24;
+                s_rec_status[rec_index].pids_info.pids[cnt].pid = pids_array[i].pid;
+                cnt++;
+                REC_DBG("  SUBTITLES %u", pids_array[i].pid);
+             }
+             else if (pids_array[i].type == PVR_PID_TYPE_TELETEXT)
+             {
+                s_rec_status[rec_index].pids_info.pids[cnt].type = DVR_STREAM_TYPE_TELETEXT << 24;
+                s_rec_status[rec_index].pids_info.pids[cnt].pid = pids_array[i].pid;
+                cnt++;
+                REC_DBG("  TELETEXT %u", pids_array[i].pid);
+             }
+             else if (pids_array[i].type == PVR_PID_TYPE_SECTION)
+             {
+                s_rec_status[rec_index].pids_info.pids[cnt].type = DVR_STREAM_TYPE_OTHER << 24;
+                s_rec_status[rec_index].pids_info.pids[cnt].pid = pids_array[i].pid;
+                cnt++;
+                REC_DBG("  SECTION %u", pids_array[i].pid);
+             }
+             else
+             {
+                REC_DBG("  Not recording %u, type %u", pids_array[i].pid, pids_array[i].type);
+             }
+          }
+          s_rec_status[rec_index].pids_info.nb_pids = cnt;
+
+          DVR_WrapperUpdatePidsParams_t rec_update_params;
+
+          memset(&rec_update_params, 0, sizeof(rec_update_params));
+          rec_update_params.nb_pids = s_rec_status[rec_index].pids_info.nb_pids;
+          memcpy(&rec_update_params.pids, s_rec_status[rec_index].pids_info.pids,
+             sizeof(rec_update_params.pids));
+          //set pid action creat keep or del,set default to creat
+          for (i = 0; i < rec_update_params.nb_pids; i++) {
+            rec_update_params.pid_action[i] = DVR_RECORD_PID_CREATE;
+          }
+          //update action set close or keep
+          for(i = 0; i < pids_info.nb_pids; i++) {
+            int found = 0;
+             for (j = 0; j < rec_update_params.nb_pids; j++) {
+              if (pids_info.pids[i].pid == rec_update_params.pids[j].pid) {
+                found = 1;
+                rec_update_params.pid_action[j] = DVR_RECORD_PID_KEEP;
+                REC_DBG("  keep %u", rec_update_params.pids[j].pid);
+              }
+             }
+             if (found == 0) {
+              //not found this pid ,so need del this pid.
+              if (rec_update_params.nb_pids < DVR_MAX_RECORD_PIDS_COUNT - 1) {
+                rec_update_params.pid_action[rec_update_params.nb_pids] = DVR_RECORD_PID_CLOSE;
+                rec_update_params.pids[rec_update_params.nb_pids].pid = pids_info.pids[i].pid;
+                rec_update_params.nb_pids++;
+                REC_DBG("  close %u", pids_info.pids[i].pid);
+              }
+             }
+          }
+          int error = dvr_wrapper_update_record_pids(s_rec_status[rec_index].recorder, &rec_update_params);
+          REC_DBG("wrap  update recording %u, handle %p end", rec_index, s_rec_status[rec_index].recorder);
+          if (error)
+          {
+             REC_DBG("Failed to update recording %u, error %d", s_rec_status[rec_index].recorder, error);
+          }
+       }
+   }
    FUNCTION_FINISH(STB_PVRRecordChangePids);
-
-   return(FALSE);
+   return(TRUE);
 }
 
 #ifdef SUPPORT_CAS

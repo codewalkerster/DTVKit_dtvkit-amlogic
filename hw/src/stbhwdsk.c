@@ -1210,7 +1210,7 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
    STB_OSMutexLock(disk_mutex);
 
    for (disk = disk_list; (disk != NULL) &&
-      ((strcmp(disk->device_name, device) != 0) || (strcmp(disk->mount_path, path) != 0)); )
+      (/*(strcmp(disk->device_name, device) != 0) ||*/ (strcmp(disk->mount_path, path) != 0)); )
    {
       DISK_DBG("Existed disk: %s, mounted on %s", disk->device_name, disk->mount_path);
       disk = disk->next;
@@ -1314,7 +1314,7 @@ static void RefreshDiskList(BOOLEAN send_events)
             STB_OSMutexLock(disk_mutex);
 
             for (disk = disk_list; (disk != NULL) &&
-               ((strcmp(disk->device_name, device_name) != 0) || (strcmp(disk->mount_path, mount_path) != 0)); )
+               (/*(strcmp(disk->device_name, device_name) != 0) ||*/ (strcmp(disk->mount_path, mount_path) != 0)); )
             {
                disk = disk->next;
             }
@@ -1342,9 +1342,10 @@ static void RefreshDiskList(BOOLEAN send_events)
                /* Existing disk so mark it as found */
                disk->found = TRUE;
             }
+
+            STB_OSMutexUnlock(disk_mutex);
          }
 
-         STB_OSMutexUnlock(disk_mutex);
       }
 
       fclose(fp);

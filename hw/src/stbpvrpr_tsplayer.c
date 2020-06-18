@@ -677,8 +677,8 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
 {
    BOOLEAN retval;
 
-      int error;
-      U8BIT play_index;
+   int error;
+   U8BIT play_index;
 
    FUNCTION_START(STB_PVRPlaySetPosition);
 
@@ -2323,10 +2323,14 @@ static DVR_Result_t RecEventHandler(DVR_RecordEvent_t event, void *params, void 
             {
                case DVR_RECORD_STATE_STARTED:
                   if (rec_status->rec_state == REC_STARTING) {
-                     REC_DBG("Recording started, handle %p", rec_status->recorder);
                      rec_status->rec_state = REC_STARTED;
+                     REC_DBG("Recording started, handle %p", rec_status->recorder);
                      STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,
                         &rec_status->rec_index, sizeof(U8BIT));
+                  } else {
+                    REC_DBG("Recording started, send store handle %p", rec_status->recorder);
+                     STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STORE,
+                         &rec_status->rec_index, sizeof(U8BIT));
                   }
                break;
                case DVR_RECORD_STATE_STOPPED:

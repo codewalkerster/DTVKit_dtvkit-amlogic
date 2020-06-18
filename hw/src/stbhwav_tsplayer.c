@@ -2698,12 +2698,14 @@ am_tsplayer_result AV_StartAudioDecode(am_tsplayer_handle player_hdle, U16BIT a_
         AUD_DBG("Set audio volume[%d] failed, err:%d", vol, ret);
         return ret;
     }
+#if 0
     ret = AmTsPlayer_setAudioMute(player_hdle, mute, mute);
     if (ret != AM_TSPLAYER_OK)
     {
         AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);
         return ret;
     }
+#endif
     ret = AmTsPlayer_startAudioDecoding(player_hdle);
     if (ret != AM_TSPLAYER_OK)
     {
@@ -2731,14 +2733,15 @@ am_tsplayer_result AV_SetAudioDecode(am_tsplayer_handle player_hdle, am_tsplayer
         AUD_DBG("Set audio volume[%d] failed, err:%d", vol, ret);
         return ret;
     }
+#if 0
     ret = AmTsPlayer_setAudioMute(player_hdle, mute, mute);
     if (ret != AM_TSPLAYER_OK)
     {
         AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);
         return ret;
     }
-
-    AUD_DBG("volume[%d], audio_mode[%d], mute[%d]", vol, audio_mode, mute);
+#endif
+    AUD_DBG("volume[%d], audio_mode[%d] ", vol, audio_mode);
     return ret;
 }
 

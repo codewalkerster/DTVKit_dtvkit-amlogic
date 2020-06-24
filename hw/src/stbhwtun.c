@@ -94,6 +94,11 @@ typedef struct
 
 typedef struct
 {
+   E_STB_TUNE_TBWIDTH tbwidth;
+} S_ISDBT_STATUS;
+
+typedef struct
+{
    U32BIT srate;
    E_STB_TUNE_CMODE cmode;
 } S_CABLE_STATUS;
@@ -160,6 +165,7 @@ typedef struct
       S_TERR_STATUS terr;
       S_CABLE_STATUS cab;
       S_SAT_STATUS sat;
+      S_ISDBT_STATUS isdbt;
    } u;
 
    pthread_mutex_t    lock;
@@ -391,6 +397,9 @@ static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
        case TUNE_SYSTEM_TYPE_DVBC:
             fe_mode = SYS_DVBC_ANNEX_A;
             break;
+       case TUNE_SYSTEM_TYPE_ISDBT:
+            fe_mode = SYS_ISDBT;
+            break;
        default:
             TUN_ERR("not support type:%d", tuned_sys_type);
             return FALSE;
@@ -401,6 +410,8 @@ static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
     if (ioctl(fe_fd, FE_SET_PROPERTY, &props) == -1) {
         TUN_ERR("Failed to FE_SET_PROPERTY, errno %d", errno);
         return FALSE;
+    }else {
+        TUN_DBG("FE_SET_PROPERTY, fe_mode:%d", fe_mode);
     }
 
     return TRUE;
@@ -440,7 +451,8 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" :
-        ((tstatus->signal_type == TUNE_SIGNAL_QAM) ? "DVB-C" : "UNSUPPORTED"))))));
+        ((tstatus->signal_type == TUNE_SIGNAL_QAM) ? "DVB-C" :
+        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) ? "ISDB-T" : "UNSUPPORTED")))))));
 
       if (((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ||
@@ -448,7 +460,8 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
          ((tstatus->signal_type == TUNE_SIGNAL_QPSK) &&
          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ||
          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (tstatus->delivery_system == SYS_DVBS2)))) ||
-         ((tstatus->signal_type == TUNE_SIGNAL_QAM) && (tstatus->delivery_system == SYS_DVBC_ANNEX_A)))
+         ((tstatus->signal_type == TUNE_SIGNAL_QAM) && (tstatus->delivery_system == SYS_DVBC_ANNEX_A)) ||
+         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) && (tstatus->delivery_system == SYS_ISDBT)))
       {
          start_tuning = FALSE;
          STB_TimeConsumeDebug("Tune lock start");
@@ -498,6 +511,14 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                   start_tuning = TRUE;
                   tstatus->u.sat.fec = fec;
                   tstatus->u.sat.srate = srate;
+               }
+               break;
+
+            case TUNE_SIGNAL_ISDBT:
+               if (tstatus->u.isdbt.tbwidth != tbwidth)
+               {
+                  start_tuning = TRUE;
+                  tstatus->u.isdbt.tbwidth = tbwidth;
                }
                break;
 
@@ -1146,6 +1167,19 @@ U16BIT STB_TuneGetActualTerrCellId(U8BIT path)
 }
 
 /**
+ * @brief   Returns the actual bandwidth of the current isdbt signal
+ * @param   path the tuner path to query
+ * @return  the signal bandwidth
+ */
+E_STB_TUNE_TBWIDTH STB_TuneGetActualIsdbtBwidth(U8BIT path)
+{
+   FUNCTION_START(STB_TuneGetActualIsdbtBwidth);
+   E_STB_TUNE_TBWIDTH bwidth = tuner_status[path].u.isdbt.tbwidth;
+   FUNCTION_FINISH(STB_TuneGetActualIsdbtBwidth);
+   return bwidth;
+}
+
+/**
  * @brief   Enables/disables aerial power for DVB-T
  * @param   path tuner path
  * @param   enabled TRUE to enable
@@ -1750,6 +1784,10 @@ static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_ty
 			if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBC)
 				tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBC;
 			break;
+		 case TUNE_SIGNAL_ISDBT:
+			if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_ISDBT)
+				tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_ISDBT;
+			break;
 		 default:
 			TUN_ERR("not support sig_type:%d\n", sig_type);
 			return retval;
@@ -1763,10 +1801,20 @@ static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_ty
 			  TUN_DBG("fe_info.type=%d", tstatus->fe_info.type);
 			  if (tstatus->fe_info.type == FE_OFDM)
 			  {
-				  TUN_DBG("Tuner %s configured as DVB-T/T2, min_freq=%lu, max_freq=%lu", fe_name,
-				  tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
-				  tstatus->signal_type = TUNE_SIGNAL_COFDM;
-				  tstatus->delivery_system = SYS_DVBT2;
+                  if (tstatus->tuned_sys_type == TUNE_SYSTEM_TYPE_ISDBT)
+                  {
+                      TUN_DBG("Tuner %s configured as ISDBT, min_freq=%lu, max_freq=%lu", fe_name,
+                      tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
+                      tstatus->signal_type = TUNE_SIGNAL_ISDBT;
+                      tstatus->delivery_system = SYS_ISDBT;
+                  }
+                  else
+                  {
+                      TUN_DBG("Tuner %s configured as DVB-T/T2, min_freq=%lu, max_freq=%lu", fe_name,
+                      tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max);
+                      tstatus->signal_type = TUNE_SIGNAL_COFDM;
+                      tstatus->delivery_system = SYS_DVBT2;
+                  }
 			  }
 			  else if (tstatus->fe_info.type == FE_QAM)
 			  {
@@ -1997,6 +2045,42 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
            TUN_ERR("%u: Failed to set tone, errno %d", tstatus->path, errno);
         }
         break;
+      }
+      case TUNE_SIGNAL_ISDBT:
+      {
+         fe_params.frequency = tstatus->freq;
+
+         switch (tstatus->u.isdbt.tbwidth)
+         {
+            case TUNE_TBWIDTH_6MHZ:
+                fe_params.u.ofdm.bandwidth = BANDWIDTH_6_MHZ;
+                break;
+            case TUNE_TBWIDTH_7MHZ:
+                fe_params.u.ofdm.bandwidth = BANDWIDTH_7_MHZ;
+                break;
+            case TUNE_TBWIDTH_8MHZ:
+                fe_params.u.ofdm.bandwidth = BANDWIDTH_8_MHZ;
+                break;
+            default:
+                fe_params.u.ofdm.bandwidth = BANDWIDTH_AUTO;
+                break;
+         }
+         fe_params.u.ofdm.code_rate_HP = FEC_AUTO;
+         fe_params.u.ofdm.code_rate_LP = FEC_AUTO;
+         fe_params.u.ofdm.transmission_mode = TRANSMISSION_MODE_AUTO;
+         fe_params.u.ofdm.constellation = QAM_AUTO;
+         fe_params.u.ofdm.guard_interval = GUARD_INTERVAL_AUTO;
+
+         if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND, &fe_params) >= 0)
+         {
+            TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+            retval = TRUE;
+         }
+         else
+         {
+            TUN_ERR("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+         }
+         break;
       }
 
        default:

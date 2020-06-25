@@ -1519,6 +1519,8 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
       {
          if (speed == 100 && s_recplay_status[play_index].play_speed == 0)
          {
+            //fixed 1 -x2 to play and pause then resume,not resume speed 1.0.
+            dvr_wrapper_set_playback_speed(s_recplay_status[play_index].player, speed);
             error = dvr_wrapper_resume_playback(s_recplay_status[play_index].player);
          }
          else if (speed == 0)

@@ -264,12 +264,10 @@ void STB_TuneInitialise(U8BIT paths)
             {
                TUN_ERR("Failed to create task for tuner %u", i);
             }
-#if 0   //apk manager FE device
             else
             {
                OpenTuner(&tuner_status[i]);
             }
-#endif
          }
       }
    }
@@ -1857,23 +1855,16 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
    int tuner_index;
    retval = TRUE;
 
-   if (tstatus->frontend_fd != INVALID_FD)
+   tuner_index = tstatus->path >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : tstatus->path;
+   snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[tuner_index].frontend_idx);
+   if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
    {
-      TUN_DBG("FE is already open, frontend_fd:%d", tstatus->frontend_fd);
+      TUN_ERR("Failed to open tune[%d] %s, errno %d", tuner_index, fe_name, errno);
+      retval = FALSE;
    }
    else
    {
-      tuner_index = tstatus->path >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : tstatus->path;
-      snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[tuner_index].frontend_idx);
-      if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
-      {
-         TUN_ERR("Failed to open tune[%d] %s, errno %d", tuner_index, fe_name, errno);
-         retval = FALSE;
-      }
-      else
-      {
-         TUN_DBG("Open tune[%d] %s frontend_fd:%d ", tuner_index, fe_name, tstatus->frontend_fd);
-      }
+      TUN_DBG("Open tune[%d] %s frontend_fd:%d ", tuner_index, fe_name, tstatus->frontend_fd);
    }
 
    return(retval);

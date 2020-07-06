@@ -69,6 +69,7 @@
 #define M_BS_MIN_SYMB            (2)
 #define FEND_WAIT_TIMEOUT        (500)
 #define FEND_BS_MAX_CHANNEL      (128)
+#define TUNER_USELESS_TIMEOUT    (10)               /*second*/
 
 /*---local typedef structs for this file-------------------------------------*/
 typedef enum
@@ -147,6 +148,7 @@ typedef struct
    void *tune_sem;
 
    int frontend_fd;
+   U8BIT frontend_usage;
 
    struct dvb_frontend_info fe_info;
    fe_delivery_system_t delivery_system;
@@ -258,15 +260,12 @@ void STB_TuneInitialise(U8BIT paths)
             tuner_status[i].mutex = STB_OSCreateMutex();
             tuner_status[i].tune_sem = STB_OSCreateCountSemaphore(0);
             tuner_status[i].plp_id = -1;
+            tuner_status[i].frontend_usage = 0;
             pthread_mutex_init(&tuner_status[i].lock, NULL);
             if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
                TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
             {
                TUN_ERR("Failed to create task for tuner %u", i);
-            }
-            else
-            {
-               OpenTuner(&tuner_status[i]);
             }
          }
       }
@@ -399,6 +398,9 @@ static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
             break;
        case TUNE_SYSTEM_TYPE_ISDBT:
             fe_mode = SYS_ISDBT;
+            break;
+       case TUNE_SYSTEM_TYPE_ANALOG:
+            fe_mode = SYS_ANALOG;
             break;
        default:
             TUN_ERR("not support type:%d", tuned_sys_type);
@@ -1612,7 +1614,42 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSupportedSystemType(U8BIT path)
    return type;
 }
 
-void STB_TnueAllStart()
+BOOLEAN STB_TuneOpen(U8BIT path)
+{
+   BOOLEAN ret = FALSE;
+   FUNCTION_START(STB_TuneOpen);
+
+   if (path < num_paths)
+   {
+      pthread_mutex_lock(&tuner_status[path].lock);
+      ret = OpenTuner(&tuner_status[path]);
+      pthread_mutex_unlock(&tuner_status[path].lock);
+   }
+
+   FUNCTION_FINISH(STB_TuneOpen);
+   return ret;
+}
+
+void STB_TuneUpdateFeUsage(U8BIT path, BOOLEAN use)
+{
+   FUNCTION_START(STB_TuneGetSupportedSystemType);
+
+   if (path < num_paths)
+   {
+      pthread_mutex_lock(&tuner_status[path].lock);
+      if (use)
+         tuner_status[path].frontend_usage ++;
+      else
+         tuner_status[path].frontend_usage --;
+
+      TUN_DBG("%u: fe_useage[%s]: %d", path, use?"Add":"Remove", tuner_status[path].frontend_usage);
+      pthread_mutex_unlock(&tuner_status[path].lock);
+   }
+
+   FUNCTION_FINISH(STB_TuneGetSupportedSystemType);
+}
+
+void STB_TuneAllStart()
 {
     U8BIT i;
 
@@ -1697,7 +1734,6 @@ BOOLEAN STB_Tnue_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_d
 		tuner_status[path].blindscan_cb = cb;
 		tuner_status[path].blindscan_cb_user_data = user_data;
 	}
-
 	tuner_status[path].enable_blindscan_thread = TRUE;
 
 	rc = pthread_create(&tuner_status[path].blindscan_thread, NULL, fend_blindscan_thread, (void *)(long)path);
@@ -1855,17 +1891,25 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
    int tuner_index;
    retval = TRUE;
 
-   tuner_index = tstatus->path >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : tstatus->path;
-   snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[tuner_index].frontend_idx);
-   if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
+   if (tstatus->frontend_fd != INVALID_FD)
    {
-      TUN_ERR("Failed to open tune[%d] %s, errno %d", tuner_index, fe_name, errno);
-      retval = FALSE;
+	  TUN_DBG("FE is already open, frontend_fd:%d", tstatus->frontend_fd);
    }
    else
    {
-      TUN_DBG("Open tune[%d] %s frontend_fd:%d ", tuner_index, fe_name, tstatus->frontend_fd);
+	  tuner_index = tstatus->path >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : tstatus->path;
+	  snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[tuner_index].frontend_idx);
+	  if ((tstatus->frontend_fd = open(fe_name, O_RDWR | O_NONBLOCK)) < 0)
+	  {
+		 TUN_ERR("Failed to open tune[%d] %s, errno %d", tuner_index, fe_name, errno);
+		 retval = FALSE;
+	  }
+	  else
+	  {
+		 TUN_DBG("Open tune[%d] %s frontend_fd:%d ", tuner_index, fe_name, tstatus->frontend_fd);
+	  }
    }
+
 
    return(retval);
 }
@@ -2121,6 +2165,7 @@ static void TunerTask(void *param)
    U32BIT start_time;
    BOOLEAN stop;
    U8BIT delay_step;
+   U8BIT tune_idle_timer;
    struct dvb_frontend_parameters fe_params;
    struct pollfd pfd;
    struct dvb_frontend_event fe_event;
@@ -2135,114 +2180,125 @@ static void TunerTask(void *param)
       {
           /* Wait until tuning has been started */
           TUN_DBG("%u: Waiting for tune request....", tstatus->path);
-
-          STB_OSSemaphoreWait(tstatus->tune_sem);
-
-          STB_OSMutexLock(tstatus->mutex);
-          if (tstatus->state == TUNER_LOCKED)
+          BOOLEAN sem_ret = STB_OSSemaphoreWaitTimeout(tstatus->tune_sem, 1000);
+          if (sem_ret)
           {
-              STB_OSMutexUnlock(tstatus->mutex);
-              state = tstatus->state;
-              TUN_DBG("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
-              STB_TimeConsumeDebug("Tune lock end");
-              goto Already_Tuned;
-          }
-          tstatus->state = TUNER_TUNING;
-          stop = tstatus->stop;
-          STB_OSMutexUnlock(tstatus->mutex);
+             tune_idle_timer = 0;
+             STB_OSMutexLock(tstatus->mutex);
+             if (tstatus->state == TUNER_LOCKED)
+             {
+                 STB_OSMutexUnlock(tstatus->mutex);
+                 state = tstatus->state;
+                 TUN_DBG("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
+                 STB_TimeConsumeDebug("Tune lock end");
+                 goto Already_Tuned;
+             }
+             tstatus->state = TUNER_TUNING;
+             stop = tstatus->stop;
+             STB_OSMutexUnlock(tstatus->mutex);
+             TUN_DBG("%u: Tuning started, checking LOCK status", tstatus->path);
 
-          TUN_DBG("%u: Tuning started, checking LOCK status", tstatus->path);
+             pfd.fd = tstatus->frontend_fd;
+             pfd.events = POLLIN;
+             pfd.revents = 0;
 
-          pfd.fd = tstatus->frontend_fd;
-          pfd.events = POLLIN;
-          pfd.revents = 0;
+             for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
+                          !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
+             {
+                 if (poll(&pfd, 1, 50) == 1)
+                 {
+                     if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
+                     {
+                         TUN_DBG("status=0x%02x", fe_event.status);
+                         if ((fe_event.status & FE_HAS_LOCK) != 0)
+                         {
+                             locked = TRUE;
+                         }
+                         else if ((fe_event.status & FE_TIMEDOUT) != 0)
+                         {
+                             /* Failed to lock */
+                             break;
+                         }
+                     }
+                 }
+                 STB_OSMutexLock(tstatus->mutex);
+                 stop = tstatus->stop;
+                 STB_OSMutexUnlock(tstatus->mutex);
+             }
 
-          for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
-                       !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
-          {
-              if (poll(&pfd, 1, 50) == 1)
-              {
-                  if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
-                  {
-                      TUN_DBG("status=0x%02x", fe_event.status);
-                      if ((fe_event.status & FE_HAS_LOCK) != 0)
-                      {
-                          locked = TRUE;
-                      }
-                      else if ((fe_event.status & FE_TIMEDOUT) != 0)
-                      {
-                          /* Failed to lock */
-                          break;
-                      }
-                  }
-              }
+             if (stop)
+             {
+                 TUN_DBG("%u: Tuning stopped", tstatus->path);
+                 STB_OSMutexLock(tstatus->mutex);
+                 tstatus->state = TUNER_IDLE;
+                 STB_OSMutexUnlock(tstatus->mutex);
+             }
+             else
+             {
+                 if (locked)
+                 {
+                     /* The tuner locks when set to T or T2, so check whether the mode is correct for what was set */
+                     struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
+                     struct dtv_properties props = {.num = 1, .props = &p};
+                     if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
+                     {
+                     if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
+                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2))) &&
+                     (tstatus->signal_type != TUNE_SIGNAL_QAM))
+                     {
+                        locked = FALSE;
+                        TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
+                        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
+                        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
+                        ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
+                     }
+                     }
+                 }
 
-              STB_OSMutexLock(tstatus->mutex);
-              stop = tstatus->stop;
-              STB_OSMutexUnlock(tstatus->mutex);
-          }
+                 if (locked)
+                 {
+                     TUN_DBG("%u: LOCKED", tstatus->path);
+                     STB_TimeConsumeDebug("Tune lock end");
 
-          if (stop)
-          {
-              TUN_DBG("%u: Tuning stopped", tstatus->path);
-              STB_OSMutexLock(tstatus->mutex);
-              tstatus->state = TUNER_IDLE;
-              STB_OSMutexUnlock(tstatus->mutex);
+                     STB_OSMutexLock(tstatus->mutex);
+                     tstatus->state = TUNER_LOCKED;
+                     STB_OSMutexUnlock(tstatus->mutex);
+
+                     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
+                     sizeof(U8BIT));
+                 }
+                 else
+                 {
+                     TUN_DBG("%u: NOT LOCKED", tstatus->path);
+                     STB_TimeConsumeDebug("Tune lock end");
+                     //ClearTuner(tstatus);
+                     STB_OSMutexLock(tstatus->mutex);
+                     tstatus->state = TUNER_RELOCKING;
+                     STB_OSMutexUnlock(tstatus->mutex);
+
+                     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
+                     sizeof(U8BIT));
+                 }
+             }
           }
           else
           {
-              if (locked)
-              {
-                  /* The tuner locks when set to T or T2, so check whether the mode is correct for what was set */
-                  struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
-                  struct dtv_properties props = {.num = 1, .props = &p};
-                  if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
-                  {
-                  if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
-                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2))) &&
-                  (tstatus->signal_type != TUNE_SIGNAL_QAM))
-                  {
-                     locked = FALSE;
-                     TUN_DBG("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
-                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
-                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
-                     ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
-                  }
-                  }
-              }
-
-              if (locked)
-              {
-                  TUN_DBG("%u: LOCKED", tstatus->path);
-                  STB_TimeConsumeDebug("Tune lock end");
-
-                  STB_OSMutexLock(tstatus->mutex);
-                  tstatus->state = TUNER_LOCKED;
-                  STB_OSMutexUnlock(tstatus->mutex);
-
-                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
-                  sizeof(U8BIT));
-              }
-              else
-              {
-                  TUN_DBG("%u: NOT LOCKED", tstatus->path);
-                  STB_TimeConsumeDebug("Tune lock end");
-
-                  //ClearTuner(tstatus);
-
-                  STB_OSMutexLock(tstatus->mutex);
-                  tstatus->state = TUNER_RELOCKING;
-                  STB_OSMutexUnlock(tstatus->mutex);
-
-                  STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
-                  sizeof(U8BIT));
-              }
+             tune_idle_timer ++;
+             if (tune_idle_timer >= TUNER_USELESS_TIMEOUT && tstatus->frontend_usage == 0)
+             {
+                 pthread_mutex_lock(&tstatus->lock);
+                 SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
+                 CloseTuner(tstatus);
+                 tune_idle_timer = 0;
+                 pthread_mutex_unlock(&tstatus->lock);
+             }
           }
       }
       else
       {
 Already_Tuned:
           /* Monitor tuner lock status */
+          tune_idle_timer = 0;
           if (state == TUNER_LOCKED)
           {
               locked = TRUE;
@@ -2273,7 +2329,7 @@ Already_Tuned:
                           tuner_locked = FALSE;
                           TUN_ERR("FE_GET_EVENT UNLOCKED:%d state:%d", locked, state);
                       }
-				  }
+                  }
                   else
                   {
                       TUN_ERR("%u: FE_GET_EVENT failed, errno %d", tstatus->path, errno);

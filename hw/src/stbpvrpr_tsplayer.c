@@ -537,26 +537,26 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             DVR_RecordSegmentInfo_t seg_info;
             int error;
             char location[512];
-
-
+            int segment_index = 0;
+            int free_flag = 0;
             STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
                 s_recplay_status[play_index].basename,
                 location,
                 sizeof(location));
 
             error = dvr_segment_get_list(location, &segment_nb, &p_segment_ids);
+            retry:
             if (!error && segment_nb)
             {
-               error = dvr_segment_get_info(location, p_segment_ids[0], &seg_info);
-               free(p_segment_ids);
+               error = dvr_segment_get_info(location, p_segment_ids[segment_index], &seg_info);
+               free_flag = 1;
             }
 
             if (!error)
             {
-               BOOLEAN has_audio;
+               BOOLEAN has_audio = FALSE;
                U16BIT audio_pid;
                DVR_AudioFormat_t audio_fmt;
-
                for (i = 0; i < seg_info.nb_pids; i++)
                {
                   switch (DVR_STREAM_TYPE_TO_TYPE(seg_info.pids[i].type))
@@ -589,12 +589,19 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                      s_recplay_status[play_index].audio_fmt = audio_fmt;
                   }
                }
+            }//end if error
+            if (s_recplay_status[play_index].has_audio == FALSE && s_recplay_status[play_index].has_audio == FALSE && segment_index < segment_nb) {
+               segment_index ++;
+               PLAY_DBG("ready to retry get pidinfo play...");
+               goto retry;
+            }
+            if (free_flag == 1 && p_segment_ids) {
+               free(p_segment_ids);
             }
          }
       }
-
       {
-         PLAY_DBG("ready to start play...");
+         PLAY_DBG("ready to start play..........");
          play_started = updatePlayback(play_index);
       }
    }

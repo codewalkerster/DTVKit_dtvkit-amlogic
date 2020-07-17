@@ -140,6 +140,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwnet.c \
     hw/src/stbhwvbi.c \
     hw/src/stbhwcfg.c \
+    hw/src/linuxdvbdmx_wrapper.c \
     os/src/stbos_event.c      \
     os/src/stbos_mutex.c      \
     os/src/stbos_queue.c      \

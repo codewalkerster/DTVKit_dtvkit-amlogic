@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 The DTVKit Open Software Foundation Ltd (www.dtvkit.org)
+ * Copyright  © 2018 The DTVKit Open Software Foundation Ltd (www.dtvkit.org)
  *
  * This file is part of a DTVKit Software Component
  * You are permitted to copy, modify or distribute this file subject to the terms
@@ -249,15 +249,18 @@ void STB_CIGetHostKey(E_STB_CI_KEY_TYPE type, U8BIT **key, U16BIT *length)
    CI_DBG("type=%u pKey=%p pLen=%p", type, key, length)
    if (type < HOST_KEYS)
    {
+	  STB_SPDebugWrite("get host key, type < HOST_KEYS, %d", type);
       var = &(host_keys[type]);
       if (ReadSecureFile(var))
       {
+	  	STB_SPDebugWrite("Using ReadSecureFile keys.");
          *key = var->data;
          *length = var->size;
       }
       else
       {
       #ifdef INCLUDE_TEST_KEYS
+	  STB_SPDebugWrite("Using test keys.");
          *key = g_citest_keys[type].data;
          *length = g_citest_keys[type].size;
       #else
@@ -270,6 +273,7 @@ void STB_CIGetHostKey(E_STB_CI_KEY_TYPE type, U8BIT **key, U16BIT *length)
    }
    else if (type >= STB_CI_ECP_KEY_ROOT_CERT && type < (STB_CI_ECP_KEY_ROOT_CERT+HOST_KEYS))
    {
+   	STB_SPDebugWrite("get host key, type > HOST_KEYS, %d", type);
       var = &(host_keys[type+HOST_KEYS-STB_CI_ECP_KEY_ROOT_CERT]);
       if (ReadSecureFile(var))
       {
@@ -285,6 +289,7 @@ void STB_CIGetHostKey(E_STB_CI_KEY_TYPE type, U8BIT **key, U16BIT *length)
    }
    else
    {
+   	STB_SPDebugWrite("get host key, type unknown");
       CI_ERR("unknown type %u", type)
       *key = NULL;
       *length = 0;
@@ -402,8 +407,8 @@ void STB_CIDebugPrintf(const char *format, ... )
    vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
    va_end(vparams);
 
-   printf("%s", debug_msg_buff);
-   fflush(stdout);
+   STB_SPDebugWrite("%s", debug_msg_buff);
+   //fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugNoCnWrite);
 }

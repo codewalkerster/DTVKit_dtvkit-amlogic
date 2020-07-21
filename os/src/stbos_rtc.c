@@ -29,9 +29,11 @@
 #include "dbgfuncs.h"
 #include <cutils/properties.h>
 #include <sys/system_properties.h>
-
+#ifdef USE_TSPLAYER
+#include "dvr_utils.h"
+#else
 #include "am_misc.h"
-
+#endif
 /*!- Local MACRO Definitions */
 #define RTC_TICKS_PER_SEC     1000
 
@@ -179,7 +181,11 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
 
    sprintf(prop_time, "%ld000", temp_time);//prop need ms
    //property_set("vendor.sys.tv.stream.realtime", prop_time);
+#ifdef USE_TSPLAYER
+   dvr_prop_echo("vendor.sys.tv.stream.realtime", prop_time);
+#else
    AM_PropEcho("vendor.sys.tv.stream.realtime", prop_time);
+#endif
    RTC_DBG("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
 
    FUNCTION_FINISH(STB_OSSetClockGMT);

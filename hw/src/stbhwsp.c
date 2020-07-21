@@ -70,8 +70,6 @@ static char debug_msg_buff[512];
 #include <fcntl.h>
 #include <errno.h>
 
-#include "am_misc.h"
-
 static char *lf_file()
 {
     char buf[256] = { 0 };

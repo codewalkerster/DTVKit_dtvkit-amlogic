@@ -379,6 +379,9 @@ static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
 {
     int fe_mode = SYS_UNDEFINED;
 
+	if (fe_fd == INVALID_FD)
+	   return FALSE;
+
     switch (tuned_sys_type)
     {
        case TUNE_SYSTEM_TYPE_DVBT:
@@ -2503,7 +2506,7 @@ static BOOLEAN dvb_wait_event (U32BIT fd, struct dvb_frontend_event *evt, int ti
 {
     BOOLEAN ret;
 	struct pollfd pfd;
-	struct dvb_frontend_event_orig event;
+	struct dvb_frontend_event event;
 
 	pfd.fd = fd;
 	pfd.events = POLLIN;

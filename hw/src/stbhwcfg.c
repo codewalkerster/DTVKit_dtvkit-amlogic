@@ -17,7 +17,12 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
+#ifdef USE_TSPLAYER
+#include "dvr_types.h"
+#include "dvr_utils.h"
+#else
 #include "am_types.h"
+#endif
 
 #define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
 
@@ -540,7 +545,13 @@ int STB_Get_SI_PSI_Timeout(E_SI_PSI_TYPE sipsi_type)
  */
 BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
 {
-   return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
+   BOOLEAN ret;
+#ifdef USE_TSPLAYER
+   ret = (DVR_SUCCESS == dvr_prop_read(name, buf, len)) ? TRUE : FALSE;
+#else
+   ret = (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
+#endif
+   return ret;
 }
 
 /**
@@ -550,5 +561,9 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
  */
 void STB_Set_Prop(const char *name, const char *value)
 {
+#ifdef USE_TSPLAYER
+    dvr_prop_echo(name, value);
+#else
     AM_PropEcho(name, value);
+#endif
 }

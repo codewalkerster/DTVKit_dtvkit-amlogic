@@ -1930,8 +1930,11 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
    U16BIT index;
    U16BIT disk_id;
    U8BIT disk_path[256];
-
+#ifdef USE_TSPLAYER
+   dvr_prop_read(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
+#else
    AM_PropRead(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
+#endif
    if (strlen(forced_default_path))
    {
       num_disks = STB_DSKGetNumDisks();
@@ -2361,12 +2364,20 @@ static void setDvrMode(U8BIT dvr_id, U8BIT mode)
    if (dvr_ts_enable)
    {
        STB_SPDebugWrite("setDvrMode: ts");
+#ifdef USE_TSPLAYER
+       dvr_file_echo(dvr_mode, "ts");
+#else
        AM_FileEcho(dvr_mode, "ts");
+#endif
    }
    else
    {
        STB_SPDebugWrite("setDvrMode: pid");
+#ifdef USE_TSPLAYER
+       dvr_file_echo(dvr_mode, "pid");
+#else
        AM_FileEcho(dvr_mode, "pid");
+#endif
    }
 }
 

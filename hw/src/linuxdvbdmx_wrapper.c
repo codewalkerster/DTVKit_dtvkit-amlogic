@@ -197,7 +197,6 @@ BOOLEAN AML_DMX_Open(int dev_no)
     dev->running = 1;
     pthread_create(&dev->thread, NULL, dmx_data_thread, dev);
 
-    DMX_DBG("%s", __FUNCTION__);
     return TRUE;
 }
 
@@ -251,7 +250,7 @@ BOOLEAN AML_DMX_AllocateFilter(int dev_no, int *fhandle)
 
     pthread_mutex_unlock(&dev->lock);
 
-    DMX_DBG("fhandle = %d", fid);
+    //DMX_DBG("fhandle = %d", fid);
     return TRUE;
 }
 
@@ -288,7 +287,7 @@ BOOLEAN AML_DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filte
     }
 
     pthread_mutex_unlock(&dev->lock);
-    DMX_DBG("pid = %#x", params->pid);
+    //DMX_DBG("pid = %#x", params->pid);
     return ret;
 }
 
@@ -329,7 +328,7 @@ BOOLEAN AML_DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filte
     }
 
     pthread_mutex_unlock(&dev->lock);
-    DMX_DBG("pid = %#x", params->pid);
+    //DMX_DBG("pid = %#x", params->pid);
     return ret;
 }
 
@@ -359,8 +358,6 @@ BOOLEAN AML_DMX_SetBufferSize(int dev_no, int fhandle, int size)
     }
 
     pthread_mutex_unlock(&dev->lock);
-
-    DMX_DBG("%s ret = %d", __FUNCTION__, ret);
     return ret;
 }
 
@@ -386,7 +383,7 @@ BOOLEAN AML_DMX_FreeFilter(int dev_no, int fhandle)
 
     pthread_mutex_unlock(&dev->lock);
 
-    DMX_DBG("fhandle = %d", fhandle);
+    //DMX_DBG("fhandle = %d", fhandle);
     return TRUE;
 }
 
@@ -419,7 +416,7 @@ BOOLEAN AML_DMX_StartFilter(int dev_no, int fhandle)
     }
 
     pthread_mutex_unlock(&dev->lock);
-    DMX_DBG("ret = %d", ret);
+    //DMX_DBG("ret = %d", ret);
     return ret;
 }
 
@@ -452,7 +449,7 @@ BOOLEAN AML_DMX_StopFilter(int dev_no, int fhandle)
     }
 
     pthread_mutex_unlock(&dev->lock);
-    DMX_DBG("ret = %d", ret);
+    //DMX_DBG("ret = %d", ret);
     return ret;
 }
 
@@ -517,7 +514,7 @@ BOOLEAN AML_DMX_SetCallback(int dev_no, int fhandle, AML_DMX_DataCb cb, void *us
 
     pthread_mutex_unlock(&dev->lock);
 
-    DMX_DBG("ret = %d", ret);
+    //DMX_DBG("ret = %d", ret);
     return ret;
 }
 

@@ -1230,8 +1230,12 @@ static void STB_SetTsoutSource(void)
             DMX_DBG("do not support demux source %d", src);
          return;
       }
+#ifdef USE_TSPLAYER
+	  dvr_file_echo(buf, cmd);
+#else
       AM_FileEcho(buf, cmd);
-      return;
+#endif
+	  return;
    }
 
    FUNCTION_FINISH(STB_SetTsoutSource);

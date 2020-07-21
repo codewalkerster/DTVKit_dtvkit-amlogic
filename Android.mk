@@ -64,23 +64,9 @@ else
     DVB_PATH := vendor/amlogic/common/external/dvb
 endif
 
-ifeq (,$(wildcard $(LOCAL_PATH)/../../dvb))
-LOCAL_C_INCLUDES := \
-    $(DVB_PATH)/ndk/include \
-	$(DVB_PATH)/ndk/include/linux
-else
-LOCAL_C_INCLUDES := \
-    $(DVB_PATH)/android/ndk/include/linux \
-    $(DVB_PATH)/android/ndk/include
-endif
-
 MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
 ifneq (,$(wildcard media_hal))
   MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
-endif
-
-ifeq ($(SUPPORT_CAS), true)
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include
 endif
 
 LIBDVR_PATH:=vendor/amlogic/common/libdvr_release/include
@@ -89,8 +75,29 @@ LIBDVR_PATH:=vendor/amlogic/common/libdvr/include
 endif
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-    LOCAL_C_INCLUDES += $(MEDIAHAL_INCLUDE)
-    LOCAL_C_INCLUDES += $(LIBDVR_PATH)
+    LOCAL_C_INCLUDES += \
+	$(MEDIAHAL_INCLUDE) \
+        $(LIBDVR_PATH) \
+	common/include/uapi
+    LOCAL_CFLAGS += -DUSE_TSPLAYER
+else
+    LOCAL_C_INCLUDES += \
+        $(DVB_PATH)/include \
+        $(DVB_PATH)/include/am_adp \
+        $(DVB_PATH)/include/am_mw
+ifeq (,$(wildcard $(LOCAL_PATH)/../../dvb))
+    LOCAL_C_INCLUDES := \
+        $(DVB_PATH)/ndk/include \
+	$(DVB_PATH)/ndk/include/linux
+else
+    LOCAL_C_INCLUDES := \
+        $(DVB_PATH)/android/ndk/include/linux \
+        $(DVB_PATH)/android/ndk/include
+endif
+endif
+
+ifeq ($(SUPPORT_CAS), true)
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
@@ -100,9 +107,6 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \
     $(LOCAL_PATH)/hw/inc \
     $(LOCAL_PATH)/os/inc \
-    $(DVB_PATH)/include \
-    $(DVB_PATH)/include/am_adp \
-    $(DVB_PATH)/include/am_mw \
     external/sqlite/dist \
     bionic/libc/kernel/uapi \
     bionic/libc/kernel/android/uapi \

@@ -33,6 +33,11 @@
 
 /* third party header files */
 #include <linux/dvb/dmx.h>
+#ifdef USE_TSPLAYER
+#include "dvb_utils.h"
+#else
+#include <am_adp/am_dmx.h>
+#endif
 
 /* STB header files */
 #include "techtype.h"
@@ -45,6 +50,7 @@
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
 #include "linuxdvbdmx_wrapper.h"
+
 
 //#define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
@@ -166,15 +172,13 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
 
 static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
 static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
-
-static void OpenSectionFilters(S_DMX_STATUS *pdmx);
-#if 0
-static void CloseSectionFilters(U8BIT path);
-#endif
-
 static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void STB_SetTsoutSource(void);
+#ifdef USE_TSPLAYER
+static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx);
+#endif
+
 /*---global function definitions---------------------------------------------*/
 
 
@@ -185,7 +189,12 @@ static void STB_SetTsoutSource(void);
  */
 void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 {
-   BOOLEAN am_result;
+#ifdef USE_TSPLAYER
+   BOOLEAN am_result = FALSE;
+#else
+   AM_ErrorCode_t am_result;
+   AM_DMX_OpenPara_t open_params;
+#endif
    U16BIT i;
    U16BIT j;
 
@@ -208,10 +217,18 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       if (demux_status != NULL)
       {
          memset(demux_status, 0, sizeof(S_DMX_STATUS) * num_paths);
+#ifdef USE_TSPLAYER
          for (i = 0; i < num_paths; i++)
          {
             am_result = AML_DMX_Open(i);
             if (am_result)
+#else
+         memset(&open_params, 0, sizeof(open_params));
+         for (i = 0; i < num_paths; i++)
+         {
+            am_result = AM_DMX_Open(i, &open_params);
+            if (am_result == AM_SUCCESS)
+#endif
             {
                demux_status[i].path = i;
                demux_status[i].config_mutex = STB_OSCreateMutex();
@@ -272,9 +289,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                      demux_status[i].text_started = FALSE;
                   }
                   demux_status[i].text_fhandle = -1;
-
-                  OpenSectionFilters(&demux_status[i]);
-
                   demux_status[i].num_pid_filters_started = 0;
                }
                else
@@ -293,6 +307,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
    {
       DMX_DBG("No demuxes found!");
    }
+
 #if 0
    for (i = 0; i < 2; i++)
    {
@@ -412,7 +427,12 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
  */
 void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
 {
+#ifdef USE_TSPLAYER
    BOOLEAN am_result;
+#else
+   AM_ErrorCode_t am_result;
+#endif
+
    struct dmx_pes_filter_params pes_params;
 
    FUNCTION_START(STB_DMXChangeTextPID);
@@ -424,10 +444,15 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
          if (demux_status[path].text_started)
          {
             /* Stop the filter and clear the callback */
+#ifdef USE_TSPLAYER
             AML_DMX_StopFilter(path, demux_status[path].text_fhandle);
             AML_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
             AML_DMX_FreeFilter(path, demux_status[path].text_fhandle);
-
+#else
+            AM_DMX_StopFilter(path, demux_status[path].text_fhandle);
+            AM_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
+            AM_DMX_FreeFilter(path, demux_status[path].text_fhandle);
+#endif
             demux_status[path].text_fhandle = -1;
             demux_status[path].text_started = FALSE;
 
@@ -463,12 +488,20 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
       if (text_pid != INVALID_PID)
       {
          /* Open a demux instance for the text (subtitle) PES */
+#ifdef USE_TSPLAYER
          am_result = AML_DMX_AllocateFilter(path, &demux_status[path].text_fhandle);
          if (am_result)
          {
             DMX_DBG("%u: Opened text PES filter, handle=%d", path, demux_status[path].text_fhandle);
             AML_DMX_SetBufferSize(path, demux_status[path].text_fhandle, TEXT_BUFFER_SIZE);
+#else
+         am_result = AM_DMX_AllocateFilter(path, &demux_status[path].text_fhandle);
+         if (am_result == AM_SUCCESS)
+         {
+            DMX_DBG("%u: Opened text PES filter, handle=%d", path, demux_status[path].text_fhandle);
+            AM_DMX_SetBufferSize(path, demux_status[path].text_fhandle, TEXT_BUFFER_SIZE);
 
+#endif
             memset(&pes_params, 0, sizeof(pes_params));
 
             if (demux_status[path].source == DMX_MEMORY)
@@ -483,9 +516,13 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
             pes_params.output = DMX_OUT_TAP;
             pes_params.pes_type = DMX_PES_SUBTITLE;
             pes_params.pid = text_pid;
-
+#ifdef USE_TSPLAYER
             am_result = AML_DMX_SetPesFilter(path, demux_status[path].text_fhandle, &pes_params);
             if (am_result == FALSE)
+#else
+            am_result = AM_DMX_SetPesFilter(path, demux_status[path].text_fhandle, &pes_params);
+            if (am_result != AM_SUCCESS)
+#endif
             {
                DMX_ERR("%u: Failed to set PID %u, handle %u, error %d",
                   path, text_pid, demux_status[path].text_fhandle, am_result);
@@ -494,6 +531,7 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
             {
                if (demux_status[path].pids[DMX_TEXT] != 0)
                {
+#ifdef USE_TSPLAYER
                   am_result = AML_DMX_SetCallback(path, demux_status[path].text_fhandle, PesCallback,
                      (void *)&demux_status[path]);
                   if (am_result)
@@ -501,13 +539,26 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
                      /* Can now restart PES collection and the PES task */
                      am_result = AML_DMX_StartFilter(path, demux_status[path].text_fhandle);
                      if (am_result)
+#else
+                  am_result = AM_DMX_SetCallback(path, demux_status[path].text_fhandle, PesCallback,
+                     (void *)&demux_status[path]);
+                  if (am_result == AM_SUCCESS)
+                  {
+                     /* Can now restart PES collection and the PES task */
+                     am_result = AM_DMX_StartFilter(path, demux_status[path].text_fhandle);
+                     if (am_result == AM_SUCCESS)
+#endif
                      {
                         demux_status[path].text_started = TRUE;
                      }
                      else
                      {
                         /* Filter not started so clear the callback */
+#ifdef USE_TSPLAYER
                         AML_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
+#else
+                        AM_DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
+#endif
 
                         DMX_ERR("Failed to start demux %u text filter, error %d", path, am_result);
                      }
@@ -845,7 +896,11 @@ void  STB_DMXStartPIDFilter(U8BIT path, U16BIT pfilt_id)
    U16BIT filter_index;
    U16BIT handler_index;
    S_PID_FILTER_INFO *pid_filter;
+#ifdef USE_TSPLAYER
    BOOLEAN am_result = TRUE;
+#else
+   AM_ErrorCode_t am_result;
+#endif
 
    FUNCTION_START(STB_DMXStartPIDFilter);
 
@@ -870,12 +925,21 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
       {
          if (pid_filter->fhandle == -1)
          {
+#ifdef USE_TSPLAYER
             am_result = AML_DMX_AllocateFilter(path, &pid_filter->fhandle);
             if (am_result)
             {
                am_result = AML_DMX_SetBufferSize(path, pid_filter->fhandle,
                   8 * MAX_SECTION_SIZE);
                if (!am_result)
+#else
+            am_result = AM_DMX_AllocateFilter(path, &pid_filter->fhandle);
+            if (am_result == AM_SUCCESS)
+            {
+               am_result = AM_DMX_SetBufferSize(path, pid_filter->fhandle,
+                  8 * MAX_SECTION_SIZE);
+               if (am_result != AM_SUCCESS)
+#endif
                {
                   DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", path,
                      filter_index, am_result);
@@ -886,21 +950,31 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
 
          if (pid_filter->fhandle != -1)
          {
+#ifdef USE_TSPLAYER
             am_result = AML_DMX_SetCallback(path, pid_filter->fhandle, PidCallback, (void *)pid_filter);
             if (am_result)
             {
                am_result = AML_DMX_StartFilter(path, pid_filter->fhandle);
                if (am_result)
+#else
+            am_result = AM_DMX_SetCallback(path, pid_filter->fhandle, PidCallback, (void *)pid_filter);
+            if (am_result == AM_SUCCESS)
+            {
+               am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
+               if (am_result == AM_SUCCESS)
+#endif
                {
                   pid_filter->started = TRUE;
-
                   demux_status[path].num_pid_filters_started++;
                }
                else
                {
                   /* Failed to start filter so clear the callback */
+#ifdef USE_TSPLAYER
                   AML_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
-
+#else
+                  AM_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
+#endif
                   DMX_ERR("%u: Failed to start PID filter 0x%04x, error %d", path, pfilt_id, am_result);
                }
             }
@@ -930,8 +1004,11 @@ void  STB_DMXStopPIDFilter(U8BIT path, U16BIT pfilt_id)
    S_PID_FILTER_INFO *pid_filter;
    BOOLEAN all_counts_zero;
    U8BIT i;
+#ifdef USE_TSPLAYER
    BOOLEAN am_result;
-
+#else
+   AM_ErrorCode_t am_result;
+#endif
    FUNCTION_START(STB_DMXStopPIDFilter);
 
    if (path < num_paths)
@@ -969,6 +1046,7 @@ printf(">> %s(%u, 0x%04x): start_count=%u", __FUNCTION__, path, pfilt_id, pid_fi
 printf(" - STOP");
 #endif
             /* Stop the filter and clear the callback */
+#ifdef USE_TSPLAYER
             am_result = AML_DMX_StopFilter(path, pid_filter->fhandle);
             if (!am_result)
             {
@@ -978,7 +1056,17 @@ printf(" - STOP");
 
             AML_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
             AML_DMX_FreeFilter(path, pid_filter->fhandle);
+#else
+            am_result = AM_DMX_StopFilter(path, pid_filter->fhandle);
+            if (am_result != AM_SUCCESS)
+            {
+               DMX_ERR("%u: Failed to stop PID filter 0x%04x on PID %u, error %d", path,
+                  pfilt_id, pid_filter->pid, am_result);
+            }
 
+            AM_DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
+            AM_DMX_FreeFilter(path, pid_filter->fhandle);
+#endif
             pid_filter->fhandle = -1;
             pid_filter->started = FALSE;
 
@@ -1093,45 +1181,67 @@ U8BIT STB_DMXGetMaxSectionFilters(void)
 void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param)
 {
    int tuner_index;
-   AML_DMX_Source_t dmx_source;
+#ifdef USE_TSPLAYER
+   int ret;
    BOOLEAN am_result;
+   DVB_DemuxSource_t dmx_src_cfg, dmx_src_cur;
+#else
+   AM_ErrorCode_t am_result;
+#endif
 
    FUNCTION_START(STB_DMXSetDemuxSource);
 
-   if ((path < num_paths) &&
-      ((source != demux_status[path].source) || (param != demux_status[path].source_param)))
+   if (path >= num_paths)
    {
-      DMX_DBG("%u: new=%u, %u; old=%u, %u", path, source, param,
-         demux_status[path].source, demux_status[path].source_param);
-
+       DMX_ERR("path:%d error", path);
+       return;
+   }
+#ifdef USE_TSPLAYER
+   dmx_src_cfg = GetDemuxSourceByCfg(aml_hw_cfg.tuners[tuner_index].ts_input_idx);
+   dvb_get_demux_source(path, &dmx_src_cur);
+   DMX_DBG("Demux source [config:cur_node] = [%d:%d]", dmx_src_cfg, dmx_src_cur);
+   if ((source != demux_status[path].source) || (param != demux_status[path].source_param) || (dmx_src_cfg != dmx_src_cur))
+#else
+   if ((source != demux_status[path].source) || (param != demux_status[path].source_param))
+#endif
+   {
+      DMX_DBG("%u: new=%u, %u; old=%u, %u", path, source, param, demux_status[path].source, demux_status[path].source_param);
       demux_status[path].source = source;
       demux_status[path].source_param = param;
 
       if (source == DMX_TUNER)
       {
-         dmx_source = AML_DMX_SRC_TS0 + param;
-         if (dmx_source <= AML_DMX_SRC_TS3)
+         tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
+#ifdef USE_TSPLAYER
+         ret = dvb_set_demux_source(path, dmx_src_cfg);
+         if (ret == -1)
+#else
+         am_result = AM_DMX_SetSource(path, aml_hw_cfg.tuners[tuner_index].ts_input_idx);
+         if (am_result != AM_SUCCESS)
+#endif
          {
-            tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
-            am_result = AML_DMX_SetSource(path, aml_hw_cfg.tuners[tuner_index].ts_input_idx);
-            if (!am_result)
-            {
-               DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, am_result);
-            }
-         }
-         else
-         {
-            DMX_ERR("Tuner source %u not supported", param);
+            DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, am_result);
          }
       }
       else if(source == DMX_MEMORY)
       {
          DMX_DBG("setting source to MEMORY");
-         am_result = AML_DMX_SetSource(path, AML_DMX_SRC_HIU);
-         if (!am_result)
+#ifdef USE_TSPLAYER
+         if (dmx_src_cur != DVB_DEMUX_SOURCE_DMA0)
          {
-            DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, am_result);
+            ret = dvb_set_demux_source(path, DVB_DEMUX_SOURCE_DMA0);
+            if (ret == -1)
+            {
+                DMX_ERR("Failed to set demux %u source to %u ", path, param);
+            }
          }
+#else
+         am_result = AM_DMX_SetSource(path, AM_DMX_SRC_HIU);
+         if (am_result != AM_SUCCESS)
+         {
+             DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, am_result);
+         }
+#endif
       }
    }
 
@@ -1231,11 +1341,11 @@ static void STB_SetTsoutSource(void)
          return;
       }
 #ifdef USE_TSPLAYER
-	  dvr_file_echo(buf, cmd);
+      dvr_file_echo(buf, cmd);
 #else
       AM_FileEcho(buf, cmd);
 #endif
-	  return;
+      return;
    }
 
    FUNCTION_FINISH(STB_SetTsoutSource);
@@ -1636,62 +1746,6 @@ BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT 
 /*---local function definitions----------------------------------------------*/
 
 /**
- * @brief   Opens section filters on the given demux path
- * @param   pdmx pointer to this demux's status structure
- */
-static void OpenSectionFilters(S_DMX_STATUS *pdmx)
-{
-#if 0
-   U8BIT j;
-   BOOLEAN am_result;
-
-   for (j = 0; j < MAX_PID_FILTERS; j++)
-   {
-      am_result = AML_DMX_AllocateFilter(pdmx->path, &pdmx->filter_info[j].fhandle);
-      if (am_result == AM_SUCCESS)
-      {
-         am_result = AML_DMX_SetBufferSize(pdmx->path, pdmx->filter_info[j].fhandle,
-            8 * MAX_SECTION_SIZE);
-         if (am_result != AM_SUCCESS)
-         {
-            DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", pdmx->path,
-               j, am_result);
-         }
-      }
-      else
-      {
-         DMX_ERR("%u: Failed to open section filter %u, error %d", pdmx->path, j, am_result);
-      }
-   }
-#endif
-}
-
-#if 0
-/**
- * @brief   Close all open section filter handles on the given demux path
- * @param   path - demux
- */
-static void CloseSectionFilters(U8BIT path)
-{
-   U8BIT j;
-   BOOLEAN am_result;
-
-   for (j = 0; j < MAX_PID_FILTERS; j++)
-   {
-      if (demux_status[path].filter_info[j].fhandle >= 0)
-      {
-         am_result = AML_DMX_FreeFilter(path, demux_status[path].filter_info[j].fhandle);
-         demux_status[path].filter_info[j].fhandle = -1;
-         if (am_result != AM_SUCCESS)
-         {
-            DMX_ERR("%u: Failed to close filter %u, error %d", path, j, am_result);
-         }
-      }
-   }
-}
-#endif
-
-/**
  * @brief   Apply descrambler keys
  * @param   param - demux path
  */
@@ -1967,8 +2021,11 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    BOOLEAN success;
    struct dmx_sct_filter_params dvb_filt_p;
    U16BIT num_filters;
+#ifdef USE_TSPLAYER
    BOOLEAN am_result;
-
+#else
+   AM_ErrorCode_t am_result;
+#endif
    FUNCTION_START(UpdateSectionFilter);
 
    pid_filter = &demux_status[path].filter_info[filter_index];
@@ -2075,8 +2132,13 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
          if (pid_filter->fhandle != -1)
          {
             /* Stop the filter while it's updated */
+#ifdef USE_TSPLAYER
             am_result = AML_DMX_StopFilter(path, pid_filter->fhandle);
             if (!am_result)
+#else
+            am_result = AM_DMX_StopFilter(path, pid_filter->fhandle);
+            if (am_result != AM_SUCCESS)
+#endif
             {
                DMX_ERR("%u: Failed to stop PID filter %d, error %d", path, pid_filter->fhandle, am_result);
             }
@@ -2085,12 +2147,19 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 
       if (pid_filter->fhandle == -1)
       {
+#ifdef USE_TSPLAYER
          am_result = AML_DMX_AllocateFilter(path, &pid_filter->fhandle);
          if (am_result)
          {
-            am_result = AML_DMX_SetBufferSize(path, pid_filter->fhandle,
-               8 * MAX_SECTION_SIZE);
+            am_result = AML_DMX_SetBufferSize(path, pid_filter->fhandle, 8 * MAX_SECTION_SIZE);
             if (!am_result)
+#else
+         am_result = AM_DMX_AllocateFilter(path, &pid_filter->fhandle);
+         if (am_result == AM_SUCCESS)
+         {
+            am_result = AM_DMX_SetBufferSize(path, pid_filter->fhandle, 8 * MAX_SECTION_SIZE);
+            if (am_result != AM_SUCCESS)
+#endif
             {
                DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", path,
                   filter_index, am_result);
@@ -2100,8 +2169,13 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 
       if (pid_filter->fhandle != -1)
       {
+#ifdef USE_TSPLAYER
          am_result = AML_DMX_SetSecFilter(path, pid_filter->fhandle, &dvb_filt_p);
          if (am_result)
+#else
+         am_result = AM_DMX_SetSecFilter(path, pid_filter->fhandle, &dvb_filt_p);
+         if (am_result == AM_SUCCESS)
+#endif
          {
             success = TRUE;
          }
@@ -2113,8 +2187,13 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
          if (pid_filter->started)
          {
             /* Restart the filter */
+#ifdef USE_TSPLAYER
             am_result = AML_DMX_StartFilter(path, pid_filter->fhandle);
             if (!am_result)
+#else
+            am_result = AM_DMX_StartFilter(path, pid_filter->fhandle);
+            if (am_result != AM_SUCCESS)
+#endif
             {
                DMX_ERR("%u: Failed to restart PID filter %d, error %d", path, pid_filter->fhandle, am_result);
             }
@@ -2182,3 +2261,26 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
 
    FUNCTION_FINISH(PesCallback);
 }
+
+#ifdef USE_TSPLAYER
+static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx)
+{
+   DVB_DemuxSource_t demux_source = DVB_DEMUX_SOURCE_TS0;
+   switch (ts_input_idx)
+   {
+       case 0:
+           demux_source = DVB_DEMUX_SOURCE_TS0;
+           break;
+       case 1:
+           demux_source = DVB_DEMUX_SOURCE_TS1;
+           break;
+       case 2:
+           demux_source = DVB_DEMUX_SOURCE_TS2;
+           break;
+       default:
+           DMX_DBG("do not support demux source:ts%d", ts_input_idx);
+       break;
+   }
+   return demux_source;
+}
+#endif

@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "linuxdvbdmx_wrapper.h"
+#include "stbhwc.h"
 
 #define DMX_COUNT (3)
 #define DMX_FILTER_COUNT (32*DMX_COUNT)
@@ -363,7 +364,6 @@ BOOLEAN AML_DMX_SetBufferSize(int dev_no, int fhandle, int size)
 
 BOOLEAN AML_DMX_FreeFilter(int dev_no, int fhandle)
 {
-    BOOLEAN ret = TRUE;
     dvb_dmx_t *dev = NULL;
     dvb_dmx_filter_t *filter = NULL;
 
@@ -587,4 +587,3 @@ BOOLEAN AML_DMX_FileEcho(const char *name, const char *cmd)
 	close(fd);
 	return TRUE;
 }
-

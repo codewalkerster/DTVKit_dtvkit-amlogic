@@ -21,7 +21,7 @@
  */
 
 #define DEMUX_DEBUG
-//#define FILTER_PRINTS
+#define FILTER_PRINTS
 
 /*---includes for this file---------------------------------------------------*/
 /* compiler library header files */
@@ -627,7 +627,7 @@ U16BIT  STB_DMXGrabPIDFilter(U8BIT path, U16BIT pid, FILTER_CALLBACK func_ptr)
 
          pfilt_id = (filter_index << 8);
 #ifdef FILTER_PRINTS
-printf(">> %s(%u): pid=%u, fd=%d, func=%p, 0x%04x - NEW\n", __FUNCTION__, path, pid, filter_ptr->filter_fd, func_ptr, pfilt_id);
+//printf(">> %s(%u): pid=%u, fd=%d, func=%p, 0x%04x - NEW\n", __FUNCTION__, path, pid, filter_ptr->filter_fd, func_ptr, pfilt_id);
 #endif
       }
       else
@@ -702,8 +702,8 @@ void STB_DMXReleasePIDFilter(U8BIT path, U16BIT pfilt_id)
          }
 
 #ifdef FILTER_PRINTS
-printf(">> %s(%u, 0x%04x): pid=%u, fd=%d - FREED\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid,
-filter_ptr->filter_fd);
+//printf(">> %s(%u, 0x%04x): pid=%u, fd=%d - FREED\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid,
+//filter_ptr->filter_fd);
 #endif
          /* Mark the filter as no longer allocated */
          filter_ptr->pid = DEMUX_PID_NOT_USED;
@@ -712,7 +712,7 @@ filter_ptr->filter_fd);
 #ifdef FILTER_PRINTS
       else
       {
-   printf(">> %s(%u, 0x%04x): pid=%u, fd=%d\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, filter_ptr->filter_fd);
+  // printf(">> %s(%u, 0x%04x): pid=%u, fd=%d\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, filter_ptr->filter_fd);
       }
 #endif
 

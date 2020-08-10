@@ -2291,6 +2291,7 @@ static BOOLEAN updatePlayback(U8BIT play_index)
         } while (0);
 #endif
          PLAY_DBG("Starting pvr playback, speed=%u%%", s_recplay_status[play_index].play_speed);
+         s_recplay_status[play_index].play_state = PLAY_STARTING;
 
          error = dvr_wrapper_start_playback(s_recplay_status[play_index].player, play_flag, &play_pids);
          if (error)
@@ -2299,8 +2300,6 @@ static BOOLEAN updatePlayback(U8BIT play_index)
          }
 
          done = TRUE;
-
-         s_recplay_status[play_index].play_state = PLAY_STARTING;
 
          if (s_recplay_status[play_index].has_audio)
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED,
@@ -2494,11 +2493,12 @@ static DVR_Result_t PlayEventHandler(DVR_PlaybackEvent_t event, void *params, vo
             /**< Update the current player information*/
             DVR_WrapperPlaybackStatus_t *status = (DVR_WrapperPlaybackStatus_t *)params;
             {
-               PLAY_DBG("Info update: current=%lu, full=%lu, state=%d, obsolete=%lu",
+               PLAY_DBG("Info update: current=%lu, full=%lu, state=%d, obsolete=%lu play_status->play_state:%d",
                   status->info_cur.time,
                   status->info_full.time,
                   status->info_obsolete.time,
-                  status->state);
+                  status->state,
+                  play_status->play_state);
 
                if ((play_status->play_state == PLAY_STARTING) &&
                   ((status->state == DVR_PLAYBACK_STATE_START) ||

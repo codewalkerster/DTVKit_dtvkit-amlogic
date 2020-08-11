@@ -114,6 +114,14 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/include \
     bionic/libc/../libm/include \
 
+LOCAL_CFLAGS += \
+    -Wno-unused-function \
+    -Wno-unused-parameter \
+    -Wno-unused-variable \
+    -Wno-pointer-sign \
+    -Wno-implicit-function-declaration \
+    -Wno-sometimes-uninitialized \
+    -Wno-typedef-redefinition
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux

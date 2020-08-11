@@ -2306,7 +2306,7 @@ Already_Tuned:
           {
               locked = TRUE;
               tuner_locked = TRUE;
-          }else if (state = TUNER_RELOCKING)
+          }else if (state == TUNER_RELOCKING)
           {
               locked = FALSE;
               tuner_locked = FALSE;

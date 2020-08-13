@@ -2100,6 +2100,22 @@ void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event)
 	FUNCTION_FINISH(STB_AVNotifyEventHandler);
 }
 
+/**
+ * @brief   Sets the decoding mode
+ * @param   path decoder path
+ * @param   decoding mode
+ */
+void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECODING_MODE mode)
+{
+   FUNCTION_START(STB_AVSetDecodingMode);
+   USE_UNWANTED_PARAM(path);
+   USE_UNWANTED_PARAM(mode);
+   AV_DBG("[decoding mode]:(a:%d v:%d) = %d", audio_decoder, video_decoder, mode);
+   FUNCTION_FINISH(STB_AVSetDecodingMode);
+}
+
+
+
 /*---local function definitions----------------------------------------------*/
 
 static void AVEventHandler(long dev_no, int event_type, void *param, void *data)

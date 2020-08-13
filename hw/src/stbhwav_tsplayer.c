@@ -123,6 +123,10 @@
 #define INVALID_PLAYER_HANDLE -1
 #define IS_INVALID_PLAYER_HANDLE(_path_)    ((av_paths_status[_path_].player_handle) == INVALID_PLAYER_HANDLE)
 
+#define IS_CACHED(_m_) ((_m_) & DECODING_MODE_CACHE_ONLY)
+#define IS_AD_ENABLE(_m_) ((_m_) & DECODING_AD_ENABLE)
+#define IS_AUDIO_DISABLE(_m_) ((_m_) & DECODING_AUDIO_DISABLE)
+
 /*---constant definitions for this file--------------------------------------*/
 
 /*---local typedef structs for this file-------------------------------------*/
@@ -187,6 +191,10 @@ typedef struct
    U8BIT video_decoder;
    U8BIT audio_decoder;
    S_DISPLAY_INFO display_info;
+
+   U32BIT param;
+
+   E_STB_DECODING_MODE decoding_mode;
 
 #ifdef SUPPORT_CAS
    E_STB_DRM_TYPE drm_mode;
@@ -462,14 +470,16 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
    if ((src != NULL) && (dest != NULL))
    {
       /*used as a Quad, not the literal meaning*/
-      S_RECTANGLE crop = {src->top, src->left, src->top, src->left};
+      S_QVALUE_EX crop = {.path = path, .values = {src->top, src->left, src->top, src->left}};
+      S_QVALUE_EX rect = {.path = path, .values = {dest->top, dest->left, dest->width, dest->height}};
 
-      VID_DBG("video: (%u, %u), (%u x %u) out: (%u, %u), (%u x %u)",
+      VID_DBG("video(%d): (%u, %u), (%u x %u) out: (%u, %u), (%u x %u)",
+         path,
          src->left, src->top, src->width, src->height,
          dest->left, dest->top, dest->width, dest->height);
 
-      STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_CROPPING_CHANGED, &crop, sizeof(S_RECTANGLE));
-      STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_RECTANGLE_CHANGED, dest, sizeof(S_RECTANGLE));
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_CROPPING_CHANGED, &crop, sizeof(S_QVALUE_EX));
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_RECTANGLE_CHANGED, &rect, sizeof(S_QVALUE_EX));
    }
 
    FUNCTION_FINISH(STB_AVApplyVideoTransformation);
@@ -1499,6 +1509,7 @@ void STB_AVSetAudioSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
       if (source == AV_DEMUX)
       {
          av_paths_status[av_path].demux = param & 0xff;
+         av_paths_status[av_path].param = ((param & 0xff0000) >> 16);
       }
    }
 
@@ -1525,7 +1536,30 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
 
    FUNCTION_START(STB_AVSetSurface);
    VID_DBG("set surface---av_path:[%d]", av_path);
-   video_surface[av_path] = surface;
+
+   if (video_surface[av_path] != surface)
+   {
+      video_surface[av_path] = surface;
+
+      {
+         am_tsplayer_result ret;
+         am_tsplayer_handle player_handle;
+
+         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
+                                  av_paths_status[av_path].audio_decoder,
+                                  &player_handle,
+                                  FALSE);
+         if (ret == AM_TSPLAYER_OK)
+         {
+            ret = AmTsPlayer_setSurface(player_handle, surface);
+            AV_DBG("set tsplayer surface: %p = %d", surface, ret);
+         }
+      }
+
+      video_surface[av_path] = surface;
+   }
+
+
    FUNCTION_FINISH(STB_AVSetSurface);
 
    return success;
@@ -2553,6 +2587,56 @@ void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
    USE_UNWANTED_PARAM(copy_protection);
    FUNCTION_FINISH(STB_AVSetCopyProtection);
 }
+
+/**
+ * @brief   Sets the decoding mode
+ * @param   path decoder path
+ * @param   decoding mode
+ */
+void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECODING_MODE mode)
+{
+   U8BIT av_path;
+
+   FUNCTION_START(STB_AVSetDecodingMode);
+
+   av_path = STB_AVGetPath(audio_decoder, video_decoder);
+   AV_DBG("[decoding mode]: %d(a:%d v:%d) = (%d -> %d)",
+      av_path,
+      audio_decoder,
+      video_decoder,
+      av_paths_status[av_path].decoding_mode,
+      mode);
+
+   if (av_paths_status[av_path].decoding_mode != mode)
+   {
+      #define IS_CACHED(_m_) ((_m_) & DECODING_MODE_CACHE_ONLY)
+      #define IS_AD_ENABLE(_m_) ((_m_) & DECODING_AD_ENABLE)
+      #define IS_AUDIO_DISABLE(_m_) ((_m_) & DECODING_AUDIO_DISABLE)
+
+      if (IS_CACHED(av_paths_status[av_path].decoding_mode) != IS_CACHED(mode))
+      {
+         am_tsplayer_result ret;
+         am_tsplayer_handle player_handle;
+
+         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
+                                  av_paths_status[av_path].audio_decoder,
+                                  &player_handle,
+                                  FALSE);
+         if (ret == AM_TSPLAYER_OK)
+         {
+            am_tsplayer_work_mode work_mode =
+               IS_CACHED(mode) ? TS_PLAYER_MODE_CACHING_ONLY : TS_PLAYER_MODE_NORMAL;
+            ret = AmTsPlayer_setWorkMode(player_handle, work_mode);
+            AV_DBG("set tsplayer work mode: %d = %d", work_mode, ret);
+         }
+      }
+
+      av_paths_status[av_path].decoding_mode = mode;
+   }
+
+   FUNCTION_FINISH(STB_AVSetDecodingMode);
+}
+
 /**
  * @brief   Sync decoding info from pvr
  * @param   path the audio decoder path to be started
@@ -3009,6 +3093,14 @@ am_tsplayer_result AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_dec
        {
            ret = AV_CreateTsPlayer(av_path, TS_DEMOD, av_paths_status[av_path].demux, 0);
            ret = AM_TSPLAYER_OK;
+
+           if (IS_CACHED(av_paths_status[av_path].decoding_mode))
+           {
+              am_tsplayer_result result =
+                 AmTsPlayer_setWorkMode(av_paths_status[av_path].player_handle,
+                    TS_PLAYER_MODE_CACHING_ONLY);
+              AV_DBG("set tsplayer work mode: caching_only = %d", result);
+           }
        }
        *play_hdle = av_paths_status[av_path].player_handle;
     }

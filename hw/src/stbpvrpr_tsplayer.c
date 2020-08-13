@@ -788,13 +788,14 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
             pthread_rwlock_unlock(lock);
          }
 
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP,
+            &s_recplay_status[play_index].audio_decoder, sizeof(s_recplay_status[play_index].audio_decoder));
+
          s_recplay_status[play_index].play_state = PLAY_STOPPED;
          s_recplay_status[play_index].last_position_in_seconds = 0;
          s_recplay_status[play_index].video_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].audio_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].player = NULL;
-
-         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
       }
       else
       {
@@ -2546,8 +2547,8 @@ static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
 
    for (i = 0; i < num_players && play_index == INVALID_RES_ID; i++)
    {
-      if (s_recplay_status[i].video_decoder == video_decoder
-         || s_recplay_status[i].audio_decoder == audio_decoder)
+      if ((video_decoder != INVALID_RES_ID && s_recplay_status[i].video_decoder == video_decoder)
+         || (audio_decoder != INVALID_RES_ID && s_recplay_status[i].audio_decoder == audio_decoder))
       {
          play_index = i;
       }
@@ -2667,7 +2668,7 @@ static DVR_Result_t PlayEventHandler(DVR_PlaybackEvent_t event, void *params, vo
                   /* Playback has started successfully */
                   PLAY_DBG("Timeshift playback has started");
                   play_status->play_state = PLAY_STARTED;
-                  STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, NULL, 0);
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
                }
 
             }
@@ -2677,7 +2678,7 @@ static DVR_Result_t PlayEventHandler(DVR_PlaybackEvent_t event, void *params, vo
          {
             /**< File player's EOF*/
             PLAY_DBG("EOF");
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_EOF, NULL, 0);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_EOF, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
             break;
          }
          case DVR_PLAYBACK_EVENT_ERROR:
@@ -2690,7 +2691,7 @@ static DVR_Result_t PlayEventHandler(DVR_PlaybackEvent_t event, void *params, vo
               will call back, and clean the battlefield soon*/
             /*play_status->play_status = PLAY_STOPPED;*/
 
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
             break;
          }
 

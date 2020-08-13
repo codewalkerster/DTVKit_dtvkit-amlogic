@@ -15,6 +15,8 @@
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
+
 #include <poll.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -83,6 +85,7 @@ static void* dmx_data_thread(void *arg)
     dvb_dmx_t *dmx = (dvb_dmx_t *)arg;
 
     sec_buf = (uint8_t *)malloc(SEC_BUF_SIZE);
+    prctl(PR_SET_NAME, "dmx_data_thread");
     while (dmx->running)
     {
         cnt = 0;
@@ -113,7 +116,7 @@ static void* dmx_data_thread(void *arg)
 
     	if (!cnt)
         {
-            usleep(20);
+            usleep(20*1000);
     	    continue;
         }
 

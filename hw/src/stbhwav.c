@@ -127,7 +127,7 @@ typedef struct
    U32BIT iframe_data_size;
    E_STB_AV_VIDEO_CODEC iframe_codec;
 
-   void (*callback)(S_STB_AV_VIDEO_INFO *, void *);
+   void (*callback)(S_STB_AV_VIDEO_INFO *, void *, int);
    void *user_data;
 
    U8BIT volume;
@@ -354,7 +354,7 @@ void STB_AVSetVideoCallback(U8BIT path, void (*callback)(S_STB_AV_VIDEO_INFO *, 
       info.screen_height = display_info.screen_height;
       info.display_aspect_ratio = display_info.screen_aspect_ratio;
 
-      av_paths_status[path].callback(&info, av_paths_status[path].user_data);
+      av_paths_status[path].callback(&info, av_paths_status[path].user_data, 0);
    }
 
    FUNCTION_FINISH(STB_AVSetVideoCallback);
@@ -1085,7 +1085,7 @@ void STB_AVStopVideoDecoding(U8BIT path)
       info.flags |= VIDEO_INFO_AFD;
       info.afd = 0;
 
-      av_paths_status[path].callback(&info, av_paths_status[path].user_data);
+      av_paths_status[path].callback(&info, av_paths_status[path].user_data, 0);
    }
 
    FUNCTION_FINISH(STB_AVStopVideoDecoding);
@@ -2218,7 +2218,7 @@ static void AVEventHandler(long dev_no, int event_type, void *param, void *data)
 
    if ((info.flags != 0) && (status->callback != NULL))
    {
-      status->callback(&info, status->user_data);
+      status->callback(&info, status->user_data, 0);
    }
 }
 

@@ -772,10 +772,11 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
                 s_recplay_status[play_index].secure_buf);
 
              memset(&s_recplay_status[play_index].cas_status, 0, sizeof(S_CAS_STATUS));
-             
              if (s_recplay_status[play_index].secmem_handle)
              {
-                 AM_CA_DestroySecmem(s_recplay_status[play_index].secmem_handle);
+                 CasSession section_handle;
+                 STB_CAPVRGetPlaySection(&section_handle);
+                 AM_CA_DestroySecmem(section_handle, s_recplay_status[play_index].secmem_handle);
                  s_recplay_status[play_index].secmem_handle = (SecMemHandle)NULL;
                  s_recplay_status[play_index].secure_buf = NULL;
              }
@@ -851,9 +852,9 @@ void STB_PVRPlaySetCASStatus(U8BIT audio_decoder, U8BIT video_decoder, S_CAS_STA
    FUNCTION_START(STB_PVRPlaySetCASStatus);
 
    REC_DBG("dec_cb[%#x], is_smp[%u], cb_param[%#x]",
-		cas_status->crypto_cb,
-		cas_status->is_smp,
-		cas_status->cb_param);
+    cas_status->crypto_cb,
+    cas_status->is_smp,
+    cas_status->cb_param);
 
    play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
@@ -1097,6 +1098,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       {
 
 #ifdef SUPPORT_CAS
+
         do
         {
             void *buf = NULL;
@@ -1105,8 +1107,11 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
             if (!s_rec_status[rec_index].cas_status.is_smp)
                 break;
-            
-            secmem_handle = AM_CA_CreateSecmem(SERVICE_PVR_RECORDING, &buf, &secmem_size);
+            CasSession sec_handle;
+            STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+            REC_DBG("get dvr section:[%p].", sec_handle);
+
+            secmem_handle = AM_CA_CreateSecmem(sec_handle, SERVICE_PVR_RECORDING, &buf, &secmem_size);
             if (!secmem_handle)
             {
                 REC_DBG("Create secmem session failed.");
@@ -1152,7 +1157,11 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
                  if (s_rec_status[rec_index].secmem_handle)
                  {
-                     AM_CA_DestroySecmem(s_rec_status[rec_index].secmem_handle);
+                     CasSession sec_handle;
+                     STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+                     REC_DBG("get dvr section:[%p].", sec_handle);
+
+                     AM_CA_DestroySecmem(sec_handle, s_rec_status[rec_index].secmem_handle);
                      s_rec_status[rec_index].secmem_handle = (SecMemHandle)NULL;
                      s_rec_status[rec_index].secure_buf = NULL;
                  }
@@ -1235,9 +1244,13 @@ void STB_PVRRecordStop(U8BIT rec_index)
              REC_DBG("rease secmem session:%#x, secure_buf:%#x",
                 s_rec_status[rec_index].secmem_handle,
                 s_rec_status[rec_index].secure_buf);
+
+			CasSession sec_handle;
+			STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+			REC_DBG("get dvr section:[%p].", sec_handle);
              if (s_rec_status[rec_index].secmem_handle)
              {
-                 AM_CA_DestroySecmem(s_rec_status[rec_index].secmem_handle);
+                 AM_CA_DestroySecmem(sec_handle, s_rec_status[rec_index].secmem_handle);
                  s_rec_status[rec_index].secmem_handle = (SecMemHandle)NULL;
                  s_rec_status[rec_index].secure_buf = NULL;
              }
@@ -1384,8 +1397,8 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
    FUNCTION_START(STB_PVRRecordSetCASStatus);
 
    REC_DBG("index %u, enc_cb[%#x], is_smp[%u], cb_param[%#x]",
-		rec_index, cas_status->crypto_cb,
-		cas_status->is_smp, cas_status->cb_param);
+    rec_index, cas_status->crypto_cb,
+    cas_status->is_smp, cas_status->cb_param);
 
    if (rec_index < num_recorders)
    {
@@ -2226,7 +2239,7 @@ static BOOLEAN updatePlayback(U8BIT play_index)
          play_params.playback_handle =
             (Playback_DeviceHandle_t)s_recplay_status[play_index].tsplayer_handle;
       }
-	  pthread_rwlock_unlock(lock);
+      pthread_rwlock_unlock(lock);
       play_params.dmx_dev_id = s_recplay_status[play_index].play_demux;
       play_params.event_fn = PlayEventHandler;
       play_params.event_userdata = &s_recplay_status[play_index];
@@ -2255,7 +2268,11 @@ static BOOLEAN updatePlayback(U8BIT play_index)
            play_params.location,
            sizeof(play_params.location));
       }
-
+#ifdef SUPPORT_CAS
+      AM_CA_PreParam_t param;
+      param.dmx_dev = s_recplay_status[play_index].play_demux;
+      STB_CAPVRPlayStart(&param);
+#endif
       error = dvr_wrapper_open_playback(&s_recplay_status[play_index].player, &play_params);
       if (!error)
       {
@@ -2263,6 +2280,10 @@ static BOOLEAN updatePlayback(U8BIT play_index)
             (s_recplay_status[play_index].play_speed == 0)? DVR_PLAYBACK_STARTED_PAUSEDLIVE : 0;
 
 #ifdef SUPPORT_CAS
+        //get section handle
+        CasSession section_handle;
+        STB_CAPVRGetPlaySection(&section_handle);
+        PLAY_DEBUG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
         do
         {
             void *buf = NULL;
@@ -2272,7 +2293,7 @@ static BOOLEAN updatePlayback(U8BIT play_index)
             if (!s_recplay_status[play_index].cas_status.is_smp)
                 break;
 
-            secmem_handle = AM_CA_CreateSecmem(SERVICE_PVR_PLAY, &buf, &secmem_size);
+            secmem_handle = AM_CA_CreateSecmem(section_handle, SERVICE_PVR_PLAY, &buf, &secmem_size);
             if (!secmem_handle)
             {
                 PLAY_DEBUG("Create replay secmem session failed.");

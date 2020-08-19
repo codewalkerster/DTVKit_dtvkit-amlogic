@@ -2587,8 +2587,14 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
 
     if (parm.drmmode != DRM_NONE)
     {
+        AM_CA_PreParam_t param;
+        param.dmx_dev = dmx_dev_id;
+        STB_CAPVRPlayStart(&param);
+        CasSession section_handle;
+        STB_CAPVRGetPlaySection(&section_handle);
+        AV_DEBUG("section_handle get playback [%p].", section_handle);
         av_paths_status[path].secmem_handle =
-                AM_CA_CreateSecmem(SERVICE_LIVE_PLAY, NULL, NULL);
+                AM_CA_CreateSecmem(section_handle, SERVICE_LIVE_PLAY, NULL, NULL);
         if (!av_paths_status[path].secmem_handle) {
             AV_DEBUG("Create live secmem failed.");
         }
@@ -2637,7 +2643,9 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
 #ifdef SUPPORT_CAS
         if (av_paths_status[path].secmem_handle)
         {
-            AM_CA_DestroySecmem(av_paths_status[path].secmem_handle);
+            CasSession section_handle;
+            STB_CAPVRGetPlaySection(&section_handle);
+            AM_CA_DestroySecmem(section_handle, av_paths_status[path].secmem_handle);
             av_paths_status[path].secmem_handle = (SecMemHandle)NULL;
         }
 #endif

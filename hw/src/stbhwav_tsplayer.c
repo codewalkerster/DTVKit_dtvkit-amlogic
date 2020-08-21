@@ -43,8 +43,6 @@
 #define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP
 #define  AV_AUDIO_RIGHT         AV_AUDIO_RIGHT_TSP
 #define  AV_AUDIO_LEFT          AV_AUDIO_LEFT_TSP
-#define  AV_AUDIO_MONO          AV_AUDIO_MONO_TSP
-#define  AV_AUDIO_MULTICHANNEL  AV_AUDIO_MULTICHANNEL_TSP
 #define  AV_VIDEO_CODEC_AUTO    AV_VIDEO_CODEC_AUTO_TSP
 #define  AV_VIDEO_CODEC_H264    AV_VIDEO_CODEC_H264_TSP
 #define  AV_VIDEO_CODEC_H265    AV_VIDEO_CODEC_H265_TSP
@@ -68,8 +66,6 @@
 
 #undef  AV_AUDIO_RIGHT
 #undef  AV_AUDIO_LEFT
-#undef  AV_AUDIO_MONO
-#undef  AV_AUDIO_MULTICHANNEL
 #undef  AV_VIDEO_CODEC_AUTO
 #undef  AV_VIDEO_CODEC_H264
 #undef  AV_VIDEO_CODEC_H265
@@ -651,10 +647,10 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
          audio_mode = AV_AUDIO_LEFT_TSP;
          break;
       case AV_AUDIO_MONO:
-         audio_mode = AV_AUDIO_MONO_TSP;
+         audio_mode = AV_AUDIO_SWAP;
          break;
       case AV_AUDIO_MULTICHANNEL:
-         audio_mode = AV_AUDIO_MULTICHANNEL_TSP;
+         audio_mode = AV_AUDIO_LRMIX;
          break;
       default:
          AUD_DBG("Not support audio mode:%d", mode);

@@ -24,7 +24,7 @@
 #include "am_types.h"
 #endif
 
-#define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
+#define CFG_FILE_PATH "/odm/etc/tvconfig/dtvkit/config.xml"
 
 #define CFG_PARSER_BUF_SIZE 512
 //#define CFG_DEBUG 1

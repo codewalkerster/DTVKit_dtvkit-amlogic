@@ -2366,7 +2366,13 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
          //PLAY_DBG(" TsPlayer set Syncmode FREERUN %s, result(%d)", (result)? "FAIL" : "OK", result);
          result = AmTsPlayer_setSyncMode(s_recplay_status[play_index].tsplayer_handle, TS_SYNC_PCRMASTER );
          PLAY_DBG(" TsPlayer set Syncmode PCRMASTER %s, result(%d)", (result)? "FAIL" : "OK", result);
-
+         //set surface
+         void * surface = STB_AVGetSurface(s_recplay_status[play_index].video_decoder);
+         if (surface != NULL) {
+            AmTsPlayer_setSurface(s_recplay_status[play_index].tsplayer_handle, surface);
+         } else {
+           PLAY_DBG("Cannot set surface to TsPlayer, surface is NULL. play_index path:%d", play_index);
+         }
          play_params.playback_handle =
             (Playback_DeviceHandle_t)s_recplay_status[play_index].tsplayer_handle;
       }

@@ -1028,6 +1028,11 @@ void STB_AVStartVideoDecoding(U8BIT path)
              VID_DBG("Cannot get TsPlayer. video path:%d", path);
              return;
          }
+         if (video_surface[av_path] != NULL) {
+            AmTsPlayer_setSurface(player_handle,video_surface[av_path]);
+         } else {
+           VID_DBG("Cannot set surface to TsPlayer, surface is NULL. video path:%d", av_path);
+         }
          switch (av_paths_status[av_path].av_decoder_state)
          {
          case DECODER_A_STOP_V_START:

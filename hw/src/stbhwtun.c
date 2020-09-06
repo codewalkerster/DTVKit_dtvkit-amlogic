@@ -34,7 +34,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-
+#include "frontend.h"
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"

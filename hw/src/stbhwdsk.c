@@ -535,8 +535,6 @@ void* STB_DSKOpenFile(U16BIT disk_id, U8BIT *name, E_STB_DSK_FILE_MODE mode)
                break;
          }
 
-         STB_MEMFreeSysRAM(fullpath);
-
          if (file != NULL)
          {
             DISK_DBG("Opened file %s: %p", fullpath, file);
@@ -545,6 +543,8 @@ void* STB_DSKOpenFile(U16BIT disk_id, U8BIT *name, E_STB_DSK_FILE_MODE mode)
          {
             DISK_DBG("Failed to open %s, error %d", fullpath, errno);
          }
+
+         STB_MEMFreeSysRAM(fullpath);
       }
    }
    else

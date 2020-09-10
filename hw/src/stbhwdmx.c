@@ -1239,6 +1239,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
        DMX_ERR("path:%d error", path);
        return;
    }
+   tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
 #ifdef USE_TSPLAYER
    dmx_src_cfg = GetDemuxSourceByCfg(aml_hw_cfg.tuners[tuner_index].ts_input_idx);
    dvb_get_demux_source(path, &dmx_src_cur);
@@ -1254,7 +1255,6 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 
       if (source == DMX_TUNER)
       {
-         tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
 #ifdef USE_TSPLAYER
          ret = dvb_set_demux_source(path, dmx_src_cfg);
          if (ret == -1)

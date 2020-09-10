@@ -1029,6 +1029,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
              return;
          }
          if (video_surface[av_path] != NULL) {
+            VID_DBG("set surface [%d] = [%p]", av_path, video_surface[av_path]);
             AmTsPlayer_setSurface(player_handle,video_surface[av_path]);
          } else {
            VID_DBG("Cannot set surface to TsPlayer, surface is NULL. video path:%d", av_path);
@@ -2763,7 +2764,8 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
       {
           case AM_TSPLAYER_EVENT_TYPE_PTS:
           {
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_PTS: stream_type:%d, pts[%d]\n",
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_PTS: stream_type:%d, pts[%d]\n",
+              status->decoder,
               event->event.pts.stream_type,
               event->event.pts.pts);
               break;
@@ -2772,7 +2774,8 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           {
               uint8_t* pbuf = event->event.mpeg_user_data.data;
               uint32_t size = event->event.mpeg_user_data.len;
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_DTV_SUBTITLE: %x-%x-%x-%x ,size %d\n",
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_DTV_SUBTITLE: %x-%x-%x-%x ,size %d\n",
+              status->decoder,
               pbuf[0], pbuf[1], pbuf[2], pbuf[3], size);
               break;
           }
@@ -2780,7 +2783,8 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           {
               uint8_t* pbuf = event->event.mpeg_user_data.data;
               uint32_t size = event->event.mpeg_user_data.len;
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_USERDATA_CC: %x-%x-%x-%x ,size %d\n",
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_USERDATA_CC: %x-%x-%x-%x ,size %d\n",
+              status->decoder,
               pbuf[0], pbuf[1], pbuf[2], pbuf[3], size);
 			  break;
           }
@@ -2788,7 +2792,8 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           {
               uint8_t* pbuf = event->event.mpeg_user_data.data;
               uint32_t size = event->event.mpeg_user_data.len;
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_USERDATA_AFD: %x-%x-%x-%x ,size %d\n",
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_USERDATA_AFD: %x-%x-%x-%x ,size %d\n",
+              status->decoder,
               pbuf[0], pbuf[1], pbuf[2], pbuf[3], size);
               USERDATA_AFD_t afd = *((USERDATA_AFD_t *)pbuf);
               afd.reserved = afd.pts = 0;
@@ -2799,7 +2804,8 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           }
           case AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED:
           {
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED: [width:height] [%d x %d] @%d aspectratio[%d]\n",
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED: [width:height] [%d x %d] @%d aspectratio[%d]\n",
+              status->decoder,
               event->event.video_format.frame_width,
               event->event.video_format.frame_height,
               event->event.video_format.frame_rate,
@@ -2836,24 +2842,26 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           }
           case AM_TSPLAYER_EVENT_TYPE_AUDIO_CHANGED:
           {
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
+              status->decoder,
               event->event.audio_format.sample_rate,
               event->event.audio_format.channels);
               break;
           }
           case AM_TSPLAYER_EVENT_TYPE_DATA_LOSS:
           {
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_DATA_LOSS\n");
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_DATA_LOSS\n", status->decoder);
               break;
           }
           case AM_TSPLAYER_EVENT_TYPE_DATA_RESUME:
           {
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_DATA_RESUME\n");
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_DATA_RESUME\n", status->decoder);
               break;
           }
           case AM_TSPLAYER_EVENT_TYPE_SCRAMBLING:
           {
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_SCRAMBLING: stream_type:%d is_scramling[%d]\n",
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_SCRAMBLING: stream_type:%d is_scramling[%d]\n",
+              status->decoder,
               event->event.scramling.stream_type,
               event->event.scramling.scramling);
               if (event->event.scramling.stream_type == TS_STREAM_VIDEO)
@@ -2870,7 +2878,7 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           }
           case AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME:
           {
-              AV_DBG("[evt] AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME: ## VIDEO_AVAILABLE ##\n");
+              AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME: ## VIDEO_AVAILABLE ##\n", status->decoder);
               STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
               break;
           }

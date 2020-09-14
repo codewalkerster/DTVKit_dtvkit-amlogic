@@ -136,7 +136,7 @@ void STB_SPDebugWrite(const char *format, ... )
 
    //printf("%s\n", debug_msg_buff);
    DTVKIT_DEBUG("%s", debug_msg_buff);
-   lf_write(debug_msg_buff);
+   //lf_write(debug_msg_buff);
    //fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugWrite);

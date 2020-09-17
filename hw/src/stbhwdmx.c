@@ -1173,6 +1173,46 @@ U8BIT STB_DMXGetMaxSectionFilters(void)
 }
 
 /**
+ * @brief   Returns the maximum number of section filters available on this hw
+ * @return  The number of filters
+ */
+static U8BIT inline _GetDmxDMASourceById(int id)
+{
+   U8BIT source = DVB_DEMUX_SOURCE_DMA0;
+   switch (id)
+   {
+      case 0:
+         source = DVB_DEMUX_SOURCE_DMA0;
+         break;
+      case 1:
+         source = DVB_DEMUX_SOURCE_DMA1;
+         break;
+      case 2:
+         source = DVB_DEMUX_SOURCE_DMA2;
+         break;
+      case 3:
+         source = DVB_DEMUX_SOURCE_DMA3;
+         break;
+      case 4:
+         source = DVB_DEMUX_SOURCE_DMA4;
+         break;
+      case 5:
+         source = DVB_DEMUX_SOURCE_DMA5;
+         break;
+      case 6:
+         source = DVB_DEMUX_SOURCE_DMA6;
+         break;
+      case 7:
+         source = DVB_DEMUX_SOURCE_DMA7;
+         break;
+      default:
+         break;
+   }
+   DMX_ERR("path:%d source:%d", id, source);
+   return source;
+}
+
+/**
  * @brief   Configures the source of the demux
  * @param   path the demux path to configure
  * @param   source the source to use
@@ -1227,9 +1267,9 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
       {
          DMX_DBG("setting source to MEMORY");
 #ifdef USE_TSPLAYER
-         if (dmx_src_cur != DVB_DEMUX_SOURCE_DMA0)
+         if (dmx_src_cur != _GetDmxDMASourceById(path))
          {
-            ret = dvb_set_demux_source(path, DVB_DEMUX_SOURCE_DMA0);
+            ret = dvb_set_demux_source(path, _GetDmxDMASourceById(path));
             if (ret == -1)
             {
                 DMX_ERR("Failed to set demux %u source to %u ", path, param);

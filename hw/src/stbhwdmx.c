@@ -1172,6 +1172,8 @@ U8BIT STB_DMXGetMaxSectionFilters(void)
    return MAX_SECTION_FILTERS;
 }
 
+
+#ifdef USE_TSPLAYER
 /**
  * @brief   Returns the maximum number of section filters available on this hw
  * @return  The number of filters
@@ -1211,6 +1213,7 @@ static U8BIT inline _GetDmxDMASourceById(int id)
    DMX_ERR("path:%d source:%d", id, source);
    return source;
 }
+#endif
 
 /**
  * @brief   Configures the source of the demux

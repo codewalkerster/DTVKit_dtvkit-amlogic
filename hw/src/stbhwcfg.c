@@ -24,7 +24,7 @@
 #include "am_types.h"
 #endif
 
-#if ANDROID_PLATFORM_SDK_VERSION >= 29
+#if ANDROID_PLATFORM_SDK_VERSION > 29
 #define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
 #else
 #define CFG_FILE_PATH "/odm/etc/tvconfig/dtvkit/config.xml"

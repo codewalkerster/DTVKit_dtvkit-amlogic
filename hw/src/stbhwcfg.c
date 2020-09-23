@@ -93,6 +93,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .tdt_timeout = 32000,
     .eit_timeout = 3000,
 },
+.service_without_sdt = 0,
 };
 
 static void
@@ -335,6 +336,16 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             }
             att += 2;
         }
+    }else if (!strcmp(name, "service_list")) {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "service_without_sdt") && !strcmp(av, "yes")) {
+                cfg->service_without_sdt = 1;
+            }
+            att += 2;
+        }
     }
 }
 
@@ -538,6 +549,15 @@ int STB_Get_SI_PSI_Timeout(E_SI_PSI_TYPE sipsi_type)
       }
    }
    return si_psi_timeout;
+}
+
+/**
+ * @brief   get config of whether need to add service without sdt to service list
+ * @return  1 if support, 0 otherwise
+ */
+int STB_Get_Service_WithoutSDT()
+{
+   return aml_hw_cfg.service_without_sdt == 1 ? 1 : 0;
 }
 
 /**

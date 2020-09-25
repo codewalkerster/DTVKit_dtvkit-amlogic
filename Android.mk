@@ -25,6 +25,10 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28&& echo OK),OK)
     DTVKIT_WITH_TSPLAYER = 1
 endif
 
+ifeq ($(DTVKIT_WITH_AML_MP_SDK), true)
+    $(info "DTVKit use aml_mp_sdk!")
+endif
+
 LOCAL_MODULE := libdtvkit_platform
 LOCAL_MODULE_TAGS := optional
 
@@ -97,7 +101,9 @@ else
 endif
 
 ifeq ($(SUPPORT_CAS), true)
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include \
+    $(LOCAL_PATH)/../DVBCore/midware/CA/inc \
+    $(LOCAL_PATH)/../DVBCore/midware/stb/inc
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
@@ -161,8 +167,13 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     os/src/stbos_task.c
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-    LOCAL_SRC_FILES += hw/src/stbhwav_tsplayer.c
-    LOCAL_SRC_FILES += hw/src/stbpvrpr_tsplayer.c
+    ifneq ($(DTVKIT_WITH_AML_MP_SDK), true)
+        LOCAL_SRC_FILES += hw/src/stbhwav_tsplayer.c
+        LOCAL_SRC_FILES += hw/src/stbpvrpr_tsplayer.c
+    else
+        LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
+        LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
+    endif
 else
     LOCAL_SRC_FILES += hw/src/stbhwav.c
     LOCAL_SRC_FILES += hw/src/stbpvrpr.c
@@ -181,6 +192,10 @@ endif
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
     LOCAL_VENDOR_MODULE := true
+endif
+
+ifeq ($(DTVKIT_WITH_AML_MP_SDK), true)
+    LOCAL_SHARED_LIBRARIES += libaml_mp_sdk
 endif
 
 

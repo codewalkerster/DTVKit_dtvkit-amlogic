@@ -21,7 +21,7 @@ ifeq ($(SUPPORT_CAS), true)
 endif
 
 DTVKIT_WITH_TSPLAYER ?= 0
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29&& echo OK),OK)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28&& echo OK),OK)
     DTVKIT_WITH_TSPLAYER = 1
 endif
 

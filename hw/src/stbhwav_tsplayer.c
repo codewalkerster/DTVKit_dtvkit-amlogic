@@ -818,13 +818,18 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
 #ifdef SUPPORT_CAS
 /*
- * Drm Mode on the given video path
+ *
+ Mode on the given video path
  * @param   path video decoder path
  * @param   mode Drm Mode
  */
 void STB_AVSetDrmMode(U8BIT path, E_STB_DRM_TYPE mode)
 {
-   av_paths_status[path].drm_mode = mode;
+   VID_DBG("path=%u", path);
+   if (path < num_paths)
+      av_paths_status[path].drm_mode = mode;
+   else
+      VID_DBG("path=%u is error,not set drm mode", path);
 }
 #endif
 

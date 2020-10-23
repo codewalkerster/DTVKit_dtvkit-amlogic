@@ -17,18 +17,20 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+#include <cutils/properties.h>
+#else
 #ifdef USE_TSPLAYER
 #include "dvr_types.h"
 #include "dvr_utils.h"
 #else
 #include "am_types.h"
 #endif
-
-#if ANDROID_PLATFORM_SDK_VERSION > 29
-#define CFG_FILE_PATH "/vendor/etc/tvconfig/dtvkit/config.xml"
-#else
-#define CFG_FILE_PATH "/odm/etc/tvconfig/dtvkit/config.xml"
 #endif
+
+
+#define CFG_FILE_PATH "/odm/etc/tvconfig/dtvkit/config.xml"
+
 
 #define CFG_PARSER_BUF_SIZE 512
 //#define CFG_DEBUG 1
@@ -569,13 +571,16 @@ int STB_Get_Service_WithoutSDT()
  */
 BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
 {
-   BOOLEAN ret;
-#ifdef USE_TSPLAYER
-   ret = (DVR_SUCCESS == dvr_prop_read(name, buf, len)) ? TRUE : FALSE;
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+    return (property_get(name, buf, NULL) > 0) ? TRUE : FALSE;
 #else
-   ret = (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
+#ifdef USE_TSPLAYER
+      return (DVR_SUCCESS == dvr_prop_read(name, buf, len)) ? TRUE : FALSE;
+#else
+      return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
 #endif
-   return ret;
+#endif
+
 }
 
 /**
@@ -585,9 +590,13 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
  */
 void STB_Set_Prop(const char *name, const char *value)
 {
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+    property_set(name, value);
+#else
 #ifdef USE_TSPLAYER
     dvr_prop_echo(name, value);
 #else
     AM_PropEcho(name, value);
+#endif
 #endif
 }

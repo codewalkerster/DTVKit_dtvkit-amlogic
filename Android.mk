@@ -189,14 +189,13 @@ else
     LOCAL_SHARED_LIBRARIES+=liblog
 endif
 
-LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
-    LOCAL_VENDOR_MODULE := true
-endif
-
 ifeq ($(DTVKIT_WITH_AML_MP_SDK), true)
     LOCAL_SHARED_LIBRARIES += libaml_mp_sdk
 endif
 
+ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
+    LOCAL_VENDOR_MODULE := true
+    LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION
+endif
 
 include $(BUILD_STATIC_LIBRARY)

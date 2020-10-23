@@ -75,11 +75,11 @@ static char *lf_file()
     char buf[256] = { 0 };
     char log_prop[] = "tv.dtvkit.logfile";
     //AM_PropRead(log_prop, buf, sizeof(buf));
-    #if ANDROID_PLATFORM_SDK_VERSION >= 30
+#ifdef DTVKIT_IN_VENDOR_PARTITION
     strncpy(buf, "/data/vendor/dtvkit/dtvkit.log", sizeof(buf));
-    #else
+#else
     strncpy(buf, "/data/data/org.dtvkit.inputsource/dtvkit.log", sizeof(buf));
-    #endif
+#endif
     return strlen(buf)? buf : NULL;
 }
 

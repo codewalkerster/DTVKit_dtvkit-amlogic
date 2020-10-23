@@ -36,12 +36,12 @@
 #include "stbhwos.h"
 #include "stbhwc.h"
 #include "stbhwosd.h"
-#if ANDROID_PLATFORM_SDK_VERSION >= 30
+#include "stb_osd.h"
+#ifdef DTVKIT_IN_VENDOR_PARTITION
 #include "DTVKitInterface.h"
 #else
 #include "binderservice.h"
 #endif
-#include "stb_osd.h"
 
 
 /*---constant definitions for this file--------------------------------------*/

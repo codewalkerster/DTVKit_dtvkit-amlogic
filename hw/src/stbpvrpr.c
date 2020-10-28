@@ -1652,7 +1652,15 @@ void STB_PVRRecordStop(U8BIT rec_index)
 
    FUNCTION_FINISH(STB_PVRRecordStop);
 }
-
+/**
+ * @brief   Changes the record descramble mode while recording
+ * @param   rec_index current recording index  to be updated
+ * @param   mode 1:descramble or 0:free
+ * @return  TRUE if the mode have been successfully changed, FALSE otherwise
+ */
+BOOLEAN STB_PVRRecordChangeDesMode(U8BIT rec_index, int mode) {
+   REC_DBG("Recording STB_PVRRecordChangeDesMode %u mode:%d", rec_index, mode);
+}
 /**
  * @brief   Changes the PIDs while recording
  * @param   rec_index current recording index  to be updated
@@ -2805,7 +2813,7 @@ static void PlayEventHandler(long dev_no, int event_type, void *param, void *dat
          }
          case AM_AV_EVT_PLAYER_SPEED_CHANGED:
          {
-            /**< File player's playing speed changed, the parameter is the new speed(0:normalï¼?0:backwardï¼?0:fast forward)*/
+            /**< File player's playing speed changed, the parameter is the new speed(0:normalï¿½?0:backwardï¿½?0:fast forward)*/
             PLAY_DBG("Speed changed: %ld", (long)param);
             break;
          }

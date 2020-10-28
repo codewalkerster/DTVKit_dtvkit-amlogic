@@ -596,7 +596,9 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                   }
                }
             }//end if error
-            if (s_recplay_status[play_index].has_audio == FALSE && s_recplay_status[play_index].has_audio == FALSE && segment_index < segment_nb) {
+            if (s_recplay_status[play_index].has_audio == FALSE
+              && s_recplay_status[play_index].has_video == FALSE
+              && segment_index < segment_nb - 1) {
                segment_index ++;
                PLAY_DBG("ready to retry get pidinfo play...");
                goto retry;
@@ -1084,7 +1086,8 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       }
 
       /*flush size for radio*/
-      if (!s_rec_status[rec_index].has_video)
+      if (!s_rec_status[rec_index].has_video &&
+         s_rec_status[rec_index].has_audio)
          rec_open_params.flush_size = 1024;
 
       error = dvr_wrapper_open_record(&s_rec_status[rec_index].recorder, &rec_open_params);
@@ -1260,6 +1263,119 @@ void STB_PVRRecordStop(U8BIT rec_index)
    }
 
    FUNCTION_FINISH(STB_PVRRecordStop);
+}
+
+/**
+ * @brief   Changes the record descramble mode while recording
+ * @param   rec_index current recording index  to be updated
+ * @param   mode 1:descramble or 0:free
+ * @return  TRUE if the mode have been successfully changed, FALSE otherwise
+ */
+BOOLEAN STB_PVRRecordChangeDesMode(U8BIT rec_index, int mode)
+{
+   FUNCTION_START(STB_PVRRecordChangeDesMode);
+   DVR_WrapperRecordStartParams_t rec_start_params;
+
+   REC_DBG("Recording STB_PVRRecordChangeDesMode %u mode:%d", rec_index, mode);
+   int cur_mode = dvr_wrapper_record_is_secure_mode(s_rec_status[rec_index].recorder);
+
+   if (cur_mode == 1) {
+      if (mode == 1) {
+         //do nothing
+         REC_DBG("Recording %u secure mode is same, secured", rec_index);
+      } else {
+         //do notjing now.
+         REC_DBG("Recording %u change secure to free", rec_index);
+      }
+   } else {
+      if (mode == 1) {
+         //restart record
+         REC_DBG("Recording %u change free to secure mode, need restart record", rec_index);
+         dvr_wrapper_stop_record(s_rec_status[rec_index].recorder);
+#ifdef SUPPORT_CAS
+      //set dec callback
+       dvr_wrapper_set_record_decrypt_callback(
+          s_rec_status[rec_index].recorder,
+          s_rec_status[rec_index].cas_status.crypto_cb,
+         (void *)s_rec_status[rec_index].cas_status.cb_param);
+       //sec secure buf
+        do
+        {
+            void *buf = NULL;
+            SecMemHandle secmem_handle;
+            uint32_t secmem_size = 0;
+
+            if (!s_rec_status[rec_index].cas_status.is_smp)
+                break;
+            CasSession sec_handle;
+
+            if (s_rec_status[rec_index].cas_status.cb_param)
+               STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+            REC_DBG("get dvr section:[%p].", sec_handle);
+
+            secmem_handle = AM_CA_CreateSecmem(sec_handle, SERVICE_PVR_RECORDING, &buf, &secmem_size);
+            if (!secmem_handle)
+            {
+                REC_DBG("Create secmem session failed.");
+                break;
+            }
+            s_rec_status[rec_index].secmem_handle = secmem_handle;
+            s_rec_status[rec_index].secure_buf = buf;
+            REC_DBG("secmem handle: %#x, secure_buf:%#x, size:%#x",
+                    secmem_handle, buf, secmem_size);
+
+            dvr_wrapper_set_record_secure_buffer(
+                s_rec_status[rec_index].recorder,
+                s_rec_status[rec_index].secure_buf,
+                secmem_size);
+        } while (0);
+#endif
+
+         memset(&rec_start_params, 0, sizeof(rec_start_params));
+         rec_start_params.pids_info.nb_pids = s_rec_status[rec_index].pids_info.nb_pids;
+         memcpy(&rec_start_params.pids_info.pids, s_rec_status[rec_index].pids_info.pids,
+            sizeof(rec_start_params.pids_info.pids));
+         int error = dvr_wrapper_start_record(s_rec_status[rec_index].recorder, &rec_start_params);
+         if (!error)
+         {
+             s_rec_status[rec_index].rec_state = REC_STARTING;
+         }
+         else
+         {
+#ifdef SUPPORT_CAS
+             if (s_rec_status[rec_index].cas_status.is_smp)
+             {
+                 REC_DBG("rease secmem handle:%#x, secure_buf:%#x",
+                    s_rec_status[rec_index].secmem_handle,
+                    s_rec_status[rec_index].secure_buf);
+
+                 if (s_rec_status[rec_index].secmem_handle)
+                 {
+                     CasSession sec_handle;
+                     STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+                     REC_DBG("get dvr section:[%p].", sec_handle);
+
+                     AM_CA_DestroySecmem(sec_handle, s_rec_status[rec_index].secmem_handle);
+                     s_rec_status[rec_index].secmem_handle = (SecMemHandle)NULL;
+                     s_rec_status[rec_index].secure_buf = NULL;
+                 }
+             }
+#endif
+            REC_DBG("Failed to start recording, error %d", error);
+
+            dvr_wrapper_close_record(s_rec_status[rec_index].recorder);
+            s_rec_status[rec_index].recorder = NULL;
+         }
+
+
+      } else {
+         //do notjing now.
+         REC_DBG("Recording %u secure mode is same, free mode", rec_index);
+      }
+   }
+
+   FUNCTION_FINISH(STB_PVRRecordChangePids);
+   return(TRUE);
 }
 
 /**

@@ -599,7 +599,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                   }
                }
             }//end if error
-            if (s_recplay_status[play_index].has_audio == FALSE && s_recplay_status[play_index].has_audio == FALSE && segment_index < segment_nb) {
+            if (s_recplay_status[play_index].has_audio == FALSE && s_recplay_status[play_index].has_video == FALSE && (segment_index + 1) < segment_nb) {
                segment_index ++;
                PLAY_DBG("ready to retry get pidinfo play...");
                goto retry;
@@ -790,6 +790,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
             pthread_rwlock_unlock(lock);
          }
 #endif
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP,
+                     &s_recplay_status[play_index].audio_decoder, sizeof(s_recplay_status[play_index].audio_decoder));
 
          s_recplay_status[play_index].play_state = PLAY_STOPPED;
          s_recplay_status[play_index].last_position_in_seconds = 0;
@@ -797,7 +799,6 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].audio_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].player = NULL;
 
-         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
       }
       else
       {
@@ -1030,13 +1031,13 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
 #ifdef SUPPORT_CAS
      PLAY_DBG("is_smp:%d", s_rec_status[rec_index].cas_status.is_smp);
-	 if (s_rec_status[rec_index].cas_status.is_smp)
-	 {
+     if (s_rec_status[rec_index].cas_status.is_smp)
+     {
         rec_basic_params.flags |= AML_MP_DVRRECORDER_SCRAMBLED;
 
-	    rec_encrypt_params.cryptoData = (void *)s_rec_status[rec_index].cas_status.cb_param;
-	    rec_encrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_rec_status[rec_index].cas_status.crypto_cb;
-	 }
+        rec_encrypt_params.cryptoData = (void *)s_rec_status[rec_index].cas_status.cb_param;
+        rec_encrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_rec_status[rec_index].cas_status.crypto_cb;
+     }
 
     do
     {
@@ -1275,9 +1276,9 @@ void STB_PVRRecordStop(U8BIT rec_index)
                 s_rec_status[rec_index].secmem_handle,
                 s_rec_status[rec_index].secure_buf);
 
-			AML_MP_CASSESSION sec_handle;
-			Aml_MP_STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
-			REC_DBG("get dvr section:[%p].", sec_handle);
+            AML_MP_CASSESSION sec_handle;
+            Aml_MP_STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+            REC_DBG("get dvr section:[%p].", sec_handle);
              if (s_rec_status[rec_index].secmem_handle)
              {
                  Aml_MP_CAS_DestroySecmem(sec_handle, s_rec_status[rec_index].secmem_handle);
@@ -1296,6 +1297,17 @@ void STB_PVRRecordStop(U8BIT rec_index)
    }
 
    FUNCTION_FINISH(STB_PVRRecordStop);
+}
+
+/**
+ * @brief   Changes the record descramble mode while recording
+ * @param   rec_index current recording index  to be updated
+ * @param   mode 1:descramble or 0:free
+ * @return  TRUE if the mode have been successfully changed, FALSE otherwise
+ */
+BOOLEAN STB_PVRRecordChangeDesMode(U8BIT rec_index, int mode) {
+   REC_DBG("Recording STB_PVRRecordChangeDesMode %u mode:%d", rec_index, mode);
+   return true;
 }
 
 /**
@@ -2297,6 +2309,8 @@ static BOOLEAN updatePlayback(U8BIT play_index)
          /*result = AmTsPlayer_setSyncMode(s_recplay_status[play_index].tsplayer_handle, TS_SYNC_PCRMASTER );*/
          PLAY_DBG(" TsPlayer set Syncmode PCRMASTER %s, result(%d)", (result)? "FAIL" : "OK", result);
 
+         //set surface
+
          /*play_params.playback_handle =*/
             /*(Playback_DeviceHandle_t)s_recplay_status[play_index].tsplayer_handle;*/
           pthread_rwlock_unlock(lock);
@@ -2487,8 +2501,8 @@ static U8BIT getPlayIndex(U8BIT audio_decoder, U8BIT video_decoder)
 
    for (i = 0; i < num_players && play_index == INVALID_RES_ID; i++)
    {
-      if (s_recplay_status[i].video_decoder == video_decoder
-         || s_recplay_status[i].audio_decoder == audio_decoder)
+      if ((video_decoder != INVALID_RES_ID && s_recplay_status[i].video_decoder == video_decoder)
+         || (audio_decoder != INVALID_RES_ID && s_recplay_status[i].audio_decoder == audio_decoder))
       {
          play_index = i;
       }
@@ -2608,7 +2622,7 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
                   /* Playback has started successfully */
                   PLAY_DBG("Timeshift playback has started");
                   play_status->play_state = PLAY_STARTED;
-                  STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, NULL, 0);
+                  STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
                }
 
             }
@@ -2618,7 +2632,7 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
          {
             /**< File player's EOF*/
             PLAY_DBG("EOF");
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_EOF, NULL, 0);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_EOF, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
             break;
          }
          case AML_MP_DVRPLAYER_EVENT_ERROR:
@@ -2631,7 +2645,7 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
               will call back, and clean the battlefield soon*/
             /*play_status->play_status = PLAY_STOPPED;*/
 
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, NULL, 0);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
             break;
          }
 

@@ -226,7 +226,7 @@ static U8BIT getDvrMode();
 static void setDvrMode(U8BIT dvr_id, U8BIT mode);
 static U32BIT getPVRConfigInt(const char *config, U32BIT def);
 static U16BIT getDiskIdByRecIndex(U8BIT index);
-static BOOLEAN updatePlayback(U8BIT play_index);
+static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset);
 static U16BIT getFakePid();
 
 
@@ -610,7 +610,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       }
       {
          PLAY_DBG("ready to start play..........");
-         play_started = updatePlayback(play_index);
+         play_started = updatePlayback(play_index, 0);
       }
    }
    else
@@ -2144,7 +2144,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U8BIT play_index;
    int video_changed = 0, audio_changed = 0, ad_changed = 0;
    BOOLEAN done = FALSE;
-   BOOLEAN reset = FALSE;
+   int reset = 0;
 
    FUNCTION_START(PVRChangeDecodePIDs);
 
@@ -2185,7 +2185,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
          {
             if (video_pid > 0 && video_pid < 0x1fff)
             {
-                reset = TRUE;
+                reset = (fake_pid == 0x2fff) ? 2 : 1;
             }
          }
 
@@ -2205,14 +2205,14 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
       if (video_changed || audio_changed || ad_changed)
       {
-         if (reset)
+         if (reset == 1)
          {
             PLAY_DBG("pids ready, reset to %d", s_recplay_status[play_index].last_position_in_seconds);
             dvr_wrapper_seek_playback(s_recplay_status[play_index].player,
                   s_recplay_status[play_index].last_position_in_seconds * 1000);
          }
 
-         done = updatePlayback(play_index);
+         done = updatePlayback(play_index, reset);
       }
    }
 
@@ -2274,7 +2274,7 @@ BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **
 }
 //---local function definitions------------------------------------------------
 
-static BOOLEAN updatePlayback(U8BIT play_index)
+static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
 {
    BOOLEAN done;
    pthread_rwlock_t *lock = NULL;
@@ -2472,6 +2472,13 @@ static BOOLEAN updatePlayback(U8BIT play_index)
       else
       {
          PLAY_DBG("update pvr playback failed, error %d", error);
+      }
+
+      if (reset == 2)
+      {
+         PLAY_DBG("pids ready, reset to %d", s_recplay_status[play_index].last_position_in_seconds);
+         dvr_wrapper_seek_playback(s_recplay_status[play_index].player,
+               s_recplay_status[play_index].last_position_in_seconds * 1000);
       }
    }
 

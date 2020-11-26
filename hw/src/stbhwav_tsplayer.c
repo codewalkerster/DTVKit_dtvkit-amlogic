@@ -471,7 +471,7 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
    {
       /*used as a Quad, not the literal meaning*/
       S_QVALUE_EX crop = {.path = path, .values = {src->top, src->left, src->top, src->left}};
-      S_QVALUE_EX rect = {.path = path, .values = {dest->top, dest->left, dest->width, dest->height}};
+      S_QVALUE_EX rect = {.path = path, .values = {dest->left, dest->top, dest->width, dest->height}};
 
       VID_DBG("video(%d): (%u, %u), (%u x %u) out: (%u, %u), (%u x %u)",
          path,

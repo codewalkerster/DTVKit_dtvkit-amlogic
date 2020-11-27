@@ -482,8 +482,8 @@ U8BIT STB_AVGetPath(U8BIT video_decoder, U8BIT audio_decoder)
 
     for (i = 0; i < num_paths && path == INVALID_RES_ID; i++)
     {
-       if (av_paths_status[i].video_decoder == video_decoder
-          || av_paths_status[i].audio_decoder == audio_decoder)
+       if ((video_decoder != INVALID_RES_ID && av_paths_status[i].video_decoder == video_decoder)
+          || (audio_decoder != INVALID_RES_ID && av_paths_status[i].audio_decoder == audio_decoder))
        {
           path = i;
        }
@@ -1578,14 +1578,13 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
    BOOLEAN success = TRUE;
    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
-   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   VID_DBG("set surface [%d:%d] [%p]", av_path, path, surface);
    if (av_path == INVALID_RES_ID) {
      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
      return FALSE;
    }
 
    FUNCTION_START(STB_AVSetSurface);
-   VID_DBG("set surface---av_path:[%d]", av_path);
 
    if (video_surface[av_path] != surface)
    {
@@ -1625,7 +1624,7 @@ void * STB_AVGetSurface(U8BIT path)
 {
     U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
-    VID_DBG("video codec path=%u av_path = %u", path, av_path);
+    VID_DBG("[%d:%d]=%p", av_path, path, video_surface[av_path]);
     if (av_path == INVALID_RES_ID) {
       VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
       return NULL;

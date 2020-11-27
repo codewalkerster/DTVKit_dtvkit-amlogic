@@ -2369,6 +2369,10 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
          //set surface
          void * surface = STB_AVGetSurface(s_recplay_status[play_index].video_decoder);
          if (surface != NULL) {
+            PLAY_DBG("set playback tsplayer surface [%d:%d] [%p]",
+               play_index,
+               s_recplay_status[play_index].video_decoder,
+               surface);
             AmTsPlayer_setSurface(s_recplay_status[play_index].tsplayer_handle, surface);
          } else {
            PLAY_DBG("Cannot set surface to TsPlayer, surface is NULL. play_index path:%d", play_index);

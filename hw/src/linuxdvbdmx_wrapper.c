@@ -29,7 +29,7 @@
 #include "linuxdvbdmx_wrapper.h"
 #include "stbhwc.h"
 
-#define DMX_COUNT (4)
+#define DMX_COUNT (6)
 #define DMX_FILTER_COUNT (32*DMX_COUNT)
 #define SEC_BUF_SIZE (4096)
 #define DMX_POLL_TIMEOUT (200)

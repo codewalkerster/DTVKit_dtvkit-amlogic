@@ -224,12 +224,12 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			} else if (!strcmp(an, "camPlug_tssource")) {
 				cam->camPlug_tssource = atoi(av);
 				//CFG_DBG("cam->camPlug_tssource[%d]", cam->camPlug_tssource);
-			} else if (!strcmp(an, "camUnplug_tssource")) {
+			} else if (!strcmp(an, "camUnPlug_tssource")) {
 				cam->camUnplug_tssource = atoi(av);
 				//CFG_DBG("cam->camUnplug_tssource[%d]", cam->camUnplug_tssource);
 			} else if (!strcmp(an, "is_changeTo_utf8")) {
 				cam->is_changeTo_utf8 = atoi(av);
-				//CFG_DBG("cam->camUnplug_tssource[%d]", cam->camUnplug_tssource);
+				//CFG_DBG("cam->is_changeTo_utf8[%d]", cam->is_changeTo_utf8);
 			} else if (!strcmp(an, "encodec_source")) {
 				memcpy(cam->encodec_source, av, strlen(av));
 				CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);

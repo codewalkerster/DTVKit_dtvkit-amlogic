@@ -643,10 +643,16 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 {
    am_tsplayer_result ret;
    am_tsplayer_handle player_handle;
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
 
    FUNCTION_START(STB_AVSetAudioVolume);
 
-   AUD_DBG("Set Volume: aud[%d] vol[%d]", path, vol);
+   AUD_DBG("set volume: %d:[-:%d] vol[%d]", av_path, path, vol);
+
+   if (av_path != INVALID_RES_ID)
+   {
+      av_paths_status[av_path].volume = vol;
+   }
 
    ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
    if (ret != AM_TSPLAYER_OK)
@@ -654,18 +660,12 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
        AUD_DBG("Cannot get player handle audio path[%d]", path);
        return;
    }
-   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
 
    ret = AmTsPlayer_setAudioVolume(player_handle, vol);
    if (ret != AM_TSPLAYER_OK)
    {
        AUD_DBG("Set audio volume failed, vol:%d err:%d", vol, ret);
    }
-   if (av_path == INVALID_RES_ID) {
-      AUD_DBG("save audio volume failed,can not get av path audio codec:%d vol:%d", path, vol);
-      return;
-   }
-   av_paths_status[av_path].volume = vol;
    FUNCTION_FINISH(STB_AVSetAudioVolume);
 }
 
@@ -686,7 +686,6 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
        AUD_DBG("Cannot get player handle audio:[%d]", path);
        return av_paths_status[path].volume;
    }
-   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
    U32BIT vol = 0;
 
    ret = AmTsPlayer_getAudioVolume(player_handle, &vol);
@@ -698,8 +697,13 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
    {
        AUD_DBG("Get audio volume failed, err:%d", ret);
    }
+
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
    if (av_path != INVALID_RES_ID)
-     av_paths_status[av_path].volume = vol;
+   {
+      av_paths_status[av_path].volume = vol;
+   }
+
    FUNCTION_FINISH(STB_AVGetAudioVolume);
    return vol;
 }
@@ -713,7 +717,16 @@ void STB_AVSetAudioMute(U8BIT path, BOOLEAN mute)
 {
    am_tsplayer_result ret;
    am_tsplayer_handle player_handle;
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+
    FUNCTION_START(STB_AVSetAudioMute);
+
+   AUD_DBG("set mute: %d:[-:%d] mute[%d]", av_path, path, mute);
+
+   if (av_path != INVALID_RES_ID)
+   {
+      av_paths_status[av_path].mute = mute;
+   }
 
    ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
    if (ret != AM_TSPLAYER_OK)
@@ -727,9 +740,6 @@ void STB_AVSetAudioMute(U8BIT path, BOOLEAN mute)
    {
        AUD_DBG("Set audio mute failed, err:%d", ret);
    }
-   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
-   if (av_path != INVALID_RES_ID)
-      av_paths_status[path].mute = mute;
    FUNCTION_FINISH(STB_AVSetAudioMute);
 }
 
@@ -781,7 +791,11 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
    am_tsplayer_result ret;
    am_tsplayer_handle player_handle;
    am_tsplayer_audio_stereo_mode audio_mode;
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+
    FUNCTION_START(STB_AVChangeAudioMode);
+
+   AUD_DBG("set stereo mode %d[-:%d] mode[%d]", av_path, path, mode);
 
    switch (mode)
    {
@@ -805,6 +819,11 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
          return;
    }
 
+   if (av_path != INVALID_RES_ID)
+   {
+      av_paths_status[av_path ].audio_mode = audio_mode;
+   }
+
    ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
    if (ret != AM_TSPLAYER_OK)
    {
@@ -818,10 +837,6 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
       AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
       return;
    }
-   AUD_DBG("Set aduio stereo mode[%d]", audio_mode);
-   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
-   if (av_path != INVALID_RES_ID)
-      av_paths_status[av_path ].audio_mode = audio_mode;
    FUNCTION_FINISH(STB_AVChangeAudioMode);
 }
 

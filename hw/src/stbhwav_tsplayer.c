@@ -1068,10 +1068,12 @@ void STB_AVStartVideoDecoding(U8BIT path)
              return;
          }
          if (video_surface[av_path] != NULL) {
-            VID_DBG("set tsplayer surface (%d:%d) [%p]",
+            VID_DBG("set tsplayer surface %d:[%d:%d] [%p], player[0x%zx]",
                av_path,
                av_paths_status[av_path].video_decoder,
-               video_surface[av_path]);
+               av_paths_status[av_path].audio_decoder,
+               video_surface[av_path],
+               player_handle);
             AmTsPlayer_setSurface(player_handle,video_surface[av_path]);
          } else {
             VID_DBG("Cannot set surface to TsPlayer, surface is NULL. video path:(%d:%d)",
@@ -1578,7 +1580,7 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
    BOOLEAN success = TRUE;
    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
-   VID_DBG("set surface [%d:%d] [%p]", av_path, path, surface);
+   VID_DBG("set surface %d:[%d:-] [%p]", av_path, path, surface);
    if (av_path == INVALID_RES_ID) {
      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
      return FALSE;
@@ -1601,8 +1603,20 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
          if (ret == AM_TSPLAYER_OK)
          {
             ret = AmTsPlayer_setSurface(player_handle, surface);
-            AV_DBG("set tsplayer surface [%d:%d]:[%p] = %d",
-               av_path, av_paths_status[av_path].video_decoder, surface, ret);
+            AV_DBG("set tsplayer surface %d:[%d:%d]:[%p] = %d, player[0x%zx]",
+               av_path,
+               av_paths_status[av_path].video_decoder,
+               av_paths_status[av_path].audio_decoder,
+               surface,
+               ret,
+               player_handle);
+         }
+         else
+         {
+            AV_DBG("failed to get player handle, %d:[%d:%d]",
+               av_path,
+               av_paths_status[av_path].video_decoder,
+               av_paths_status[av_path].audio_decoder);
          }
       }
 
@@ -2650,10 +2664,10 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
    FUNCTION_START(STB_AVSetDecodingMode);
 
    av_path = STB_AVGetPath(video_decoder, audio_decoder);
-   AV_DBG("[decoding mode]: %d(a:%d v:%d) = (%d -> %d)",
+   AV_DBG("[decoding mode]: %d:[%d:%d] = (%d -> %d)",
       av_path,
-      audio_decoder,
       video_decoder,
+      audio_decoder,
       av_paths_status[av_path].decoding_mode,
       mode);
 
@@ -2677,7 +2691,20 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
             am_tsplayer_work_mode work_mode =
                IS_CACHED(mode) ? TS_PLAYER_MODE_CACHING_ONLY : TS_PLAYER_MODE_NORMAL;
             ret = AmTsPlayer_setWorkMode(player_handle, work_mode);
-            AV_DBG("set tsplayer work mode: (%d:%d) [%d] = %d", av_path, video_decoder, work_mode, ret);
+            AV_DBG("set tsplayer work mode: %d:[%d:%d] [%d] = %d, player[0x%zx]",
+               av_path,
+               av_paths_status[av_path].video_decoder,
+               av_paths_status[av_path].audio_decoder,
+               work_mode,
+               ret,
+               player_handle);
+         }
+         else
+         {
+            AV_DBG("failed to get player handle, %d[%d:%d]",
+               av_path,
+               av_paths_status[av_path].video_decoder,
+               av_paths_status[av_path].audio_decoder);
          }
       }
 
@@ -3085,7 +3112,7 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
         av_paths_status[path].player_handle = player_handle;
         ret = AmTsPlayer_getInstansNo(player_handle, &numb);
         ret = AmTsPlayer_registerCb(player_handle, AVEventHandler, &av_paths_status[path]);
-        AV_DBG("Create Ts player success. player_hdle[%d]:%u instance_no:%d dxm_id:%d", path, player_handle, numb, dmx_dev_id);
+        AV_DBG("Create Ts player success. player_hdle[%d]:0x%zx instance_no:%d dxm_id:%d", path, player_handle, numb, dmx_dev_id);
     }
     else
     {
@@ -3100,7 +3127,7 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
 {
     am_tsplayer_result ret;
     pthread_rwlock_wrlock(&av_paths_status[path].lock);
-	AV_DBG("Will Release Ts player");
+    AV_DBG("Will Release Ts player");
     if (IS_INVALID_PLAYER_HANDLE(path))
     {
         AV_DBG("Release Ts player alreadly.");
@@ -3115,7 +3142,7 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
         }
         else
         {
-            AV_DBG("Release Ts player, player_hdle[%d]:%u", path, av_paths_status[path].player_handle);
+            AV_DBG("Release Ts player, player_hdle[%d]:0x%zx", path, av_paths_status[path].player_handle);
             av_paths_status[path].player_handle = INVALID_PLAYER_HANDLE;
         }
 #ifdef SUPPORT_CAS
@@ -3128,7 +3155,7 @@ am_tsplayer_result AV_ReleaseTsPlayer(U8BIT path)
         }
 #endif
     }
-	pthread_rwlock_unlock(&av_paths_status[path].lock);
+    pthread_rwlock_unlock(&av_paths_status[path].lock);
 
     return ret;
 }
@@ -3156,8 +3183,12 @@ am_tsplayer_result AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_dec
               am_tsplayer_result result =
                  AmTsPlayer_setWorkMode(av_paths_status[av_path].player_handle,
                     TS_PLAYER_MODE_CACHING_ONLY);
-              AV_DBG("set tsplayer work mode: (%d:%d) caching_only = %d",
-                  av_path, video_decoder, result);
+              AV_DBG("set tsplayer work mode: %d:[%d:%d] caching_only = %d, player[0x%zx]",
+                  av_path,
+                  av_paths_status[av_path].video_decoder,
+                  av_paths_status[av_path].audio_decoder,
+                  result,
+                  av_paths_status[av_path].player_handle);
            }
        }
        *play_hdle = av_paths_status[av_path].player_handle;
@@ -3208,11 +3239,11 @@ am_tsplayer_result AV_StartAudioDecode(am_tsplayer_handle player_hdle, U16BIT a_
     ret = AmTsPlayer_startAudioDecoding(player_hdle);
     if (ret != AM_TSPLAYER_OK)
     {
-        AUD_DBG("Start audio decode failed, pid:%d fmt:%d err:%d", a_pid, format, ret);
+        AUD_DBG("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%zx]", a_pid, format, ret, player_hdle);
         return ret;
     }
 
-    AUD_DBG("volume[%d], audio_mode[%d], mute[%d]", vol, audio_mode, mute);
+    AUD_DBG("Start audio decode, pid:%d fmt:%d, volume[%d], audio_mode[%d], mute[%d], player[0x%zx]", a_pid, format, vol, audio_mode, mute, player_hdle);
     return ret;
 }
 
@@ -3240,7 +3271,7 @@ am_tsplayer_result AV_SetAudioDecode(am_tsplayer_handle player_hdle, am_tsplayer
         return ret;
     }
 #endif
-    AUD_DBG("volume[%d], audio_mode[%d] ", vol, audio_mode);
+    AUD_DBG("Set audio decode, volume[%d], audio_mode[%d], player[0x%zx]", vol, audio_mode, player_hdle);
     return ret;
 }
 
@@ -3253,13 +3284,13 @@ am_tsplayer_result AV_StartVideoDecode(am_tsplayer_handle player_hdle,
     ret = AmTsPlayer_setSyncMode(player_hdle, mode);
     if (ret != AM_TSPLAYER_OK)
     {
-        AUD_DBG("Set sync mode failed, sync_mode:%d err:%d", mode, ret);
+        VID_DBG("Set sync mode failed, sync_mode:%d err:%d", mode, ret);
         return ret;
     }
     ret = AmTsPlayer_setPcrPid(player_hdle, pcr_pid);
     if (ret != AM_TSPLAYER_OK)
     {
-        AUD_DBG("Set pcr pid failed, pcr_pid:%d err:%d", pcr_pid, ret);
+        VID_DBG("Set pcr pid failed, pcr_pid:%d err:%d", pcr_pid, ret);
         return ret;
     }
     video_param.pid = v_pid;
@@ -3267,16 +3298,17 @@ am_tsplayer_result AV_StartVideoDecode(am_tsplayer_handle player_hdle,
     ret = AmTsPlayer_setVideoParams(player_hdle, &video_param);
     if (ret != AM_TSPLAYER_OK)
     {
-        AUD_DBG("Set video params failed, v_pid:%d fmt:%d err:%d", v_pid, format, ret);
+        VID_DBG("Set video params failed, v_pid:%d fmt:%d err:%d", v_pid, format, ret);
         return ret;
     }
     ret = AmTsPlayer_startVideoDecoding(player_hdle);
     if (ret != AM_TSPLAYER_OK)
     {
-        AUD_DBG("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d sync:%d err:%d", v_pid, pcr_pid, format, mode, ret);
+        VID_DBG("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d sync:%d err:%d, player[0x%zx]", v_pid, pcr_pid, format, mode, ret, player_hdle);
         return ret;
     }
 
+    VID_DBG("Start video decode, v_pid:%d pcr_pid:%d fmt:%d sync:%d, player[0x%zx]", v_pid, pcr_pid, format, mode, player_hdle);
     return ret;
 }
 

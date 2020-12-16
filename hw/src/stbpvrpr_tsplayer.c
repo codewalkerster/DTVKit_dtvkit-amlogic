@@ -1786,27 +1786,32 @@ BOOLEAN STB_PVRCanBeUsedForRecording(U16BIT disk_id, U8BIT *basename)
 BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
 {
    int error;
-   uint32_t n_ids;
-   uint64_t *p_ids;
    char file_path[DVR_MAX_LOCATION_SIZE];
 
    FUNCTION_START(STB_PVRDeleteRecording);
 
-   STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
-
-   error = dvr_segment_get_list(file_path, &n_ids, &p_ids);
-   if (!error) {
-      int i;
-      for (i = 0; i < n_ids; i++) {
-         error = dvr_segment_delete(file_path, p_ids[i]);
-         REC_DBG("delete recording: %s:%d %d.", file_path, p_ids[i], error);
-      }
-      free(p_ids);
+   REC_DBG("delete seg del start");
+   if (basename[strlen(basename) - 1] == 'T')
+   {
+      /*
+         NOTICE:
+         Do not delete timeshift rec data here,
+         to reduce the time for zapping,
+         KPI requirement.
+      */
+      //STB_DSKFullPathname(disk_id, DEFAULT_TIMESHIFT_BASENAME, file_path, sizeof(file_path));
+      //error = dvr_segment_del_by_location(file_path);
    }
+   else
+   {
+      STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+      error = dvr_segment_del_by_location(file_path);
+   }
+   REC_DBG("delete seg del end");
+
    if (!error)
    {
    }
-
    FUNCTION_FINISH(STB_PVRDeleteRecording);
    return (!error) ? TRUE : FALSE;
 }

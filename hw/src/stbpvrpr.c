@@ -2754,11 +2754,12 @@ static void RecEventHandler(long dev_no, int event_type, void *param, void *data
          case AM_REC_EVT_RECORD_END:
          {
             AM_REC_RecEndPara_t *ret = (AM_REC_RecEndPara_t *)param;
-            REC_DBG("Recording stopped");
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
-               &rec_status->rec_index, sizeof(U8BIT));
+            REC_DBG("Recording end");
+
             if (ret->error_code == AM_REC_ERR_CANNOT_WRITE_FILE)
             {
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
+                  &rec_status->rec_index, sizeof(U8BIT));
                U16BIT disk_id = getDiskIdByRecIndex(rec_status->rec_index);
                REC_DBG("Recording write fail, disk may be removed.");
                STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED,

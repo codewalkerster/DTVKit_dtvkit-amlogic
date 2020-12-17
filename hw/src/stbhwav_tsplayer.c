@@ -369,6 +369,27 @@ E_STB_AV_ASPECT_RATIO STB_TVSetAspectRatio(E_STB_AV_ASPECT_RATIO ratio)
    return ASPECT_RATIO_16_9;;
 }
 
+static void invokeCallback(AV_PATH_STATUS *status, S_STB_AV_VIDEO_INFO *info)
+{
+   if (status != NULL && status->callback != NULL)
+   {
+      if (info != NULL)
+      {
+         if (status->display_info.screen_width != 0
+            && status->display_info.screen_height != 0)
+         {
+            info->flags |= VIDEO_INFO_SCREEN_RESOLUTION | VIDEO_INFO_DISPLAY_ASPECT_RATIO;
+
+            info->screen_width = status->display_info.screen_width;
+            info->screen_height = status->display_info.screen_height;
+            info->display_aspect_ratio = status->display_info.screen_aspect_ratio;
+         }
+      }
+
+      status->callback(info, status->user_data, status->video_decoder);
+   }
+}
+
 /**
  * @brief   Register callback for updated video information
  * @param   path av path
@@ -390,6 +411,7 @@ void STB_AVSetVideoCallback(U8BIT path, void (*callback)(S_STB_AV_VIDEO_INFO *, 
    av_paths_status[av_path].callback = callback;
    av_paths_status[av_path].user_data = user_data;
 
+   /*
    if ((callback != NULL) 
     && (av_paths_status[av_path].display_info.screen_width != 0)
     && (av_paths_status[av_path].display_info.screen_height != 0))
@@ -403,6 +425,7 @@ void STB_AVSetVideoCallback(U8BIT path, void (*callback)(S_STB_AV_VIDEO_INFO *, 
                                       av_paths_status[av_path].user_data,
                                       av_paths_status[av_path].video_decoder);
    }
+   */
 
    FUNCTION_FINISH(STB_AVSetVideoCallback);
 }
@@ -664,7 +687,7 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
        return av_paths_status[path].volume;
    }
    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
-   U8BIT vol = 0;
+   U32BIT vol = 0;
 
    ret = AmTsPlayer_getAudioVolume(player_handle, &vol);
    if (ret == AM_TSPLAYER_OK)
@@ -760,13 +783,6 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
    am_tsplayer_audio_stereo_mode audio_mode;
    FUNCTION_START(STB_AVChangeAudioMode);
 
-   ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
-   if (ret != AM_TSPLAYER_OK)
-   {
-       AUD_DBG("Cannot get player handle audio[%d]", path);
-       return;
-   }
-
    switch (mode)
    {
       case AV_AUDIO_STEREO:
@@ -785,8 +801,23 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
          audio_mode = AV_AUDIO_LRMIX;
          break;
       default:
-         AUD_DBG("Not support audio mode:%d", mode);
+         AUD_DBG("set stereo mode %d[-:%d] Not support audio mode:%d",
+            av_path, path, mode);
          return;
+   }
+
+   AUD_DBG("set stereo mode %d[-:%d] mode[%d]", av_path, path, audio_mode);
+
+   if (av_path != INVALID_RES_ID)
+   {
+      av_paths_status[av_path ].audio_mode = audio_mode;
+   }
+
+   ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
+   if (ret != AM_TSPLAYER_OK)
+   {
+       AUD_DBG("Cannot get player handle audio[%d]", path);
+       return;
    }
 
    ret = AmTsPlayer_setAudioStereoMode(player_handle, audio_mode);
@@ -1379,9 +1410,12 @@ void STB_AVStopVideoDecoding(U8BIT path)
       info.flags |= VIDEO_INFO_AFD;
       info.afd = 0;
 
+      invokeCallback(&av_paths_status[av_path], &info);
+      /*
       av_paths_status[av_path].callback(&info,
                                       av_paths_status[av_path].user_data,
                                       av_paths_status[av_path].video_decoder);
+      */
    }
 
    FUNCTION_FINISH(STB_AVStopVideoDecoding);
@@ -2734,7 +2768,7 @@ void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
    FUNCTION_START(STB_AVSyncDecodingFromPVR);
    U8BIT av_path = STB_AVGetPath(video_decoder, audio_decoder);
 
-   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   VID_DBG("av_path = [%u:%u] = %u", video_decoder, audio_decoder, av_path);
    if (av_path == INVALID_RES_ID) {
      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
      return;
@@ -2895,8 +2929,11 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
                   info.video_width = event->event.video_format.frame_width;
                   info.video_height = event->event.video_format.frame_height;
                   AV_DBG("Video res changed, %u x %u", info.video_width, info.video_height);
+                  invokeCallback(status, &info);
+                  /*
                   if ((status != NULL) && (status->callback != NULL))
                       status->callback(&info, status->user_data, status->video_decoder);
+                  */
               }
               info.flags = 0;
               switch (event->event.video_format.frame_aspectratio)
@@ -2964,10 +3001,10 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           default:
               break;
       }
-	  
       if ((info.flags != 0) && (status != NULL) && (status->callback != NULL))
       {
-          status->callback(&info, status->user_data, status->video_decoder);
+         invokeCallback(status, &info);
+         //status->callback(&info, status->user_data, status->video_decoder);
       }
    }
 }

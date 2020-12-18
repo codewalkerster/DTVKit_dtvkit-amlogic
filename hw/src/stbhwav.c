@@ -1319,6 +1319,10 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
       av_paths_status[path].audio_format = AFORMAT_EAC3;
       AUD_DBG("E-AC3");
       break;
+   case AV_AUDIO_CODEC_AC4:
+      av_paths_status[path].audio_format = AFORMAT_AC4;
+      AUD_DBG("AC4");
+      break;
    case AV_AUDIO_CODEC_AAC:
    case AV_AUDIO_CODEC_HEAAC:
    case AV_AUDIO_CODEC_HEAACV2:
@@ -1779,6 +1783,10 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
       break;
    case AV_AUDIO_CODEC_EAC3:
       av_paths_status[path].ad_format = AFORMAT_EAC3;
+      break;
+   case AV_AUDIO_CODEC_AC4:
+      av_paths_status[path].ad_format = AFORMAT_AC4;
+      AUD_DBG("AC4");
       break;
    case AV_AUDIO_CODEC_AAC:
    case AV_AUDIO_CODEC_HEAAC:

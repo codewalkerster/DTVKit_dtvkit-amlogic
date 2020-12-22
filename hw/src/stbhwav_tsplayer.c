@@ -801,16 +801,8 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
          audio_mode = AV_AUDIO_LRMIX;
          break;
       default:
-         AUD_DBG("set stereo mode %d[-:%d] Not support audio mode:%d",
-            av_path, path, mode);
+         AUD_DBG("Not support audio mode:%d", mode);
          return;
-   }
-
-   AUD_DBG("set stereo mode %d[-:%d] mode[%d]", av_path, path, audio_mode);
-
-   if (av_path != INVALID_RES_ID)
-   {
-      av_paths_status[av_path ].audio_mode = audio_mode;
    }
 
    ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);

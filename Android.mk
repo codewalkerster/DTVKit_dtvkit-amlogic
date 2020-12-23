@@ -78,21 +78,39 @@ ifneq (,$(wildcard vendor/amlogic/common/libdvr))
 LIBDVR_PATH:=vendor/amlogic/common/libdvr/include
 endif
 
+LOCAL_CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
+
+
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-    LOCAL_C_INCLUDES := \
-	$(MEDIAHAL_INCLUDE) \
-        $(LIBDVR_PATH) \
-	common/include/uapi
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
+    ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
+        $(info "Build dtvkit-amlogic for AndroidR kernel 4.9")
+        LOCAL_C_INCLUDES := vendor/amlogic/common/kernel/common/include/uapi/linux/dvb/
+    else
+        $(info "Build dtvkit-amlogic for AndroidR kernel > 4.9")
+        LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
+    endif
+else
+    $(info "Build dtvkit-amlogic for AndroidP/Q ")
+    LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
+endif
+
+    LOCAL_C_INCLUDES += \
+        common/include/uapi \
+        $(MEDIAHAL_INCLUDE) \
+        $(LIBDVR_PATH)
+
     LOCAL_CFLAGS += -DUSE_TSPLAYER
 else
     LOCAL_C_INCLUDES := \
-	$(DVB_PATH)/include \
+        $(DVB_PATH)/include \
         $(DVB_PATH)/include/am_adp \
         $(DVB_PATH)/include/am_mw
     ifeq (,$(wildcard $(LOCAL_PATH)/../../dvb))
         LOCAL_C_INCLUDES += \
             $(DVB_PATH)/ndk/include \
-	    $(DVB_PATH)/ndk/include/linux
+            $(DVB_PATH)/ndk/include/linux
     else
         LOCAL_C_INCLUDES += \
             $(DVB_PATH)/android/ndk/include/linux \

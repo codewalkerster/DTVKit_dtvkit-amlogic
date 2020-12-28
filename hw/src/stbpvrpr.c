@@ -2186,11 +2186,11 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
 /**
  * @brief   Returns the length in time of the recording
  * @param   rec_index recording index to be set
- * @param   secs returned length of recording in seconds
- * @param   secs_truncated returned truncated length of recording in seconds
+ * @param   secs returned length of recording in mseconds
+ * @param   secs_truncated returned truncated length of recording in mseconds
  * @return  TRUE if the information is successfully gathered
  */
-BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT *secs_truncated)
+BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *msecs, U32BIT *msecs_truncated)
 {
    BOOLEAN retval;
 
@@ -2198,11 +2198,11 @@ BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT
 
    retval = FALSE;
 
-   if (secs)
-      *secs = s_rec_status[rec_index].secs;
+   if (msecs)
+      *msecs = s_rec_status[rec_index].secs * 1000;
 
-   if (secs_truncated)
-      *secs_truncated = s_rec_status[rec_index].secs_truncated;
+   if (msecs_truncated)
+      *msecs_truncated = s_rec_status[rec_index].secs_truncated * 1000;
 
    retval = TRUE;
 
@@ -2217,10 +2217,11 @@ BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT
  * @param   elapsed_hours current number of hours into the playback
  * @param   elapsed_mins current number of minutes into the playback
  * @param   elapsed_secs current number of seconds into the playback
+ * @param   elapsed_ms current number of seconds into the playback
  * @return  TRUE if the info has been successfully gathered
  */
 BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *elapsed_hours,
-   U8BIT *elapsed_mins, U8BIT *elapsed_secs)
+   U8BIT *elapsed_mins, U8BIT *elapsed_secs, U8BIT *elapsed_ms)
 {
    BOOLEAN retval;
 #ifdef MEDIACODEC_PLAYER
@@ -2251,6 +2252,7 @@ SWDMX_TShiftPlayerInfo_t info;
       if (am_error == AM_SUCCESS)
 #endif
       {
+         *elapsed_ms =  (info.current_time) % 1000;
          seconds = info.current_time / 1000;
 
          *elapsed_hours = seconds / 3600;

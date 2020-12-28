@@ -1881,10 +1881,11 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
  * @param   elapsed_hours current number of hours into the playback
  * @param   elapsed_mins current number of minutes into the playback
  * @param   elapsed_secs current number of seconds into the playback
+ * @param   elapsed_ms current number of seconds into the playback
  * @return  TRUE if the info has been successfully gathered
  */
 BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *elapsed_hours,
-   U8BIT *elapsed_mins, U8BIT *elapsed_secs)
+   U8BIT *elapsed_mins, U8BIT *elapsed_secs, U8BIT *elapsed_ms)
 {
    BOOLEAN retval;
    int error;
@@ -1904,14 +1905,15 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
       error = dvr_wrapper_get_playback_status(s_recplay_status[play_index].player, &status);
       if (!error)
       {
+         *elapsed_ms =  (status.info_cur.time + status.info_obsolete.time) % 1000;
          seconds = (status.info_cur.time + status.info_obsolete.time) / 1000;
 
          *elapsed_hours = seconds / 3600;
          *elapsed_mins = seconds / 60 - (*elapsed_hours * 60);
          *elapsed_secs = seconds - (*elapsed_hours * 3600) - (*elapsed_mins * 60);
 
-         PLAY_DBG("%02u:%02u:%02u", *elapsed_hours, *elapsed_mins,
-            *elapsed_secs);
+         PLAY_DBG("%02u:%02u:%02u:%02u", *elapsed_hours, *elapsed_mins,
+            *elapsed_secs, elapsed_ms);
 
          retval = TRUE;
       }
@@ -1929,11 +1931,11 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
 /**
  * @brief   Returns the length in time of the recording
  * @param   rec_index recording index to be set
- * @param   secs returned length of recording in seconds
- * @param   secs_truncated returned truncated length of recording in seconds
+ * @param   secs returned length of recording in mseconds
+ * @param   secs_truncated returned truncated length of recording in mseconds
  * @return  TRUE if the information is successfully gathered
  */
-BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT *secs_truncated)
+BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *msecs, U32BIT *msecs_truncated)
 {
    BOOLEAN retval;
 
@@ -1941,11 +1943,11 @@ BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT
 
    retval = FALSE;
 
-   if (secs)
-      *secs = (s_rec_status[rec_index].status.info.time + s_rec_status[rec_index].status.info_obsolete.time) / 1000;
+   if (msecs)
+      *msecs = (s_rec_status[rec_index].status.info.time + s_rec_status[rec_index].status.info_obsolete.time);
 
-   if (secs_truncated)
-      *secs_truncated = s_rec_status[rec_index].status.info_obsolete.time / 1000;
+   if (msecs_truncated)
+      *msecs_truncated = s_rec_status[rec_index].status.info_obsolete.time;
 
    retval = TRUE;
 

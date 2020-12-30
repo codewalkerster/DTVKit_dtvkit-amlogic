@@ -1811,10 +1811,11 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
  * @param   elapsed_hours current number of hours into the playback
  * @param   elapsed_mins current number of minutes into the playback
  * @param   elapsed_secs current number of seconds into the playback
+ * @param   elapsed_ms current number of seconds into the playback
  * @return  TRUE if the info has been successfully gathered
  */
 BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *elapsed_hours,
-   U8BIT *elapsed_mins, U8BIT *elapsed_secs)
+   U8BIT *elapsed_mins, U8BIT *elapsed_secs, U8BIT *elapsed_ms)
 {
    BOOLEAN retval;
    int error;
@@ -1834,6 +1835,7 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
       error = Aml_MP_DVRPlayer_GetStatus(s_recplay_status[play_index].player, &status);
       if (!error)
       {
+         *elapsed_ms =  (status.info_cur.time + status.info_obsolete.time) % 1000;
          seconds = (status.infoCur.time + status.infoObsolete.time) / 1000;
 
          *elapsed_hours = seconds / 3600;
@@ -1863,7 +1865,7 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
  * @param   secs_truncated returned truncated length of recording in seconds
  * @return  TRUE if the information is successfully gathered
  */
-BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT *secs_truncated)
+BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *msecs, U32BIT *msecs_truncated)
 {
    BOOLEAN retval;
 
@@ -1871,11 +1873,11 @@ BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *secs, U32BIT
 
    retval = FALSE;
 
-   if (secs)
-      *secs = (s_rec_status[rec_index].status.info.time + s_rec_status[rec_index].status.infoObsolete.time) / 1000;
+   if (msecs)
+      *msecs = (s_rec_status[rec_index].status.info.time + s_rec_status[rec_index].status.infoObsolete.time);
 
-   if (secs_truncated)
-      *secs_truncated = s_rec_status[rec_index].status.infoObsolete.time / 1000;
+   if (msecs_truncated)
+      *msecs_truncated = s_rec_status[rec_index].status.infoObsolete.time;
 
    retval = TRUE;
 

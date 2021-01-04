@@ -2905,7 +2905,8 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_DATA_LOSS:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_LOSS\n", status->decoder);
+          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_LOSS!\n", status->decoder);
+          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
           break;
       }
       case AML_MP_PLAYER_EVENT_DATA_RESUME:

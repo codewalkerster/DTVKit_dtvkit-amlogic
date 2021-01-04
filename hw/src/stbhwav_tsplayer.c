@@ -2980,6 +2980,7 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           case AM_TSPLAYER_EVENT_TYPE_DATA_LOSS:
           {
               AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_DATA_LOSS\n", status->decoder);
+              STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
               break;
           }
           case AM_TSPLAYER_EVENT_TYPE_DATA_RESUME:

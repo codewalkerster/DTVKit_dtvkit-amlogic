@@ -1754,6 +1754,8 @@ void STB_TuneAllStop()
               STB_TuneStopTuner(i);
           }
        }
+       SetFeProperty(tuner_status[i].frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
+       TUN_DBG("tune path[%d] close FE:%d", i, tuner_status[i].frontend_fd);
        CloseTuner(&tuner_status[i]);
        tuner_status[i].signal_type = TUNE_SIGNAL_NONE;
        pthread_mutex_unlock(&tuner_status[i].lock);

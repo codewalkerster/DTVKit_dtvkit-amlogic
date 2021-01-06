@@ -1119,6 +1119,78 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
    return retval;
 }
 
+
+/**
+ * @brief   Returns the heirarchy of the current terrestrial signal.
+ * @param   path the tuner path to query
+ * @param   plp_list, out param, to store all the pip id in the current freq
+ * @param   listlen,  in  param, the max numbers of pipid that can be stored in the list
+ * @return  the pip number of the current frequency.
+ */
+S32BIT STB_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
+{
+    S32BIT retval = 0;
+    struct dtv_property cmd;
+    struct dtv_properties props;
+    uint8_t plp_ids[MAX_PLP_NUMBER];
+
+    FUNCTION_START(STB_TuneGetActualTerrHierarchy);
+
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        if (GetTunerLockStatus(tuner_status[path].frontend_fd) == TUNER_STATE_LOCKED)
+        {
+            memset(&cmd, 0, sizeof(struct dtv_property));
+
+            if (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
+            {
+                cmd.cmd = DTV_DVBT2_PLP_ID;
+                cmd.u.buffer.reserved1[1] = MAX_PLP_NUMBER;
+                cmd.u.buffer.reserved2 = plp_ids;
+
+                props.num = 1;
+                props.props = &cmd;
+
+                if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+                {
+                    retval = cmd.u.buffer.reserved1[0];
+
+                    if (retval != 0)
+                    {
+                        if (listlen >= retval)
+                        {
+                        memcpy(plp_list, plp_ids, retval);
+                        }
+                        else
+                        {
+                            memcpy(plp_list, plp_ids, listlen);
+                            TUN_ERR("%u: listlen:%d not enough, retval:%d ", path, listlen, retval);
+                        }
+                    }
+
+                    TUN_DBG("%u: Num PLPs=%u", path, retval);
+                }
+                else
+                {
+                    TUN_ERR("%u: Failed to get number of PLPs, errno %d", path, errno);
+
+                    retval = 0;
+                }
+            }
+            else
+            {
+                TUN_ERR("%u: Not MPLP , errno %d", path);
+            }
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneGetActualTerrHierarchy);
+
+    return retval;
+}
+
+
 /**
  * @brief   Returns the LP code rate of the current terrestrial signal
  * @param   path the tuner path to query

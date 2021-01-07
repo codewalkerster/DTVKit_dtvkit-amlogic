@@ -1306,6 +1306,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
  * @return  TRUE if the mode have been successfully changed, FALSE otherwise
  */
 BOOLEAN STB_PVRRecordChangeDesMode(U8BIT rec_index, int mode) {
+   FUNCTION_START(STB_PVRRecordChangeDesMode);
    REC_DBG("Recording STB_PVRRecordChangeDesMode %u mode:%d", rec_index, mode);
    return true;
 }
@@ -1727,17 +1728,24 @@ BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
 
    FUNCTION_START(STB_PVRDeleteRecording);
 
-   STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
-
-   error = Aml_MP_DVRRecorder_GetSegmentList(file_path, &n_ids, &p_ids);
-   if (!error) {
-      int i;
-      for (i = 0; i < n_ids; i++) {
-         error = Aml_MP_DVRRecorder_DeleteSegment(file_path, p_ids[i]);
-         REC_DBG("delete recording: %s:%d %d.", file_path, p_ids[i], error);
-      }
-      free(p_ids);
-   }
+    REC_DBG("delete seg del start");
+    if (basename[strlen(basename) - 1] == 'T')
+    {
+        /*
+          NOTICE:
+          Do not delete timeshift rec data here,
+          to reduce the time for zapping,
+          KPI requirement.
+        */
+        //STB_DSKFullPathname(disk_id, DEFAULT_TIMESHIFT_BASENAME, file_path, sizeof(file_path));
+        //error = dvr_segment_del_by_location(file_path);
+    }
+    else
+    {
+        STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+        error = dvr_segment_del_by_location(file_path);
+    }
+    REC_DBG("delete seg del end");
    if (!error)
    {
    }
@@ -1835,7 +1843,7 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
       error = Aml_MP_DVRPlayer_GetStatus(s_recplay_status[play_index].player, &status);
       if (!error)
       {
-         *elapsed_ms =  (status.info_cur.time + status.info_obsolete.time) % 1000;
+         *elapsed_ms =  (status.infoCur.time + status.infoObsolete.time) % 1000;
          seconds = (status.infoCur.time + status.infoObsolete.time) / 1000;
 
          *elapsed_hours = seconds / 3600;
@@ -2310,9 +2318,6 @@ static BOOLEAN updatePlayback(U8BIT play_index)
          //PLAY_DBG(" TsPlayer set Syncmode FREERUN %s, result(%d)", (result)? "FAIL" : "OK", result);
          /*result = AmTsPlayer_setSyncMode(s_recplay_status[play_index].tsplayer_handle, TS_SYNC_PCRMASTER );*/
          PLAY_DBG(" TsPlayer set Syncmode PCRMASTER %s, result(%d)", (result)? "FAIL" : "OK", result);
-
-         //set surface
-
          /*play_params.playback_handle =*/
             /*(Playback_DeviceHandle_t)s_recplay_status[play_index].tsplayer_handle;*/
           pthread_rwlock_unlock(lock);
@@ -2398,6 +2403,18 @@ static BOOLEAN updatePlayback(U8BIT play_index)
       error = Aml_MP_DVRPlayer_Create(&createParams, &s_recplay_status[play_index].player);
       if (!error)
       {
+        //set surface
+        void * surface = STB_AVGetSurface(s_recplay_status[play_index].video_decoder);
+        if (surface != NULL) {
+            PLAY_DBG("set playback AML MP surface [%d:%d] [%p]",
+                play_index,
+                s_recplay_status[play_index].video_decoder,
+                surface);
+            //AML_MP use ANativewindow while DTVKit give a surface use + 8 to transformate
+            Aml_MP_DVRPlayer_SetANativeWindow(s_recplay_status[play_index].player, surface + 8);
+        } else {
+            PLAY_DBG("Cannot set surface to TsPlayer, surface is NULL. play_index path:%d", play_index);
+        }
           Aml_MP_DVRPlayer_RegisterEventCallback(s_recplay_status[play_index].player, PlayEventHandler, &s_recplay_status[play_index]);
 
          /*DVR_PlaybackFlag_t play_flag =*/

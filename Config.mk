@@ -4,4 +4,4 @@ DTVKIT_INCLUDE_HBBTV:=0
 # To include hard coded CI Plus test keys and certificates, enable
 #DTVKIT_INCLUDE_TEST_KEYS:=1
 
-#DTVKIT_WITH_AML_MP_SDK := true
+DTVKIT_WITH_AML_MP_SDK := true

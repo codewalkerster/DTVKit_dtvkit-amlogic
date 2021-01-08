@@ -2318,6 +2318,13 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
    play_pids.ad.pid = s_recplay_status[play_index].ad_pid;
    play_pids.ad.format = s_recplay_status[play_index].ad_fmt;
 
+#ifdef SUPPORT_CAS
+      if (s_recplay_status[play_index].cas_status.is_smp) {
+         AM_CA_PreParam_t param;
+         param.dmx_dev = s_recplay_status[play_index].play_demux;
+         STB_CAPVRPlayStart(&param);
+      }
+#endif
    done = FALSE;
 
    if (s_recplay_status[play_index].play_state == PLAY_STOPPED)
@@ -2416,11 +2423,6 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
            play_params.location,
            sizeof(play_params.location));
       }
-#ifdef SUPPORT_CAS
-      AM_CA_PreParam_t param;
-      param.dmx_dev = s_recplay_status[play_index].play_demux;
-      STB_CAPVRPlayStart(&param);
-#endif
       error = dvr_wrapper_open_playback(&s_recplay_status[play_index].player, &play_params);
       if (!error)
       {
@@ -2430,8 +2432,6 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
 #ifdef SUPPORT_CAS
         //get section handle
         CasSession section_handle;
-        STB_CAPVRGetPlaySection(&section_handle);
-        PLAY_DEBUG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
         do
         {
             void *buf = NULL;
@@ -2440,6 +2440,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
 
             if (!s_recplay_status[play_index].cas_status.is_smp)
                 break;
+
+            STB_CAPVRGetPlaySection(&section_handle);
+            PLAY_DEBUG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
 
             secmem_handle = AM_CA_CreateSecmem(section_handle, SERVICE_PVR_PLAY, &buf, &secmem_size);
             if (!secmem_handle)

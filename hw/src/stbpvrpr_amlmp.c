@@ -2358,12 +2358,9 @@ static BOOLEAN updatePlayback(U8BIT play_index)
 #ifdef SUPPORT_CAS
       Aml_MP_CASDVRReplayParams param;
       param.dmxDev = (Aml_MP_DemuxId)s_recplay_status[play_index].play_demux;
-      Aml_MP_STB_CAPVRPlayStart(&param);
 
         //get section handle
         AML_MP_CASSESSION section_handle;
-        Aml_MP_STB_CAPVRGetPlaySection(&section_handle);
-        PLAY_DEBUG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
         do
         {
             void *buf = NULL;
@@ -2373,6 +2370,9 @@ static BOOLEAN updatePlayback(U8BIT play_index)
             if (!s_recplay_status[play_index].cas_status.is_smp)
                 break;
 
+            Aml_MP_STB_CAPVRPlayStart(&param);
+            Aml_MP_STB_CAPVRGetPlaySection(&section_handle);
+            PLAY_DEBUG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
             secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_PLAY, &buf, &secmem_size);
             if (!secmem_handle)
             {

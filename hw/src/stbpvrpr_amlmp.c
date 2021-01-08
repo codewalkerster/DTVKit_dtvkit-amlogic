@@ -993,6 +993,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       memset(&rec_encrypt_params, 0, sizeof(Aml_MP_DVRRecorderEncryptParams));
       memset(&rec_streams, 0, sizeof(Aml_MP_DVRStreamArray));
 
+      rec_basic_params.fend_dev_id = s_rec_status[rec_index].tuner;
       rec_basic_params.demuxId = (Aml_MP_DemuxId)s_rec_status[rec_index].rec_demux;
       rec_basic_params.segmentSize = STB_PVRGetRecordingSegmentSizeKB() * 1024;
       rec_basic_params.isTimeShift = is_timeshift;

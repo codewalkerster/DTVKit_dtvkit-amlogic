@@ -58,7 +58,7 @@
 /*#define  AV_AUDIO_CODEC_EAC3   AV_AUDIO_CODEC_EAC3_TSP*/
 /*#define  AV_AUDIO_CODEC_DTS    AV_AUDIO_CODEC_DTS_TSP*/
 /*#define  AV_AUDIO_CODEC_AAC    AV_AUDIO_CODEC_AAC_TSP*/
-/*#define  AV_AUDIO_CODEC_AC3    AV_AUDIO_CODEC_AC3_TSP*/
+/*#define  AV_AUDIO_CODEC_LATM   AV_AUDIO_CODEC_LATM_TSP*/
 
 #ifdef SUPPORT_CAS
 #include "am_cas.h"
@@ -83,7 +83,7 @@
 /*#undef  AV_AUDIO_CODEC_EAC3*/
 /*#undef  AV_AUDIO_CODEC_DTS*/
 /*#undef  AV_AUDIO_CODEC_AAC*/
-/*#undef  AV_AUDIO_CODEC_AC3*/
+/*#undef  AV_AUDIO_CODEC_LATM*/
 
 /*---macro definitions for this file-----------------------------------------*/
 #define AV_DEBUG
@@ -1747,10 +1747,13 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
         AUD_DBG("AC4");
         break;
    case AV_AUDIO_CODEC_AAC:
-   case AV_AUDIO_CODEC_HEAAC:
-   case AV_AUDIO_CODEC_HEAACV2:
       av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_AAC;
       AUD_DBG("AAC");
+      break;
+   case AV_AUDIO_CODEC_HEAAC:
+   case AV_AUDIO_CODEC_HEAACV2:
+      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_LATM;
+      AUD_DBG("LATM");
       break;
       //case AV_AUDIO_CODEC_AUTO:
    case AV_AUDIO_CODEC_MP2:
@@ -2362,10 +2365,13 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
         //av_paths_status[av_path].ad_format = AV_AUDIO_CODEC_AC4_TSP;
         break;
    case AV_AUDIO_CODEC_AAC:
+      AV_DBG("AD Codec[%d]: AAC", codec);
+      av_paths_status[av_path].ad_format = AML_MP_AUDIO_CODEC_AAC;
+      break;
    case AV_AUDIO_CODEC_HEAAC:
    case AV_AUDIO_CODEC_HEAACV2:
-      AV_DBG("AD Codec[%d]: AAC/HEAAC/HEAACV2", codec);
-      av_paths_status[av_path].ad_format = AML_MP_AUDIO_CODEC_AAC;
+      AV_DBG("AD Codec[%d]: HEAAC/HEAACV2", codec);
+      av_paths_status[av_path].ad_format = AML_MP_AUDIO_CODEC_LATM;
       break;
    case AV_AUDIO_CODEC_MP2 :
       AV_DBG("AD Codec[%d]: MP2", codec);
@@ -3234,6 +3240,7 @@ static E_STB_AV_AUDIO_CODEC toAudioCodec(Aml_MP_CodecID codec)
       case AML_MP_AUDIO_CODEC_EAC3: return AV_AUDIO_CODEC_EAC3;
       //case AV_AUDIO_CODEC_AC4_TSP: return AV_AUDIO_CODEC_AC4;
       case AML_MP_AUDIO_CODEC_AAC: return AV_AUDIO_CODEC_AAC;
+      case AML_MP_AUDIO_CODEC_LATM: return AV_AUDIO_CODEC_HEAAC;
       default:                     return AV_AUDIO_CODEC_AUTO;
    }
    return AV_AUDIO_CODEC_MP2;

@@ -1576,7 +1576,7 @@ void STB_TuneSetPLP(U8BIT path, U8BIT plp)
    FUNCTION_START(STB_TuneSetPLP);
 
    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD) &&
-      (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2))
+      (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2 || tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT))
    {
        TUN_DBG("%u: PLP new:old [%u:%u]", path, plp, tuner_status[path].plp_id);
        if (tuner_status[path].plp_id != plp)

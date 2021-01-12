@@ -208,7 +208,9 @@ else
 endif
 
 ifeq ($(DTVKIT_WITH_AML_MP_SDK), true)
-    LOCAL_SHARED_LIBRARIES += libaml_mp_sdk
+    AML_MP_SHARED_LIBRARIES_29 = libaml_mp_sdk
+    AML_MP_SHARED_LIBRARIES_30 = libaml_mp_sdk.vendor
+    LOCAL_SHARED_LIBRARIES += $(AML_MP_SHARED_LIBRARIES_$(PLATFORM_SDK_VERSION))
 endif
 
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)

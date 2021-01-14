@@ -2734,7 +2734,7 @@ static void tsplayer_callback(void *user_data, am_tsplayer_event *event)
 
       switch (event->type) {
          default:
-         STB_AVNotifyEventHandler(play_status->audio_decoder, play_status->video_decoder, (void*)event);
+         STB_AVNotifyEventHandler(play_status->audio_decoder, play_status->video_decoder, (void*)event, 0);
          break;
       }
    }

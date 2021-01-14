@@ -2099,12 +2099,13 @@ void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
    FUNCTION_FINISH(STB_AVSyncDecodingFromPVR);
 }
 
-void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event)
+void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event, int64_t param)
 {
 	FUNCTION_START(STB_AVNotifyEventHandler);
 	USE_UNWANTED_PARAM(audio_path);
 	USE_UNWANTED_PARAM(video_path);
 	USE_UNWANTED_PARAM(event);
+	USE_UNWANTED_PARAM(param);
 	FUNCTION_FINISH(STB_AVNotifyEventHandler);
 }
 

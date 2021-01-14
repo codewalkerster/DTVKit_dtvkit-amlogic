@@ -2668,6 +2668,19 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
             break;
          }
 
+         case AML_MP_PLAYER_EVENT_VIDEO_CHANGED:
+         case AML_MP_PLAYER_EVENT_AUDIO_CHANGED:
+         case AML_MP_PLAYER_EVENT_FIRST_FRAME:
+         case AML_MP_PLAYER_EVENT_AV_SYNC_DONE:
+         case AML_MP_PLAYER_EVENT_DATA_LOSS:
+         case AML_MP_PLAYER_EVENT_DATA_RESUME:
+         case AML_MP_PLAYER_EVENT_SCRAMBLING:
+         case AML_MP_PLAYER_EVENT_USERDATA_AFD:
+         case AML_MP_PLAYER_EVENT_USERDATA_CC:
+            PLAY_DBG("TsPlayer event: %d", eventType);
+            STB_AVNotifyEventHandler(play_status->audio_decoder, play_status->video_decoder, &eventType, params);
+            break;
+
          default:
          {
             PLAY_DBG("Unhandled event %#x", eventType);

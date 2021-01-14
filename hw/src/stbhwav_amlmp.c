@@ -2786,7 +2786,7 @@ void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
    FUNCTION_FINISH(STB_AVSyncDecodingFromPVR);
 }
 
-void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event)
+void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event, int64_t param)
 {
    Aml_MP_PlayerEventType evt = AML_MP_EVENT_UNKNOWN;
    FUNCTION_START(STB_AVNotifyEventHandler);
@@ -2798,8 +2798,8 @@ void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event)
 
    if (event)
    {
-      evt = (Aml_MP_PlayerEventType)event;
-      AVEventHandler(&av_paths_status[av_path], evt, 0);
+      evt = *(Aml_MP_PlayerEventType*)event;
+      AVEventHandler(&av_paths_status[av_path], evt, param);
    }
 
    FUNCTION_FINISH(STB_AVNotifyEventHandler);
@@ -2825,6 +2825,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
 
    status = (AV_PATH_STATUS *)user_data;
    info.flags = 0;
+
   switch (eventType)
   {
       case AML_MP_PLAYER_EVENT_USERDATA_CC:

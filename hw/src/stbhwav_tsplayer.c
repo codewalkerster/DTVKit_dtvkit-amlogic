@@ -2845,7 +2845,7 @@ void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
    FUNCTION_FINISH(STB_AVSyncDecodingFromPVR);
 }
 
-void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event)
+void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event, int64_t param)
 {
    am_tsplayer_event * evt = NULL;
    FUNCTION_START(STB_AVNotifyEventHandler);

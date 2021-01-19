@@ -2208,12 +2208,8 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
    if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
    {
       DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+
       char enable = 1;
-      err = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_STATE, &enable);
-      if (err < 0) {
-          AUD_DBG("Enable AD err:%d", err);
-          return FALSE;
-      }
       ad_param.pid = ad_pid;
       ad_param.audioCodec = av_paths_status[path].ad_format;
       err = Aml_MP_Player_SetADParams(player_handle, &ad_param);
@@ -2223,6 +2219,12 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
       }else {
           AUD_DBG("Start AD decoding ok, pid[%d] fmt[%d]", ad_pid, av_paths_status[av_path].ad_format);
           av_paths_status[av_path].ad_pid = ad_pid;
+      }
+
+      err = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_STATE, &enable);
+      if (err < 0) {
+          AUD_DBG("Enable AD err:%d", err);
+          return FALSE;
       }
    }
    else

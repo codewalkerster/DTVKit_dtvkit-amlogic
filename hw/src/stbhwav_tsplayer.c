@@ -2249,11 +2249,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
                          &video_pid,
                          &audio_pid,
                          &ad_pid);
-      err = AmTsPlayer_enableADMix(player_handle);
-      if (err != AM_TSPLAYER_OK) {
-          AUD_DBG("Enable AD err:%d", err);
-          return FALSE;
-      }
+
       ad_param.pid = ad_pid;
       ad_param.codectype = av_paths_status[av_path].ad_format;
       err = AmTsPlayer_setADParams(player_handle, &ad_param);
@@ -2263,6 +2259,12 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
       }else {
           AUD_DBG("Start AD decoding ok, pid[%d] fmt[%d]", ad_pid, av_paths_status[av_path].ad_format);
           av_paths_status[av_path].ad_pid = ad_pid;
+      }
+
+      err = AmTsPlayer_enableADMix(player_handle);
+      if (err != AM_TSPLAYER_OK) {
+          AUD_DBG("Enable AD err:%d", err);
+          return FALSE;
       }
    }
    else

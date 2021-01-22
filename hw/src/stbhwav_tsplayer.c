@@ -2615,7 +2615,6 @@ void STB_AVSetSpdifMode(U8BIT path, E_STB_DIGITAL_AUDIO_TYPE audio_type)
 void STB_AVGetScreenSize(U8BIT path, U16BIT *width, U16BIT *height)
 {
    FUNCTION_START(STB_AVGetScreenSize);
-   USE_UNWANTED_PARAM(path);
    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
    VID_DBG("video codec path=%u av_path = %u", path, av_path);
@@ -2688,12 +2687,65 @@ E_STB_AV_SRM_REPLY STB_AVApplySRM(U8BIT path, U8BIT *data, U32BIT len)
  */
 U8BIT STB_AVGetVideoFrameRate(U8BIT path)
 {
+   am_tsplayer_result ret;
+   am_tsplayer_handle handle;
+   U8BIT frame_rate = 0;
+
    FUNCTION_START(STB_AVGetVideoFrameRate);
-   USE_UNWANTED_PARAM(path);
+
+   VID_DBG("vpath:%u", path);
+
+   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+   if (ret == AM_TSPLAYER_OK)
+   {
+      am_tsplayer_video_info info;
+
+      ret = AmTsPlayer_getVideoInfo(handle, &info);
+      if (ret == AM_TSPLAYER_OK)
+      {
+         frame_rate = (U8BIT)info.framerate;
+      }
+   }
+
    FUNCTION_FINISH(STB_AVGetVideoFrameRate);
-   return 0;
+   return frame_rate;
 }
 
+/**
+ * @brief   Returns the scan type of the video being decoded
+ * @param   path video path
+ * @return  1: progressive, 0: interlaced, 255: invalid
+ */
+U8BIT STB_AVGetVideoScanType(U8BIT path)
+{
+   am_tsplayer_result ret;
+   am_tsplayer_handle handle;
+   U8BIT scan_type = 0;
+
+   FUNCTION_START(STB_AVGetVideoScanType);
+
+   VID_DBG("vpath:%u", path);
+
+   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+   if (ret == AM_TSPLAYER_OK)
+   {
+      am_tsplayer_vdec_stat stat;
+
+      ret = AmTsPlayer_getVideoStat(handle, &stat);
+      if (ret == AM_TSPLAYER_OK)
+      {
+         scan_type =
+            ((stat.vf_type & 0x01 == 0x01)
+            || (stat.vf_type & 0x03 == 0x03)
+            || (stat.vf_type & 0x08 == 0x08))
+            ? 0 : 1;
+      }
+   }
+
+   FUNCTION_FINISH(STB_AVGetVideoScanType);
+   return scan_type;
+
+}
 
 
 /**

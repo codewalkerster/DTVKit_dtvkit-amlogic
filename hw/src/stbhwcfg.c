@@ -28,8 +28,11 @@
 #endif
 #endif
 
-
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
+#define CFG_FILE_PATH "/mnt/vendor/odm_ext/etc/tvconfig/dtvkit/config.xml"
+#else
 #define CFG_FILE_PATH "/odm/etc/tvconfig/dtvkit/config.xml"
+#endif
 
 
 #define CFG_PARSER_BUF_SIZE 512

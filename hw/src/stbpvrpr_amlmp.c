@@ -2712,7 +2712,7 @@ static U16BIT getFakePid()
 {
    U8BIT fake_pid_prop[] = "vendor.tv.dtv.fake_pid";
    U8BIT buf[32];
-   U16BIT pid = 0xffff;
+   U32BIT pid = 0xffff;
 
 #ifdef USE_TSPLAYER
    dvr_prop_read(fake_pid_prop, buf, sizeof(buf));

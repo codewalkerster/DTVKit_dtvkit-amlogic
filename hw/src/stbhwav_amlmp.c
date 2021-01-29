@@ -2209,7 +2209,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
    {
       DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
 
-      char enable = 1;
+      int enable = 1;
       ad_param.pid = ad_pid;
       ad_param.audioCodec = av_paths_status[path].ad_format;
       err = Aml_MP_Player_SetADParams(player_handle, &ad_param);
@@ -2284,7 +2284,7 @@ void STB_AVStopADDecoding(U8BIT path)
 
    if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
    {
-        char enable = 0;
+        int enable = 0;
       ret = Aml_MP_Player_SetParameter(av_paths_status[av_path].player_handle, AML_MP_PLAYER_PARAMETER_AD_STATE, &enable);
       if (ret < 0) {
           AUD_DBG("Stop AD decoding err:%d", ret);

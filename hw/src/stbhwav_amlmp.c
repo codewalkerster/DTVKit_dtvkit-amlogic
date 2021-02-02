@@ -203,6 +203,15 @@ typedef struct
 #endif
 } AV_PATH_STATUS;
 
+typedef struct
+{
+   U8BIT  decoder;
+   BOOLEAN decoder_id_valid;
+   U32BIT decoder_id;
+   BOOLEAN sync_id_valid;
+   U32BIT sync_id;
+} S_VIDEO_DECODER_PRIV_DATA;
+
 /*---local (static) variable declarations for this file----------------------*/
 static AV_PATH_STATUS *av_paths_status = NULL;
 static void** video_surface = NULL;
@@ -2997,6 +3006,23 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       {
           AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_FIRST_FRAME: ## VIDEO_AVAILABLE ##\n", status->decoder);
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
+          {
+             int ret;
+             U32BIT sync_id;
+
+             ret = Aml_MP_Player_GetParameter(status->player_handle, AML_MP_PLAYER_PARAMETER_SYNC_ID, (void*)&sync_id);
+             if (ret != 0)
+                sync_id = -1;
+
+             S_VIDEO_DECODER_PRIV_DATA priv =
+             {
+                .decoder = status->decoder,
+                .decoder_id_valid = FALSE,
+                .sync_id = sync_id,
+                .sync_id_valid = TRUE,
+             };
+             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+          }
           break;
       }
       default:
@@ -3039,6 +3065,7 @@ void AV_InjectData(U8BIT path,U8BIT *data, U32BIT size)
 int AV_CreateTsPlayer(U8BIT path,
                        Aml_MP_InputSourceType source_type, int32_t dmx_dev_id, int32_t event_mask)
 {
+    U32BIT decoder_id;
     uint32_t numb = 0;
     int ret;
     Aml_MP_PlayerCreateParams parm;
@@ -3076,6 +3103,20 @@ int AV_CreateTsPlayer(U8BIT path,
     if (ret == 0)
     {
         av_paths_status[path].player_handle = player_handle;
+        ret = Aml_MP_Player_GetParameter(player_handle, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
+        if (ret != 0)
+           decoder_id = -1;
+
+        {
+           S_VIDEO_DECODER_PRIV_DATA priv =
+           {
+              .decoder = av_paths_status[path].decoder,
+              .decoder_id = decoder_id,
+              .decoder_id_valid = TRUE,
+              .sync_id_valid = FALSE,
+           };
+           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+        }
         ret = Aml_MP_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);
         AV_DBG("Create Aml MP player success. player_hdle[%d]:0x%zx dxm_id:%d", path, player_handle, numb, dmx_dev_id);
     }

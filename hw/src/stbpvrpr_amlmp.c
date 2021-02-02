@@ -194,6 +194,15 @@ typedef struct {
    U32BIT last_position_in_seconds;
 } S_RECPLAY_STATUS;
 
+typedef struct
+{
+   U8BIT  decoder;
+   BOOLEAN decoder_id_valid;
+   U32BIT decoder_id;
+   BOOLEAN sync_id_valid;
+   U32BIT sync_id;
+} S_VIDEO_DECODER_PRIV_DATA;
+
 /* The following enums are taken from vendor/amlogic/dvb/am_adp/am_av/aml/aml.c
  * As the status is provided to user code the enums should really be public :-(
  * The names have been changed in case AMLogic do provide them in a public header file
@@ -2404,6 +2413,22 @@ static BOOLEAN updatePlayback(U8BIT play_index)
       error = Aml_MP_DVRPlayer_Create(&createParams, &s_recplay_status[play_index].player);
       if (!error)
       {
+        {
+            U32BIT decoder_id;
+            int ret = Aml_MP_DVRPlayer_GetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
+            if (ret != 0)
+                decoder_id = -1;
+
+           S_VIDEO_DECODER_PRIV_DATA priv =
+           {
+              .decoder = play_index,
+              .decoder_id = decoder_id,
+              .decoder_id_valid = TRUE,
+              .sync_id_valid = FALSE,
+           };
+           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+        }
+
         //set surface
         void * surface = STB_AVGetSurface(s_recplay_status[play_index].video_decoder);
         if (surface != NULL) {
@@ -2669,9 +2694,31 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
             break;
          }
 
+         case AML_MP_PLAYER_EVENT_FIRST_FRAME:
+         {
+            PLAY_DBG("AML_MP_PLAYER_EVENT_FIRST_FRAME");
+            STB_AVNotifyEventHandler(play_status->audio_decoder, play_status->video_decoder, &eventType, params);
+
+             int ret;
+             U32BIT sync_id;
+
+             ret = Aml_MP_DVRPlayer_GetParameter(play_status->player, AML_MP_PLAYER_PARAMETER_SYNC_ID, (void*)&sync_id);
+             if (ret != 0)
+                sync_id = -1;
+
+             S_VIDEO_DECODER_PRIV_DATA priv =
+             {
+                .decoder = play_status->play_index,
+                .decoder_id_valid = FALSE,
+                .sync_id = sync_id,
+                .sync_id_valid = TRUE,
+             };
+             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+         }
+         break;
+
          case AML_MP_PLAYER_EVENT_VIDEO_CHANGED:
          case AML_MP_PLAYER_EVENT_AUDIO_CHANGED:
-         case AML_MP_PLAYER_EVENT_FIRST_FRAME:
          case AML_MP_PLAYER_EVENT_AV_SYNC_DONE:
          case AML_MP_PLAYER_EVENT_DATA_LOSS:
          case AML_MP_PLAYER_EVENT_DATA_RESUME:

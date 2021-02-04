@@ -70,6 +70,7 @@
 #define FEND_WAIT_TIMEOUT        (500)
 #define FEND_BS_MAX_CHANNEL      (128)
 #define TUNER_USELESS_TIMEOUT    (10)               /*second*/
+#define FEND_FL_LOCK             (1)
 
 /*---local typedef structs for this file-------------------------------------*/
 typedef enum
@@ -146,6 +147,7 @@ typedef struct
 
    void *mutex;
    void *tune_sem;
+   void *tune_sem_lock;
 
    int frontend_fd;
    U8BIT frontend_usage;
@@ -170,6 +172,7 @@ typedef struct
       S_ISDBT_STATUS isdbt;
    } u;
 
+   U8BIT lock_flags;
    pthread_mutex_t    lock;
    BOOLEAN    enable_blindscan_thread;
    pthread_t  blindscan_thread;
@@ -259,8 +262,10 @@ void STB_TuneInitialise(U8BIT paths)
             tuner_status[i].tuning_params_changed = FALSE;
             tuner_status[i].mutex = STB_OSCreateMutex();
             tuner_status[i].tune_sem = STB_OSCreateCountSemaphore(0);
+            tuner_status[i].tune_sem_lock = STB_OSCreateCountSemaphore(0);
             tuner_status[i].plp_id = -1;
             tuner_status[i].frontend_usage = 0;
+            tuner_status[i].lock_flags = 0;
             pthread_mutex_init(&tuner_status[i].lock, NULL);
             if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
                TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
@@ -342,11 +347,10 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
    E_TUNER_STATE state;
 
    FUNCTION_START(STB_TuneSetSignalType);
-
    if (path < num_paths)
    {
       tstatus = &tuner_status[path];
-
+      pthread_mutex_lock(&tstatus->lock);
       TUN_DBG("%u: current type=%u, new type=%u frontend_fd:%d", path, tstatus->signal_type, type, tstatus->frontend_fd);
 
       if (tstatus->signal_type != type)
@@ -370,6 +374,7 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
             tstatus->signal_type = type;
          }
       }
+      pthread_mutex_unlock(&tstatus->lock);
    }
 
    FUNCTION_FINISH(STB_TuneSetSignalType);
@@ -483,15 +488,10 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             tstatus->freq = freq;
          }
 
-         STB_OSMutexLock(tstatus->mutex);
-         state = tstatus->state;
-         STB_OSMutexUnlock(tstatus->mutex);
-
          switch (tstatus->signal_type)
          {
             case TUNE_SIGNAL_COFDM:
-               if ((tstatus->u.terr.tmode != tmode) || (tstatus->u.terr.tbwidth != tbwidth)/* ||
-                  (state != TUNER_LOCKED)*/)
+               if ((tstatus->u.terr.tmode != tmode) || (tstatus->u.terr.tbwidth != tbwidth))
                {
                   start_tuning = TRUE;
                   tstatus->u.terr.tmode = tmode;
@@ -500,8 +500,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                break;
 
             case TUNE_SIGNAL_QAM:
-               if ((tstatus->u.cab.cmode != cmode) || (tstatus->u.cab.srate != srate)/* ||
-                  (state != TUNER_LOCKED)*/)
+               if ((tstatus->u.cab.cmode != cmode) || (tstatus->u.cab.srate != srate))
                {
                   start_tuning = TRUE;
                   tstatus->u.cab.cmode = cmode;
@@ -510,8 +509,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                break;
 
             case TUNE_SIGNAL_QPSK:
-               if ((tstatus->u.sat.fec != fec) || (tstatus->u.sat.srate != srate)/* ||
-                  (state != TUNER_LOCKED)*/)
+               if ((tstatus->u.sat.fec != fec) || (tstatus->u.sat.srate != srate))
                {
                   start_tuning = TRUE;
                   tstatus->u.sat.fec = fec;
@@ -530,7 +528,12 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             default:
                break;
          }
+         pthread_mutex_lock(&tstatus->lock); //Keep serial operation that tune on the same path.
+         STB_OSMutexLock(tstatus->mutex);
+         state = tstatus->state;
+         STB_OSMutexUnlock(tstatus->mutex);
 
+         tstatus->lock_flags |= FEND_FL_LOCK;
          if (start_tuning || tstatus->tuning_params_changed || GetTunerLockStatus(tstatus->frontend_fd) != TUNER_STATE_LOCKED)
          {
             TUN_DBG("start_tuning: %d tuning_params_changed:%d", start_tuning,tstatus->tuning_params_changed);
@@ -548,6 +551,9 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             if (StartTune(tstatus))
             {
                STB_OSSemaphoreSignal(tstatus->tune_sem);
+               TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
+               STB_OSSemaphoreWait(tstatus->tune_sem_lock);
+               TUN_DBG("%u: tune sem_receive:%p", tstatus->path, tstatus->tune_sem_lock);
             }
             else
             {
@@ -566,9 +572,13 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                state = tstatus->state;
                STB_OSMutexUnlock(tstatus->mutex);
                STB_OSSemaphoreSignal(tstatus->tune_sem);
+               TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
+               STB_OSSemaphoreWait(tstatus->tune_sem_lock);
+               TUN_DBG("%u: tune sem_receive:%p", tstatus->path, tstatus->tune_sem_lock);
             }
             STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
          }
+         pthread_mutex_unlock(&tstatus->lock);
       }
       else
       {
@@ -2267,6 +2277,9 @@ static void TunerTask(void *param)
                  STB_OSMutexUnlock(tstatus->mutex);
                  state = tstatus->state;
                  TUN_DBG("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
+                 tstatus->lock_flags &= ~FEND_FL_LOCK;
+                 STB_OSSemaphoreSignal(tstatus->tune_sem_lock);
+                 TUN_DBG("path:%u: already sem_signal:%p  tune_status:%d", tstatus->path, tstatus->tune_sem_lock, tstatus->state, tstatus->state);
                  STB_TimeConsumeDebug("Tune lock end");
                  goto Already_Tuned;
              }
@@ -2356,6 +2369,9 @@ static void TunerTask(void *param)
                      STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
                      sizeof(U8BIT));
                  }
+                 tstatus->lock_flags &= ~FEND_FL_LOCK;
+                 STB_OSSemaphoreSignal(tstatus->tune_sem_lock);
+                 TUN_DBG("path:%u: sem_signal:%p", tstatus->path, tstatus->tune_sem_lock);
              }
           }
           else

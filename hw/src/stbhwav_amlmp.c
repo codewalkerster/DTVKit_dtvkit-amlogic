@@ -2648,7 +2648,12 @@ U8BIT STB_AVGetVideoFrameRate(U8BIT path)
     {
         Aml_MP_VideoInfo info;
 
-        ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+        if (STB_PVRIsPlayStopped(path, path)) {
+            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+        } else {
+            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+        }
+
         if (ret == 0)
         {
             frame_rate = (U8BIT)info.frameRate;
@@ -2677,8 +2682,12 @@ U8BIT STB_AVGetVideoScanType(U8BIT path)
     if (ret == 0)
     {
         Aml_MP_VdecStat info;
+        if (STB_PVRIsPlayStopped(path, path)) {
+            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
+        } else {
+            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
+        }
 
-        ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
         if (ret == 0)
         {
             if ((info.vf_type & 0x01) == 0x01 ||

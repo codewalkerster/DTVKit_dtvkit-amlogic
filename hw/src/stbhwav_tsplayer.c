@@ -202,6 +202,15 @@ typedef struct
 #endif
 } AV_PATH_STATUS;
 
+typedef struct
+{
+   U8BIT  decoder;
+   BOOLEAN decoder_id_valid;
+   U32BIT decoder_id;
+   BOOLEAN sync_id_valid;
+   U32BIT sync_id;
+} S_VIDEO_DECODER_PRIV_DATA;
+
 #if 0
 typedef struct
 {
@@ -3064,6 +3073,22 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
           {
               AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME: ## VIDEO_AVAILABLE ##\n", status->decoder);
               STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
+              {
+                 am_tsplayer_result ret;
+                 U32BIT sync_id;
+
+                 ret = AmTsPlayer_getSyncInstansNo(status->player_handle, &sync_id);
+                 if (ret != AM_TSPLAYER_OK)
+                    sync_id = -1;
+
+                 S_VIDEO_DECODER_PRIV_DATA priv =
+                 {
+                    .decoder_id_valid = FALSE,
+                    .sync_id = sync_id,
+                    .sync_id_valid = TRUE,
+                 };
+                 STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+              }
               break;
           }
           default:
@@ -3191,7 +3216,7 @@ void AV_InjectData(U8BIT path,U8BIT *data, U32BIT size)
 am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
                        am_tsplayer_input_source_type source_type, int32_t dmx_dev_id, int32_t event_mask)
 {
-    uint32_t numb;
+    U32BIT decoder_id;
     am_tsplayer_result ret;
     am_tsplayer_init_params parm;
     am_tsplayer_handle player_handle;
@@ -3223,9 +3248,23 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
     if (ret == AM_TSPLAYER_OK)
     {
         av_paths_status[path].player_handle = player_handle;
-        ret = AmTsPlayer_getInstansNo(player_handle, &numb);
+        ret = AmTsPlayer_getInstansNo(player_handle, &decoder_id);
+        if (ret != AM_TSPLAYER_OK)
+           decoder_id = -1;
+
+        {
+           S_VIDEO_DECODER_PRIV_DATA priv =
+           {
+              .decoder = av_paths_status[path].decoder,
+              .decoder_id = decoder_id,
+              .decoder_id_valid = TRUE,
+              .sync_id_valid = FALSE,
+           };
+           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+        }
+
         ret = AmTsPlayer_registerCb(player_handle, AVEventHandler, &av_paths_status[path]);
-        AV_DBG("Create Ts player success. player_hdle[%d]:0x%zx instance_no:%d dxm_id:%d", path, player_handle, numb, dmx_dev_id);
+        AV_DBG("Create Ts player success. player_hdle[%d]:0x%zx instance_no:%d dxm_id:%d", path, player_handle, decoder_id, dmx_dev_id);
     }
     else
     {

@@ -176,6 +176,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwnet.c \
     hw/src/stbhwvbi.c \
     hw/src/stbhwcfg.c \
+    hw/src/stbhwresm.c \
     hw/src/linuxdvbdmx_wrapper.c \
     os/src/stbos_event.c      \
     os/src/stbos_mutex.c      \
@@ -201,6 +202,7 @@ LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
+LOCAL_SHARED_LIBRARIES+=libmediahal_resman
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     LOCAL_SHARED_LIBRARIES+=liblog libswdemux
 else

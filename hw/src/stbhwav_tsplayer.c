@@ -264,6 +264,8 @@ am_tsplayer_result AV_StartAudioDecode(am_tsplayer_handle player_hdle, U16BIT a_
 am_tsplayer_result AV_SetAudioDecode(am_tsplayer_handle player_hdle, am_tsplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute);
 am_tsplayer_result AV_StartVideoDecode(am_tsplayer_handle player_hdle, U16BIT v_pid, U16BIT pcr_pid, am_tsplayer_video_codec format, am_tsplayer_avsync_mode mode);
 
+static int AV_SetAudioVolume(am_tsplayer_handle player_handle, U8BIT vol, BOOLEAN mute);
+
 static E_STB_AV_VIDEO_CODEC toVideoCodec(am_tsplayer_video_codec codec);
 static E_STB_AV_AUDIO_CODEC toAudioCodec(am_tsplayer_audio_codec codec);
 U8BIT STB_AVGetPath(U8BIT video_decoder, U8BIT audio_decoder);
@@ -661,6 +663,7 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
    if (av_path != INVALID_RES_ID)
    {
       av_paths_status[av_path].volume = vol;
+      av_paths_status[av_path].mute = (vol == 0) ? TRUE : FALSE;
    }
 
    ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
@@ -670,11 +673,8 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
        return;
    }
 
-   ret = AmTsPlayer_setAudioVolume(player_handle, vol);
-   if (ret != AM_TSPLAYER_OK)
-   {
-       AUD_DBG("Set audio volume failed, vol:%d err:%d", vol, ret);
-   }
+   ret = AV_SetAudioVolume(player_handle, vol, av_paths_status[av_path].mute);
+
    FUNCTION_FINISH(STB_AVSetAudioVolume);
 }
 
@@ -2826,6 +2826,25 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
          }
       }
 
+      if (IS_AUDIO_DISABLE(av_paths_status[av_path].decoding_mode) != IS_AUDIO_DISABLE(mode))
+      {
+         am_tsplayer_result ret;
+         am_tsplayer_handle player_handle;
+
+         av_paths_status[av_path].mute = IS_AUDIO_DISABLE(mode) ? TRUE : FALSE;
+
+         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
+                                    av_paths_status[av_path].audio_decoder,
+                                    &player_handle,
+                                    FALSE);
+         if (ret == AM_TSPLAYER_OK)
+         {
+            ret = AV_SetAudioVolume(player_handle,
+               av_paths_status[av_path].vol,
+               av_paths_status[av_path].mute);
+         }
+      }
+
       av_paths_status[av_path].decoding_mode = mode;
    }
 
@@ -3374,20 +3393,12 @@ am_tsplayer_result AV_StartAudioDecode(am_tsplayer_handle player_hdle, U16BIT a_
         AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
         return ret;
     }
-    ret = AmTsPlayer_setAudioVolume(player_hdle, vol);
+    ret = AV_SetAudioVolume(player_hdle, vol, mute);
     if (ret != AM_TSPLAYER_OK)
     {
-        AUD_DBG("Set audio volume[%d] failed, err:%d", vol, ret);
+        AUD_DBG("Set audio volume[%d] mute[%d] failed, err:%d", vol, mute, ret);
         return ret;
     }
-#if 0
-    ret = AmTsPlayer_setAudioMute(player_hdle, mute, mute);
-    if (ret != AM_TSPLAYER_OK)
-    {
-        AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);
-        return ret;
-    }
-#endif
     ret = AmTsPlayer_startAudioDecoding(player_hdle);
     if (ret != AM_TSPLAYER_OK)
     {
@@ -3409,20 +3420,12 @@ am_tsplayer_result AV_SetAudioDecode(am_tsplayer_handle player_hdle, am_tsplayer
         AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
         return ret;
     }
-    ret = AmTsPlayer_setAudioVolume(player_hdle, vol);
+    ret = AV_SetAudioVolume(player_hdle, vol, mute);
     if (ret != AM_TSPLAYER_OK)
     {
-        AUD_DBG("Set audio volume[%d] failed, err:%d", vol, ret);
+        AUD_DBG("Set audio volume[%d] mute[%d] failed, err:%d", vol, mute, ret);
         return ret;
     }
-#if 0
-    ret = AmTsPlayer_setAudioMute(player_hdle, mute, mute);
-    if (ret != AM_TSPLAYER_OK)
-    {
-        AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);
-        return ret;
-    }
-#endif
     AUD_DBG("Set audio decode, volume[%d], audio_mode[%d], player[0x%zx]", vol, audio_mode, player_hdle);
     return ret;
 }
@@ -3462,6 +3465,40 @@ am_tsplayer_result AV_StartVideoDecode(am_tsplayer_handle player_hdle,
 
     VID_DBG("Start video decode, v_pid:%d pcr_pid:%d fmt:%d sync:%d, player[0x%zx]", v_pid, pcr_pid, format, mode, player_hdle);
     return ret;
+}
+
+static int AV_SetAudioVolume(am_tsplayer_handle player_handle, U8BIT vol, BOOLEAN mute)
+{
+   if (mute)
+   {
+      ret = AmTsPlayer_setAudioVolume(player_handle, vol);
+      if (ret != AM_TSPLAYER_OK)
+      {
+         AUD_DBG("Set audio volume[%d] failed, err:%d", vol, ret);
+         return ret;
+      }
+      ret = AmTsPlayer_setAudioMute(player_handle, mute);
+      if (ret != AM_TSPLAYER_OK)
+      {
+         AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);
+      }
+   }
+   else
+   {
+      ret = AmTsPlayer_setAudioMute(player_handle, mute);
+      if (ret != AM_TSPLAYER_OK)
+      {
+         AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);
+      }
+      ret = AmTsPlayer_setAudioVolume(player_handle, vol);
+      if (ret != AM_TSPLAYER_OK)
+      {
+         AUD_DBG("Set audio volume[%d] failed, err:%d", vol, ret);
+         return ret;
+      }
+   }
+
+   return ret;
 }
 
 static E_STB_AV_VIDEO_CODEC toVideoCodec(am_tsplayer_video_codec codec)

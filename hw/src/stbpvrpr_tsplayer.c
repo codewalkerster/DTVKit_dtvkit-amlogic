@@ -2355,6 +2355,16 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
         if (s_recplay_status[play_index].cas_status.is_smp)
         {
             init_param.drmmode = TS_INPUT_BUFFER_TYPE_SECURE;
+            {
+                U16BIT ca_id = 0xFFFF;
+
+                /*check for aml_enc*/
+                if (STB_CADescramblerRequired(&ca_id, 1))
+                {
+                   init_param.drmmode = TS_INPUT_BUFFER_TYPE_NORMAL;
+                }
+            }
+
             PLAY_DBG("open drmmode:%d", init_param.drmmode);
         }
 #endif
@@ -2404,6 +2414,15 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
       if (s_recplay_status[play_index].cas_status.is_smp)
       {
           play_params.block_size = 256*1024;
+          {
+             U16BIT ca_id = 0xFFFF;
+
+             /*check for aml_enc*/
+             if (STB_CADescramblerRequired(&ca_id, 1))
+             {
+                play_params.block_size = 188*1024;
+             }
+          }
           play_params.crypto_fn = s_recplay_status[play_index].cas_status.crypto_cb;
           play_params.crypto_data = NULL;
           PLAY_DBG("dec_func:%#x", play_params.crypto_fn);

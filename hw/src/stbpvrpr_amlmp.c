@@ -2104,9 +2104,9 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
    FUNCTION_START(PVRChangeDecodePIDs);
 
+   play_index = getPlayIndex(audio_decoder, video_decoder);
    PLAY_DBG("%u: pcr=%u, video=%u, audio=%u, ad=%u", play_index, pcr_pid, video_pid, audio_pid, ad_pid);
 
-   play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
    {
       if (s_recplay_status[play_index].audio_pid != audio_pid)
@@ -2345,6 +2345,17 @@ static BOOLEAN updatePlayback(U8BIT play_index)
       {
           play_params.blockSize = 256*1024;
           play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
+          {
+             U16BIT ca_id = 0xFFFF;
+
+             /*check for aml_enc*/
+             if (STB_CADescramblerRequired(&ca_id, 1))
+             {
+                play_params.blockSize = 188*1024;
+                play_params.drmMode = AML_MP_INPUT_STREAM_NORMAL;
+             }
+          }
+
           decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
           decrypt_params.cryptoData = NULL;
           PLAY_DBG("dec_func:%#x", decrypt_params.cryptoFn);
@@ -2382,11 +2393,11 @@ static BOOLEAN updatePlayback(U8BIT play_index)
 
             Aml_MP_STB_CAPVRPlayStart(&param);
             Aml_MP_STB_CAPVRGetPlaySection(&section_handle);
-            PLAY_DEBUG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
+            PLAY_DBG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
             secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_PLAY, &buf, &secmem_size);
             if (!secmem_handle)
             {
-                PLAY_DEBUG("Create replay secmem session failed.");
+                PLAY_DBG("Create replay secmem session failed.");
                 break;
             }
 

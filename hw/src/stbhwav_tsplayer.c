@@ -120,7 +120,7 @@
 #define MAX_AV_SPEED     600
 #define MAX_PLAYER_NUM     32
 
-#define INVALID_PLAYER_HANDLE -1
+#define INVALID_PLAYER_HANDLE 0
 #define IS_INVALID_PLAYER_HANDLE(_path_)    ((av_paths_status[_path_].player_handle) == INVALID_PLAYER_HANDLE)
 
 #define IS_CACHED(_m_) ((_m_) & DECODING_MODE_CACHE_ONLY)
@@ -2746,9 +2746,9 @@ U8BIT STB_AVGetVideoScanType(U8BIT path)
       if (ret == AM_TSPLAYER_OK)
       {
          scan_type =
-            ((stat.vf_type & 0x01 == 0x01)
-            || (stat.vf_type & 0x03 == 0x03)
-            || (stat.vf_type & 0x08 == 0x08))
+            ((stat.vf_type & 0x01) == 0x01
+            || (stat.vf_type & 0x03) == 0x03
+            || (stat.vf_type & 0x08) == 0x08)
             ? 0 : 1;
       }
    }
@@ -2840,7 +2840,7 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
          if (ret == AM_TSPLAYER_OK)
          {
             ret = AV_SetAudioVolume(player_handle,
-               av_paths_status[av_path].vol,
+               av_paths_status[av_path].volume,
                av_paths_status[av_path].mute);
          }
       }
@@ -2858,14 +2858,13 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
 void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
 {
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
-   U8BIT path;
 
    FUNCTION_START(STB_AVSyncDecodingFromPVR);
    U8BIT av_path = STB_AVGetPath(video_decoder, audio_decoder);
 
    VID_DBG("av_path = [%u:%u] = %u", video_decoder, audio_decoder, av_path);
    if (av_path == INVALID_RES_ID) {
-     VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+     VID_DBG("get av_path error video codec av_path = %u", av_path);
      return;
    }
 
@@ -3245,6 +3244,7 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
     parm.dmx_dev_id = dmx_dev_id;
     parm.event_mask = event_mask;
 #ifdef SUPPORT_CAS
+    /*todo, incorrect convertion!!*/
     parm.drmmode = av_paths_status[path].drm_mode;
 
     if (parm.drmmode != DRM_NONE)
@@ -3254,11 +3254,11 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
         STB_CAPVRPlayStart(&param);
         CasSession section_handle;
         STB_CAPVRGetPlaySection(&section_handle);
-        AV_DEBUG("section_handle get playback [%p].", section_handle);
+        AV_DBG("section_handle get playback [%p].", section_handle);
         av_paths_status[path].secmem_handle =
                 AM_CA_CreateSecmem(section_handle, SERVICE_LIVE_PLAY, NULL, NULL);
         if (!av_paths_status[path].secmem_handle) {
-            AV_DEBUG("Create live secmem failed.");
+            AV_DBG("Create live secmem failed.");
         }
     }
 #endif
@@ -3469,6 +3469,8 @@ am_tsplayer_result AV_StartVideoDecode(am_tsplayer_handle player_hdle,
 
 static int AV_SetAudioVolume(am_tsplayer_handle player_handle, U8BIT vol, BOOLEAN mute)
 {
+   am_tsplayer_result ret;
+
    if (mute)
    {
       ret = AmTsPlayer_setAudioVolume(player_handle, vol);
@@ -3477,7 +3479,7 @@ static int AV_SetAudioVolume(am_tsplayer_handle player_handle, U8BIT vol, BOOLEA
          AUD_DBG("Set audio volume[%d] failed, err:%d", vol, ret);
          return ret;
       }
-      ret = AmTsPlayer_setAudioMute(player_handle, mute);
+      ret = AmTsPlayer_setAudioMute(player_handle, mute, mute);
       if (ret != AM_TSPLAYER_OK)
       {
          AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);
@@ -3485,7 +3487,7 @@ static int AV_SetAudioVolume(am_tsplayer_handle player_handle, U8BIT vol, BOOLEA
    }
    else
    {
-      ret = AmTsPlayer_setAudioMute(player_handle, mute);
+      ret = AmTsPlayer_setAudioMute(player_handle, mute, mute);
       if (ret != AM_TSPLAYER_OK)
       {
          AUD_DBG("Set audio mute[%d] failed, err:%d", mute, ret);

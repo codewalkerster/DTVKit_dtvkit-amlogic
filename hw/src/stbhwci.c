@@ -42,6 +42,7 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwmem.h"
+#include "stbhwdef.h"
 #include "stbhwci.h"
 #include "stbhwnvm.h"
 #include "stbcios.h" /*for STB_CIDebugPrintf()*/
@@ -188,7 +189,7 @@ static void DebugPrintBuffer(U8BIT *buff, U32BIT len);
  */
 U8BIT STB_CIGetSlotCount(void)
 {
-   return 1;
+   return NUM_CI_SLOTS;
 }
 
 /**

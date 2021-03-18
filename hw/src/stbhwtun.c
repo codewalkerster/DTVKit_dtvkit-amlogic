@@ -148,6 +148,8 @@ typedef struct
    BOOLEAN stop;
    E_STB_TUNE_SYSTEM_TYPE tuned_sys_type;
 
+   BOOLEAN search_mode;
+
    void *mutex;
    void *tune_sem;
    void *tune_sem_lock;
@@ -287,6 +289,7 @@ void STB_TuneInitialise(U8BIT paths)
             tuner_status[i].plp_id = -1;
             tuner_status[i].frontend_usage = 0;
             tuner_status[i].lock_flags = 0;
+            tuner_status[i].search_mode = FALSE;
             pthread_mutex_init(&tuner_status[i].lock, NULL);
             if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
                TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
@@ -478,7 +481,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
    {
       tstatus = &tuner_status[path];
 
-      while (STB_TuneIsTvPlatform() && tstatus->state == TUNER_EXITED) {
+      while (STB_TuneIsTvPlatform() && tstatus->state == TUNER_EXITED && !STB_TuneIsSearchMode(path)) {
           TUN_DBG("%u: tunertask_sem entry sem_wait:%p.",
                   tstatus->path, tstatus->tunertask_sem);
           sem_ret = STB_OSSemaphoreWaitTimeout(tstatus->tunertask_sem, 1000);
@@ -1736,7 +1739,7 @@ BOOLEAN STB_TuneOpen(U8BIT path)
 
    if (path < num_paths)
    {
-        while (STB_TuneIsTvPlatform() && tuner_status[path].state == TUNER_EXITED) {
+        while (STB_TuneIsTvPlatform() && tuner_status[path].state == TUNER_EXITED && !STB_TuneIsSearchMode(path)) {
             TUN_DBG("%u: tunertask_sem entry sem_wait:%p.",
                     tuner_status[path].path, tuner_status[path].tunertask_sem);
             sem_ret = STB_OSSemaphoreWaitTimeout(tuner_status[path].tunertask_sem, 1000);
@@ -1777,6 +1780,38 @@ BOOLEAN STB_TuneIsTvPlatform()
     return isTvPlatform;
 }
 
+void STB_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
+{
+    if (path < num_paths && STB_TuneIsTvPlatform()) {
+        pthread_mutex_lock(&tuner_status[path].lock);
+        STB_OSMutexLock(tuner_status[path].mutex);
+        TUN_DBG("tune path[%d] [state: %d].", path, tuner_status[path].state);
+        if (tuner_status[path].search_mode != mode) {
+            if (mode && tuner_status[path].state == TUNER_EXITED) {
+                tuner_status[path].state = TUNER_IDLE;
+            }
+            tuner_status[path].search_mode = mode;
+            TUN_DBG("tune path[%d] [search_mode: %d].", path, mode);
+        }
+        STB_OSMutexUnlock(tuner_status[path].mutex);
+        pthread_mutex_unlock(&tuner_status[path].lock);
+    }
+}
+
+BOOLEAN STB_TuneIsSearchMode(U8BIT path)
+{
+    BOOLEAN search_mode = FALSE;
+
+    if (path < num_paths && STB_TuneIsTvPlatform()) {
+        STB_OSMutexLock(tuner_status[path].mutex);
+        search_mode = tuner_status[path].search_mode;
+        TUN_DBG("tune path[%d] [search_mode: %d].", path, search_mode);
+        STB_OSMutexUnlock(tuner_status[path].mutex);
+    }
+
+    return search_mode;
+}
+
 void STB_TuneAllStart()
 {
     U8BIT i;
@@ -1788,6 +1823,7 @@ void STB_TuneAllStart()
        if (STB_TuneIsTvPlatform() && tuner_status[i].state == TUNER_EXITED) {
            STB_OSMutexLock(tuner_status[i].mutex);
            tuner_status[i].state = TUNER_IDLE;
+           tuner_status[i].search_mode = FALSE;
            STB_OSMutexUnlock(tuner_status[i].mutex);
            STB_OSSemaphoreSignal(tuner_status[i].tunertask_sem);
        }
@@ -1828,6 +1864,7 @@ void STB_TuneAllStop()
        if (STB_TuneIsTvPlatform()) {
            STB_OSMutexLock(tuner_status[i].mutex);
            tuner_status[i].state = TUNER_EXITED;
+           tuner_status[i].search_mode = FALSE;
            STB_OSMutexUnlock(tuner_status[i].mutex);
        }
        pthread_mutex_unlock(&tuner_status[i].lock);

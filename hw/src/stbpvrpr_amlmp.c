@@ -1739,7 +1739,7 @@ BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
    FUNCTION_START(STB_PVRDeleteRecording);
 
     REC_DBG("delete seg del start");
-    if (basename[strlen(basename) - 1] == 'T')
+    if (basename[0] == 'T')
     {
         /*
           NOTICE:

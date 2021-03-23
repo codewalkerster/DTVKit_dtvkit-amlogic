@@ -1195,6 +1195,10 @@ void STB_DSKCheckSpace(U16BIT disk_id)
 }
 
 /*---local function definitions----------------------------------------------*/
+#define SUBOF(_path1, _path2) \
+      ((strlen(_path1) > strlen(_path2)) \
+      && !strncmp((_path1), (_path2), strlen(_path2)))
+
 static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load)
 {
 
@@ -1212,7 +1216,7 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
    for (disk = disk_list; (disk != NULL) &&
       (/*(strcmp(disk->device_name, device) != 0) ||*/ (strcmp(disk->mount_path, path) != 0)); )
    {
-      DISK_DBG("Existed disk: %s, mounted on %s", disk->device_name, disk->mount_path);
+      /*DISK_DBG("Existed disk: %s, mounted on %s", disk->device_name, disk->mount_path);*/
       disk = disk->next;
    }
 
@@ -1230,6 +1234,26 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
 
       /* Add this disk to the list */
       disk = AddDisk(device_name, mount_path);
+
+      /* create if user added and not exists */
+      if (disk != NULL)
+      {
+         void *dir = STB_DSKOpenDirectory(disk->disk_id, "");
+         if (dir == NULL)
+         {
+            DISK_DBG("AddDisk %s: creating folder %s", device_name, mount_path);
+            if (!STB_DSKCreateDirectory(disk->disk_id, ""))
+            {
+               DISK_DBG("AddDisk: failed creating folder %s", mount_path);
+               RemoveDisk(disk);
+               disk = NULL;
+            }
+         }
+         else
+         {
+            STB_DSKCloseDirectory(dir);
+         }
+      }
 
       if (disk != NULL)
       {
@@ -1305,22 +1329,34 @@ static void RefreshDiskList(BOOLEAN send_events)
 
       while (fscanf(fp, "%127s %127s %31s %7[^,] %*[^\r\n]\n", device_name, mount_path, fs_type, read_write) == 4)
       {
-         /* DISK_DBG("  dev=\"%s\", mnt=\"%s\", fs=\"%s\", rw=\"%s\"\n", device_name, mount_path, fs_type, read_write); */
+         /*DISK_DBG(" dev=\"%s\", mnt=\"%s\", fs=\"%s\", rw=\"%s\"\n", device_name, mount_path, fs_type, read_write);*/
 
          /* Check to see if the device is one of the filesystem types used for PVR
           * and it's mounted for read/write access */
          if (SupportedFSType(fs_type) && (strcmp(read_write, "rw") == 0))
          {
+            BOOLEAN found = FALSE;
+
             /* Check to see if this disk is already known */
             STB_OSMutexLock(disk_mutex);
 
-            for (disk = disk_list; (disk != NULL) &&
-               (/*(strcmp(disk->device_name, device_name) != 0) ||*/ (strcmp(disk->mount_path, mount_path) != 0)); )
+            for (disk = disk_list; disk != NULL; disk = disk->next)
             {
-               disk = disk->next;
+               if (((strcmp(disk->mount_path, mount_path) != 0)
+                  && !SUBOF(disk->mount_path, mount_path))
+                  /*|| (strcmp(disk->device_name, device_name) != 0)*/)
+               {
+                  continue;
+               }
+               else
+               {
+                  /* Existing disk so mark it as found */
+                  disk->found = TRUE;
+                  found = TRUE;
+               }
             }
 
-            if (disk == NULL)
+            if (found == FALSE)
             {
                /* Add this disk to the list */
                disk = AddDisk(device_name, mount_path);
@@ -1337,11 +1373,6 @@ static void RefreshDiskList(BOOLEAN send_events)
                         &(disk->disk_id), sizeof(disk->disk_id));
                   }
                }
-            }
-            else
-            {
-               /* Existing disk so mark it as found */
-               disk->found = TRUE;
             }
 
             STB_OSMutexUnlock(disk_mutex);
@@ -1440,6 +1471,40 @@ static S_DISK_INFO* AddDisk(char *device_name, char *mount_path)
 
                /* Assume this is some form of system partition and so it can't be removed */
                disk->is_removeable = FALSE;
+            }
+
+            /* renew the info of the user added path */
+            {
+               S_DISK_INFO *d;
+
+               for (d = disk_list; d != NULL; d = d->next)
+               {
+                  /* sync from existed non-user-add disk */
+                  if (strcmp(disk->device_name, "user") == 0)
+                  {
+                     if ((strcmp(d->device_name, "user") != 0)
+                        && SUBOF(disk->mount_path, d->mount_path)
+                        && (disk->is_removeable != d->is_removeable))
+                     {
+                        disk->is_removeable = d->is_removeable;
+                        DISK_DBG("Changed disk %s, mount on %s, removeable %s",
+                           disk->device_name, disk->mount_path, disk->is_removeable? "true" : "false");
+                        break;
+                     }
+                  }
+                  /* sync to existed user-add disks */
+                  else
+                  {
+                     if ((strcmp(d->device_name, "user") == 0)
+                        && SUBOF(d->mount_path, disk->mount_path)
+                        && (d->is_removeable != disk->is_removeable))
+                     {
+                        d->is_removeable = disk->is_removeable;
+                        DISK_DBG("Changed disk %s, mount on %s, removeable %s",
+                           d->device_name, d->mount_path, d->is_removeable? "true" : "false");
+                     }
+                  }
+               }
             }
 
             disk->found = TRUE;

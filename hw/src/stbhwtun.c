@@ -214,7 +214,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
 static BOOLEAN  AM_FEND_IBlindScanAPI_Exit(U8BIT path);
 static BOOLEAN AM_FEND_BlindDump(U8BIT path);
 static void* fend_blindscan_thread(void *arg);
-
+static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 
 
 /*---global function definitions---------------------------------------------*/
@@ -357,6 +357,28 @@ U16BIT STB_TuneGetSignalType(U8BIT path)
    return sig_type;
 }
 
+U16BIT STB_TuneGetActualSignalType(U8BIT path)
+{
+   U16BIT sig_type;
+
+   FUNCTION_START(STB_TuneGetSignalType);
+
+   if (path < num_paths)
+   {
+      sig_type = tuner_status[path].signal_type;
+   }
+   else
+   {
+      sig_type = TUNE_SIGNAL_NONE;
+   }
+
+   TUN_DBG("%u: current signal_type=%u", path, sig_type);
+
+   FUNCTION_FINISH(STB_TuneGetSignalType);
+
+   return sig_type;
+}
+
 /**
  * @brief   This function is only relevant for tuners that support more than one signal type;
  *          for tuners that don't support more than one signal type it can be a blank function.
@@ -388,6 +410,11 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
             if (state != TUNER_IDLE && state != TUNER_EXITED)
             {
                STB_TuneStopTuner(path);
+
+               if (STB_TuneIsTvPlatform() && type == TUNE_SIGNAL_NONE) {
+                   SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
+                   CloseTuner(tstatus);
+               }
             }
 
             tstatus->signal_type = TUNE_SIGNAL_NONE;
@@ -489,13 +516,13 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                   tstatus->path, tstatus->tunertask_sem, sem_ret, tstatus->state);
       }
 
-      TUN_DBG("%u: freq %lu, sys_type %s", path, freq,
+      TUN_DBG("%u: freq %lu, sys_type %s, signal_type %d", path, freq,
         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" :
         ((tstatus->signal_type == TUNE_SIGNAL_QAM) ? "DVB-C" :
-        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) ? "ISDB-T" : "UNSUPPORTED")))))));
+        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) ? "ISDB-T" : "UNSUPPORTED")))))), tstatus->signal_type);
 
       if (((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ||
@@ -1756,6 +1783,18 @@ BOOLEAN STB_TuneOpen(U8BIT path)
    return ret;
 }
 
+BOOLEAN STB_TuneIsOpened(U8BIT path)
+{
+    BOOLEAN ret = FALSE;
+
+    if (path < num_paths)
+    {
+        ret = tuner_status[path].frontend_fd != INVALID_FD;
+    }
+
+    return ret;
+}
+
 void STB_TuneUpdateFeUsage(U8BIT path, BOOLEAN use)
 {
    FUNCTION_START(STB_TuneGetSupportedSystemType);
@@ -1789,6 +1828,8 @@ void STB_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
         if (tuner_status[path].search_mode != mode) {
             if (mode && tuner_status[path].state == TUNER_EXITED) {
                 tuner_status[path].state = TUNER_IDLE;
+            } else if (!mode && tuner_status[path].state == TUNER_IDLE) {
+                tuner_status[path].state = TUNER_EXITED;
             }
             tuner_status[path].search_mode = mode;
             TUN_DBG("tune path[%d] [search_mode: %d].", path, mode);

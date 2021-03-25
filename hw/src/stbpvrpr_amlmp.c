@@ -238,7 +238,7 @@ static U8BIT getDvrMode();
 static void setDvrMode(U8BIT dvr_id, U8BIT mode);
 static U32BIT getPVRConfigInt(const char *config, U32BIT def);
 static U16BIT getDiskIdByRecIndex(U8BIT index);
-static BOOLEAN updatePlayback(U8BIT play_index);
+static BOOLEAN updatePlayback(U8BIT play_index, int reset);
 static U16BIT getFakePid();
 
 
@@ -578,6 +578,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                      s_recplay_status[play_index].has_video = TRUE;
                      s_recplay_status[play_index].video_pid = seg_info.streams.streams[i].pid;
                      s_recplay_status[play_index].video_fmt = seg_info.streams.streams[i].codecId;
+                     PLAY_DBG("ready to retry get pidinfo play...[0x%x]", fake_pid);
                      if (fake_pid != 0xffff)
                      {
                         s_recplay_status[play_index].video_pid = fake_pid;
@@ -620,7 +621,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       }
       {
          PLAY_DBG("ready to start play..........");
-         play_started = updatePlayback(play_index);
+         play_started = updatePlayback(play_index, 0);
       }
    }
    else
@@ -2100,7 +2101,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U8BIT play_index;
    int video_changed = 0, audio_changed = 0, ad_changed = 0;
    BOOLEAN done = FALSE;
-   BOOLEAN reset = FALSE;
+   int reset = 0;
 
    FUNCTION_START(PVRChangeDecodePIDs);
 
@@ -2141,7 +2142,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
          {
             if (video_pid > 0 && video_pid < 0x1fff)
             {
-                reset = TRUE;
+                reset = (fake_pid == 0x2fff) ? 2 : 1;
             }
          }
 
@@ -2161,14 +2162,14 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
       if (video_changed || audio_changed || ad_changed)
       {
-         if (reset)
+         if (reset == 1)
          {
             PLAY_DBG("pids ready, reset to %d", s_recplay_status[play_index].last_position_in_seconds);
             Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,
                   s_recplay_status[play_index].last_position_in_seconds * 1000);
          }
-
-         done = updatePlayback(play_index);
+         PLAY_DBG("pid changed. %d", reset);
+         done = updatePlayback(play_index, reset);
       }
    }
 
@@ -2230,7 +2231,7 @@ BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **
 }
 //---local function definitions------------------------------------------------
 
-static BOOLEAN updatePlayback(U8BIT play_index)
+static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 {
    BOOLEAN done;
    pthread_rwlock_t *lock = NULL;
@@ -2243,7 +2244,7 @@ static BOOLEAN updatePlayback(U8BIT play_index)
       PLAY_DBG("Failed to start pvr playback, no a/v setting");
       return FALSE;
    }
-
+   PLAY_DBG("start update pvr playback,reset [%d]", reset);
    memset(&play_pids, 0, sizeof(play_pids));
 
    play_pids.streams[AML_MP_DVR_VIDEO_INDEX].type = AML_MP_STREAM_TYPE_VIDEO;
@@ -2490,6 +2491,13 @@ static BOOLEAN updatePlayback(U8BIT play_index)
       else
       {
          PLAY_DBG("update pvr playback failed, error %d", error);
+      }
+
+      if (reset == 2)
+      {
+         PLAY_DBG("update pvr playback reset 2, seek");
+         Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,
+               s_recplay_status[play_index].last_position_in_seconds * 1000);
       }
    }
 
@@ -2779,6 +2787,7 @@ static U16BIT getFakePid()
 #endif
    if (sscanf(buf, "%i", &pid) != 1)
    {
+      PLAY_DBG("get fake pid error");
       pid = 0xffff;
    }
    return pid;

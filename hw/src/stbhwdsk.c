@@ -1222,7 +1222,7 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
 
    if (disk != NULL)
    {
-      DISK_DBG("Existed disk: %s, mounted on %s", disk->device_name, disk->mount_path);
+      DISK_DBG("Existed disk: %s, mounted on %s, removeable %s", disk->device_name, disk->mount_path, disk->is_removeable? "true" : "false");
    }
    else
    {
@@ -1342,17 +1342,16 @@ static void RefreshDiskList(BOOLEAN send_events)
 
             for (disk = disk_list; disk != NULL; disk = disk->next)
             {
-               if (((strcmp(disk->mount_path, mount_path) != 0)
-                  && !SUBOF(disk->mount_path, mount_path))
-                  /*|| (strcmp(disk->device_name, device_name) != 0)*/)
+               if (strcmp(disk->mount_path, mount_path) == 0)
                {
-                  continue;
-               }
-               else
-               {
-                  /* Existing disk so mark it as found */
                   disk->found = TRUE;
                   found = TRUE;
+                  DISK_DBG("found: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
+               }
+               else if (SUBOF(disk->mount_path, mount_path))
+               {
+                  disk->found = TRUE;
+                  DISK_DBG("found: sub: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
                }
             }
 

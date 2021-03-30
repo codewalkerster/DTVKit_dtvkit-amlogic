@@ -2320,6 +2320,9 @@ static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx)
        case 2:
            demux_source = DVB_DEMUX_SOURCE_TS2;
            break;
+       case 3:
+           demux_source = DVB_DEMUX_SOURCE_TS3;
+           break;
        default:
            DMX_DBG("do not support demux source:ts%d", ts_input_idx);
        break;

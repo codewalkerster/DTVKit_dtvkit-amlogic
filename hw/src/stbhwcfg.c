@@ -36,7 +36,7 @@
 
 
 #define CFG_PARSER_BUF_SIZE 512
-//#define CFG_DEBUG 1
+#define CFG_DEBUG 1
 #ifdef CFG_DEBUG
    #define CFG_DBG(x,...)   STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
@@ -58,6 +58,7 @@ stb_hardware_cfg aml_hw_cfg = {
 .cam = {
 	{
 	.is_set_tsout  = 0,
+	.is_ciplus_mode = 0,
 	.tsout_source  = 0,
 	.is_set_tssource = 0,
 	.camPlug_tssource = 2,
@@ -214,7 +215,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 		while (*att) {
 			an = att[0];
 			av = att[1];
-			//CFG_DBG("an [%s] av[%s]", an, av);
+			CFG_DBG("an [%s] av[%s]", an, av);
 			if (!strcmp(an, "is_set_tsout")) {
 				cam->is_set_tsout = atoi(av);
 				//CFG_DBG("cam->is_set_tsout[%d]", cam->is_set_tsout);
@@ -236,6 +237,9 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			} else if (!strcmp(an, "encodec_source")) {
 				memcpy(cam->encodec_source, av, strlen(av));
 				CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);
+			} else if (!strcmp(an, "use_ciplus_mode")){
+				cam->is_ciplus_mode = atoi(av);
+				STB_SPDebugWrite("cam->is_ciplus_mode %d", cam->is_ciplus_mode);
 			}
 			att += 2;
 		}
@@ -584,6 +588,15 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
 #endif
 #endif
 
+}
+
+/**
+ * @brief   Get cam work mode[ci/ciplus]
+ * @return  1 for ciplus 0 for ci
+ */
+int STB_Cam_Is_CIPlus_Mode()
+{
+	return aml_hw_cfg.cam->is_ciplus_mode;
 }
 
 /**

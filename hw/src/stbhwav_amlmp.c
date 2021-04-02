@@ -532,16 +532,16 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
    if ((src != NULL) && (dest != NULL))
    {
       /*used as a Quad, not the literal meaning*/
-      S_RECTANGLE crop = {src->top, src->left, (U32BIT)src->top, (U32BIT)src->left};
+      S_QVALUE_EX crop = {.path = path, .values = {src->top, src->left, src->top, src->left}};
       S_QVALUE_EX rect = {.path = path, .values = {dest->left, dest->top, dest->width, dest->height}};
 
-      VID_DBG("video(%d): (%u, %u), (%u x %u) out: (%u, %u), (%u x %u) [%d, %d, %d, %d]",
+      VID_DBG("video(%d): (%u, %u), (%u x %u) out: (%u, %u), (%u x %u)",
          path,
          src->left, src->top, src->width, src->height,
-         dest->left, dest->top, dest->width, dest->height,
-         crop.top, crop.left, crop.width, crop.height);
+         dest->left, dest->top, dest->width, dest->height);
 
-      STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_CROPPING_CHANGED, &crop, sizeof(S_RECTANGLE));
+
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_CROPPING_CHANGED, &crop, sizeof(S_QVALUE_EX));
       STB_OSSendEvent(FALSE, HW_EV_CLASS_PRIVATE, HW_EV_TYPE_VIDEO_RECTANGLE_CHANGED, &rect, sizeof(S_QVALUE_EX));
    }
 

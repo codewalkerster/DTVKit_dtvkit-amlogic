@@ -1829,7 +1829,8 @@ void STB_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
             if (mode && tuner_status[path].state == TUNER_EXITED) {
                 tuner_status[path].state = TUNER_IDLE;
             } else if (!mode && tuner_status[path].state == TUNER_IDLE) {
-                tuner_status[path].state = TUNER_EXITED;
+                /* DTVKit can only be set to the exit state when it exits. */
+                /* tuner_status[path].state = TUNER_EXITED; */
             }
             tuner_status[path].search_mode = mode;
             TUN_DBG("tune path[%d] [search_mode: %d].", path, mode);

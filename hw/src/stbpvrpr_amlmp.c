@@ -58,7 +58,7 @@
 #define  AV_AUDIO_CODEC_AC3    AV_AUDIO_CODEC_AC3_TSP
 
 #include <string.h>
-/*#include "dvr_wrapper.h"*/
+#include "dvr_wrapper.h"
 
 #ifdef SUPPORT_CAS
 /*#include "am_cas.h"*/
@@ -2419,6 +2419,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 #endif
 
     Aml_MP_DVRPlayerCreateParams createParams;
+    int  vendorId = DVR_PLAYBACK_VENDOR_AML;
     createParams.basicParams = play_params;
     createParams.decryptParams = decrypt_params;
 
@@ -2459,9 +2460,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
             /*(s_recplay_status[play_index].play_speed == 0)? DVR_PLAYBACK_STARTED_PAUSEDLIVE : 0;*/
           bool play_flag = s_recplay_status[play_index].play_speed == 0;
 
-         PLAY_DBG("Starting pvr playback, speed=%u%%", s_recplay_status[play_index].play_speed);
+         PLAY_DBG("Starting pvr playback, speed=%u%% vendor Id:%d", s_recplay_status[play_index].play_speed, vendorId);
          s_recplay_status[play_index].play_state = PLAY_STARTING;
-
+	 error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void* )(&vendorId));	
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
          error |= Aml_MP_DVRPlayer_Start(s_recplay_status[play_index].player, play_flag);
          if (error)

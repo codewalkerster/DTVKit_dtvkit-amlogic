@@ -2409,6 +2409,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
       play_params.event_fn = PlayEventHandler;
       play_params.event_userdata = &s_recplay_status[play_index];
       play_params.block_size = 188 * 1024;
+      play_params.vendor = DVR_PLAYBACK_VENDOR_AML;
 #ifdef SUPPORT_CAS
       PLAY_DBG("is_smp:%d", s_recplay_status[play_index].cas_status.is_smp);
       if (s_recplay_status[play_index].cas_status.is_smp)

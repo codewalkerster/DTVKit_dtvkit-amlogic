@@ -1746,7 +1746,7 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
       AUD_DBG("E-AC3");
       break;
     case AV_AUDIO_CODEC_AC4:
-        //av_paths_status[av_path].audio_format = AV_AUDIO_CODEC_AC4_TSP;
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_AC4;
         AUD_DBG("AC4");
         break;
    case AV_AUDIO_CODEC_AAC:
@@ -2367,7 +2367,7 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
       break;
     case AV_AUDIO_CODEC_AC4:
         AV_DBG("AD Codec[%d]: AC4", codec);
-        //av_paths_status[av_path].ad_format = AV_AUDIO_CODEC_AC4_TSP;
+        av_paths_status[av_path].ad_format = AML_MP_AUDIO_CODEC_AC4;
         break;
    case AV_AUDIO_CODEC_AAC:
       AV_DBG("AD Codec[%d]: AAC", codec);
@@ -3388,7 +3388,7 @@ static E_STB_AV_AUDIO_CODEC toAudioCodec(Aml_MP_CodecID codec)
       case AML_MP_AUDIO_CODEC_MP3: return AV_AUDIO_CODEC_MP3;
       case AML_MP_AUDIO_CODEC_AC3: return AV_AUDIO_CODEC_AC3;
       case AML_MP_AUDIO_CODEC_EAC3: return AV_AUDIO_CODEC_EAC3;
-      //case AV_AUDIO_CODEC_AC4_TSP: return AV_AUDIO_CODEC_AC4;
+      case AML_MP_AUDIO_CODEC_AC4: return AV_AUDIO_CODEC_AC4;
       case AML_MP_AUDIO_CODEC_AAC: return AV_AUDIO_CODEC_AAC;
       case AML_MP_AUDIO_CODEC_LATM: return AV_AUDIO_CODEC_HEAAC;
       default:                     return AV_AUDIO_CODEC_AUTO;

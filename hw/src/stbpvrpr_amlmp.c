@@ -55,7 +55,7 @@
 #define  AV_AUDIO_CODEC_EAC3   AV_AUDIO_CODEC_EAC3_TSP
 #define  AV_AUDIO_CODEC_DTS    AV_AUDIO_CODEC_DTS_TSP
 #define  AV_AUDIO_CODEC_AAC    AV_AUDIO_CODEC_AAC_TSP
-#define  AV_AUDIO_CODEC_AC3    AV_AUDIO_CODEC_AC3_TSP
+#define  AV_AUDIO_CODEC_AC4    AV_AUDIO_CODEC_AC4_TSP
 
 #include <string.h>
 #include "dvr_wrapper.h"
@@ -80,7 +80,7 @@
 #undef  AV_AUDIO_CODEC_EAC3
 #undef  AV_AUDIO_CODEC_DTS
 #undef  AV_AUDIO_CODEC_AAC
-#undef  AV_AUDIO_CODEC_AC3
+#undef  AV_AUDIO_CODEC_AC4
 
 #include <Aml_MP/Dvr.h>
 
@@ -285,6 +285,9 @@ static Aml_MP_CodecID toDvrAudioFormat(E_STB_AV_AUDIO_CODEC codec)
       break;
       case AV_AUDIO_CODEC_AC3:
          fmt = AML_MP_AUDIO_CODEC_AC3;
+      break;
+      case AV_AUDIO_CODEC_AC4:
+         fmt = AML_MP_AUDIO_CODEC_AC4;
       break;
       case AV_AUDIO_CODEC_AAC:
       case AV_AUDIO_CODEC_HEAAC:

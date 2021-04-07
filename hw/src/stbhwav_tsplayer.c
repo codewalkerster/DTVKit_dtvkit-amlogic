@@ -57,6 +57,7 @@
 #define  AV_AUDIO_CODEC_DTS    AV_AUDIO_CODEC_DTS_TSP
 #define  AV_AUDIO_CODEC_AAC    AV_AUDIO_CODEC_AAC_TSP
 #define  AV_AUDIO_CODEC_LATM    AV_AUDIO_CODEC_LATM_TSP
+#define  AV_AUDIO_CODEC_AC4    AV_AUDIO_CODEC_AC4_TSP
 
 #ifdef SUPPORT_CAS
 #include "am_cas.h"
@@ -80,7 +81,7 @@
 #undef  AV_AUDIO_CODEC_DTS
 #undef  AV_AUDIO_CODEC_AAC
 #undef  AV_AUDIO_CODEC_LATM
-
+#undef  AV_AUDIO_CODEC_AC4
 
 
 
@@ -1787,7 +1788,7 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
       AUD_DBG("E-AC3");
       break;
    case AV_AUDIO_CODEC_AC4:
-      //av_paths_status[av_path].audio_format = AV_AUDIO_CODEC_AC4_TSP;
+      av_paths_status[av_path].audio_format = AV_AUDIO_CODEC_AC4_TSP;
       AUD_DBG("AC4");
       break;
    case AV_AUDIO_CODEC_AAC:
@@ -2428,7 +2429,7 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
       break;
    case AV_AUDIO_CODEC_AC4:
       AV_DBG("AD Codec[%d]: AC4", codec);
-      //av_paths_status[av_path].ad_format = AV_AUDIO_CODEC_AC4_TSP;
+      av_paths_status[av_path].ad_format = AV_AUDIO_CODEC_AC4_TSP;
       break;
    case AV_AUDIO_CODEC_AAC:
       AV_DBG("AD Codec[%d]: AAC", codec);
@@ -3525,7 +3526,7 @@ static E_STB_AV_AUDIO_CODEC toAudioCodec(am_tsplayer_audio_codec codec)
       case AV_AUDIO_CODEC_MP3_TSP: return AV_AUDIO_CODEC_MP3;
       case AV_AUDIO_CODEC_AC3_TSP: return AV_AUDIO_CODEC_AC3;
       case AV_AUDIO_CODEC_EAC3_TSP: return AV_AUDIO_CODEC_EAC3;
-      //case AV_AUDIO_CODEC_AC4_TSP: return AV_AUDIO_CODEC_AC4;
+      case AV_AUDIO_CODEC_AC4_TSP: return AV_AUDIO_CODEC_AC4;
       case AV_AUDIO_CODEC_AAC_TSP: return AV_AUDIO_CODEC_AAC;
       case AV_AUDIO_CODEC_LATM_TSP: return AV_AUDIO_CODEC_HEAAC;
       default:                     return AV_AUDIO_CODEC_AUTO;

@@ -204,16 +204,31 @@ void STB_OSDResize(BOOLEAN scaling, U16BIT width, U16BIT height, U16BIT x_offset
  */
 void STB_OSDUpdate(void)
 {
+   BOOLEAN mheg_available = FALSE;
+
    FUNCTION_START(STB_OSDUpdate);
 
    STB_OSMutexLock(update_mutex);
 
-   BinderService_OverlayClear();
+   //BinderService_OverlayClear();
+
+   /* Display MHEG */
+   STB_OSMutexLock(mheg_mutex);
+
+   if (display_status.mheg_screen != NULL)
+   {
+      mheg_available = TRUE;
+      BinderService_OverlayDraw(display_status.mheg_screen->width, display_status.mheg_screen->height,
+         0, 0, display_status.screen_width, display_status.screen_height,
+         display_status.mheg_screen->surface_data);
+   }
+
+   STB_OSMutexUnlock(mheg_mutex);
 
    /* Display the subtitles */
    STB_OSMutexLock(subtitle_mutex);
 
-   if (display_status.subtitle_surface != NULL)
+   if (display_status.subtitle_surface != NULL && !mheg_available)
    {
       BinderService_OverlayDraw(display_status.subtitle_surface->width,
          display_status.subtitle_surface->height, 0, 0, display_status.screen_width,
@@ -221,18 +236,6 @@ void STB_OSDUpdate(void)
    }
 
    STB_OSMutexUnlock(subtitle_mutex);
-
-   /* Display MHEG */
-   STB_OSMutexLock(mheg_mutex);
-
-   if (display_status.mheg_screen != NULL)
-   {
-      BinderService_OverlayDraw(display_status.mheg_screen->width, display_status.mheg_screen->height,
-         0, 0, display_status.screen_width, display_status.screen_height,
-         display_status.mheg_screen->surface_data);
-   }
-
-   STB_OSMutexUnlock(mheg_mutex);
 
    BinderService_OverlayDrawFinished();
 
@@ -1435,6 +1438,8 @@ void STB_OSDMhegUpdate(void)
       size_bytes = display_status.mheg_screen->width * display_status.mheg_screen->height *
          display_status.mheg_screen->depth / 8;
 
+      memcpy(display_status.mheg_screen->surface_data, display_status.mheg_backbuffer->surface_data, size_bytes);
+      /*
       for(pixel=0; pixel < size_bytes; pixel += 4)
       {
          display_status.mheg_screen->surface_data[pixel+0] = display_status.mheg_backbuffer->surface_data[pixel+3];
@@ -1442,6 +1447,7 @@ void STB_OSDMhegUpdate(void)
          display_status.mheg_screen->surface_data[pixel+2] = display_status.mheg_backbuffer->surface_data[pixel+1];
          display_status.mheg_screen->surface_data[pixel+3] = display_status.mheg_backbuffer->surface_data[pixel+0];
       }
+      */
    }
 
    STB_OSMutexUnlock(mheg_mutex);

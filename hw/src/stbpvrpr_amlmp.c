@@ -2449,8 +2449,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
                 play_index,
                 s_recplay_status[play_index].video_decoder,
                 surface);
-            //AML_MP use ANativewindow while DTVKit give a surface use + 8 to transformate
-            Aml_MP_DVRPlayer_SetANativeWindow(s_recplay_status[play_index].player, surface + 8);
+            Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, surface);
         } else {
             PLAY_DBG("Cannot set surface to TsPlayer, surface is NULL. play_index path:%d", play_index);
         }

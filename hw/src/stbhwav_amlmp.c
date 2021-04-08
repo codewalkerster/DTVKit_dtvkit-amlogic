@@ -1105,7 +1105,6 @@ void STB_AVStartVideoDecoding(U8BIT path)
              return;
          }
          if (video_surface[av_path] != NULL) {
-            //AML_MP use ANativewindow while DTVKit give a surface use + 8 to transformate
             VID_DBG("set AML MP surface %d:[%d:%d] [%p], player[0x%zx]",
                av_path,
                av_paths_status[av_path].video_decoder,
@@ -1113,7 +1112,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
                video_surface[av_path],
                player_handle);
             void* tmp = video_surface[av_path];
-            int ret = Aml_MP_Player_SetANativeWindow(player_handle, tmp + 8);
+            int ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, tmp);
          } else {
             VID_DBG("Cannot set surface to AML MP, surface is NULL. video path: (%d, %d)",
                 av_path, av_paths_status[av_path].video_decoder);
@@ -1609,12 +1608,7 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
         AML_MP_PLAYER player_handle;
         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
         if (ret == 0) {
-            //AML_MP use ANativewindow while DTVKit give a surface use + 8 to transformate
-            if (surface != NULL) {
-                ret = Aml_MP_Player_SetANativeWindow(player_handle, surface + 8);
-            } else {
-                ret = Aml_MP_Player_SetANativeWindow(player_handle, surface);
-            }
+            Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, surface);
             AV_DBG("set AML MP surface %d:[%d:%d]:[%p] = %d, player[0x%zx]",
                av_path,
                av_paths_status[av_path].video_decoder,

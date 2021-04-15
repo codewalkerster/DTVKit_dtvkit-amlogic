@@ -46,6 +46,13 @@
 
 
 /*---macro definitions for this file-----------------------------------------*/
+#ifdef  DISK_DEBUG_LOOP
+   #define  DISK_DBGLOOP(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#else
+   #define  DISK_DBGLOOP(x,...)
+#endif
+
+
 #define DISK_DEBUG 1
 #ifdef  DISK_DEBUG
    #define  DISK_DBG(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
@@ -1184,7 +1191,7 @@ BOOLEAN STB_DSKAddDevicePath(char *device, char *path)
 void STB_DSKCheckSpace(U16BIT disk_id)
 {
     U32BIT free = STB_DSKGetSize(disk_id) - STB_DSKGetUsed(disk_id);
-    DISK_DBG("Disk: id[0x%x] free[%uKB]", disk_id, free);
+    DISK_DBGLOOP("Disk: id[0x%x] free[%uKB]", disk_id, free);
     if (free < STB_PVRGetMinDiskSpaceLeft())
     {
        DISK_DBG("Disk: Exceed the free space limit[%uKB] for PVR, now[%uKB]",
@@ -1329,7 +1336,7 @@ static void RefreshDiskList(BOOLEAN send_events)
 
       while (fscanf(fp, "%127s %127s %31s %7[^,] %*[^\r\n]\n", device_name, mount_path, fs_type, read_write) == 4)
       {
-         /*DISK_DBG(" dev=\"%s\", mnt=\"%s\", fs=\"%s\", rw=\"%s\"\n", device_name, mount_path, fs_type, read_write);*/
+         /*DISK_DBGLOOP(" dev=\"%s\", mnt=\"%s\", fs=\"%s\", rw=\"%s\"\n", device_name, mount_path, fs_type, read_write);*/
 
          /* Check to see if the device is one of the filesystem types used for PVR
           * and it's mounted for read/write access */
@@ -1346,12 +1353,12 @@ static void RefreshDiskList(BOOLEAN send_events)
                {
                   disk->found = TRUE;
                   found = TRUE;
-                  DISK_DBG("found: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
+                  DISK_DBGLOOP("found: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
                }
                else if (SUBOF(disk->mount_path, mount_path))
                {
                   disk->found = TRUE;
-                  DISK_DBG("found: sub: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
+                  DISK_DBGLOOP("found: sub: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
                }
             }
 
@@ -1362,7 +1369,7 @@ static void RefreshDiskList(BOOLEAN send_events)
 
                if (disk != NULL)
                {
-                  DISK_DBG("Added %s disk %s, mounted on %s, ID 0x%04x, size %lu KB removeable %s", fs_type,
+                  DISK_DBGLOOP("Added %s disk %s, mounted on %s, ID 0x%04x, size %lu KB removeable %s", fs_type,
                      disk->device_name, disk->mount_path, disk->disk_id, disk->disk_size, disk->is_removeable? "true":"false");
 
                   if (send_events)
@@ -1389,7 +1396,7 @@ static void RefreshDiskList(BOOLEAN send_events)
          if (!disk->found)
          {
             U16BIT disk_id = disk->disk_id;
-            DISK_DBG("Removed disk 0x%04x, mounted on %s", disk->disk_id, disk->mount_path);
+            DISK_DBGLOOP("Removed disk 0x%04x, mounted on %s", disk->disk_id, disk->mount_path);
 
             /* Now the disk has disappeared, delete it from the list of known disks */
             next_disk = disk->next;

@@ -411,7 +411,8 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
             {
                STB_TuneStopTuner(path);
 
-               if (STB_TuneIsTvPlatform() && type == TUNE_SIGNAL_NONE) {
+               /* after search and if have no channel, need release FE. */
+               if (STB_TuneIsTvPlatform() && type == TUNE_SIGNAL_NONE && STB_TuneIsSearchMode(path)) {
                    SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
                    CloseTuner(tstatus);
                }

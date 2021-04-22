@@ -1601,7 +1601,7 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
          if (speed == 100 && s_recplay_status[play_index].play_speed == 0)
          {
             //fixed 1 -x2 to play and pause then resume,not resume speed 1.0.
-            Aml_MP_DVRPlayer_SetPlaybackRate(s_recplay_status[play_index].player, speed);
+            Aml_MP_DVRPlayer_SetPlaybackRate(s_recplay_status[play_index].player, speed / 100.0);
             error = Aml_MP_DVRPlayer_Resume(s_recplay_status[play_index].player);
          }
          else if (speed == 0)
@@ -1610,7 +1610,7 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
          }
          else if (check_speed_ok(speed))
          {
-               error = Aml_MP_DVRPlayer_SetPlaybackRate(s_recplay_status[play_index].player, speed);
+               error = Aml_MP_DVRPlayer_SetPlaybackRate(s_recplay_status[play_index].player, speed / 100.0);
          }
          else
          {
@@ -2464,7 +2464,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
          PLAY_DBG("Starting pvr playback, speed=%u%% vendor Id:%d", s_recplay_status[play_index].play_speed, vendorId);
          s_recplay_status[play_index].play_state = PLAY_STARTING;
-	 error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void* )(&vendorId));	
+         error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void* )(&vendorId));
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
          error |= Aml_MP_DVRPlayer_Start(s_recplay_status[play_index].player, play_flag);
          if (error)

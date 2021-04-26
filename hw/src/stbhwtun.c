@@ -1884,6 +1884,8 @@ void STB_TuneAllStop()
         if (STB_DPIsAllPathReleased()) {
             TUN_DBG("STB_DPIsAllPathReleased [TRUE].");
         }
+
+        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_RESOURCE_BUSY, &i, sizeof(U8BIT));
     }
 
     for (i = 0; i != num_paths; i++)

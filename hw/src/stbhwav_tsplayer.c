@@ -1653,7 +1653,7 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
                                   FALSE);
          if (ret == AM_TSPLAYER_OK)
          {
-            ret = AmTsPlayer_setSurface(player_handle, surface);
+            ret = AmTsPlayer_setSurface(player_handle, surface ? surface : (void*)-1);
             AV_DBG("set tsplayer surface %d:[%d:%d]:[%p] = %d, player[0x%zx]",
                av_path,
                av_paths_status[av_path].video_decoder,

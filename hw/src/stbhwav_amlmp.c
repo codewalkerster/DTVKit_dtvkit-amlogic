@@ -1608,7 +1608,7 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
         AML_MP_PLAYER player_handle;
         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
         if (ret == 0) {
-            Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, surface);
+            Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, surface ? surface : (void*)-1);
             AV_DBG("set AML MP surface %d:[%d:%d]:[%p] = %d, player[0x%zx]",
                av_path,
                av_paths_status[av_path].video_decoder,

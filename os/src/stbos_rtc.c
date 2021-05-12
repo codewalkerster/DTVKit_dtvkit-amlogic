@@ -64,7 +64,7 @@ static U32BIT sync_time = 0;
 /* Local PROTOTYPE Declarations */
 static U32BIT SysBootTime(void);
 static U32BIT STB_OSGetSystemTime(void);
-
+static time_t STB_OSGetSystemUnixTimeStamp(void);
 
 /**
  * @brief   Allows setting of initial boot time.
@@ -87,10 +87,28 @@ void STB_OSSetClockRTC(U32BIT num_seconds)
 {
    FUNCTION_START(STB_OSSetClockRTC);
 
+   char prop_time[64] = {0};
+   int64_t local_time,temp_time;
+
    utc_seconds = num_seconds;
 
    /* Save the system time at the point the clock has been set */
    sync_time = SysBootTime();
+
+   local_time = (int64_t)(STB_OSGetSystemUnixTimeStamp());
+   //minus current timezone and app will translate it stream time by adding current timezone
+   temp_time = (int64_t)num_seconds - local_time;
+
+   sprintf(prop_time, "%ld000", temp_time);//prop need ms
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+   property_set("vendor.sys.tv.stream.localtime", prop_time);
+#else
+#ifdef USE_TSPLAYER
+      dvr_prop_echo("vendor.sys.tv.stream.localtime", prop_time);
+#else
+      AM_PropEcho("vendor.sys.tv.stream.localtime", prop_time);
+#endif
+#endif
 
    RTC_DBG("Time set to %u secs at %u msecs", num_seconds, sync_time);
 
@@ -177,10 +195,11 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
    char prop_time[64] = {0};
    int64_t system_time,temp_time;
 
-   system_time = (int64_t)(STB_OSGetSystemTime());
+   system_time = (int64_t)(STB_OSGetSystemUnixTimeStamp()/*STB_OSGetSystemTime()*/);
    temp_time = (int64_t)num_seconds - system_time;
 
    sprintf(prop_time, "%ld000", temp_time);//prop need ms
+   //use time that contains timezone instead in STB_OSSetClockRTC
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.realtime", prop_time);
 #else
@@ -210,6 +229,30 @@ U32BIT STB_OSGetClockGMT(void)
    FUNCTION_FINISH(STB_OSGetClockGMT);
 
    return tv.tv_sec;
+}
+
+/**
+ * @brief   Set the time zone timestamp in seconds
+ * @param   num_seconds time in seconds
+ */
+void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
+{
+   FUNCTION_START(STB_OSSetClockTimeZoneDiff);
+
+   char prop_time[64] = {0};
+
+   sprintf(prop_time, "%ld000", num_seconds);//prop need ms
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+   property_set("vendor.sys.tv.stream.timeozone", prop_time);
+#else
+#ifdef USE_TSPLAYER
+      dvr_prop_echo("vendor.sys.tv.stream.timeozone", prop_time);
+#else
+      AM_PropEcho("vendor.sys.tv.stream.timeozone", prop_time);
+#endif
+#endif
+
+   FUNCTION_FINISH(STB_OSSetClockTimeZoneDiff);
 }
 
 
@@ -255,12 +298,18 @@ static U32BIT SysBootTime(void)
 
 static U32BIT STB_OSGetSystemTime(void)
 {
-	time_t t;
-	struct tm * lt;
-	time (&t);//获取Unix时间戳。
-	lt = localtime (&t);//转为时间结构。
-	RTC_DBG( "systime:%d/%d/%d %d:%d:%d\n",lt->tm_year+1900, lt->tm_mon, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec);
-	return t;
+    time_t t;
+    struct tm * lt;
+    time (&t);//获取Unix时间戳。
+    lt = localtime (&t);//转为时间结构。
+    RTC_DBG( "systime:%d/%d/%d %d:%d:%d dst:%d\n",lt->tm_year+1900, lt->tm_mon, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec, tm_gmt->tm_isdst);
+    return t;
 }
 
-
+static time_t STB_OSGetSystemUnixTimeStamp(void)
+{
+    time_t unixTimeStamp;
+    time (&unixTimeStamp);
+    RTC_DBG("systime unix=%ld", unixTimeStamp);
+    return unixTimeStamp;
+}

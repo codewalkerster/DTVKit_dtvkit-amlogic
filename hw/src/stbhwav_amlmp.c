@@ -29,7 +29,7 @@
 #include "techtype.h"
 
 #include "stbhwdef.h"
-#define DEBUG_FUNCTIONS
+//#define DEBUG_FUNCTIONS
 #include "dbgfuncs.h"
 #include "stbhwos.h"
 #include "stbhwmem.h"
@@ -86,9 +86,9 @@
 /*#undef  AV_AUDIO_CODEC_LATM*/
 
 /*---macro definitions for this file-----------------------------------------*/
-#define AV_DEBUG
-#define VIDEO_DEBUG
-#define AUDIO_DEBUG
+//#define AV_DEBUG
+//#define VIDEO_DEBUG
+//#define AUDIO_DEBUG
 
 
 #ifdef AV_DEBUG

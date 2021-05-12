@@ -20,7 +20,7 @@
  * @date    October 2018
  */
 
-#define TUNER_DEBUG
+//#define TUNER_DEBUG
 
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */

@@ -1520,7 +1520,7 @@ BOOLEAN STB_PVRIsRecordStarted(U8BIT rec_index)
          retval = TRUE;
       }
 
-      REC_DBG("%s", (retval ? "yes" : "no"));
+//      REC_DBG("%s", (retval ? "yes" : "no"));
    }
 
    FUNCTION_FINISH(STB_PVRIsRecordStarted);

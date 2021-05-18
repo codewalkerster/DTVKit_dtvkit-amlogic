@@ -65,6 +65,7 @@ stb_hardware_cfg aml_hw_cfg = {
 	.camUnplug_tssource = 2,
 	.is_changeTo_utf8 = 0,
 	.encodec_source = {0},
+	.dev_id = -1,
 	}
 	},
 .dmx_cap = {
@@ -210,6 +211,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 		cam->is_set_tssource = 0;
 		cam->camPlug_tssource = 0;
 		cam->camUnplug_tssource = 0;
+		cam->dev_id = -1;
 
 		att = atts;
 		while (*att) {
@@ -240,6 +242,9 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			} else if (!strcmp(an, "use_ciplus_mode")){
 				cam->is_ciplus_mode = atoi(av);
 				STB_SPDebugWrite("cam->is_ciplus_mode %d", cam->is_ciplus_mode);
+			} else if (!strcmp(an, "dev_id")){
+				cam->dev_id = atoi(av);
+				STB_SPDebugWrite("cam->dev_id %d", cam->dev_id);
 			}
 			att += 2;
 		}
@@ -450,6 +455,15 @@ int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source)
 	*isChange = aml_hw_cfg.cam[0].is_changeTo_utf8;
 	memcpy(encodec_source, aml_hw_cfg.cam[0].encodec_source, strlen(aml_hw_cfg.cam[0].encodec_source));
 	return 0;
+}
+
+/**
+ * @brief   get ca dev id value 
+ * @param   slot is used for which device is select
+ */
+int STB_Get_Ca_devid(int slot)
+{
+	return aml_hw_cfg.cam[0].dev_id;
 }
 
 /**

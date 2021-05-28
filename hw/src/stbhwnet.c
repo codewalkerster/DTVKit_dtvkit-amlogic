@@ -318,6 +318,7 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    S_SOCKET_CTX *ctx = (S_SOCKET_CTX *)malloc(sizeof(S_SOCKET_CTX));
 
    USE_UNWANTED_PARAM(protocol); /* used in windows socket implementation */
+   STB_SPDebugWrite("sock %d type %d protocol %d", sock, type, protocol);
    FUNCTION_START(STB_NWOpenSocket);
 
    if (af == NW_AF_INET)
@@ -327,9 +328,9 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    else
       STB_SPDebugWrite("%s: s_protocol invalid %d\n", af);
 
-   if (type == NW_SOCK_DGRAM)
+   if (protocol == NW_PROTOCOL_UDP)
       s_type = SOCK_DGRAM;
-   else if (type == NW_SOCK_STREAM)
+   else if (protocol == NW_PROTOCOL_TCP)
       s_type = SOCK_STREAM;
    else
       STB_SPDebugWrite("%s: type invalid %d\n", type);
@@ -513,10 +514,11 @@ E_NW_ERROR STB_NWConnect(void *socket, U8BIT *address, U32BIT port)
    }
    in_addr.sin_port = htons(port);
    in_addr.sin_addr.s_addr = inet_addr(address);
+   NET_ERR("sock %d family %d port %d addr %s", ctx->sock, in_addr.sin_family, port, address);
    ret = connect(ctx->sock, (struct sockaddr *)&in_addr, sizeof(in_addr));
    if (ret < 0)
    {
-      err_msg = "connect error";
+      err_msg = strerror(errno);
       goto ERR;
    }
 
@@ -595,14 +597,14 @@ void *STB_NWAccept(void *socket, U8BIT *address, U32BIT *port)
  */
 S32BIT STB_NWSend(void *socket, U8BIT *buf, U32BIT num_bytes)
 {
-   S_SOCKET_CTX *ctx = socket;
-   NET_ERR("enter");
    int ret;
+   S_SOCKET_CTX *ctx = socket;
 
    FUNCTION_START(STB_NWSend);
    if (!ctx)
       return -1;
    ret = send(ctx->sock, buf, num_bytes, 0);
+   NET_ERR("enter, sock %d data_len %d send %d", ctx->sock, num_bytes, ret);
    FUNCTION_FINISH(STB_NWSend);
    return ret;
 }
@@ -802,12 +804,14 @@ S32BIT STB_NWSelect(S_NW_SOCKSET *read_sockets, S_NW_SOCKSET *write_sockets,
    struct timeval time = {0};
    S_SOCKET_CTX *ctx;
 
+#if 0
    if (read_sockets)
       NET_ERR("read socket %d", read_sockets->sock_count);
    if (write_sockets)
       NET_ERR("write socket %d", write_sockets->sock_count);
    if (except_sockets)
       NET_ERR("except socket %d", except_sockets->sock_count);
+#endif
 
    FD_ZERO(&read_fds);
    FD_ZERO(&write_fds);
@@ -855,7 +859,7 @@ S32BIT STB_NWSelect(S_NW_SOCKSET *read_sockets, S_NW_SOCKSET *write_sockets,
          max_fd = (max_fd > ctx->sock) ? max_fd : ctx->sock;
       }
    }
-   NET_ERR("select timeout %d", timeout_ms);
+   //NET_ERR("select timeout %d", timeout_ms);
    if (timeout_ms == -1)
       ret = select(max_fd + 1, &read_fds, &write_fds, &exception_fds, NULL);
    else

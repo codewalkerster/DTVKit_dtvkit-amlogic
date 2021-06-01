@@ -86,12 +86,14 @@ typedef enum
     TUNER_EXITED
 } E_TUNER_STATE;
 
+#if 0
 typedef enum
 {
     TUNER_STATE_LOCKED,
     TUNER_STATE_TIMEOUT,
     TUNER_STATE_UNKNOW
 } E_TUNER_EVENT;
+#endif
 
 typedef struct
 {
@@ -3328,5 +3330,21 @@ static void* fend_blindscan_thread(void *arg)
     }
 
     return NULL;
+}
+
+
+
+E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path)
+{
+    E_TUNER_EVENT tuner_event = TUNER_STATE_UNKNOW;
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        tuner_event = GetTunerLockStatus(tuner_status[path].frontend_fd);
+    }
+
+    TUN_INFO("tuner_event:%u", tuner_event);
+
+    return tuner_event;
 }
 

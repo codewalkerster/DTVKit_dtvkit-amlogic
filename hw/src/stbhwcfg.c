@@ -100,6 +100,10 @@ stb_hardware_cfg aml_hw_cfg = {
     .tdt_timeout = 32000,
     .eit_timeout = 3000,
 },
+.demo_cap = {
+    .srate_auto = 0,
+    .srate_auto_value = 0,
+    },
 .service_without_sdt = 0,
 };
 
@@ -361,6 +365,19 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             att += 2;
         }
     }
+    else if (!strcmp(name, "demo_cap"))
+    {
+        long int i;
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+             if (!strcmp(an, "symbol_rate_auto") && !strcmp(av, "yes")) {
+                cfg->demo_cap.srate_auto = 1;
+            }
+            att += 2;
+        }
+    }
 }
 
 static void
@@ -370,76 +387,79 @@ elem_end_handler (void *userData, const XML_Char *name)
 
 void STB_CfgInitialise(void)
 {
-	XML_Parser      parser;
-	enum XML_Status status;
-	FILE           *fp;
-	int             i;
+    XML_Parser      parser;
+    enum XML_Status status;
+    FILE           *fp;
+    int             i;
 
-	fp = fopen(CFG_FILE_PATH, "rb");
-	if (!fp) {
-		CFG_ERR("cannot open \"%s\"", CFG_FILE_PATH);
-		return;
-	}
+    fp = fopen(CFG_FILE_PATH, "rb");
+    if (!fp) {
+        CFG_ERR("cannot open \"%s\"", CFG_FILE_PATH);
+        return;
+    }
 
-	parser = XML_ParserCreate(NULL);
-	if (!parser) {
-		CFG_ERR("XML_ParserCreate failed");
-		fclose(fp);
-		return;
-	}
+    parser = XML_ParserCreate(NULL);
+    if (!parser) {
+        CFG_ERR("XML_ParserCreate failed");
+        fclose(fp);
+        return;
+    }
 
-	XML_SetElementHandler(parser, elem_start_handler, elem_end_handler);
+    XML_SetElementHandler(parser, elem_start_handler, elem_end_handler);
 
-	aml_hw_cfg.tuner_num    = 0;
-	aml_hw_cfg.demux_num    = 0;
-	aml_hw_cfg.recorder_num = 0;
-	aml_hw_cfg.ci_slot_num  = 0;
-	aml_hw_cfg.vdec_num     = 0;
-	aml_hw_cfg.adec_num     = 0;
-	aml_hw_cfg.demux        = 0;
+    aml_hw_cfg.tuner_num    = 0;
+    aml_hw_cfg.demux_num    = 0;
+    aml_hw_cfg.recorder_num = 0;
+    aml_hw_cfg.ci_slot_num  = 0;
+    aml_hw_cfg.vdec_num     = 0;
+    aml_hw_cfg.adec_num     = 0;
+    aml_hw_cfg.demux        = 0;
 
-	while (1) {
-		char    buf[CFG_PARSER_BUF_SIZE];
-		size_t  len;
-		int     is_end;
+    while (1) {
+        char    buf[CFG_PARSER_BUF_SIZE];
+        size_t  len;
+        int     is_end;
 
-		len    = fread(buf, 1, CFG_PARSER_BUF_SIZE, fp);
-		is_end = (len == 0) ? 1 : 0;
+        len    = fread(buf, 1, CFG_PARSER_BUF_SIZE, fp);
+        is_end = (len == 0) ? 1 : 0;
 
-		status = XML_Parse(parser, buf, len, is_end);
-		if (status == XML_STATUS_ERROR) {
-			CFG_ERR("parse \"%s\" failed: %s", CFG_FILE_PATH,
-					XML_ErrorString(XML_GetErrorCode(parser)));
-			break;
-		}
+        status = XML_Parse(parser, buf, len, is_end);
+        if (status == XML_STATUS_ERROR) {
+            CFG_ERR("parse \"%s\" failed: %s", CFG_FILE_PATH,
+                                XML_ErrorString(XML_GetErrorCode(parser)));
+            break;
+        }
 
-		if (is_end)
-			break;
-	}
+        if (is_end)
+            break;
+    }
 
-	CFG_DBG("tuner_num:%d demux_num:%d ci_slot_num:%d recorder_num:%d vdec_num:%d adec_num:%d demux:%d",
-			aml_hw_cfg.tuner_num,
-			aml_hw_cfg.demux_num,
-			aml_hw_cfg.ci_slot_num,
-			aml_hw_cfg.recorder_num,
-			aml_hw_cfg.vdec_num,
-			aml_hw_cfg.adec_num,
-			aml_hw_cfg.demux);
+    CFG_DBG("tuner_num:%d demux_num:%d ci_slot_num:%d recorder_num:%d vdec_num:%d adec_num:%d demux:%d",
+                                aml_hw_cfg.tuner_num,
+                                aml_hw_cfg.demux_num,
+                                aml_hw_cfg.ci_slot_num,
+                                aml_hw_cfg.recorder_num,
+                                aml_hw_cfg.vdec_num,
+                                aml_hw_cfg.adec_num,
+                                aml_hw_cfg.demux);
+    CFG_DBG("srate_auto:%d srate_auto_value:%d\n",
+                                aml_hw_cfg.demo_cap.srate_auto,
+                                aml_hw_cfg.demo_cap.srate_auto_value);
 
-	for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
-		stb_tuner_cfg *tun = &aml_hw_cfg.tuners[i];
+    for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
+        stb_tuner_cfg *tun = &aml_hw_cfg.tuners[i];
 
-		CFG_DBG("tuner%d ts_input:%d frontend:%d signal_types:%d dvbt2:%d dvbs2:%d",
-				i,
-				tun->ts_input_idx,
-				tun->frontend_idx,
-				tun->signal_types,
-				tun->support_dvbt2,
-				tun->support_dvbs2);
-	}
+        CFG_DBG("tuner%d ts_input:%d frontend:%d signal_types:%d dvbt2:%d dvbs2:%d",
+                                i,
+                                tun->ts_input_idx,
+                                tun->frontend_idx,
+                                tun->signal_types,
+                                tun->support_dvbt2,
+                                tun->support_dvbs2);
+    }
 
-	XML_ParserFree(parser);
-	fclose(fp);
+    XML_ParserFree(parser);
+    fclose(fp);
 }
 /**
  * @brief   get is need change chara encode from source to utf8
@@ -613,6 +633,28 @@ int STB_Cam_Is_CIPlus_Mode()
 	return aml_hw_cfg.cam->is_ciplus_mode;
 }
 
+BOOLEAN STB_GetDemoCapabilityByType(E_STB_TUNE_SIGNAL_TYPE eType, U_STB_DEMO_CAPABILITY *pCap)
+{
+    BOOLEAN ret = TRUE;
+    if(NULL == pCap)
+    {
+        return FALSE;
+    }
+    switch(eType)
+    {
+    case TUNE_SIGNAL_QAM:
+    {
+        pCap->dvbc.symbol_rate_auto = aml_hw_cfg.demo_cap.srate_auto;
+        pCap->dvbc.symbol_rate_value = aml_hw_cfg.demo_cap.srate_auto_value;
+        break;
+    }
+    default:
+    {
+        ret = FALSE;
+    }
+    }
+   return ret;
+}
 /**
  * @brief   set dynamic prop
    @param   name prop name

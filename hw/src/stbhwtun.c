@@ -2654,6 +2654,8 @@ static void TunerTask(void *param)
 
                         if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
                         {
+                            STB_OSMutexLock(tstatus->mutex);
+
                             if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
                                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2))) &&
                                     (tstatus->signal_type != TUNE_SIGNAL_QAM))
@@ -2664,6 +2666,18 @@ static void TunerTask(void *param)
                                          ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
                                         ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
                             }
+                            else if ((SYS_DVBS == p.u.data || SYS_DVBS2 == p.u.data) &&
+                                     (TUNE_SYSTEM_TYPE_DVBS == tstatus->sys_type || TUNE_SYSTEM_TYPE_DVBS2 == tstatus->sys_type))
+                            {
+                                TUN_INFO("[%s:%d] data:%u, sys_type:%u", __FUNCTION__, __LINE__, p.u.data, tstatus->sys_type);
+
+                                if (SYS_DVBS == p.u.data)
+                                    tstatus->sys_type = TUNE_SYSTEM_TYPE_DVBS;
+                                else
+                                    tstatus->sys_type = TUNE_SYSTEM_TYPE_DVBS2;
+                            }
+
+                            STB_OSMutexUnlock(tstatus->mutex);
                         }
                     }
 

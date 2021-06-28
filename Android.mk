@@ -86,18 +86,17 @@ ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
     ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
         $(info "Build dtvkit-amlogic for AndroidR kernel 4.9")
-        LOCAL_C_INCLUDES := vendor/amlogic/common/kernel/common/include/uapi/linux/dvb/
+        #LOCAL_C_INCLUDES := vendor/amlogic/common/kernel/common/include/uapi/linux/dvb/
     else
         $(info "Build dtvkit-amlogic for AndroidR kernel > 4.9")
-        LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
+        #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
     endif
 else
     $(info "Build dtvkit-amlogic for AndroidP/Q ")
-    LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
+    #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
 endif
 
     LOCAL_C_INCLUDES += \
-        common/include/uapi \
         $(MEDIAHAL_INCLUDE) \
         $(LIBDVR_PATH)
 

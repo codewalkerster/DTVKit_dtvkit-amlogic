@@ -25,16 +25,17 @@
 
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <netinet/ip.h>
+#include <netdb.h>
 #include <net/if.h>
 #include <errno.h>
 #include <linux/ethtool.h>
 #include <netinet/in.h>
-//#include <arpa/inet.h>
+#include <arpa/inet.h>
 
 /* third party header files */
 
@@ -44,12 +45,14 @@
 #include "stbhwos.h"
 #include "stbhwmem.h"
 #include "stbhwnet.h"
+#include "stbci.h"
 
 /*---constant definitions for this file--------------------------------------*/
 
 #define NW_TASK_STACK_SIZE 1024
 #define NW_TASK_PRIORITY 8
 #define NETWORK_ERROR
+#define DEFAULT_NET_IF "eth0"
 
 #ifdef NETWORK_ERROR
 #define NET_ERR(x, ...) STB_SPDebugWrite("======NET======>%s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
@@ -151,12 +154,44 @@ E_NW_INTERFACE STB_NWGetSelectedInterface(void)
  */
 BOOLEAN STB_IPGetIPAddress(U8BIT ip_addr[4])
 {
-   NET_ERR("enter");
+   U32BIT fd;
+   struct sockaddr_in sin;
+   struct ifreq ifr;
+   U32BIT ip_addr_int;
+   char *ipaddr_str;
 
    FUNCTION_START(STB_IPGetIPAddress);
+
+   fd = socket(AF_INET, SOCK_DGRAM, 0);
+   if (-1 == fd)
+   {
+      NET_ERR("socket error: %s\n", strerror(errno));
+      return FALSE;
+   }
+
+   strncpy(ifr.ifr_name, DEFAULT_NET_IF, IFNAMSIZ);
+   ifr.ifr_name[IFNAMSIZ - 1] = 0;
+
+   // if error: No such device
+   if (ioctl(fd, SIOCGIFADDR, &ifr) < 0)
+   {
+      NET_ERR("ioctl error: %s\n", strerror(errno));
+      close(fd);
+      return FALSE;
+   }
+
+   ipaddr_str = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+   STB_SPDebugWrite("interfac: %s, ip: %s\n", DEFAULT_NET_IF, ipaddr_str);
+   ip_addr_int = inet_addr(ipaddr_str);
+   ip_addr[0] = ip_addr_int & 0xFF;
+   ip_addr[1] = (ip_addr_int >> 8) & 0xFF;
+   ip_addr[2] = (ip_addr_int >> 16) & 0xFF;
+   ip_addr[3] = ip_addr_int >> 24;
+
+   close(fd);
    FUNCTION_FINISH(STB_IPGetIPAddress);
 
-   return FALSE;
+   return TRUE;
 }
 
 /**
@@ -167,11 +202,44 @@ BOOLEAN STB_IPGetIPAddress(U8BIT ip_addr[4])
  */
 BOOLEAN STB_IPGetSubnetMask(U8BIT subnet_mask[4])
 {
+   U32BIT fd;
+   struct sockaddr_in sin;
+   struct ifreq ifr;
+   U32BIT ip_addr_int;
+   char *ipaddr_str;
+
    FUNCTION_START(STB_IPGetSubnetMask);
-   NET_ERR("enter");
+
+   fd = socket(AF_INET, SOCK_DGRAM, 0);
+   if (-1 == fd)
+   {
+      NET_ERR("socket error: %s\n", strerror(errno));
+      return FALSE;
+   }
+
+   strncpy(ifr.ifr_name, DEFAULT_NET_IF, IFNAMSIZ);
+   ifr.ifr_name[IFNAMSIZ - 1] = 0;
+
+   // if error: No such device
+   if (ioctl(fd, SIOCGIFNETMASK, &ifr) < 0)
+   {
+      NET_ERR("ioctl error: %s\n", strerror(errno));
+      close(fd);
+      return FALSE;
+   }
+
+   ipaddr_str = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr);
+   STB_SPDebugWrite("interfac: %s, mask: %s\n", DEFAULT_NET_IF, ipaddr_str);
+   ip_addr_int = inet_addr(ipaddr_str);
+   subnet_mask[0] = ip_addr_int & 0xFF;
+   subnet_mask[1] = (ip_addr_int >> 8) & 0xFF;
+   subnet_mask[2] = (ip_addr_int >> 16) & 0xFF;
+   subnet_mask[3] = ip_addr_int >> 24;
+
+   close(fd);
    FUNCTION_FINISH(STB_IPGetSubnetMask);
 
-   return FALSE;
+   return TRUE;
 }
 
 /**
@@ -182,11 +250,16 @@ BOOLEAN STB_IPGetSubnetMask(U8BIT subnet_mask[4])
  */
 BOOLEAN STB_IPGetGatewayIPAddress(U8BIT gateway_addr[4])
 {
+   U8BIT address[4];
    FUNCTION_START(STB_IPGetGatewayIPAddress);
-   NET_ERR("enter");
-   FUNCTION_FINISH(STB_IPGetGatewayIPAddress);
 
-   return FALSE;
+   STB_IPGetIPAddress(address);
+   gateway_addr[0] = address[0];
+   gateway_addr[1] = address[1];
+   gateway_addr[2] = address[2];
+   gateway_addr[3] = 1;
+   FUNCTION_FINISH(STB_IPGetGatewayIPAddress);
+   return 0;
 }
 
 /**
@@ -197,11 +270,24 @@ BOOLEAN STB_IPGetGatewayIPAddress(U8BIT gateway_addr[4])
  */
 BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
 {
+   U8BIT dns_prop_name[128] = {0};
+   U8BIT dns_buff[16] = {0};
+   U32BIT dns;
+
    FUNCTION_START(STB_IPGetDnsServerIPAddress);
-   NET_ERR("enter");
+   U8BIT *pointer;
+   snprintf(dns_prop_name, sizeof(dns_prop_name), "net.dns%d", 1);
+   property_get(dns_prop_name, dns_buff, "");
+   dns = inet_addr(dns_buff);
+   DBGPRINT("DNS: %s %d", dns_buff, dns);
+
+   dns_addr[0] = (dns)&0xFF;
+   dns_addr[1] = (dns >> 8) & 0xFF;
+   dns_addr[2] = (dns >> 16) & 0xFF;
+   dns_addr[3] = dns >> 24;
    FUNCTION_FINISH(STB_IPGetDnsServerIPAddress);
 
-   return FALSE;
+   return TRUE;
 }
 
 /**
@@ -214,11 +300,71 @@ BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
 BOOLEAN STB_NWGetMACAddress(E_NW_INTERFACE interface, U8BIT *mac_addr)
 {
    FUNCTION_START(STB_NWGetMACAddress);
-   NET_ERR("enter");
-   USE_UNWANTED_PARAM(interface);
-   FUNCTION_FINISH(STB_NWGetMACAddress);
+   int fd, net_if;
+   struct ifreq buf[16];
+   struct ifconf ifc;
+   char mac[32] = {0};
+   char *device_name;
+   int found = 0;
+   int i = 0;
 
-   return FALSE;
+   if (!mac_addr)
+      return FALSE;
+
+   //Match the device name.
+   if (interface == NW_WIRED)
+      device_name = "eth0";
+   else
+      device_name = "wl0";
+
+   if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0)
+   {
+      ifc.ifc_len = sizeof(buf);
+      ifc.ifc_buf = (caddr_t)buf;
+      if (!ioctl(fd, SIOCGIFCONF, (char *)&ifc))
+      {
+         net_if = ifc.ifc_len / sizeof(struct ifreq);
+         while (i < net_if)
+         {
+            STB_SPDebugWrite("net device %s\n", buf[i].ifr_name);
+            if (!strcmp(device_name, buf[i].ifr_name))
+            {
+               STB_SPDebugWrite("Found target network device");
+               if (!(ioctl(fd, SIOCGIFHWADDR, (char *)&buf[i])))
+               {
+                  sprintf(mac, "%02X:%02X:%02X:%02X:%02X:%02X",
+                          (unsigned char)buf[i].ifr_hwaddr.sa_data[0],
+                          (unsigned char)buf[i].ifr_hwaddr.sa_data[1],
+                          (unsigned char)buf[i].ifr_hwaddr.sa_data[2],
+                          (unsigned char)buf[i].ifr_hwaddr.sa_data[3],
+                          (unsigned char)buf[i].ifr_hwaddr.sa_data[4],
+                          (unsigned char)buf[i].ifr_hwaddr.sa_data[5]);
+                  STB_SPDebugWrite("HWaddr %s\n", mac);
+                  mac_addr[0] = buf[i].ifr_hwaddr.sa_data[0];
+                  mac_addr[1] = buf[i].ifr_hwaddr.sa_data[1];
+                  mac_addr[2] = buf[i].ifr_hwaddr.sa_data[2];
+                  mac_addr[3] = buf[i].ifr_hwaddr.sa_data[3];
+                  mac_addr[4] = buf[i].ifr_hwaddr.sa_data[4];
+                  mac_addr[5] = buf[i].ifr_hwaddr.sa_data[5];
+               }
+               found = 1;
+               break;
+            }
+            i++;
+         }
+      }
+   }
+   else
+   {
+      STB_SPDebugWrite("%s: Open socket failed");
+      return FALSE;
+   }
+
+   close(fd);
+   if (found = 1)
+      return TRUE;
+   else
+      return FALSE;
 }
 
 /**
@@ -265,7 +411,6 @@ void STB_IPSetGatewayIPAddress(const U8BIT *gateway_addr)
 void STB_IPSetDnsServerIPAddress(const U8BIT *dns_addr)
 {
    FUNCTION_START(STB_IPSetDnsServerIPAddress);
-   NET_ERR("enter");
    FUNCTION_FINISH(STB_IPSetDnsServerIPAddress);
 }
 
@@ -291,15 +436,50 @@ void STB_IPGetIPByDhcp(BOOLEAN wait_for_completion)
  */
 U16BIT STB_NWLookupAddress(U8BIT *name, S_NW_ADDR_INFO **nw_addrs)
 {
-   FUNCTION_START(STB_NWLookupAddress);
-   USE_UNWANTED_PARAM(name);
+   struct hostent *hptr;
+   char **pptr;
+   int nw_addr_count = 0;
+   int i;
 
-   NET_ERR("enter");
-   *nw_addrs = NULL;
+   FUNCTION_START(STB_NWLookupAddress);
+
+   if (name)
+      hptr = gethostbyname(name);
+   if (!hptr)
+   {
+      NET_ERR("Lookup address failed %s reason %s", name, strerror((errno)));
+      return 0;
+   }
+   for (pptr = hptr->h_addr_list; *pptr != NULL; pptr++)
+      nw_addr_count++;
+
+   *nw_addrs = (S_NW_ADDR_INFO *)malloc(sizeof(S_NW_ADDR_INFO) * nw_addr_count);
+   if (!nw_addrs)
+      return 0;
+
+   for (i = 0, pptr = hptr->h_addr_list; *pptr != NULL; pptr++, i++)
+   {
+      nw_addrs[i]->af = hptr->h_addrtype;
+      switch (hptr->h_addrtype)
+      {
+      case AF_INET:
+         nw_addrs[i]->af = NW_AF_INET;
+         break;
+      case AF_INET6:
+         nw_addrs[i]->af = NW_AF_INET6;
+         break;
+      default:
+         STB_SPDebugWrite("%s: AF %d invalid", __FUNCTION__, hptr->h_addrtype);
+         break;
+      }
+      nw_addrs[i]->type = NW_SOCK_STREAM; //The caller need this. dont no why.
+      inet_ntop(hptr->h_addrtype, *pptr, nw_addrs[i]->addr, sizeof(nw_addrs[i]->addr));
+      NET_ERR("No.%d total %d af %d addr %s", i, nw_addr_count, nw_addrs[i]->af, nw_addrs[i]->addr);
+   }
 
    FUNCTION_FINISH(STB_NWLookupAddress);
 
-   return (0);
+   return (nw_addr_count);
 }
 
 /**
@@ -326,14 +506,14 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    else if (af == NW_AF_INET6)
       s_domain = AF_INET6;
    else
-      STB_SPDebugWrite("%s: s_protocol invalid %d\n", af);
+      STB_SPDebugWrite("%s: af invalid %d\n", __FUNCTION__, af);
 
    if (protocol == NW_PROTOCOL_UDP)
       s_type = SOCK_DGRAM;
    else if (protocol == NW_PROTOCOL_TCP)
       s_type = SOCK_STREAM;
    else
-      STB_SPDebugWrite("%s: type invalid %d\n", type);
+      STB_SPDebugWrite("%s: type invalid %d\n", __FUNCTION__, type);
 
    USE_UNWANTED_PARAM(nonblock);
    sock = socket(s_domain, s_type, 0);
@@ -361,7 +541,8 @@ BOOLEAN STB_NWCloseSocket(void *socket)
    if (ctx)
    {
       close(ctx->sock);
-      free(ctx);
+      STB_SPDebugWrite("%s: close socket fd: %d", __FUNCTION__, ctx->sock);
+      ctx->sock = 0;
    }
    FUNCTION_FINISH(STB_NWCloseSocket);
 
@@ -695,24 +876,23 @@ S32BIT STB_NWSendTo(void *socket, U8BIT *buf, U32BIT num_bytes,
 BOOLEAN STB_NWSockIsSet(void *socket, S_NW_SOCKSET *socks)
 {
    int i;
-   S_SOCKET_CTX *ctx;
    FUNCTION_START(STB_NWSockIsSet);
    if (!socks || !socket || (socks->sock_count == 0))
    {
-      NET_ERR("Given sock set is null");
+      NET_ERR("STB_NWSockIsSet parameter invalid");
       return FALSE;
    }
 
-   ctx = socket;
    for (i=0; i<socks->sock_count; i++)
    {
       if (socks->sock_array[i] == socket)
       {
-         NET_ERR("given sock is set, fd %d\n", ctx->sock);
-         return TRUE;
+         //NET_ERR("given sock is set, fd %d\n", ctx->sock);
+         if (socks->sockset_array[i] == 1)
+            return TRUE;
       }
    }
-   NET_ERR("given sock is not set, fd %d\n", ctx->sock);
+   //NET_ERR("given sock is not set, fd %d\n", ctx->sock);
    FUNCTION_FINISH(STB_NWSockIsSet);
 
    return FALSE;
@@ -728,6 +908,8 @@ void STB_NWSockZero(S_NW_SOCKSET *socks)
    if (socks)
    {
       socks->sock_count = 0;
+      memset(socks->sock_array, 0, SOCK_SETSIZE * sizeof(void*));
+      memset(socks->sockset_array, 0, SOCK_SETSIZE * sizeof(U8BIT));
    }
    FUNCTION_FINISH(STB_NWSockZero);
 }
@@ -752,6 +934,7 @@ void STB_NWSockClear(void *socket, S_NW_SOCKSET *socks)
       if (socks->sock_array[i] == socket)
       {
          socks->sock_array[i] = socks->sock_array[socks->sock_count-1];
+         socks->sockset_array[i] = socks->sockset_array[socks->sock_count-1];
          socks->sock_count--;
          NET_ERR("Found socket to clear");
          return;
@@ -769,12 +952,13 @@ void STB_NWSockClear(void *socket, S_NW_SOCKSET *socks)
 void STB_NWSockSet(void *socket, S_NW_SOCKSET *socks)
 {
    FUNCTION_START(STB_NWSockSet);
-   if (!socks)
+   if (!socks || !socket)
    {
-      NET_ERR("given sock set is null, fatal err");
+      NET_ERR("STB_NWSockSet parameter invalid");
       return;
    }
    socks->sock_array[socks->sock_count] = socket;
+   socks->sockset_array[socks->sock_count] = 0;
    socks->sock_count++;
    FUNCTION_FINISH(STB_NWSockSet);
 }
@@ -869,6 +1053,53 @@ S32BIT STB_NWSelect(S_NW_SOCKSET *read_sockets, S_NW_SOCKSET *write_sockets,
       ret = select(max_fd + 1, &read_fds, &write_fds, &exception_fds, &time);
    }
 
+   if (read_sockets)
+   {
+      for (i = 0; i < read_sockets->sock_count; i++)
+      {
+         ctx = read_sockets->sock_array[i];
+         if (ctx)
+         {
+            STB_SPDebugWrite("%s: No.%d ctx->sock %d", __FUNCTION__, i, ctx->sock);
+            if (FD_ISSET(ctx->sock, &read_fds))
+               read_sockets->sockset_array[i] = 1;
+            else
+               read_sockets->sockset_array[i] = 0;
+         }
+
+      }
+   }
+
+   if (write_sockets)
+   {
+      for (i = 0; i < write_sockets->sock_count; i++)
+      {
+         ctx = write_sockets->sock_array[i];
+         if (ctx)
+         {
+            if(FD_ISSET(ctx->sock, &write_fds))
+               write_sockets->sockset_array[i] = 1;
+            else
+               write_sockets->sockset_array[i] = 0;
+         }
+      }
+   }
+
+   if (except_sockets)
+   {
+      for (i = 0; i < except_sockets->sock_count; i++)
+      {
+         ctx = except_sockets->sock_array[i];
+         if (ctx)
+         {
+            if(FD_ISSET(ctx->sock, &exception_fds))
+               except_sockets->sockset_array[i] = 1;
+            else
+               except_sockets->sockset_array[i] = 0;
+         }
+      }
+   }
+
    FUNCTION_FINISH(STB_NWSelect);
 
    return ret;
@@ -882,11 +1113,13 @@ S32BIT STB_NWSelect(S_NW_SOCKSET *read_sockets, S_NW_SOCKSET *write_sockets,
  */
 E_NW_LINK_STATUS STB_NWGetLinkStatus(void)
 {
+   U8BIT ip[16];
+   E_NW_LINK_STATUS status = NW_LINK_DISABLED;
    FUNCTION_START(STB_NWGetLinkStatus);
-   NET_ERR("enter");
-   NET_DBG("STB_NWGetLinkStatus: %s", ((current_ethernet_status == NW_LINK_ACTIVE) ? "active" : (current_ethernet_status == NW_LINK_INACTIVE) ? "inactive" : "disabled"));
+   if (STB_IPGetIPAddress(ip))
+      status = NW_LINK_ACTIVE;
    FUNCTION_FINISH(STB_NWGetLinkStatus);
-   return current_ethernet_status;
+   return status;
 }
 
 /**

@@ -72,7 +72,7 @@
 #define M_BS_MAX_SYMB            (45)
 #define M_BS_MIN_SYMB            (2)
 #define FEND_WAIT_TIMEOUT        (500)
-#define FEND_BS_MAX_CHANNEL      (128)
+#define FEND_BS_MAX_CHANNEL      (512)
 #define TUNER_USELESS_TIMEOUT    (10)               /*second*/
 #define FEND_FL_LOCK             (1)
 
@@ -541,7 +541,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                     tstatus->path, tstatus->tunertask_sem, sem_ret, tstatus->state);
         }
 
-        TUN_DBG("%u: freq %lu, sys_type %s, signal_type %d", path, freq,
+        TUN_DBG("%u: freq %lu, srate %lu fec %d sys_type %s, signal_type %d", path, freq, srate, fec,
                 ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
                   ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
@@ -2018,7 +2018,7 @@ static BOOLEAN STB_TuneSetTone(int frontend_fd, BOOLEAN use_22khz)
     return ret;
 }
 
-BOOLEAN STB_Tnue_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_data, unsigned int start_freq, unsigned int stop_freq)
+BOOLEAN STB_Tune_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_data, unsigned int start_freq, unsigned int stop_freq)
 {
     BOOLEAN ret = TRUE;
     int rc;
@@ -2062,7 +2062,7 @@ BOOLEAN STB_Tnue_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_d
     return ret;
 }
 
-BOOLEAN STB_Tnue_BlindExit(U8BIT path)
+BOOLEAN STB_Tune_BlindExit(U8BIT path)
 {
     BOOLEAN ret = TRUE;
 
@@ -2073,7 +2073,7 @@ BOOLEAN STB_Tnue_BlindExit(U8BIT path)
     return ret;
 }
 
-void STB_Tnue_BlindGetTPCount(U8BIT path, U8BIT *count)
+void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)
 {
     pthread_mutex_lock(&tuner_status[path].lock);
 
@@ -2088,7 +2088,7 @@ void STB_Tnue_BlindGetTPCount(U8BIT path, U8BIT *count)
 
 }
 
-BOOLEAN STB_Tnue_BlindGetTPInfo(U8BIT path, struct dvb_frontend_parameters *para, U8BIT *count)
+BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, struct dvb_frontend_parameters *para, U16BIT *count)
 {
     BOOLEAN ret = TRUE;
 
@@ -2457,7 +2457,7 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 
                 if (ioctl(tstatus->frontend_fd, FE_SET_FRONTEND, &fe_params) >= 0)
                 {
-                    TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+                    TUN_DBG("%u: Tuning to %lu %lu %d", tstatus->path, tstatus->freq, tstatus->u.sat.srate, tstatus->u.sat.fec);
                     retval = TRUE;
                 }
                 else
@@ -3158,10 +3158,30 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
     if(pbsEvent->status == BLINDSCAN_UPDATERESULTFREQ)
     {
         /*now driver return 1 tp*/
-        tuner_status[path].bs_setting.m_uiChannelCount = tuner_status[path].bs_setting.m_uiChannelCount + 1;
+        for (U16BIT i = 0; i < tuner_status[path].bs_setting.m_uiChannelCount; i++)
+        {
+            /* skip it if already existed */
+            if (0 == memcmp(&(tuner_status[path].bs_setting.channels[i]),
+                            &(pbsEvent->u.parameters),
+                            sizeof(struct dvb_frontend_parameters)))
+            {
+                TUN_INFO("channel freq(%lu) is duplicated the index [%d]\n",
+                         pbsEvent->u.parameters.frequency, i);
+                pthread_mutex_unlock(&tuner_status[path].lock);
+                return ret;
+            }
+        }
 
-        memcpy(&(tuner_status[path].bs_setting.channels[tuner_status[path].bs_setting.m_uiChannelCount - 1]),
+        if (tuner_status[path].bs_setting.m_uiChannelCount == FEND_BS_MAX_CHANNEL) {
+            TUN_ERR("channel count(%d) reaches the limit(%d):%d\n",
+                    tuner_status[path].bs_setting.m_uiChannelCount, FEND_BS_MAX_CHANNEL);
+            pthread_mutex_unlock(&tuner_status[path].lock);
+            return ret;
+        }
+
+        memcpy(&(tuner_status[path].bs_setting.channels[tuner_status[path].bs_setting.m_uiChannelCount]),
                &(pbsEvent->u.parameters), sizeof(struct dvb_frontend_parameters));
+        tuner_status[path].bs_setting.m_uiChannelCount++;
     }
 
     pthread_mutex_unlock(&tuner_status[path].lock);

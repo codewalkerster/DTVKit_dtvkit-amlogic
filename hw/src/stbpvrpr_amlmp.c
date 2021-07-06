@@ -140,7 +140,7 @@ typedef struct
    U32BIT timeshift_size;/*unit:MB*/
 
    U16BIT disk_id;
-   U8BIT basename[16];
+   U8BIT basename[255];
 
 #ifdef SUPPORT_CAS
    S_CAS_STATUS cas_status;
@@ -187,7 +187,7 @@ typedef struct {
    char flags; //DVR_PLAYBACK_STARTED_PAUSEDLIVE
 
    U16BIT disk_id;
-   U8BIT basename[16];
+   U8BIT basename[255];
 
    BOOLEAN is_timeshift;
 

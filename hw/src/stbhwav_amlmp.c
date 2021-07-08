@@ -252,7 +252,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
 static int AV_CreateTsPlayer(U8BIT path, Aml_MP_InputSourceType source_type, int32_t dmx_dev_id, int32_t event_mask);
 static int AV_ReleaseTsPlayer(U8BIT path);
 static int AV_GetPlayerHandleByPath(U8BIT video, U8BIT audio, AML_MP_PLAYER* play_hdle, BOOLEAN recreat_hdl); //return AML_MP_PLAYER or am_tsplayer_handle
-static int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid, Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute);
+static int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid, Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
 static int AV_StartVideoDecode(AML_MP_PLAYER player_hdle, U16BIT v_pid, U16BIT pcr_pid, Aml_MP_CodecID format, Aml_MP_AVSyncSource mode);
 
 //for PVR
@@ -938,7 +938,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
             {
                 AUD_DBG("changing audio PID %u->%d", av_paths_status[av_path].audio_pid, audio_pid);
                 Aml_MP_Player_StopAudioDecoding(player_handle);
-                ret = AV_StartAudioDecode(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute);
+                ret = AV_StartAudioDecode(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
                 if (ret == 0)
                     av_paths_status[av_path].audio_pid = audio_pid;
             }
@@ -947,7 +947,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
          case DECODER_A_STOP_V_START:
             /*starting audio when video is already started*/
             AUD_DBG("A NOW:A_STOP_V_START: start audio PID=%u FMT:%d", audio_pid, audio_format);
-            ret = AV_StartAudioDecode(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute);
+            ret = AV_StartAudioDecode(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
             if (ret == 0)
             {
                 av_paths_status[av_path].audio_pid = audio_pid;
@@ -958,7 +958,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
          case DECODER_A_STOP_V_STOP:
             AUD_DBG("A NOW:A_STOP_V_STOP: start audio PID=%u FMT:%d", audio_pid, audio_format);
-            ret = AV_StartAudioDecode(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute);
+            ret = AV_StartAudioDecode(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
             if (ret == 0)
             {
                 av_paths_status[av_path].audio_pid = audio_pid;
@@ -3227,7 +3227,7 @@ int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PL
 }
 
 int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
-                                     Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute)
+                                     Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId)
 {
     int ret;
     Aml_MP_AudioParams audio_param;
@@ -3239,6 +3239,14 @@ int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
     {
         AUD_DBG("Set audio params failed, pid:%d fmt:%d err:%d", a_pid, format, ret);
         return ret;
+    }
+    if (audioPresentationId > 0) {
+        ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &audioPresentationId);
+        if (ret < 0)
+        {
+            AUD_DBG("Set aduio presentation id[%d] failed, err:%d", audioPresentationId, ret);
+            return ret;
+        }
     }
     ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
     if (ret < 0)

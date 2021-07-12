@@ -202,6 +202,7 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
 static void CloseTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
+static BOOLEAN IsTuningParameterMatched(S_TUNER_STATUS *tstatus, struct dvb_frontend_event event);
 static void TunerTask(void *param);
 static void ClearTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
@@ -2545,6 +2546,20 @@ static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus)
     return(locked);
 }
 
+static BOOLEAN IsTuningParameterMatched(S_TUNER_STATUS *tstatus, struct dvb_frontend_event event)
+{
+    BOOLEAN result;
+    if (TUNE_SYSTEM_TYPE_DVBS == tstatus->sys_type || TUNE_SYSTEM_TYPE_DVBS2 == tstatus->sys_type)
+    {
+        TUN_INFO("status freq: %lu, event freq: %lu", tstatus->freq, event.parameters.frequency);
+        if (event.parameters.frequency != tstatus->freq) {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
 static void TunerTask(void *param)
 {
     S_TUNER_STATUS *tstatus = param;
@@ -2758,6 +2773,11 @@ static void TunerTask(void *param)
                 {
                     if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
                     {
+                        if (!IsTuningParameterMatched(tstatus, fe_event))
+                        {
+                            break;
+                        }
+
                         if ((fe_event.status & FE_HAS_LOCK) != 0)
                         {
                             tuner_locked = TRUE;

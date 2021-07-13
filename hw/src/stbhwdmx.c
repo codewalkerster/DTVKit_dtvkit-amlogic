@@ -1345,7 +1345,11 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
    }
    for (i = 0; i < num_paths; i++) {
       //change ts_input_idx
-      STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index);
+      E_STB_DMX_DEMUX_SOURCE source;
+      U8BIT param;
+      STB_DMXGetDemuxSource(i, &source, &param);
+      if (source == DMX_TUNER)
+         STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index);
    }
    FUNCTION_FINISH(STB_DMXChangeAllDemuxSource);
 }

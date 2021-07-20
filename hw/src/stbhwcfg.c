@@ -391,11 +391,27 @@ void STB_CfgInitialise(void)
     enum XML_Status status;
     FILE           *fp;
     int             i;
+    char buf[64];
+    BOOLEAN ret;
 
-    fp = fopen(CFG_FILE_PATH, "rb");
+    memset(buf, 0x00, sizeof(buf));
+    ret = STB_Get_Prop("persist.vendor.tvconfig.path", buf, sizeof(buf));
+    if (ret) {
+        if ((access(buf, 0) == 0)) {
+            CFG_ERR("read from prop, open \"%s\"", buf);
+            fp = fopen(buf, "rb");
+            if (!fp) {
+                CFG_ERR("cannot open \"%s\"", buf);
+            }
+        }
+    }
+
     if (!fp) {
-        CFG_ERR("cannot open \"%s\"", CFG_FILE_PATH);
-        return;
+        fp = fopen(CFG_FILE_PATH, "rb");
+        if (!fp) {
+            CFG_ERR("cannot open \"%s\"", CFG_FILE_PATH);
+            return;
+        }
     }
 
     parser = XML_ParserCreate(NULL);
@@ -461,6 +477,7 @@ void STB_CfgInitialise(void)
     XML_ParserFree(parser);
     fclose(fp);
 }
+
 /**
  * @brief   get is need change chara encode from source to utf8
  * @param   isChange is need change encode

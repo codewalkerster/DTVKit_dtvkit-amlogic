@@ -64,7 +64,7 @@
 #define TUNE_TASK_PRIORITY       11
 #define TUNE_TASK_STACK_SIZE     8192
 
-#define WAIT_LOCK_TIMEOUT        3000
+#define WAIT_LOCK_TIMEOUT        6000               /*keep align with Driver*/
 #define TUNER_MIN_SRATE          900
 #define TUNER_MAX_SRATE          45100
 #define M_BS_START_FREQ          (950)				/*The start RF frequency, 950MHz*/

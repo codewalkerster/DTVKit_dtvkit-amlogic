@@ -97,6 +97,7 @@ typedef enum
    DMX_TEXT,
    DMX_PCR,
    DMX_ADES,
+   DMX_PRESELECTION,
    DMX_PID_COUNT
 } E_DMX_TRACK;
 
@@ -747,14 +748,14 @@ U16BIT STB_DMXGetCapabilities(U8BIT path)
  * @param   data_pid The PID to use for the data
  */
 void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid,
-   U16BIT text_pid, U16BIT data_pid, U16BIT ad_pid)
+   U16BIT text_pid, U16BIT data_pid, U16BIT ad_pid, U8BIT preselection_id)
 {
    U16BIT *pids;
    FUNCTION_START(STB_DMXChangeDecodePIDs);
    USE_UNWANTED_PARAM(data_pid);
 
-   DMX_DBG("%u: pcr=%u, video=%u, audio=%u, text=%u, ad=%u", path, pcr_pid, video_pid, audio_pid,
-      text_pid, ad_pid);
+   DMX_DBG("%u: pcr=%u, video=%u, audio=%u, text=%u, ad=%u, preselection_id=%u", path, pcr_pid, video_pid, audio_pid,
+      text_pid, ad_pid, preselection_id);
 
    if ((path < num_paths) && (demux_status[path].config_mutex != NULL))
    {
@@ -762,6 +763,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
 
       pids[DMX_PCR] = pcr_pid;
       pids[DMX_ADES] = ad_pid;
+      pids[DMX_PRESELECTION] = preselection_id;
 
       if (pids[DMX_AUDIO] != audio_pid)
       {
@@ -2106,8 +2108,7 @@ BOOLEAN STB_DMXSetDescramblerType(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_
  * @param   ad_pid pointer for returned AD PID value
  * @return  TRUE if demux is valid and PIDs are returned, FALSE otherwise
  */
-BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid,
-   U16BIT *ad_pid)
+BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid, U16BIT *ad_pid, U8BIT *preselection_id)
 {
    BOOLEAN retval;
 
@@ -2119,6 +2120,7 @@ BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT 
       *video_pid = demux_status[path].pids[DMX_VIDEO];
       *audio_pid = demux_status[path].pids[DMX_AUDIO];
       *ad_pid = demux_status[path].pids[DMX_ADES];
+      *preselection_id = demux_status[path].pids[DMX_PRESELECTION];
    }
    else
    {

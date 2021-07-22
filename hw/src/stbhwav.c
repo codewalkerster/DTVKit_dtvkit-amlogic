@@ -579,6 +579,7 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
 void STB_AVStartAudioDecoding(U8BIT path)
 {
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+   U8BIT preselection_id;
    AM_AV_VFormat_t video_format;
    AM_AV_AFormat_t audio_format;
 
@@ -588,7 +589,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
    {
       AUD_DBG("path=%u", path);
 
-      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
       audio_format = av_paths_status[path].audio_format;
       video_format = av_paths_status[path].video_format;
 
@@ -670,7 +671,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
    }
    else
    {
-      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
       audio_format = av_paths_status[path].audio_format;
 
       AUD_DBG("av-pvr: path=%u state=%u, apid:%d vpid:%d", path, av_paths_status[path].av_decoder_state, audio_pid, video_pid);
@@ -760,6 +761,7 @@ void STB_AVSetDrmMode(U8BIT path, E_STB_DRM_TYPE mode)
 void STB_AVStartVideoDecoding(U8BIT path)
 {
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+   U8BIT preselection_id;
    AM_AV_VFormat_t video_format;
    AM_AV_AFormat_t audio_format;
 
@@ -769,7 +771,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
    {
       VID_DBG("path=%u", path);
 
-      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
 
       audio_format = av_paths_status[path].audio_format;
       video_format = av_paths_status[path].video_format;
@@ -877,7 +879,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
    }
    else
    {
-      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+      DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
       VID_DBG("av-pvr: path=%u state=%u, apid:%d vpid:%d", path, av_paths_status[path].av_decoder_state, audio_pid, video_pid);
 
       if (audio_pid == 0)
@@ -1731,10 +1733,11 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
    BOOLEAN ret = TRUE;
    AM_ErrorCode_t err = AM_SUCCESS;
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+   U8BIT preselection_id;
 
    FUNCTION_START(STB_AVStartADDecoding);
 
-   DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+   DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
 #ifdef MEDIACODEC_PLAYER
    swdemux_av_startAdAudio(path, ad_pid, av_paths_status[path].ad_format);
 #else
@@ -2270,11 +2273,12 @@ BOOLEAN AV_StartInjection(U8BIT path)
    AM_ErrorCode_t retval;
    AM_AV_InjectPara_t para;
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+   U8BIT preselection_id;
    BOOLEAN success = FALSE;
 
    FUNCTION_START(AV_StartInjection);
 
-   DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid);
+   DMXGetDecodePIDs(av_paths_status[path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
 
    para.vid_fmt = av_paths_status[path].video_format;
    para.aud_fmt = av_paths_status[path].audio_format;

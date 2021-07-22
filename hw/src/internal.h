@@ -38,10 +38,11 @@
  * @param   video_pid pointer for returned video PID value
  * @param   audio_pid pointer for returned audio PID value
  * @param   ad_pid pointer for returned AD PID value
+ * @param   preselection_id pointer for returned preselection PID value
  * @return  TRUE if demux is valid and PIDs are returned, FALSE otherwise
  */
 BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid,
-   U16BIT *ad_pid);
+   U16BIT *ad_pid, U8BIT *preselection_id);
 
 /**
  * @brief   Internal function that sets the AV path into TS injection mode

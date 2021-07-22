@@ -3031,14 +3031,12 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
           }
           break;
       }
-#if 0
       case AML_MP_PLAYER_EVENT_VIDEO_ERROR_FRAME_COUNT:
       {
           AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_DECODE_FRAME_ERROR_COUNT\n", status->decoder);
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_ERROR_FRAME_COUNT, NULL, 0);
           break;
       }
-#endif
       default:
           break;
   }

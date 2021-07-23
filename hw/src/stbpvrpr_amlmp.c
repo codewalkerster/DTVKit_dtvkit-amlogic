@@ -118,7 +118,8 @@ typedef enum
 {
    REC_STOPPED,
    REC_STARTING,
-   REC_STARTED
+   REC_STARTED,
+   REC_PAUSED,
 } E_REC_STATE;
 
 typedef struct
@@ -192,6 +193,9 @@ typedef struct {
    BOOLEAN is_timeshift;
 
    U32BIT last_position_in_seconds;
+
+   U32BIT rec_start;//ms
+   U32BIT limit;//ms
 } S_RECPLAY_STATUS;
 
 typedef struct
@@ -338,6 +342,9 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
             s_recplay_status[index].ad_pid = 0;
             s_recplay_status[index].is_timeshift = FALSE;
             s_recplay_status[index].last_position_in_seconds = 0;
+
+            s_recplay_status[index].rec_start = -1;
+            s_recplay_status[index].limit = -1;
          }
       }
    }
@@ -811,7 +818,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].video_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].audio_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].player = NULL;
-
+         s_recplay_status[play_index].rec_start = -1;
+         s_recplay_status[play_index].limit = -1;
       }
       else
       {
@@ -1153,6 +1161,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       if (!s_rec_status[rec_index].has_video)
          rec_basic_params.bufferSize = 1024;
 
+     /*dvbcore ring buf size for ts date, need set buf size set to 20*188*1024 for 4k*/
+     rec_basic_params.ringbufSize = 20*188*1024;
+
       Aml_MP_DVRRecorderCreateParams recorderCreateParams;
       memset(&recorderCreateParams, 0, sizeof(recorderCreateParams));
       recorderCreateParams.basicParams = rec_basic_params;
@@ -1241,10 +1252,27 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 */
 BOOLEAN STB_PVRRecordPause(U8BIT rec_index)
 {
-    FUNCTION_START(STB_PVRRecordPause);
-    REC_DBG("%s", __FUNCTION__);
-    USE_UNWANTED_PARAM(rec_index);
-    FUNCTION_FINISH(STB_PVRRecordPause);
+
+   int error;
+
+   FUNCTION_START(STB_PVRRecordPause);
+   if (rec_index < num_recorders)
+   {
+      REC_DBG("Pause recording %u, handle %p", rec_index, s_rec_status[rec_index].recorder);
+
+      if (s_rec_status[rec_index].recorder != NULL)
+      {
+         error = Aml_MP_DVRRecorder_Pause(s_rec_status[rec_index].recorder);
+         if (error)
+         {
+            REC_DBG("Failed to pause recording %u, error %d", s_rec_status[rec_index].recorder, error);
+         }
+         //STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
+         //               &rec_index, sizeof(U8BIT));
+         s_rec_status[rec_index].rec_state = REC_PAUSED;
+      }
+   }
+   FUNCTION_FINISH(STB_PVRRecordPause);
 
     return(TRUE);
 }
@@ -1256,9 +1284,27 @@ BOOLEAN STB_PVRRecordPause(U8BIT rec_index)
  */
 BOOLEAN STB_PVRRecordResume(U8BIT rec_index)
 {
+   int error;
+
    FUNCTION_START(STB_PVRRecordResume);
-   USE_UNWANTED_PARAM(rec_index);
-   REC_DBG("%s", __FUNCTION__);
+
+   if (rec_index < num_recorders)
+   {
+      REC_DBG("Resuming recording %u, handle %p", rec_index, s_rec_status[rec_index].recorder);
+
+      if (s_rec_status[rec_index].recorder != NULL)
+      {
+         error = Aml_MP_DVRRecorder_Resume(s_rec_status[rec_index].recorder);
+         if (error)
+         {
+            REC_DBG("Failed to resume recording %u, error %d", s_rec_status[rec_index].recorder, error);
+         }
+         //STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
+         //               &rec_index, sizeof(U8BIT));
+         s_rec_status[rec_index].rec_state = REC_STARTED;
+      }
+   }
+
    FUNCTION_FINISH(STB_PVRRecordResume);
 
    return(TRUE);
@@ -1992,15 +2038,38 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
    U16BIT rec_date, U8BIT rec_hour, U8BIT rec_min)
 {
    FUNCTION_START(STB_PVRPlaySetRetentionLimit);
+   BOOLEAN retval;
+   U8BIT play_index;
+
+   struct timespec ts;
+   U64BIT ms;
+
+   U32BIT diff = 0;
+   U32BIT rec_time = (rec_date * 24 * 60 + rec_hour * 60 + rec_min) * (60);
+   U32BIT tdt_time = STB_OSGetClockRTC();
    REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d",
       audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min);
 
-   USE_UNWANTED_PARAM(audio_decoder);
-   USE_UNWANTED_PARAM(video_decoder);
-   USE_UNWANTED_PARAM(retention_limit);
-   USE_UNWANTED_PARAM(rec_date);
-   USE_UNWANTED_PARAM(rec_hour);
-   USE_UNWANTED_PARAM(rec_min);
+   if (tdt_time > rec_time) {
+     diff = tdt_time - rec_time;
+   } else {
+    	REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d tdt_time:%d record time error",
+      		audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min, tdt_time);
+   }
+
+   clock_gettime(CLOCK_REALTIME, &ts);
+   ms = ts.tv_sec*1000+ts.tv_nsec/1000000;
+
+   retval = FALSE;
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
+   {
+      //change to ms
+      s_recplay_status[play_index].rec_start = ms - diff * 1000;
+      //change to ms
+      s_recplay_status[play_index].limit = retention_limit * (60 * 1000);
+   }
 
    FUNCTION_FINISH(STB_PVRPlaySetRetentionLimit);
 }
@@ -2468,11 +2537,14 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          /*DVR_PlaybackFlag_t play_flag =*/
             /*(s_recplay_status[play_index].play_speed == 0)? DVR_PLAYBACK_STARTED_PAUSEDLIVE : 0;*/
           bool play_flag = s_recplay_status[play_index].play_speed == 0;
+          int start = s_recplay_status[play_index].rec_start;
+          int limit = s_recplay_status[play_index].limit;
 
          PLAY_DBG("Starting pvr playback, speed=%u%% vendor Id:%d", s_recplay_status[play_index].play_speed, vendorId);
          s_recplay_status[play_index].play_state = PLAY_STARTING;
          error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void* )(&vendorId));
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
+         error |= Aml_MP_DVRPlayer_SetLimit(s_recplay_status[play_index].player, start, limit);
          error |= Aml_MP_DVRPlayer_Start(s_recplay_status[play_index].player, play_flag);
          if (error)
          {

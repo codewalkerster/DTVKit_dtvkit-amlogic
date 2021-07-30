@@ -3293,11 +3293,13 @@ int AV_StartVideoDecode(AML_MP_PLAYER player_hdle,
         VID_DBG("Set sync mode failed, sync_mode:%d err:%d", mode, ret);
         return ret;
     }
-    ret = Aml_MP_Player_SetPcrPid(player_hdle, pcr_pid);
-    if (ret < 0)
-    {
-        VID_DBG("Set pcr pid failed, pcr_pid:%d err:%d", pcr_pid, ret);
-        return ret;
+    if (pcr_pid) {
+      ret = Aml_MP_Player_SetPcrPid(player_hdle, pcr_pid);
+      if (ret < 0)
+      {
+         VID_DBG("Set pcr pid failed, pcr_pid:%d err:%d", pcr_pid, ret);
+         return ret;
+      }
     }
     video_param.pid = v_pid;
     video_param.videoCodec = format;

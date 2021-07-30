@@ -1242,6 +1242,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 BOOLEAN STB_PVRRecordPause(U8BIT rec_index)
 {
     FUNCTION_START(STB_PVRRecordPause);
+    REC_DBG("%s", __FUNCTION__);
     USE_UNWANTED_PARAM(rec_index);
     FUNCTION_FINISH(STB_PVRRecordPause);
 
@@ -1257,6 +1258,7 @@ BOOLEAN STB_PVRRecordResume(U8BIT rec_index)
 {
    FUNCTION_START(STB_PVRRecordResume);
    USE_UNWANTED_PARAM(rec_index);
+   REC_DBG("%s", __FUNCTION__);
    FUNCTION_FINISH(STB_PVRRecordResume);
 
    return(TRUE);
@@ -1990,6 +1992,8 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
    U16BIT rec_date, U8BIT rec_hour, U8BIT rec_min)
 {
    FUNCTION_START(STB_PVRPlaySetRetentionLimit);
+   REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d",
+      audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min);
 
    USE_UNWANTED_PARAM(audio_decoder);
    USE_UNWANTED_PARAM(video_decoder);

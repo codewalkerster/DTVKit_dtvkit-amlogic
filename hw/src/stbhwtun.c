@@ -220,6 +220,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_Exit(U8BIT path);
 static BOOLEAN AM_FEND_BlindDump(U8BIT path);
 static void* fend_blindscan_thread(void *arg);
 static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
+static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 
 
 /*---global function definitions---------------------------------------------*/
@@ -501,6 +502,27 @@ static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
     }
 
     return TRUE;
+}
+
+static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation)
+{
+    switch (modulation)
+    {
+    case QPSK:
+        return TUNE_MOD_QPSK;
+    case PSK_8:
+        return TUNE_MOD_8PSK;
+    case QAM_16:
+        return TUNE_MOD_16QAM;
+    case APSK_16:
+        return TUNE_MOD_16APSK;
+    case APSK_32:
+        return TUNE_MOD_32APSK;
+    default:
+        return TUNE_MOD_AUTO;
+    }
+
+    return TUNE_MOD_AUTO;
 }
 
 /**
@@ -1689,7 +1711,26 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSystemType(U8BIT path)
     return(type);
 }
 
+/**
+ * @brief   Returns the type of modulation for the specified tuner
+ * @param   path tuner path
+ * @return  type of modulation
+ */
+E_STB_TUNE_MODULATION STB_TuneGetModulation(U8BIT path)
+{
+    FUNCTION_START(STB_TuneGetModulation);
 
+    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    {
+        return tuner_status[path].u.sat.modulation;
+    }
+    else
+    {
+        return TUNE_MOD_AUTO;
+    }
+
+    FUNCTION_FINISH(STB_TuneGetModulation);
+}
 
 /**
  * @brief   Sets the Physical Layer Pipe to be acquired
@@ -2690,6 +2731,11 @@ static void TunerTask(void *param)
                                     tstatus->sys_type = TUNE_SYSTEM_TYPE_DVBS;
                                 else
                                     tstatus->sys_type = TUNE_SYSTEM_TYPE_DVBS2;
+
+                                // reserved[0] is used for modulation in demod
+                                tstatus->u.sat.modulation = GetTuneModulation(p.reserved[0]);
+                                TUN_INFO("[%s:%d] reserved[0]:%u, modulation:%u",
+                                         __FUNCTION__, __LINE__, p.reserved[0], tstatus->u.sat.modulation);
                             }
 
                             STB_OSMutexUnlock(tstatus->mutex);
@@ -2782,6 +2828,29 @@ static void TunerTask(void *param)
                         {
                             tuner_locked = TRUE;
                             TUN_ERR("FE_GET_EVENT LOCKED:%d state:%d", locked, state);
+
+                            struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
+                            struct dtv_properties props = {.num = 1, .props = &p};
+
+                            if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
+                            {
+                                if ((SYS_DVBS == p.u.data || SYS_DVBS2 == p.u.data) &&
+                                      (TUNE_SYSTEM_TYPE_DVBS == tstatus->sys_type || TUNE_SYSTEM_TYPE_DVBS2 == tstatus->sys_type))
+                                {
+                                   TUN_INFO("[%s:%d] data:%u, sys_type:%u", __FUNCTION__, __LINE__, p.u.data, tstatus->sys_type);
+                                   STB_OSMutexLock(tstatus->mutex);
+                                   if (SYS_DVBS == p.u.data)
+                                       tstatus->sys_type = TUNE_SYSTEM_TYPE_DVBS;
+                                   else
+                                       tstatus->sys_type = TUNE_SYSTEM_TYPE_DVBS2;
+
+                                   // reserved[0] is used for modulation in demod
+                                   tstatus->u.sat.modulation = GetTuneModulation(p.reserved[0]);
+                                   STB_OSMutexUnlock(tstatus->mutex);
+                                   TUN_INFO("[%s:%d] reserved[0]:%u, modulation:%u",
+                                            __FUNCTION__, __LINE__, p.reserved[0], tstatus->u.sat.modulation);
+                                }
+                            }
                         }
                         else if ((fe_event.status & FE_TIMEDOUT) != 0)
                         {

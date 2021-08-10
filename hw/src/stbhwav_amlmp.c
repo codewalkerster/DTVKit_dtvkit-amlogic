@@ -3211,7 +3211,7 @@ int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PL
                   av_paths_status[av_path].player_handle);
            }
        }
-        pthread_rwlock_wrlock(&av_paths_status[av_path].lock);
+        pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
        *play_hdle = av_paths_status[av_path].player_handle;
         pthread_rwlock_unlock(&av_paths_status[av_path].lock);
     }

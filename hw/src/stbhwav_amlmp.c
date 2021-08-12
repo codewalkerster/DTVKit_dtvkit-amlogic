@@ -2685,6 +2685,72 @@ U8BIT STB_AVGetVideoFrameRate(U8BIT path)
 }
 
 /**
+ * @brief   Returns the width of the video being decoded
+ * @param   path video path
+ * @return  video width in frame per seconds
+ */
+U32BIT STB_AVGetVideoWidth(U8BIT path)
+{
+    int ret;
+    AML_MP_PLAYER handle;
+    U32BIT width = 0;
+    FUNCTION_START(STB_AVGetVideoWidth);
+    VID_DBG("vpath:%u", path);
+
+    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+    if (ret == 0)
+    {
+        Aml_MP_VideoInfo info;
+
+        if (STB_PVRIsPlayStopped(path, path)) {
+            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+        } else {
+            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+        }
+
+        if (ret == 0)
+        {
+            width = info.width;
+        }
+    }
+    FUNCTION_FINISH(STB_AVGetVideoWidth);
+    return width;
+}
+
+/**
+ * @brief   Returns the height of the video being decoded
+ * @param   path video path
+ * @return  video height in frame per seconds
+ */
+U32BIT STB_AVGetVideoHeight(U8BIT path)
+{
+    int ret;
+    AML_MP_PLAYER handle;
+    U32BIT height = 0;
+    FUNCTION_START(STB_AVGetVideoHeight);
+    VID_DBG("vpath:%u", path);
+
+    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+    if (ret == 0)
+    {
+        Aml_MP_VideoInfo info;
+
+        if (STB_PVRIsPlayStopped(path, path)) {
+            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+        } else {
+            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+        }
+
+        if (ret == 0)
+        {
+            height = info.height;
+        }
+    }
+    FUNCTION_FINISH(STB_AVGetVideoHeight);
+    return height;
+}
+
+/**
  * @brief   Returns the scan type of the video being decoded
  * @param   path video path
  * @return  1: progressive, 0: interlaced, 255: invalid
@@ -3059,7 +3125,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_VIDEO_ERROR_FRAME_COUNT:
       {
-          AV_DBG("[evt][%d] AM_TSPLAYER_EVENT_TYPE_DECODE_FRAME_ERROR_COUNT\n", status->decoder);
+          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_ERROR_FRAME_COUNT\n", status->decoder);
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_ERROR_FRAME_COUNT, NULL, 0);
           break;
       }

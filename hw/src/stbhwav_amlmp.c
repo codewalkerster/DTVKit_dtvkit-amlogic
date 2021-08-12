@@ -66,6 +66,7 @@
 
 #include <Aml_MP/Aml_MP.h>
 /*#include <AmTsPlayer.h>*/
+#include "systemcontrol.h"
 
 
 /*#undef  AV_AUDIO_RIGHT*/
@@ -550,61 +551,82 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 
 /**
  * @brief   Blanks or unblanks the video display
+ * @param   path video path
+ * @param   blank TRUE to blank, FALSE to unblank
+ * @param   force_black_color  set blank AV color
+*/
+void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank,BOOLEAN is_black_color)
+{
+        int color =    VIDEO_LAYER_COLOR_MAX;
+        VID_DBG("===========>blank=%u force_black_color %d", blank,is_black_color);
+        if (blank == TRUE)
+        {
+            color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
+            SC_setVideoColor(color);
+        }
+        else
+        {
+            SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
+        }
+ }
+
+
+/**
+ * @brief   Blanks or unblanks the video display
  * @param   path the video path to be configured
  * @param   blank TRUE to blank, FALSE to unblank
  */
 void STB_AVBlankVideo(U8BIT path, BOOLEAN blank)
 {
-   int ret;
-   AML_MP_PLAYER player_handle;
-   FUNCTION_START(STB_AVBlankVideo);
-   U8BIT av_path = INVALID_RES_ID;
+    int ret;
+    AML_MP_PLAYER player_handle;
+    FUNCTION_START(STB_AVBlankVideo);
+    U8BIT av_path = INVALID_RES_ID;
 
-   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
-   if (ret < 0)
-   {
-       VID_DBG("Cannot get player video decoder[%d]", path);
-       return;
-   }
+    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
+    if (ret < 0)
+    {
+        VID_DBG("Cannot get player video decoder[%d]", path);
+        return;
+    }
 
-   if (STB_PVRIsPlayStopped(path, path)) {
-       if (blank == TRUE)
-       {
-           ret = Aml_MP_Player_HideVideo(player_handle);
-           if (ret < 0)
-           {
-               AUD_DBG("Hide video failed, err:%d", ret);
-           }
-       }
-       else
-       {
-           ret = Aml_MP_Player_ShowVideo(player_handle);
-           if (ret < 0)
-           {
-               AUD_DBG("Show video failed, err:%d", ret);
-           }
-       }
-   } else {
-       if (blank == TRUE)
-       {
-           ret = Aml_MP_DVRPlayer_HideVideo(player_handle);
-           if (ret < 0)
-           {
-               AUD_DBG("Hide video failed, err:%d", ret);
-           }
-       }
-       else
-       {
-           ret = Aml_MP_DVRPlayer_ShowVideo(player_handle);
-           if (ret < 0)
-           {
-               AUD_DBG("Show video failed, err:%d", ret);
-           }
-       }
-   }
+    if (STB_PVRIsPlayStopped(path, path)) {
+        if (blank == TRUE)
+        {
+            ret = Aml_MP_Player_HideVideo(player_handle);
+            if (ret < 0)
+            {
+                AUD_DBG("Hide video failed, err:%d", ret);
+            }
+        }
+        else
+        {
+            ret = Aml_MP_Player_ShowVideo(player_handle);
+            if (ret < 0)
+            {
+                AUD_DBG("Show video failed, err:%d", ret);
+            }
+        }
+    } else {
+        if (blank == TRUE)
+        {
+            ret = Aml_MP_DVRPlayer_HideVideo(player_handle);
+            if (ret < 0)
+            {
+                AUD_DBG("Hide video failed, err:%d", ret);
+            }
+        }
+        else
+        {
+            ret = Aml_MP_DVRPlayer_ShowVideo(player_handle);
+            if (ret < 0)
+            {
+                AUD_DBG("Show video failed, err:%d", ret);
+            }
+        }
+    }
 
-   VID_DBG("blank=%u ret=%d", blank, ret);
-   FUNCTION_FINISH(STB_AVBlankVideo);
+    FUNCTION_FINISH(STB_AVBlankVideo);
 }
 
 /**

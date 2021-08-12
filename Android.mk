@@ -111,6 +111,11 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/hw/inc \
     $(LOCAL_PATH)/os/inc \
     external/sqlite/dist \
+    vendor/amlogic/common/frameworks/services/systemcontrol \
+    vendor/amlogic/common/frameworks/services/systemcontrol/PQ/include \
+    system/core/libutils/include \
+    bionic/libc/kernel/uapi \
+    bionic/libc/kernel/android/uapi \
     bionic/libc/stdio \
     bionic/libc/include \
     bionic/libc/../libm/include \
@@ -155,6 +160,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwcfg.c \
     hw/src/stbhwresm.c \
     hw/src/linuxdvbdmx_wrapper.c \
+    hw/src/systemcontrol.cpp \
     os/src/stbos_event.c      \
     os/src/stbos_mutex.c      \
     os/src/stbos_queue.c      \
@@ -196,5 +202,9 @@ ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_VENDOR_MODULE := true
     LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION
 endif
+
+LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0  
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1 
 
 include $(BUILD_STATIC_LIBRARY)

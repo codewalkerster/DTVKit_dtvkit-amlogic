@@ -3221,6 +3221,8 @@ int AV_CreateTsPlayer(U8BIT path,
            };
            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
         }
+        bool useTif = true;
+        Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
         ret = Aml_MP_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);
         AV_DBG("Create Aml MP player success. player_hdle[%d]:0x%zx dxm_id:%d", path, player_handle, numb, dmx_dev_id);
     }

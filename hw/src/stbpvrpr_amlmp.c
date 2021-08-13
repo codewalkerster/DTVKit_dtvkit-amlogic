@@ -2520,6 +2520,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
            };
            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
         }
+        bool useTif = true;
+        Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
 
         //set surface
         void * surface = STB_AVGetSurface(s_recplay_status[play_index].video_decoder);

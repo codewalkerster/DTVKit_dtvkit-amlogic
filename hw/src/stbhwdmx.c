@@ -221,11 +221,13 @@ dsc_set_src (int dev_id, int dmx_id)
       DMX_DBG("set descrambler source failed");
 
    //DEV: set ciplus output
-   snprintf(dev_name, sizeof(dev_name), "/sys/class/dmx/ciplus_output_ctrl");
-   snprintf(dst_name, sizeof(dst_name), "7");
-   r = dvr_file_echo(dev_name, dst_name);
-   if (r != 0)
-      DMX_DBG("set descrambler source failed");
+   if (0) {
+      snprintf(dev_name, sizeof(dev_name), "/sys/class/dmx/ciplus_output_ctrl");
+      snprintf(dst_name, sizeof(dst_name), "7");
+      r = dvr_file_echo(dev_name, dst_name);
+      if (r != 0)
+         DMX_DBG("set descrambler source failed");
+   }
 }
 
 static int

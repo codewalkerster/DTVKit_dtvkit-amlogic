@@ -105,6 +105,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .srate_auto_value = 0,
     },
 .service_without_sdt = 0,
+.resource_manager_by_prio = 0,
 };
 
 static void
@@ -372,11 +373,25 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         while (*att) {
             an = att[0];
             av = att[1];
-             if (!strcmp(an, "symbol_rate_auto") && !strcmp(av, "yes")) {
+            if (!strcmp(an, "symbol_rate_auto") && !strcmp(av, "yes")) {
                 cfg->demo_cap.srate_auto = 1;
             }
             att += 2;
         }
+    }
+    else if (!strcmp(name, "resource_manager"))
+    {
+        long int i;
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "by_prio") && !strcmp(av, "yes")) {
+                cfg->resource_manager_by_prio = 1;
+            }
+            att += 2;
+        }
+        CFG_DBG("resource_manager_by_prio is set to %d", cfg->resource_manager_by_prio);
     }
 }
 
@@ -688,4 +703,9 @@ void STB_Set_Prop(const char *name, const char *value)
     AM_PropEcho(name, value);
 #endif
 #endif
+}
+
+BOOLEAN STB_Is_ResourceManager_ByPrio()
+{
+    return aml_hw_cfg.resource_manager_by_prio != 0;
 }

@@ -774,7 +774,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
          }
          else
          {
-            ClearKey(path, DESC_TRACK_AUDIO);
+            // ClearKey(path, DESC_TRACK_AUDIO);
          }
       }
       if (pids[DMX_VIDEO] != video_pid)
@@ -786,7 +786,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
          }
          else
          {
-            ClearKey(path, DESC_TRACK_VIDEO);
+            // ClearKey(path, DESC_TRACK_VIDEO);
          }
       }
 
@@ -1929,9 +1929,7 @@ BOOLEAN STB_DMXFreeDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    {
       pdmx = demux_status + path;
       ptrk = pdmx->tracks + track;
-
       ClearKey(path, track);
-
       result = TRUE;
    }
    else
@@ -1973,7 +1971,7 @@ BOOLEAN STB_DMXSetDescramblerKeyData(U8BIT path, E_STB_DMX_DESC_TRACK track,
          demux_status[path].tracks[track].isodd = TRUE;
          memcpy(demux_status[path].tracks[track].odd, data, 32);
       }
-      //ApplyKey(path, track);
+      ApplyKey(path, track);
       result = TRUE;
    }
    else
@@ -2158,7 +2156,10 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
       {
          ptrk->chanid = dsc_alloc(dsc_dev, pdmx->pids[track], ptrk->type);
          if (ptrk->chanid == -1)
+         {
+            DMX_DBG("dsc alloc failed");
             return;
+         }
 
          if (sc2_dsc_model)
          {

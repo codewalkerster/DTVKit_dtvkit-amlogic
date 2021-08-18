@@ -2417,7 +2417,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       if (s_recplay_status[play_index].has_video)
       	play_params.blockSize = 188 * 1024;
       else
-       play_params.blockSize = 1024;
+       play_params.blockSize = 188 * 6;
 
 #ifdef SUPPORT_CAS
       PLAY_DBG("is_smp:%d", s_recplay_status[play_index].cas_status.is_smp);

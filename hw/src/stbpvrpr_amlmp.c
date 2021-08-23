@@ -27,6 +27,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 // Ocean Blue header files
 #include "techtype.h"
@@ -2313,6 +2315,10 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
    pthread_rwlock_t *lock = NULL;
    Aml_MP_DVRStreamArray play_pids;
    int error;
+   char node[32];
+   struct stat st;
+   int r;
+   
 
    if (!s_recplay_status[play_index].has_video
       && !s_recplay_status[play_index].has_audio)
@@ -2423,19 +2429,29 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       PLAY_DBG("is_smp:%d", s_recplay_status[play_index].cas_status.is_smp);
       if (s_recplay_status[play_index].cas_status.is_smp)
       {
-          play_params.blockSize = 256*1024;
-          play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
+          snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
+          r = stat(node, &st);
+          if (r == -1)/* demux is new. use 188 KB. */
           {
-             U16BIT ca_id = 0xFFFF;
-
-             /*check for aml_enc*/
-             if (STB_CADescramblerRequired(&ca_id, 1))
-             {
-                play_params.blockSize = 188*1024;
-                play_params.drmMode = AML_MP_INPUT_STREAM_NORMAL;
-             }
+            play_params.blockSize = 188*1024;
+            play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
           }
+          else/* demux is old. */
+          {
+              play_params.blockSize = 256*1024;
+              play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
+              {
+                 U16BIT ca_id = 0xFFFF;
 
+                 /*check for aml_enc*/
+                 if (STB_CADescramblerRequired(&ca_id, 1))
+                 {
+                    play_params.blockSize = 188*1024;
+                    play_params.drmMode = AML_MP_INPUT_STREAM_NORMAL;
+                 }
+              }
+          
+          }
           decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
           decrypt_params.cryptoData = NULL;
           PLAY_DBG("dec_func:%#x", decrypt_params.cryptoFn);

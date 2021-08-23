@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <poll.h>
 
 /* third party header files */
 #include <dmx.h>
@@ -1730,6 +1731,167 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index);
    }
    FUNCTION_FINISH(STB_DMXChangeAllDemuxSource);
+}
+
+#define TUNER_PATH 0
+#define PAT_TIMEOUT (10000)
+#define POLL_TIMEOUT (100)
+
+static pthread_t ci_signal_thread;
+static int       ci_signal_thread_run = 0;
+static int       event_fd   = -1;
+static int       demod_mode = 0;
+
+#define DEMOD_NODE_NAME "/sys/class/dtvdemod/attr"
+#define DEMOD_NODE_CMD0 "ci_mode 0"
+#define DEMOD_NODE_CMD1 "ci_mode 1"
+
+static void set_demod_mode (int mode)
+{
+   demod_mode = mode;
+   DMX_DBG("ci monitor set demod mode to %d", mode);
+
+   #ifdef USE_TSPLAYER
+   if (mode == 0) {
+      DMX_DBG("echo %s > %s", DEMOD_NODE_CMD0, DEMOD_NODE_NAME);
+      dvr_file_echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD0);
+   } else {
+      DMX_DBG("echo %s > %s", DEMOD_NODE_CMD1, DEMOD_NODE_NAME);
+      dvr_file_echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD1);
+   }
+   #else
+      AM_FileEcho(buf, cmd);
+   #endif
+}
+
+static void* ci_signal_entry (void *arg)
+{
+   struct dmx_sct_filter_params filter;
+   struct pollfd fds[2];
+   char buf[64];
+   int  i, r;
+   int  fd;
+   int  has_signal = 0;
+   int  timeout = 0;
+   DMX_DBG("ci monitor wait lock");
+
+   while (ci_signal_thread_run) {
+      if (STB_TuneGetLockStatus(TUNER_PATH) == TUNER_STATE_LOCKED)
+         break;
+
+      fds[0].fd     = event_fd;
+      fds[0].events = POLLIN|POLLERR;
+
+      poll(fds, 1, 50);
+   }
+
+   if (!ci_signal_thread_run)
+      return NULL;
+
+   DMX_DBG("ci monitor locked");
+
+   if (STB_TuneGetActualSignalType(TUNER_PATH) != TUNE_SIGNAL_QAM) {
+      return NULL;
+   }
+
+   for (i = 0; i < num_paths; i++) {
+      E_STB_DMX_DEMUX_SOURCE source;
+      U8BIT param;
+
+      STB_DMXGetDemuxSource(i, &source, &param);
+      if (source == DMX_TUNER)
+         break;
+   }
+
+   DMX_DBG("ci monitor open demux %d", i);
+
+   snprintf(buf, sizeof(buf), "/dev/dvb0.demux%d", i);
+
+   fd = open(buf, O_RDWR);
+   if (fd == -1) {
+      DMX_DBG("cannot open demux %d", i);
+      return NULL;
+   }
+
+   memset(&filter, 0, sizeof(filter));
+
+   filter.pid = 0;
+   filter.filter.filter[0] = 0;
+   filter.filter.mask[0]   = 0xff;
+   filter.flags |= DMX_CHECK_CRC;
+
+   ioctl(fd, DMX_SET_FILTER, &filter);
+   ioctl(fd, DMX_START);
+
+   fds[0].fd     = event_fd;
+   fds[0].events = POLLIN|POLLERR;
+   fds[1].fd     = fd;
+   fds[1].events = POLLIN|POLLERR;
+
+   while (ci_signal_thread_run) {
+      //one time is 200ms
+      r = poll(fds, 2, POLL_TIMEOUT);
+      if (r > 1) {
+         if (fds[1].revents & POLLIN) {
+            has_signal = 1;
+            DMX_DBG("ci monitor PAT got");
+            break;
+         }
+      }
+      timeout = timeout + POLL_TIMEOUT;
+      if (timeout >= PAT_TIMEOUT) {
+         break;
+      }
+   }
+
+   close(fd);
+
+   if (!ci_signal_thread_run)
+      return NULL;
+
+   if (!has_signal) {
+      DMX_DBG("ci monitor PAT timeout");
+      set_demod_mode(1);
+   }
+
+   return NULL;
+}
+
+/**
+ * @brief Start the CI signal monitor.
+ */
+void STB_DMXCISignalMonitorStart()
+{
+   FUNCTION_START(STB_DMXCISignalMonitorStart);
+   DMX_DBG("ci monitor start");
+   if (!ci_signal_thread_run) {
+      ci_signal_thread_run = 1;
+      event_fd = eventfd(0, 0);
+      pthread_create(&ci_signal_thread, NULL, ci_signal_entry, NULL);
+   }
+
+   FUNCTION_FINISH(STB_DMXCISignalMonitorStart);
+}
+
+/**
+ * @brief Stop the CI signal monitor.
+ */
+void STB_DMXCISignalMonitorStop()
+{
+   FUNCTION_START(STB_DMXCISignalMonitorStop);
+   DMX_DBG("ci monitor stop");
+   if (ci_signal_thread_run) {
+      int v = 0;
+
+      ci_signal_thread_run = 0;
+      write(event_fd, &v, sizeof(v));
+      pthread_join(ci_signal_thread, NULL);
+      close(event_fd);
+      if (demod_mode)
+         set_demod_mode(0);
+   }
+
+   FUNCTION_FINISH(STB_DMXCISignalMonitorStop);
 }
 
 /**

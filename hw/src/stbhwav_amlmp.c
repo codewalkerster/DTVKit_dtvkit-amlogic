@@ -67,6 +67,7 @@
 #include <Aml_MP/Aml_MP.h>
 /*#include <AmTsPlayer.h>*/
 #include "systemcontrol.h"
+#include <cutils/properties.h>
 
 
 /*#undef  AV_AUDIO_RIGHT*/
@@ -557,16 +558,23 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 */
 void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank,BOOLEAN is_black_color)
 {
-        int color =    VIDEO_LAYER_COLOR_MAX;
-        VID_DBG("===========>blank=%u force_black_color %d", blank,is_black_color);
-        if (blank == TRUE)
+        char buf[PROPERTY_VALUE_MAX] = { 0 };
+        property_get("vendor.tv.dtv.enable.pip", buf, "false") ;
+
+        VID_DBG("vendor.tv.dtv.enable.pip [%s] [%d]",buf);
+        if (!strncmp(buf, "false", 5))
         {
-            color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
-            SC_setVideoColor(color);
-        }
-        else
-        {
-            SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
+            int color =    VIDEO_LAYER_COLOR_MAX;
+            VID_DBG("===========>blank=%u force_black_color %d", blank,is_black_color);
+            if (blank == TRUE)
+            {
+                color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
+                SC_setVideoColor(color);
+            }
+            else
+            {
+                SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
+            }
         }
  }
 

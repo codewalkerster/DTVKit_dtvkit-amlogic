@@ -558,11 +558,14 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 */
 void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank,BOOLEAN is_black_color)
 {
-        char buf[PROPERTY_VALUE_MAX] = { 0 };
-        property_get("vendor.tv.dtv.enable.pip", buf, "false") ;
+        static char buf1[PROPERTY_VALUE_MAX] = { 0 };
+        static char buf2[PROPERTY_VALUE_MAX] = { 0 };
 
-        VID_DBG("vendor.tv.dtv.enable.pip [%s] [%d]",buf);
-        if (!strncmp(buf, "false", 5))
+        property_get("vendor.tv.dtv.enable.pip",  buf1, "false") ;
+        property_get("vendor.tv.dtv.enable.fcc",  buf2, "false") ;
+
+        VID_DBG(" pip [%s] fcc[%s]",buf1,buf2);
+        if ((!strncmp(buf1, "false", 5))&&(!strncmp(buf2, "false", 5)))
         {
             int color =    VIDEO_LAYER_COLOR_MAX;
             VID_DBG("===========>blank=%u force_black_color %d", blank,is_black_color);

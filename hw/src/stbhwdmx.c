@@ -1886,6 +1886,18 @@ static void* ci_signal_entry (void *arg)
    return NULL;
 }
 
+
+/**
+ * @brief set demod mode api.
+ */
+void STB_DMXCI_Set_Demod_Mode(int mode)
+{
+   DMX_DBG("ci set demod mode set[%d]old[%d]", mode, demod_mode);
+   if (mode != demod_mode) {
+      set_demod_mode(mode);
+   }
+}
+
 /**
  * @brief Start the CI signal monitor.
  */

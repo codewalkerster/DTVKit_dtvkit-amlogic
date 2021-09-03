@@ -2441,6 +2441,18 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
               play_params.blockSize = 256*1024;
               play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
           }
+
+         /*check for aml_enc*/
+         {
+            U16BIT ca_id = 0xFFFF;
+
+            if (STB_CADescramblerRequired(&ca_id, 1))
+            {
+               play_params.blockSize = 188*1024;
+               play_params.drmMode = AML_MP_INPUT_STREAM_NORMAL;
+            }
+         }
+
           decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
           decrypt_params.cryptoData = NULL;
           PLAY_DBG("dec_func:%#x", decrypt_params.cryptoFn);

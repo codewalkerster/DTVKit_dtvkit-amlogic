@@ -3065,8 +3065,10 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
                 VID_DBG("Video aspect ratio 16:9");
                 break;
              default:
-                VID_DBG("Unhandled video aspect ratio");
-                break;
+                VID_DBG(" Unhandled video aspect ratio default is 16:9");
+                info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
+                info.video_aspect_ratio = ASPECT_RATIO_16_9;
+	     break;
           }
           info.flags |= VIDEO_INFO_DECODER_STATUS;
           info.status = DECODER_STATUS_VIDEO;

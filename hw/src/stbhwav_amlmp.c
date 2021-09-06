@@ -1686,6 +1686,53 @@ void * STB_AVGetSurface(U8BIT path)
 }
 
 /**
+ * \brief Set video window axis
+ *
+ * \param path video path
+ * \param x
+ * \param y
+ * \param width
+ * \param height
+ *
+ * @return TRUE if video window set correctly
+ */
+BOOLEAN STB_AVSetVideoWindow(U8BIT path, int x, int y, int width, int height)
+{
+    int ret;
+    AML_MP_PLAYER player_handle;
+
+    FUNCTION_START(STB_AVSetVideoWindow);
+
+    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+    if (av_path == INVALID_RES_ID) {
+        VID_DBG("get av path error video codec path=%u, av_path=%u", path, av_path);
+        return FALSE;
+    }
+
+    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
+    if (ret < 0) {
+        VID_DBG("Cannot get player handle video[%d]", path);
+        return FALSE;
+    }
+
+    BOOLEAN isLive = STB_PVRIsPlayStopped(INVALID_RES_ID, path);
+    VID_DBG("[%d,%d,%d,%d], isLive:%d", x, y, width, height, isLive);
+
+    if (isLive) {
+        ret = Aml_MP_Player_SetVideoWindow(player_handle, x, y, width, height);
+    } else {
+        ret = Aml_MP_DVRPlayer_SetVideoWindow(player_handle, x, y, width, height);
+    }
+
+    if (ret < 0) {
+        VID_DBG("SetVideoWindow failed, err:%d, isLive:%d", ret, isLive);
+    }
+
+    FUNCTION_FINISH(STB_AVSetVideoWindow);
+    return TRUE;
+}
+
+/**
  * @brief   Sets the video codec to be used when decoding video with the given video decoder path
  * @param   path video path
  * @param   codec codec to be used

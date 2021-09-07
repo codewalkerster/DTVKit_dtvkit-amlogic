@@ -709,3 +709,19 @@ BOOLEAN STB_Is_ResourceManager_ByPrio()
 {
     return aml_hw_cfg.resource_manager_by_prio != 0;
 }
+
+/**
+ * @brief   get cam card data in and out.
+ * @return  TRUE if yes.
+ */
+BOOLEAN STB_GetCamSource(U8BIT* input_with_card, U8BIT* input_without_card)
+{
+    if (input_with_card)
+    {
+        STB_SPDebugWrite("tssource %d", aml_hw_cfg.cam->camPlug_tssource);
+        *input_with_card = aml_hw_cfg.cam->camPlug_tssource;
+    }
+    if (input_without_card)
+        *input_without_card = aml_hw_cfg.cam->camUnplug_tssource;
+    return TRUE;
+}

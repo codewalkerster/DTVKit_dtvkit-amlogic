@@ -50,6 +50,7 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 
+#include "stbhwcfg.h"
 #include "internal.h"
 #include "stbhwdef.h"
 #include "stbhwc.h"
@@ -326,20 +327,38 @@ dsc_alloc (int dev_id, int pid, E_STB_DMX_DESC_TYPE type)
 }
 
 static void
-dsc_set_aes_output(int dmx_no)
+dsc_set_aes_output(BOOLEAN enable)
 {
    S_DSC_DEV_INFO *dsc;
    U8BIT i, r;
    U32BIT flag = 0;
    U8BIT dev_name[256];
    U8BIT dst_name[32];
+   U8BIT dmx_src[16];
+   U8BIT target_source_str[8];
+   U8BIT target_source;
 
-   for (i = 0; i < DSC_CHAN_NUM; i++)
+   STB_GetCamSource(&target_source, NULL);
+   snprintf(target_source_str, sizeof(target_source_str), "ts%d", target_source);
+   if (enable)
    {
-      dsc = &dsc_dev_info[i];
-      if(dsc->dmx_src == dmx_no)
-         flag |= 1 << i;
+      for (i = 0; i < aml_hw_cfg.demux_num; i++)
+      {
+         snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/demux%d_source", i);
+         dvr_file_read(dev_name, dmx_src, sizeof(dmx_src));
+         DMX_DBG("dmx.%d src %s target %s",i, dmx_src, target_source_str);
+         if (strncmp(target_source_str, dmx_src, 3) == 0)
+         {
+            DMX_DBG("dmx source %d match ts1", i);
+            flag |= 1 << i;
+         }
+      }
    }
+   else
+   {
+      flag = 0;
+   }
+   DMX_DBG("ciplus flag %d", flag);
    snprintf(dev_name, sizeof(dev_name), "/sys/class/dmx/ciplus_output_ctrl");
    snprintf(dst_name, sizeof(dst_name), "%d", flag);
    r = dvr_file_echo(dev_name, dst_name);
@@ -565,7 +584,11 @@ set_key (int dev_id, int chan_id, int key_id, E_STB_DMX_DESC_TYPE type, E_STB_DM
    }
    if (type == DESC_TYPE_AES)
    {
-      dsc_set_aes_output(dsc->dmx_src);
+      dsc_set_aes_output(TRUE);
+   }
+   else
+   {
+      dsc_set_aes_output(FALSE);
    }
 
    return r;
@@ -797,30 +820,36 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
       if (pids[DMX_AUDIO] != audio_pid)
       {
          pids[DMX_AUDIO] = audio_pid;
-         if (audio_pid != 0)
+         if (demux_status[path].source != DMX_MEMORY)
          {
-            ResetDscChannel(path, DESC_TRACK_AUDIO);
-            ApplyKey(path, DESC_TRACK_AUDIO);
-         }
-         else
-         {
-            ClearKey(path, DESC_TRACK_AUDIO);
+            if (audio_pid != 0)
+            {
+               ResetDscChannel(path, DESC_TRACK_AUDIO);
+               ApplyKey(path, DESC_TRACK_AUDIO);
+            }
+            else
+            {
+               ClearKey(path, DESC_TRACK_AUDIO);
+            }
          }
       }
       if (pids[DMX_VIDEO] != video_pid)
       {
          pids[DMX_VIDEO] = video_pid;
-         if (video_pid != 0)
+         if (demux_status[path].source != DMX_MEMORY)
          {
-            ResetDscChannel(path, DESC_TRACK_VIDEO);
-            ApplyKey(path, DESC_TRACK_VIDEO);
-         }
-         else
-         {
-            ClearKey(path, DESC_TRACK_VIDEO);
+            if (video_pid != 0)
+            {
+               ResetDscChannel(path, DESC_TRACK_VIDEO);
+               ApplyKey(path, DESC_TRACK_VIDEO);
+            }
+            else
+            {
+               ClearKey(path, DESC_TRACK_VIDEO);
+            }
          }
       }
-
+      dsc_set_aes_output(TRUE);
       STB_DMXChangeTextPID(path, text_pid);
    }
 

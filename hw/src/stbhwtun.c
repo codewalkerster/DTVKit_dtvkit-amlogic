@@ -221,6 +221,7 @@ static BOOLEAN AM_FEND_BlindDump(U8BIT path);
 static void* fend_blindscan_thread(void *arg);
 static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
+static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
 
 
 /*---global function definitions---------------------------------------------*/
@@ -868,6 +869,93 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
     return(max_freq);
 }
 
+static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
+{
+    int ssi = 0;
+
+    switch (STB_TuneGetSignalType(path))
+    {
+        case TUNE_SIGNAL_COFDM:
+            if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_2_3)
+            {
+                if (strength <= -95)
+                    ssi = 0;
+                else if (strength <= -85)
+                    ssi = 5 * (95 + strength) / 10;
+                else if (strength <= -75)
+                    ssi = 5 + 17 * (85 + strength) / 10;
+                else if (strength <= -65)
+                    ssi = 22 + 40 * (75 + strength) / 10;
+                else if (strength <= -55)
+                    ssi = 62 + 30 * (65 + strength) / 10;
+                else if (strength <= -45)
+                    ssi = 92 + 8 * (55 + strength) / 10;
+                else
+                    ssi = 100;
+            }
+            else
+            {
+                if (strength <= -95)
+                    ssi = 0;
+                else if (strength <= -85)
+                    ssi = 7 * (95 + strength) / 10;
+                else if (strength <= -75)
+                    ssi = 7 + 23 * (85 + strength) / 10;
+                else if (strength <= -65)
+                    ssi = 30 + 40 * (75 + strength) / 10;
+                else if (strength <= -55)
+                    ssi = 70 + 23 * (65 + strength) / 10;
+                else if (strength <= -45)
+                    ssi = 93 + 7 * (55 + strength) / 10;
+                else
+                    ssi = 100;
+            }
+            break;
+
+        case TUNE_SIGNAL_QAM:
+            if (strength <= -70)
+                ssi = 0;
+            else if (strength <= -60)
+                ssi = 20 * (70 + strength) / 10;
+            else if (strength <= -50)
+                ssi = 20 + 30 * (60 + strength) / 10;
+            else if (strength <= -40)
+                ssi = 50 + 40 * (50 + strength) / 10;
+            else if (strength <= -30)
+                ssi = 90 + 10 * (40 + strength) / 10;
+            else
+                ssi = 100;
+            break;
+
+        case TUNE_SIGNAL_QPSK:
+            if (strength <= -93)
+                ssi = 0;
+            else if (strength <= -90)
+                ssi = 3 * (93 + strength) / 3;
+            else if (strength <= -85)
+                ssi = 3 + 7 * (90 + strength) / 5;
+            else if (strength <= -75)
+                ssi = 10 + 25 * (85 + strength) / 10;
+            else if (strength <= -65)
+                ssi = 35 + 45 * (75 + strength) / 10;
+            else if (strength <= -55)
+                ssi = 80 + 10 * (65 + strength) / 10;
+            else if (strength <= -45)
+                ssi = 90 + 8 * (55 + strength) / 10;
+            else if (strength <= -35)
+                ssi = 98 + 2 * (45 + strength) / 10;
+            else
+                ssi = 100;
+            break;
+
+        default:
+            break;
+    }
+
+    return (U8BIT)ssi;
+}
+
+
 /**
  * @brief   Returns the current signal strength
  * @param   path the tuner path to query
@@ -876,7 +964,7 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
 U8BIT STB_TuneGetSignalStrength(U8BIT path)
 {
     U8BIT retval;
-    uint16_t strength;
+    S16BIT strength;
 
     FUNCTION_START(STB_TuneGetSignalStrength);
 
@@ -887,11 +975,11 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
         if (IsTunerLocked(&tuner_status[path]))
         {
             /* New method of reading signal strength not supported, so use the old API */
-            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, &strength) >= 0)
+            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, (U16BIT *)&strength) >= 0)
             {
                 /* Strength is returned as a percentage */
-                retval = (U8BIT)strength;
-                TUN_DBG("%u: %u%%", path, retval);
+                retval = StrengthToSSI(path, strength);
+                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
             }
             else
             {
@@ -1332,6 +1420,56 @@ S32BIT STB_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
     return retval;
 }
 
+static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path)
+{
+	struct dtv_property cmd;
+    struct dtv_properties props;
+    E_STB_TUNE_TCODERATE t_rc = TUNE_TCODERATE_UNDEFINED;
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        cmd.cmd = DTV_DELIVERY_SYSTEM;
+        props.num = 1;
+        props.props = &cmd;
+        if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0 &&
+            (cmd.u.data == SYS_DVBT2 || cmd.u.data == SYS_DVBT))
+        {
+            switch (cmd.reserved[1])
+            {
+                case FEC_1_2:
+                t_rc = TUNE_TCODERATE_1_2;
+                break;
+
+                case FEC_3_5:
+                t_rc = TUNE_TCODERATE_3_5;
+                break;
+
+                case FEC_2_3:
+                t_rc = TUNE_TCODERATE_2_3;
+                break;
+
+                case FEC_3_4:
+                t_rc = TUNE_TCODERATE_3_4;
+                break;
+
+                case FEC_4_5:
+                t_rc = TUNE_TCODERATE_4_5;
+                break;
+
+                case FEC_5_6:
+                t_rc = TUNE_TCODERATE_5_6;
+                break;
+
+                default:
+                t_rc = TUNE_TCODERATE_UNDEFINED;
+                break;
+            }
+        }
+    }
+
+    return t_rc;
+}
+
 
 /**
  * @brief   Returns the LP code rate of the current terrestrial signal
@@ -1340,10 +1478,15 @@ S32BIT STB_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
  */
 E_STB_TUNE_TCODERATE STB_TuneGetActualTerrLpCodeRate(U8BIT path)
 {
+	E_STB_TUNE_TGUARDINT t_rc;
+
     FUNCTION_START(STB_TuneGetActualTerrLpCodeRate);
-    USE_UNWANTED_PARAM(path);
+
+	t_rc = TuneGetActualTerrCodeRate(path);
+
     FUNCTION_FINISH(STB_TuneGetActualTerrLpCodeRate);
-    return(TUNE_TCODERATE_UNDEFINED);
+
+    return t_rc;
 }
 
 /**
@@ -1353,10 +1496,15 @@ E_STB_TUNE_TCODERATE STB_TuneGetActualTerrLpCodeRate(U8BIT path)
  */
 E_STB_TUNE_TCODERATE STB_TuneGetActualTerrHpCodeRate(U8BIT path)
 {
+	E_STB_TUNE_TGUARDINT t_rc;
+
     FUNCTION_START(STB_TuneGetActualTerrHpCodeRate);
-    USE_UNWANTED_PARAM(path);
+
+	t_rc = TuneGetActualTerrCodeRate(path);
+
     FUNCTION_FINISH(STB_TuneGetActualTerrHpCodeRate);
-    return(TUNE_TCODERATE_UNDEFINED);
+
+    return t_rc;
 }
 
 /**

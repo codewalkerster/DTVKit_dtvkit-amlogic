@@ -345,8 +345,8 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
             s_recplay_status[index].is_timeshift = FALSE;
             s_recplay_status[index].last_position_in_seconds = 0;
 
-            s_recplay_status[index].rec_start = -1;
-            s_recplay_status[index].limit = -1;
+            s_recplay_status[index].rec_start = 0;
+            s_recplay_status[index].limit = 0;
          }
       }
    }
@@ -820,8 +820,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].video_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].audio_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].player = NULL;
-         s_recplay_status[play_index].rec_start = -1;
-         s_recplay_status[play_index].limit = -1;
+         s_recplay_status[play_index].rec_start = 0;
+         s_recplay_status[play_index].limit = 0;
       }
       else
       {
@@ -2027,6 +2027,29 @@ BOOLEAN STB_PVRPlayChangeAudio(U8BIT audio_decoder, U8BIT video_decoder, U16BIT 
    return(FALSE);
 }
 
+static U64BIT ConvertToTimestamp(U16BIT code, U8BIT hour, U8BIT min, U8BIT sec)
+{
+    U64BIT timestamp = 0;
+
+    FUNCTION_START(ConvertToTimestamp);
+
+    timestamp = (U64BIT)code;
+    if (timestamp >= 40587LL)
+        timestamp -= 40587LL;
+    else
+        timestamp = 0LL;
+
+    // Convert date code (in days) and time into seconds
+    timestamp *= 86400LL;
+    timestamp += (U64BIT)hour * 3600LL;
+    timestamp += (U64BIT)min * 60LL;
+    timestamp += (U64BIT)sec;
+
+    FUNCTION_FINISH(ConvertToTimestamp);
+    REC_DBG("STB_PVRCreateRecording tv_sec(%llu)(%d)(%d)", timestamp, code, hour);
+
+    return timestamp;
+}
 /**
  * @brief   Set the retention limit for the playback. This function is used for CI+
  * @param   audio_decoder audio decoder being used for playback
@@ -2044,13 +2067,13 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
    U8BIT play_index;
 
    struct timespec ts;
-   U64BIT ms;
+   U32BIT ms;
 
    U32BIT diff = 0;
-   U32BIT rec_time = (rec_date * 24 * 60 + rec_hour * 60 + rec_min) * (60);
+   U32BIT rec_time = (U32BIT)ConvertToTimestamp(rec_date, rec_hour, rec_min, 0);
    U32BIT tdt_time = STB_OSGetClockRTC();
-   REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d",
-      audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min);
+   REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d  tdt_time[%u]rec[%u]",
+      audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min, tdt_time, rec_time);
 
    if (tdt_time > rec_time) {
      diff = tdt_time - rec_time;
@@ -2060,19 +2083,20 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
    }
 
    clock_gettime(CLOCK_REALTIME, &ts);
-   ms = ts.tv_sec*1000+ts.tv_nsec/1000000;
-
+   ms = (uint32_t)(ts.tv_sec);
    retval = FALSE;
 
    play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
    {
       //change to ms
-      s_recplay_status[play_index].rec_start = ms - diff * 1000;
+      s_recplay_status[play_index].rec_start = ms - diff;
       //change to ms
-      s_recplay_status[play_index].limit = retention_limit * (60 * 1000);
+      s_recplay_status[play_index].limit = retention_limit * (60);
+      REC_DBG("limit:%u ms:%u rec:%u  diff:%u rec[%u]tdt[%u]",s_recplay_status[play_index].limit, ms, s_recplay_status[play_index].rec_start, diff, rec_time, tdt_time);
+   } else {
+      REC_DBG("limit:%u ms:%u rec:%u  diff:%u rec[%u]tdt[%u]error",s_recplay_status[play_index].limit, ms, s_recplay_status[play_index].rec_start, diff, rec_time, tdt_time);
    }
-
    FUNCTION_FINISH(STB_PVRPlaySetRetentionLimit);
 }
 
@@ -2318,7 +2342,6 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
    char node[32];
    struct stat st;
    int r;
-   
 
    if (!s_recplay_status[play_index].has_video
       && !s_recplay_status[play_index].has_audio)
@@ -2556,10 +2579,10 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          /*DVR_PlaybackFlag_t play_flag =*/
             /*(s_recplay_status[play_index].play_speed == 0)? DVR_PLAYBACK_STARTED_PAUSEDLIVE : 0;*/
           bool play_flag = s_recplay_status[play_index].play_speed == 0;
-          int start = s_recplay_status[play_index].rec_start;
-          int limit = s_recplay_status[play_index].limit;
+          U32BIT start = s_recplay_status[play_index].rec_start;
+          U32BIT limit = s_recplay_status[play_index].limit;
 
-         PLAY_DBG("Starting pvr playback, speed=%u%% vendor Id:%d", s_recplay_status[play_index].play_speed, vendorId);
+         PLAY_DBG("Starting pvr playback, speed=%u%% vendor Id:%d start:%u", s_recplay_status[play_index].play_speed, vendorId, start);
          s_recplay_status[play_index].play_state = PLAY_STARTING;
          error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void* )(&vendorId));
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);

@@ -219,17 +219,25 @@ void STB_CIStandbyOff(void)
  */
 BOOLEAN STB_CIRouteTS(U8BIT tuner, U8BIT slot_id, BOOLEAN pass_through)
 {
-   FUNCTION_START(STB_CIRouteTS);
+    USE_UNWANTED_PARAM(tuner);
 
-   USE_UNWANTED_PARAM(tuner);
-   USE_UNWANTED_PARAM(slot_id);
-   USE_UNWANTED_PARAM(pass_through);
+    FUNCTION_START(STB_CIRouteTS);
 
-   STB_CIDebugPrintf("STB_CIRouteTS(%u, %u, %u)", tuner, slot_id, pass_through);
+    STB_CIDebugPrintf("STB_CIRouteTS(%u, %u, %u)", tuner, slot_id, pass_through);
 
-   FUNCTION_FINISH(STB_CIRouteTS);
+    if(TRUE == pass_through)
+    {
+        STB_DMXChangeAllDemuxSource(slot_id, 1);
+        //STB_DMXCISignalMonitorStart();
+    }
+    else
+    {
+        STB_DMXChangeAllDemuxSource(slot_id, 0);
+        //STB_DMXCISignalMonitorStop();
+    }
+    FUNCTION_FINISH(STB_CIRouteTS);
 
-   return(FALSE);
+    return(TRUE);
 }
 
 /**

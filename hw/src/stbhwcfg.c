@@ -106,6 +106,14 @@ stb_hardware_cfg aml_hw_cfg = {
     },
 .service_without_sdt = 0,
 .resource_manager_by_prio = 0,
+.capture_adc = {
+    .analog_enabled = FALSE,
+    .dvbs_enabled = FALSE,
+    .dvbt_enabled = FALSE,
+    .dvbc_enabled = FALSE,
+    .isdbt_enabled = FALSE,
+    .file_path = {0},
+},
 };
 
 static void
@@ -368,7 +376,6 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
     }
     else if (!strcmp(name, "demo_cap"))
     {
-        long int i;
         att = atts;
         while (*att) {
             an = att[0];
@@ -381,7 +388,6 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
     }
     else if (!strcmp(name, "resource_manager"))
     {
-        long int i;
         att = atts;
         while (*att) {
             an = att[0];
@@ -392,6 +398,44 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             att += 2;
         }
         CFG_DBG("resource_manager_by_prio is set to %d", cfg->resource_manager_by_prio);
+    }
+    else if (!strcmp(name, "capture_adc"))
+    {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "analog") && !strcmp(av, "yes")) {
+                cfg->capture_adc.analog_enabled = TRUE;
+            }
+            if (!strcmp(an, "dvbs") && !strcmp(av, "yes")) {
+                cfg->capture_adc.dvbs_enabled = TRUE;
+            }
+            else if (!strcmp(an, "dvbt") && !strcmp(av, "yes")) {
+                cfg->capture_adc.dvbt_enabled = TRUE;
+            }
+            else if (!strcmp(an, "dvbc") && !strcmp(av, "yes")) {
+                cfg->capture_adc.dvbc_enabled = TRUE;
+            }
+            else if (!strcmp(an, "isdbt") && !strcmp(av, "yes")) {
+                cfg->capture_adc.isdbt_enabled = TRUE;
+            }
+            else if (!strcmp(an, "file_path")) {
+                size_t len = strlen(av);
+                if (len > 0 && len < sizeof(cfg->capture_adc.file_path)) {
+                    memcpy(cfg->capture_adc.file_path, av, len);
+                    cfg->capture_adc.file_path[len] = '\0';
+                }
+            }
+            att += 2;
+        }
+        CFG_DBG("capture_adc is set to analog[%s],dvbs[%s],dvbt[%s],dvbc[%s],isdbt[%s],path:%s",
+                cfg->capture_adc.analog_enabled ? "Yes" : "No",
+                cfg->capture_adc.dvbs_enabled ? "Yes" : "No",
+                cfg->capture_adc.dvbt_enabled ? "Yes" : "No",
+                cfg->capture_adc.dvbc_enabled ? "Yes" : "No",
+                cfg->capture_adc.isdbt_enabled ? "Yes" : "No",
+                strlen(cfg->capture_adc.file_path) > 0 ? cfg->capture_adc.file_path : "(empty)");
     }
 }
 
@@ -724,4 +768,9 @@ BOOLEAN STB_GetCamSource(U8BIT* input_with_card, U8BIT* input_without_card)
     if (input_without_card)
         *input_without_card = aml_hw_cfg.cam->camUnplug_tssource;
     return TRUE;
+}
+
+S_CAPTURE_ADC_CFG STB_GetCaptureADCCfg()
+{
+    return aml_hw_cfg.capture_adc;
 }

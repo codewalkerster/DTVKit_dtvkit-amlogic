@@ -1029,6 +1029,95 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
     return retval;
 }
 
+static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
+{
+    int sqi = 0;
+
+    switch (STB_TuneGetSignalType(path))
+    {
+        case TUNE_SIGNAL_COFDM:
+            if (STB_TuneGetSystemType(path) == TUNE_SYSTEM_TYPE_DVBT2 &&
+                STB_TuneGetActualTerrConstellation(path) == TUNE_TCONST_QAM256)
+            {
+                if (snr <= 160)
+                    sqi = 0;
+                else if (snr <= 180)
+                    sqi = 24 * (snr - 160) / 20;
+                else if (snr <= 190)
+                    sqi = 24 + 20 * (snr - 180) / 10;
+                else if (snr <= 200)
+                    sqi = 44 + 16 * (snr - 190) / 10;
+                else if (snr <= 210)
+                    sqi = 60 + 20 * (snr - 200) / 10;
+                else if (snr <= 220)
+                    sqi = 80 + 15 * (snr - 210) / 10;
+                else if (snr <= 230)
+                    sqi = 95 + 5 * (snr - 220) / 10;
+                else
+                    sqi = 100;
+            }
+            else
+            {
+                if (snr <= 160)
+                    sqi = 0;
+                else if (snr <= 170)
+                    sqi = 31 * (snr - 160) / 10;
+                else if (snr <= 180)
+                    sqi = 31 + 18 * (snr - 170) / 10;
+                else if (snr <= 190)
+                    sqi = 49 + 16 * (snr - 180) / 10;
+                else if (snr <= 200)
+                    sqi = 65 + 15 * (snr - 190) / 10;
+                else if (snr <= 210)
+                    sqi = 80 + 12 * (snr - 200) / 10;
+                else if (snr <= 220)
+                    sqi = 92 + 8 * (snr - 210) / 10;
+                else
+                    sqi = 100;
+            }
+            break;
+
+        case TUNE_SIGNAL_QAM:
+            if (snr <= 300)
+                sqi = 0;
+            else if (snr >= 400)
+                sqi = 100;
+            else
+                sqi = snr - 300;
+            break;
+
+        case TUNE_SIGNAL_QPSK:
+            if (snr <= 70)
+                sqi = 0;
+            else if (snr <= 80)
+                sqi = 13 * (snr - 70) / 10;
+            else if (snr <= 90)
+                sqi = 13 + 8 * (snr - 80) / 10;
+            else if (snr <= 100)
+                sqi = 21 + 6 * (snr - 90) / 10;
+            else if (snr <= 110)
+                sqi = 27 + 16 * (snr - 100) / 10;
+            else if (snr <= 120)
+                sqi = 43 + 17 * (snr - 110) / 10;
+            else if (snr <= 130)
+                sqi = 60 + 17 * (snr - 120) / 10;
+            else if (snr <= 140)
+                sqi = 77 + 10 * (snr - 130) / 10;
+            else if (snr <= 150)
+                sqi = 87 + 9 * (snr - 140) / 10;
+            else if (snr <= 160)
+                sqi = 96 + 4 * (snr - 150) / 10;
+            else
+                sqi = 100;
+            break;
+
+        default:
+            break;
+    }
+
+    return (U8BIT)sqi;
+}
+
 /**
  * @brief   Returns the current signal quality
  * @param   path the tuner path to query
@@ -1050,8 +1139,8 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
         {
             if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, &quality) >= 0)
             {
-                retval = (U8BIT)quality;
-                TUN_DBG("%u: Quality=%u%%", path, retval);
+                retval = SNR10ToSQI(path, quality);
+                TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
             }
             else
             {
@@ -1248,10 +1337,48 @@ E_STB_TUNE_TBWIDTH STB_TuneGetActualTerrBwidth(U8BIT path)
  */
 E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
 {
+    struct dtv_property cmd;
+    struct dtv_properties props;
+    E_STB_TUNE_TCONST t_modu = TUNE_TCONST_UNDEFINED;
+
     FUNCTION_START(STB_TuneGetActualTerrConstellation);
-    USE_UNWANTED_PARAM(path);
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        cmd.cmd = DTV_DELIVERY_SYSTEM;
+        props.num = 1;
+        props.props = &cmd;
+        if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0 &&
+            (cmd.u.data == SYS_DVBT2 || cmd.u.data == SYS_DVBT))
+        {
+            switch (cmd.reserved[0])
+            {
+                case QPSK:
+                t_modu = TUNE_TCONST_QPSK;
+                break;
+
+                case QAM_16:
+                t_modu = TUNE_TCONST_QAM16;
+                break;
+
+                case QAM_64:
+                t_modu = TUNE_TCONST_QAM64;
+                break;
+
+                case QAM_256:
+                t_modu = TUNE_TCONST_QAM256;
+                break;
+
+                default:
+                t_modu = TUNE_TCONST_UNDEFINED;
+                break;
+            }
+        }
+    }
+
     FUNCTION_FINISH(STB_TuneGetActualTerrConstellation);
-    return 0;
+
+    return t_modu;
 }
 
 /**

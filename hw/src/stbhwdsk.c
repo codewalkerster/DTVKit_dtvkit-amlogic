@@ -1291,7 +1291,7 @@ static void DiskMonitorTask(void *param)
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    STB_DSKAddDevicePathAndLoad("user", "/data/vendor/dtvkit", FALSE);
 #else
-   STB_DSKAddDevicePathAndLoad("user", "/data/data/org.dtvkit.inputsource", FALSE);
+   STB_DSKAddDevicePathAndLoad("user", "/data/data/com.droidlogic.dtvkit.inputsource", FALSE);
 #endif
 
    RefreshDiskList(FALSE);

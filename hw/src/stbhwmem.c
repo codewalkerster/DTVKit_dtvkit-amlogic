@@ -68,7 +68,7 @@
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #define NVM_PATH "/data/vendor/dtvkit/NVM/"
 #else
-#define NVM_PATH "/data/data/org.dtvkit.inputsource/NVM/"
+#define NVM_PATH "/data/data/com.droidlogic.dtvkit.inputsource/NVM/"
 #endif
 
 /*---constant definitions for this file--------------------------------------*/

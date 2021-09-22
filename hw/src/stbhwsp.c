@@ -78,7 +78,7 @@ static char *lf_file()
 #ifdef DTVKIT_IN_VENDOR_PARTITION
     strncpy(buf, "/data/vendor/dtvkit/dtvkit.log", sizeof(buf));
 #else
-    strncpy(buf, "/data/data/org.dtvkit.inputsource/dtvkit.log", sizeof(buf));
+    strncpy(buf, "/data/data/com.droidlogic.dtvkit.inputsource/dtvkit.log", sizeof(buf));
 #endif
     return strlen(buf)? buf : NULL;
 }

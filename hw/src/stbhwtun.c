@@ -979,7 +979,7 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
             {
                 /* Strength is returned as a percentage */
                 retval = StrengthToSSI(path, strength);
-                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
+                //TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
             }
             else
             {
@@ -1140,7 +1140,7 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
             if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, &quality) >= 0)
             {
                 retval = SNR10ToSQI(path, quality);
-                TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
+                //TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
             }
             else
             {
@@ -3793,7 +3793,7 @@ E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path)
         tuner_event = GetTunerLockStatus(tuner_status[path].frontend_fd);
     }
 
-    TUN_INFO("tuner_event:%u", tuner_event);
+    //TUN_INFO("tuner_event:%u", tuner_event);
 
     return tuner_event;
 }

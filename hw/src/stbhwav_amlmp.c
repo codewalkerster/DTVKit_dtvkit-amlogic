@@ -2673,7 +2673,7 @@ U8BIT STB_AVGetVideoFrameRate(U8BIT path)
     AML_MP_PLAYER handle;
     U8BIT frame_rate = 0;
     FUNCTION_START(STB_AVGetVideoFrameRate);
-    VID_DBG("vpath:%u", path);
+    //VID_DBG("vpath:%u", path);
 
     ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
     if (ret == 0)
@@ -2774,7 +2774,7 @@ U8BIT STB_AVGetVideoScanType(U8BIT path)
 
     FUNCTION_START(STB_AVGetVideoScanType);
 
-    VID_DBG("vpath:%u", path);
+   // VID_DBG("vpath:%u", path);
 
     ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
     if (ret == 0)

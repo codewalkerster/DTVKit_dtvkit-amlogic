@@ -20,8 +20,6 @@
  * @date    October 2018
  */
 
-#define DEMUX_DEBUG
-#define FILTER_PRINTS
 
 /*---includes for this file---------------------------------------------------*/
 /* compiler library header files */
@@ -62,13 +60,12 @@
 
 //#define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
-#define DMX_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
-#define DEMUX_DEBUG
 #ifdef DEMUX_DEBUG
 #define DMX_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define DMX_DBG(x,...)
 #endif
+#define DMX_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 
 #define DMX_TASK_PRIORITY           12

@@ -1903,8 +1903,8 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
    if (play_index != INVALID_RES_ID)
    {
       Aml_MP_DVRPlayerStatus status;
-
       error = Aml_MP_DVRPlayer_GetStatus(s_recplay_status[play_index].player, &status);
+
       if (!error)
       {
          *elapsed_ms =  (status.infoCur.time + status.infoObsolete.time) % 1000;
@@ -2446,7 +2446,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       if (s_recplay_status[play_index].has_video)
       	play_params.blockSize = 188 * 1024;
       else
-       play_params.blockSize = 188 * 6;
+         play_params.blockSize = 188 * 6;
 
 #ifdef SUPPORT_CAS
       PLAY_DBG("is_smp:%d", s_recplay_status[play_index].cas_status.is_smp);
@@ -2483,6 +2483,11 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 #endif
 
       play_params.isTimeShift = (s_recplay_status[play_index].is_timeshift)? true : false;
+      play_params.isNotifyTime = false;
+
+      if (STB_Cam_Is_CIPlus_Mode() == TRUE) {
+         play_params.isNotifyTime = true;
+      }
 
       if (play_params.isTimeShift == true) {
         STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
@@ -2871,7 +2876,17 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
             PLAY_DBG("TsPlayer event: %d", eventType);
             STB_AVNotifyEventHandler(play_status->audio_decoder, play_status->video_decoder, &eventType, params);
             break;
-
+         case AML_MP_DVRPLAYER_EVENT_NOTIFY_PLAYTIME:
+            PLAY_DBG("TsPlayer event: %d, notify time", eventType);
+            {
+               S_NOTIFY_TIME_INFO info;
+               Aml_MP_DVRPlayerStatus *status = (Aml_MP_DVRPlayerStatus *)params;
+               info.audio_codec = play_status->audio_decoder;
+               info.time = (status->infoCur.time + status->infoObsolete.time) / 1000;
+               STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_NOTIFY_TIME, &info, sizeof(info));
+            }
+            PLAY_DBG("TsPlayer event: %d, notify time END", eventType);
+            break;
          default:
          {
             PLAY_DBG("Unhandled event %#x", eventType);

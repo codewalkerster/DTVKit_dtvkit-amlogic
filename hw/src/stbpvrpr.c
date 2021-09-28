@@ -2094,7 +2094,11 @@ int am_error;
    FUNCTION_START(STB_PVRDeleteRecording);
 
    STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
-   snprintf(file_path, sizeof(file_path), "%s.ts", file_path);
+   int file_path_len=strlen(rec_basic_params.file_path);
+   char* file_path_end=file_path+file_path_len;
+   snprintf(file_path_end, sizeof(file_path)-file_path_len, ".ts");
+   // Calling snprintf in an 'appending' manner is just to avoid using the same buffer pointer
+   // in both source and destination. Please see SWPL-60623 for further infomation.
 
 #ifndef MEDIACODEC_PLAYER
    am_error = AM_TFile_Open(&file_handle, file_path, AM_FALSE, 0, 0);
@@ -2168,7 +2172,11 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
    }
 */
    STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
-   snprintf(file_path, sizeof(file_path), "%s.ts", file_path);
+   int file_path_len=strlen(rec_basic_params.file_path);
+   char* file_path_end=file_path+file_path_len;
+   snprintf(file_path_end, sizeof(file_path)-file_path_len, ".ts");
+   // Calling snprintf in an 'appending' manner is just to avoid using the same buffer pointer
+   // in both source and destination. Please see SWPL-60623 for further infomation.
 
 #ifndef MEDIACODEC_PLAYER
    am_error = AM_TFile_Open(&tfile, file_path, AM_FALSE, 0, 0);

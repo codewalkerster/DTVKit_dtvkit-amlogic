@@ -1020,13 +1020,17 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       rec_open_params.is_timeshift = (is_timeshift) ? DVR_TRUE : DVR_FALSE;
 
+      int location_len=strlen(rec_open_params.location);
+      char* location_end=rec_open_params.location+location_len;
       if (rec_open_params.is_timeshift == DVR_TRUE) {
-        snprintf(rec_open_params.location, DVR_MAX_LOCATION_SIZE,
-              "%s/%s", rec_open_params.location, DEFAULT_TIMESHIFT_BASENAME);
+        snprintf(location_end, DVR_MAX_LOCATION_SIZE-location_len,
+              "/%s", DEFAULT_TIMESHIFT_BASENAME);
       } else {
-        snprintf(rec_open_params.location, DVR_MAX_LOCATION_SIZE,
-              "%s/%s", rec_open_params.location, s_rec_status[rec_index].basename);
+        snprintf(location_end, DVR_MAX_LOCATION_SIZE-location_len,
+              "/%s", s_rec_status[rec_index].basename);
       }
+      // Calling snprintf in an 'appending' manner is just to avoid using the same buffer pointer
+      // in both source and destination. Please see SWPL-60623 for further infomation.
 
       REC_DBG("Starting recording in directory \"%s\" :: \"%s\"  len:%d \"%s\"", rec_open_params.location, strrchr(rec_open_params.location, '/'), strlen(strrchr(rec_open_params.location, '/')), s_rec_status[rec_index].basename);
 

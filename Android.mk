@@ -25,10 +25,6 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28&& echo OK),OK)
     DTVKIT_WITH_TSPLAYER = 1
 endif
 
-ifeq ($(DTVKIT_WITH_AML_MP_SDK), true)
-    $(info "DTVKit use aml_mp_sdk!")
-endif
-
 LOCAL_MODULE := libdtvkit_platform
 LOCAL_MODULE_TAGS := optional
 
@@ -175,6 +171,9 @@ ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     else
         LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
         LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
+
+        LOCAL_C_INCLUDES += vendor/amlogic/common/aml_mp_sdk/include
+        LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
     endif
 else
     LOCAL_SRC_FILES += hw/src/stbhwav.c
@@ -190,12 +189,6 @@ ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     LOCAL_SHARED_LIBRARIES+=liblog libswdemux
 else
     LOCAL_SHARED_LIBRARIES+=liblog
-endif
-
-ifeq ($(DTVKIT_WITH_AML_MP_SDK), true)
-    AML_MP_SHARED_LIBRARIES_29 = libaml_mp_sdk
-    AML_MP_SHARED_LIBRARIES_30 = libaml_mp_sdk.vendor
-    LOCAL_SHARED_LIBRARIES += $(AML_MP_SHARED_LIBRARIES_$(PLATFORM_SDK_VERSION))
 endif
 
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)

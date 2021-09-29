@@ -793,7 +793,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
              if (s_recplay_status[play_index].secmem_handle)
              {
                  AML_MP_CASSESSION section_handle;
-                 Aml_MP_STB_CAPVRGetPlaySection(&section_handle);
+                 STB_CAPVRGetPlaySection(&section_handle);
                  Aml_MP_CAS_DestroySecmem(section_handle, s_recplay_status[play_index].secmem_handle);
                  s_recplay_status[play_index].secmem_handle = NULL;
                  s_recplay_status[play_index].secure_buf = NULL;
@@ -1072,7 +1072,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
         if (!s_rec_status[rec_index].cas_status.is_smp)
             break;
         AML_MP_CASSESSION sec_handle;
-        Aml_MP_STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+        STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
         REC_DBG("get dvr section:[%p].", sec_handle);
 
         secmem_handle = Aml_MP_CAS_CreateSecmem(sec_handle, AML_MP_CAS_SERVICE_PVR_RECORDING, &buf, &secmem_size);
@@ -1216,7 +1216,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                  if (s_rec_status[rec_index].secmem_handle)
                  {
                      AML_MP_CASSESSION sec_handle;
-                     Aml_MP_STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+                     STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
                      REC_DBG("get dvr section:[%p].", sec_handle);
 
                      Aml_MP_CAS_DestroySecmem(sec_handle, s_rec_status[rec_index].secmem_handle);
@@ -1341,7 +1341,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
                 s_rec_status[rec_index].secure_buf);
 
             AML_MP_CASSESSION sec_handle;
-            Aml_MP_STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+            STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
             REC_DBG("get dvr section:[%p].", sec_handle);
              if (s_rec_status[rec_index].secmem_handle)
              {
@@ -2516,8 +2516,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
             if (!s_recplay_status[play_index].cas_status.is_smp)
                 break;
 
-            Aml_MP_STB_CAPVRPlayStart(&param);
-            Aml_MP_STB_CAPVRGetPlaySection(&section_handle);
+            STB_CAPVRPlayStart(&param);
+            STB_CAPVRGetPlaySection(&section_handle);
             PLAY_DBG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
             secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_PLAY, &buf, &secmem_size);
             if (!secmem_handle)

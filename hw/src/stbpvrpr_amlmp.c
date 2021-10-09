@@ -1993,7 +1993,7 @@ void STB_PVRSetPlaybackDecryptionKey(U8BIT audio_decoder, U8BIT video_decoder, B
    U8BIT *key, U8BIT *iv, U32BIT key_len)
 {
    FUNCTION_START(STB_PVRSetPlaybackDecryptionKey);
-
+   STB_SPDebugWrite("%s: not implemented...", __FUNCTION__);
    USE_UNWANTED_PARAM(audio_decoder);
    USE_UNWANTED_PARAM(video_decoder);
    USE_UNWANTED_PARAM(state);

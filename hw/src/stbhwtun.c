@@ -898,6 +898,25 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
                 else
                     ssi = 100;
             }
+            else if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_3_4)
+            {
+                if (strength <= -95)
+                    ssi = 0;
+                else if (strength <= -85)
+                    ssi = 3 * (95 + strength) / 10;
+                else if (strength <= -75)
+                    ssi = 3 + 11 * (85 + strength) / 10;
+                else if (strength <= -65)
+                    ssi = 14 + 40 * (75 + strength) / 10;
+                else if (strength <= -55)
+                    ssi = 54 + 35 * (65 + strength) / 10;
+                else if (strength <= -45)
+                    ssi = 89 + 9 * (55 + strength) / 10;
+                else if (strength <= -40)
+                    ssi = 98 + 2 * (45 + strength) / 5;
+                else
+                    ssi = 100;
+            }
             else
             {
                 if (strength <= -95)

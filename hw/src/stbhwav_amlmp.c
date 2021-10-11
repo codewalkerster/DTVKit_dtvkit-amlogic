@@ -240,6 +240,12 @@ typedef struct
    E_STB_AV_VIDEO_FORMAT format;
 } S_VIDEO_MODE;
 
+ typedef enum {
+    AMP_TSPLAYER_KEY_SPDIF_MODE_NONE  = 0,
+    AMP_TSPLAYER_KEY_SPDIF_MODE_NEVER = 1,
+    AMP_TSPLAYER_KEY_SPDIF_MODE_ONCE  = 2,
+} amp_spdif_mode;
+
 static S_VIDEO_MODE video_modes[] =
 {
    {HW_AM_VOUT_FORMAT_576I, VIDEO_FORMAT_576IHD},
@@ -2854,8 +2860,49 @@ U8BIT STB_AVGetVideoScanType(U8BIT path)
  */
 void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
 {
+
+   //copy freely (use case 2-9):      CP=1, L=0
+   //copy no more (use case 10-17): CP=0, L=1
+   //copy once (use case 18-25):  CP=0, L=0
+   //copy never (use case 26-33):     CP=0, L=1
+   //copy freely (use case 34-41):    CP=1, L=0
+
+
    FUNCTION_START(STB_AVSetCopyProtection);
-   USE_UNWANTED_PARAM(copy_protection);
+   int ret;
+   AML_MP_PLAYER player_handle;
+   amp_spdif_mode type = AMP_TSPLAYER_KEY_SPDIF_MODE_NONE;
+   U8BIT path = 0;
+
+   ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
+   if (ret < 0)
+   {
+       AUD_DBG("Cannot get player handle audio[%d]", path);
+       return;
+   }
+   AUD_DBG("set spdf protection: scms:[0x%x ] scms_set:[0x%x ] ", copy_protection->scms, copy_protection->scms_set);
+
+   if(copy_protection->scms_set== TRUE)
+   {
+           if(copy_protection->scms == 2)
+           {
+                type = AMP_TSPLAYER_KEY_SPDIF_MODE_NONE;
+           }
+           else if(copy_protection->scms == 0)
+           {
+                type = AMP_TSPLAYER_KEY_SPDIF_MODE_ONCE;
+           }
+           else if(copy_protection->scms == 1)
+           {
+                type = AMP_TSPLAYER_KEY_SPDIF_MODE_NEVER;
+           }
+
+           ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SPDIF_PROTECTION, (void*)&type);
+           if (ret < 0)
+           {
+               AUD_DBG("Set audio spdf protection failed, err:%d", ret);
+           }
+    }
    FUNCTION_FINISH(STB_AVSetCopyProtection);
 }
 
@@ -3189,6 +3236,12 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_ERROR_FRAME_COUNT, NULL, 0);
           break;
       }
+        //case AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT:
+        //{
+           // AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT  [%d]\n", status->decoder);
+            //STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_UNSUPPORT, &status->decoder, sizeof(U8BIT));
+            //break;
+        //}
       default:
           break;
   }

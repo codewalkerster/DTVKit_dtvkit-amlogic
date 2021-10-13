@@ -424,9 +424,10 @@ void STB_AVSetVideoCallback(U8BIT path, void (*callback)(S_STB_AV_VIDEO_INFO *, 
       //return;
    //}
    VID_DBG("av_path(%u) res set  user_data  [%p]", av_path, user_data);
-
-   av_paths_status[av_path].callback = callback;
-   av_paths_status[av_path].user_data = user_data;
+    if (av_path < num_paths) {
+        av_paths_status[av_path].callback = callback;
+        av_paths_status[av_path].user_data = user_data;
+    }
 /*
    if ((callback != NULL) && (av_paths_status[av_path].display_info.screen_width != 0) && (av_paths_status[av_path].display_info.screen_height != 0))
    {
@@ -724,7 +725,7 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
    ret = AV_SetAudioVolume(player_handle,
       !STB_PVRIsPlayStopped(path, INVALID_RES_ID),
       vol,
-      av_paths_status[av_path].mute);
+      (vol == 0) ? TRUE : FALSE);
 
    FUNCTION_FINISH(STB_AVSetAudioVolume);
 }
@@ -744,7 +745,7 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
    if (ret < 0)
    {
        AUD_DBG("Cannot get player handle audio[%d]", path);
-       return av_paths_status[path].volume;
+       return (path < num_paths) ? av_paths_status[path].volume : 0;
    }
    float vol = 0;
 
@@ -2916,6 +2917,11 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
     U8BIT av_path;
    FUNCTION_START(STB_AVSetDecodingMode);
    av_path = STB_AVGetPath(video_decoder, audio_decoder);
+
+    if (av_path == INVALID_RES_ID) {
+        VID_DBG("get av_path error, %d(%d:%d)", av_path, video_decoder, audio_decoder);
+        return;
+    }
       AV_DBG("[decoding mode]: %d(a:%d v:%d) = (%d -> %d)",
          av_path,
          audio_decoder,
@@ -3162,7 +3168,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
                 VID_DBG(" Unhandled video aspect ratio default is 16:9");
                 info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
                 info.video_aspect_ratio = ASPECT_RATIO_16_9;
-	     break;
+         break;
           }
           info.flags |= VIDEO_INFO_DECODER_STATUS;
           info.status = DECODER_STATUS_VIDEO;
@@ -3288,6 +3294,11 @@ int AV_CreateTsPlayer(U8BIT path,
     Aml_MP_PlayerCreateParams parm;
     AML_MP_PLAYER player_handle;
 
+    if (path >= num_paths) {
+        AV_DBG("Invalid path: %d", path);
+        return AML_MP_ERROR;
+    }
+
     memset(&parm, 0, sizeof(parm));
     parm.channelId = path;
     parm.demuxId = (Aml_MP_DemuxId)dmx_dev_id;
@@ -3351,6 +3362,12 @@ int AV_CreateTsPlayer(U8BIT path,
 int AV_ReleaseTsPlayer(U8BIT path)
 {
     int ret;
+
+    if (path >= num_paths) {
+        AV_DBG("Invalid path: %d", path);
+        return AML_MP_ERROR;
+    }
+
     pthread_rwlock_wrlock(&av_paths_status[path].lock);
     AV_DBG("Will Release Ts player");
     if (IS_INVALID_PLAYER_HANDLE(path))
@@ -3395,14 +3412,19 @@ int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PL
        U8BIT av_path = INVALID_RES_ID;
        av_path = STB_AVGetPath(video_decoder, audio_decoder);
 
+        if (av_path == INVALID_RES_ID) {
+            VID_DBG("get av_path error, %d(%d:%d)", av_path, video_decoder, audio_decoder);
+            return -1;
+        }
+
        if (av_path != INVALID_RES_ID && !IS_INVALID_PLAYER_HANDLE(av_path)) {
            ret = 0;
        }
-       else if (recreat_hdl)
+       else if (recreat_hdl && av_path != INVALID_RES_ID)
        {
            ret = AV_CreateTsPlayer(av_path, AML_MP_INPUT_SOURCE_TS_DEMOD, av_paths_status[av_path].demux, 0);
 
-           if (IS_CACHED(av_paths_status[av_path].decoding_mode))
+           if (ret != AML_MP_OK && IS_CACHED(av_paths_status[av_path].decoding_mode))
            {
             Aml_MP_PlayerWorkMode work_mode = AML_MP_PLAYER_MODE_CACHING_ONLY;
               int result = Aml_MP_Player_SetParameter(av_paths_status[av_path].player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void*)(&work_mode));
@@ -3415,7 +3437,7 @@ int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PL
            }
        }
         pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
-       *play_hdle = av_paths_status[av_path].player_handle;
+        *play_hdle = av_paths_status[av_path].player_handle;
         pthread_rwlock_unlock(&av_paths_status[av_path].lock);
     }
     else

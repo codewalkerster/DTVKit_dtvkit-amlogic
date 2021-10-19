@@ -1068,22 +1068,51 @@ static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
             if (STB_TuneGetSystemType(path) == TUNE_SYSTEM_TYPE_DVBT2 &&
                 STB_TuneGetActualTerrConstellation(path) == TUNE_TCONST_QAM256)
             {
-                if (snr <= 160)
-                    sqi = 0;
-                else if (snr <= 180)
-                    sqi = 24 * (snr - 160) / 20;
-                else if (snr <= 190)
-                    sqi = 24 + 20 * (snr - 180) / 10;
-                else if (snr <= 200)
-                    sqi = 44 + 16 * (snr - 190) / 10;
-                else if (snr <= 210)
-                    sqi = 60 + 20 * (snr - 200) / 10;
-                else if (snr <= 220)
-                    sqi = 80 + 15 * (snr - 210) / 10;
-                else if (snr <= 230)
-                    sqi = 95 + 5 * (snr - 220) / 10;
-                else
-                    sqi = 100;
+                if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_3_5)
+                {
+                    if (snr <= 160)
+                        sqi = 0;
+                    else if (snr <= 180)
+                        sqi = 24 * (snr - 160) / 20;
+                    else if (snr <= 190)
+                        sqi = 24 + 20 * (snr - 180) / 10;
+                    else if (snr <= 200)
+                        sqi = 44 + 16 * (snr - 190) / 10;
+                    else if (snr <= 210)
+                        sqi = 60 + 20 * (snr - 200) / 10;
+                    else if (snr <= 220)
+                        sqi = 80 + 15 * (snr - 210) / 10;
+                    else if (snr <= 230)
+                        sqi = 95 + 5 * (snr - 220) / 10;
+                    else
+                        sqi = 100;
+                }
+                else if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_2_3)
+                {
+                    if (snr <= 170)
+                        sqi = 0;
+                    else if (snr <= 180)
+                        sqi = 3 * (snr - 170) / 10;
+                    else if (snr <= 230)
+                        sqi = 3 + 85 * (snr - 180) / 50;
+                    else if (snr <= 240)
+                        sqi = 88 + 12 * (snr - 230) / 10;
+                    else
+                        sqi = 100;
+                }
+                else//3/4,as default
+                {
+                    if (snr <= 190)
+                        sqi = 0;
+                    else if (snr <= 200)
+                        sqi = 1 * (snr - 190) / 10;
+                    else if (snr <= 250)
+                        sqi = 1 + 85 * (snr - 200) / 50;
+                    else if (snr <= 260)
+                        sqi = 85 + 15 * (snr - 250) / 10;
+                    else
+                        sqi = 100;
+                }
             }
             else
             {

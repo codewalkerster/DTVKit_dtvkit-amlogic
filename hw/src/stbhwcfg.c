@@ -437,6 +437,24 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                 cfg->capture_adc.isdbt_enabled ? "Yes" : "No",
                 strlen(cfg->capture_adc.file_path) > 0 ? cfg->capture_adc.file_path : "(empty)");
     }
+    else if (!strcmp(name, "epg_config")) {
+        cfg->epg_cfg.is_not_match_orignetid = 0;
+        cfg->epg_cfg.is_not_match_tsid = 0;
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            CFG_DBG("an [%s] av[%s]", an, av);
+            if (!strcmp(an, "not_match_orig_net_id")) {
+               cfg->epg_cfg.is_not_match_orignetid = atoi(av);
+               CFG_DBG("cfg->epg_cfg.is_not_match_orignetid[%d]", cfg->epg_cfg.is_not_match_orignetid);
+            } else if (!strcmp(an, "not_match_ts_id")) {
+               cfg->epg_cfg.is_not_match_tsid = atoi(av);
+               CFG_DBG("cfg->epg_cfg.is_not_match_tsid[%d]", cfg->epg_cfg.is_not_match_tsid);
+            }
+            att += 2;
+        }
+    }
 }
 
 static void
@@ -489,6 +507,8 @@ void STB_CfgInitialise(void)
     aml_hw_cfg.vdec_num     = 0;
     aml_hw_cfg.adec_num     = 0;
     aml_hw_cfg.demux        = 0;
+    aml_hw_cfg.epg_cfg.is_not_match_orignetid = 0;
+    aml_hw_cfg.epg_cfg.is_not_match_tsid = 0;
 
     while (1) {
         char    buf[CFG_PARSER_BUF_SIZE];
@@ -520,6 +540,9 @@ void STB_CfgInitialise(void)
     CFG_DBG("srate_auto:%d srate_auto_value:%d\n",
                                 aml_hw_cfg.demo_cap.srate_auto,
                                 aml_hw_cfg.demo_cap.srate_auto_value);
+    CFG_DBG("get epg config: is_not_match_orignetid:%d is_not_match_tsid:%d\n",
+                                aml_hw_cfg.epg_cfg.is_not_match_orignetid,
+                                aml_hw_cfg.epg_cfg.is_not_match_tsid);
 
     for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
         stb_tuner_cfg *tun = &aml_hw_cfg.tuners[i];
@@ -535,6 +558,16 @@ void STB_CfgInitialise(void)
 
     XML_ParserFree(parser);
     fclose(fp);
+}
+
+int STB_EpgGetIsNotMatchOrigNetId()
+{
+	return aml_hw_cfg.epg_cfg.is_not_match_orignetid;
+}
+
+int STB_EpgGetIsNotMatchTsId()
+{
+	return aml_hw_cfg.epg_cfg.is_not_match_tsid;
 }
 
 /**
@@ -554,7 +587,7 @@ int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source)
 }
 
 /**
- * @brief   get ca dev id value 
+ * @brief   get ca dev id value
  * @param   slot is used for which device is select
  */
 int STB_Get_Ca_devid(int slot)

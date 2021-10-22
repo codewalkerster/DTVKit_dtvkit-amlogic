@@ -1739,18 +1739,31 @@ void STB_PVRSaveFrame(U8BIT audio_decoder, U8BIT video_decoder)
 BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
 {
    BOOLEAN ret = FALSE;
-   U32BIT rec_size_kb;
+   uint32_t n_ids = 0;
+   uint64_t *p_ids;
+   int error;
+   char file_path[AML_MP_MAX_PATH_SIZE];
+   Aml_MP_DVRSegmentInfo info;
 
    FUNCTION_START(STB_PVRIsValidRecording);
 
    REC_DBG("disk 0x%04x, name %s", disk_id, basename);
 
-   ret = STB_PVRGetRecordingSize(disk_id, basename, &rec_size_kb);
-   if (ret != TRUE)
+   STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+
+   error = Aml_MP_DVRRecorder_GetSegmentList(file_path, &n_ids, &p_ids);
+   if (!error && n_ids)
    {
-       if (rec_size_kb == 0)
-           ret = FALSE;
+      memset(&info, 0, sizeof(info));
+      error = Aml_MP_DVRRecorder_GetSegmentInfo(file_path, p_ids[0], &info);
+      if (!error && info.size)
+      {
+         ret = TRUE;
+      }
    }
+
+   REC_DBG("disk 0x%04x, name %s, segs/seg[0] %d/%zd, valid %d",
+      disk_id, basename, n_ids, info.size, ret);
 
    FUNCTION_FINISH(STB_PVRIsValidRecording);
 

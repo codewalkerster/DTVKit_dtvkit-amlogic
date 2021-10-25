@@ -826,7 +826,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
             }
             else
             {
-               ClearKey(path, DESC_TRACK_AUDIO);
+               // ClearKey(path, DESC_TRACK_AUDIO);
             }
          }
       }
@@ -842,7 +842,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
             }
             else
             {
-               ClearKey(path, DESC_TRACK_VIDEO);
+               // ClearKey(path, DESC_TRACK_VIDEO);
             }
          }
       }
@@ -1777,6 +1777,8 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
       }
    }
+   DMX_DBG("demux reset now");
+   dvr_file_echo("/sys/class/stb/demux_reset", "1");
    for (i = 0; i < num_paths; i++) {
       //change ts_input_idx
       E_STB_DMX_DEMUX_SOURCE source;

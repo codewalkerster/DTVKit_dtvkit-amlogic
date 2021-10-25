@@ -85,6 +85,11 @@ static S_DISK_INFO* disk_list;
 static void* disk_mutex;
 static U8BIT next_disk_id = 0;
 
+static void *fd_event_queue = NULL;
+static void *fd_event_task = NULL;
+
+#define FD_NO_EVENT_TIMEOUT 1500 // 1.5s
+
 
 /*---local function prototypes for this file---------------------------------*/
 static void DiskMonitorTask(void *param);
@@ -95,6 +100,7 @@ static void RemoveDisk(S_DISK_INFO* del_disk);
 static S_DISK_INFO* FindDisk(U16BIT disk_id);
 static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load);
 
+static void FdWriteTask(void *param);
 /*---global function definitions----------------------------------------------*/
 
 /**
@@ -116,9 +122,33 @@ void STB_DSKInitialise(void)
             DISK_ERR("Failed to create disk monitor background task");
          }
       }
+
+      fd_event_queue = (void *)STB_OSCreateQueue(sizeof(FILE *), 1000);
+      fd_event_task = STB_OSCreateTask(FdWriteTask, NULL, 4096, 7, (U8BIT *)"FdWriteTask");
    }
 
    FUNCTION_FINISH(STB_DSKInitialise);
+}
+
+static void FdWriteTask(void *param)
+{
+    FILE *file;
+    while (1)
+    {
+        if (STB_OSReadQueue(fd_event_queue, (void *)&file, sizeof(FILE *), FD_NO_EVENT_TIMEOUT))
+        {
+            DISK_ERR("read got file : %p ", file);
+            fflush(file);
+            fsync(fileno(file));
+            if (fclose(file)) {
+               DISK_ERR("fclose file : %p error", file);
+            }
+            DISK_ERR("read got file : %p close end", file);
+        } else {
+           DISK_ERR("no file is read");
+           sleep(1);
+        }
+    }
 }
 
 /**
@@ -578,13 +608,14 @@ void STB_DSKCloseFile(void *file)
 
    if (file != NULL)
    {
-      fp = (FILE *)file;
-      fflush(fp);
-      fsync(fileno(fp));
+      DISK_DBG(" close file : 0x%x push file * to queue", *(int*)(file));
 
-      fclose(fp);
+      STB_OSWriteQueue(fd_event_queue, (void *)&file, sizeof(FILE *), TIMEOUT_NOW);
 
-      DISK_DBG("Closed %p", file);
+      //fp = (FILE *)file;
+      //fflush(fp);
+      //fsync(fileno(fp));
+      //fclose(fp);
    }
 
    FUNCTION_FINISH(STB_DSKCloseFile);
@@ -609,6 +640,7 @@ U32BIT STB_DSKReadFile(void *file, U8BIT *data, U32BIT size)
    }
    else
    {
+      DISK_DBG("not Open file : %p", file);
       num_bytes = 0;
    }
 

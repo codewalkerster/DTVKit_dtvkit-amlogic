@@ -276,7 +276,8 @@ BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
 
    FUNCTION_START(STB_IPGetDnsServerIPAddress);
    U8BIT *pointer;
-   snprintf(dns_prop_name, sizeof(dns_prop_name), "net.dns%d", 1);
+   //snprintf(dns_prop_name, sizeof(dns_prop_name), "net.dns%d", 1);
+   snprintf(dns_prop_name, sizeof(dns_prop_name), "vendor.tv.dtv.net.dns%d", 1);
    property_get(dns_prop_name, dns_buff, "");
    dns = inet_addr(dns_buff);
    DBGPRINT("DNS: %s %d", dns_buff, dns);
@@ -285,6 +286,8 @@ BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
    dns_addr[1] = (dns >> 8) & 0xFF;
    dns_addr[2] = (dns >> 16) & 0xFF;
    dns_addr[3] = dns >> 24;
+
+   DBGPRINT("dns_addr:%d.%d.%d.%d", dns_addr[0], dns_addr[1], dns_addr[2], dns_addr[3]);
    FUNCTION_FINISH(STB_IPGetDnsServerIPAddress);
 
    return TRUE;

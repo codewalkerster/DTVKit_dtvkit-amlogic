@@ -1145,30 +1145,53 @@ static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
             break;
 
         case TUNE_SIGNAL_QPSK:
-            if (snr <= 70)
-                sqi = 0;
-            else if (snr <= 80)
-                sqi = 13 * (snr - 70) / 10;
-            else if (snr <= 90)
-                sqi = 13 + 8 * (snr - 80) / 10;
-            else if (snr <= 100)
-                sqi = 21 + 6 * (snr - 90) / 10;
-            else if (snr <= 110)
-                sqi = 27 + 16 * (snr - 100) / 10;
-            else if (snr <= 120)
-                sqi = 43 + 17 * (snr - 110) / 10;
-            else if (snr <= 130)
-                sqi = 60 + 17 * (snr - 120) / 10;
-            else if (snr <= 140)
-                sqi = 77 + 10 * (snr - 130) / 10;
-            else if (snr <= 150)
-                sqi = 87 + 9 * (snr - 140) / 10;
-            else if (snr <= 160)
-                sqi = 96 + 4 * (snr - 150) / 10;
+            if (STB_TuneGetSystemType(path) == TUNE_SYSTEM_TYPE_DVBS2)
+            {
+                if (snr <= 70)
+                    sqi = 0;
+                else if (snr <= 80)
+                    sqi = 13 * (snr - 70) / 10;
+                else if (snr <= 90)
+                    sqi = 13 + 8 * (snr - 80) / 10;
+                else if (snr <= 100)
+                    sqi = 21 + 6 * (snr - 90) / 10;
+                else if (snr <= 110)
+                    sqi = 27 + 16 * (snr - 100) / 10;
+                else if (snr <= 120)
+                    sqi = 43 + 17 * (snr - 110) / 10;
+                else if (snr <= 130)
+                    sqi = 60 + 17 * (snr - 120) / 10;
+                else if (snr <= 140)
+                    sqi = 77 + 10 * (snr - 130) / 10;
+                else if (snr <= 150)
+                    sqi = 87 + 9 * (snr - 140) / 10;
+                else if (snr <= 160)
+                    sqi = 96 + 4 * (snr - 150) / 10;
+                else
+                    sqi = 100;
+            }
             else
-                sqi = 100;
+            {
+                if (snr <= 55)
+                    sqi = 0;
+                else if (snr <= 60)
+                    sqi = 15 * (snr - 55) / 5;
+                else if (snr <= 70)
+                    sqi = 15 + 10 * (snr - 60) / 10;
+                else if (snr <= 80)
+                    sqi = 25 + 15 * (snr - 70) / 10;
+                else if (snr <= 90)
+                    sqi = 40 + 25 * (snr - 80) / 10;
+                else if (snr <= 100)
+                    sqi = 65 + 10 * (snr - 90) / 10;
+                else if (snr <= 110)
+                    sqi = 75 + 15 * (snr - 100) / 10;
+                else if (snr <= 120)
+                    sqi = 90 + 10 * (snr - 110) / 10;
+                else
+                    sqi = 100;
+            }
             break;
-
         default:
             break;
     }

@@ -227,6 +227,19 @@ typedef struct
    U32BIT sync_id;
 } S_VIDEO_DECODER_PRIV_DATA;
 
+#ifdef RDK_COMPILE
+typedef struct
+{
+   U16BIT  x;
+   U16BIT  y;
+   U16BIT  w;
+   U16BIT  h;
+} S_WINDOW_RECT;
+
+// This array can be regarded as a "path" - "video window rectangle" map
+static S_WINDOW_RECT window_rect_array[32];
+#endif
+
 /*---local (static) variable declarations for this file----------------------*/
 static AV_PATH_STATUS *av_paths_status = NULL;
 static void** video_surface = NULL;
@@ -1717,6 +1730,31 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
 
    return success;
 }
+
+#ifdef RDK_COMPILE
+/**
+ * @brief   Set video window for specific video decoder
+ * @param   path video path
+ * @param   x The coordinate of the left side of the window
+ * @param   y The coordinate of the top of the window
+ * @param   w Window width
+ * @param   h Window height
+ * @return  TRUE if set video window correctly, FALSE otherwise
+ */
+BOOLEAN STB_AVStoreVideoWindow(U8BIT path, U16BIT x, U16BIT y, U16BIT w, U16BIT h)
+{
+   BOOLEAN success = TRUE;
+   FUNCTION_START(STB_AVSetVideoWindow);
+   window_rect_array[path].x=x;
+   window_rect_array[path].y=y;
+   window_rect_array[path].w=w;
+   window_rect_array[path].h=h;
+   VID_DBG("store rect:(%d,%d,%d,%d) for path:%d",x,y,w,h,path);
+   FUNCTION_FINISH(STB_AVSetVideoWindow);
+
+   return success;
+}
+#endif
 
 /**
  * @brief   Gets the video surface  with the given video decoder path
@@ -3547,6 +3585,26 @@ int AV_CreateTsPlayer(U8BIT path,
       Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
       ret = Aml_MP_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);
       AV_DBG("Create Aml MP player success. path=%d player_handle[%p]:0x%zx dxm_id:%d", path, player_handle, numb, dmx_dev_id);
+
+#ifdef RDK_COMPILE
+      if (video_surface[path] != NULL) {
+          VID_DBG("set AML MP surface(tunnelid): %d",*((int*)video_surface[path]));
+          Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_VIDEO_TUNNEL_ID, video_surface[path]);
+      } else {
+          VID_DBG("Cannot set surface to AML MP, surface(tunnelid) ptr is NULL.");
+      }
+
+      if (window_rect_array[path].w != 0) {
+          int32_t x = window_rect_array[path].x;
+          int32_t y = window_rect_array[path].y;
+          int32_t w = window_rect_array[path].w;
+          int32_t h = window_rect_array[path].h;
+          AV_DBG("SetVideoWindow hdl:%d (%d,%d,%d,%d)", player_handle,x,y,w,h);
+          Aml_MP_Player_SetVideoWindow(player_handle,x,y,w,h);
+      } else {
+          VID_DBG("Cannot set window rect to AML MP, window width is 0.");
+      }
+#endif
    }
    else
    {

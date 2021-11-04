@@ -222,6 +222,8 @@ static void* fend_blindscan_thread(void *arg);
 static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
+static BOOLEAN STB_TuneSetTone(int frontend_fd, BOOLEAN use_22khz);
+
 
 
 /*---global function definitions---------------------------------------------*/
@@ -1858,6 +1860,8 @@ void STB_TuneSet22kState(U8BIT path, BOOLEAN state)
         }
     }
 
+    STB_TuneSetTone(tuner_status[path].frontend_fd, tuner_status[path].u.sat.use_22khz);
+
     FUNCTION_FINISH(STB_TuneSet22kState);
 }
 
@@ -2464,6 +2468,8 @@ static BOOLEAN STB_TuneSetTone(int frontend_fd, BOOLEAN use_22khz)
 
     if (ioctl(frontend_fd, FE_SET_TONE, tone) >= 0)
         ret = TRUE;
+
+    TUN_DBG( "[%s] frontend_fd:%d, use_22khz:%d, ret:%d \n", __FUNCTION__, frontend_fd, use_22khz, ret);
 
     return ret;
 }

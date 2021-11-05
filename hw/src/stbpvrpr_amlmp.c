@@ -2362,7 +2362,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       PLAY_DBG("Failed to start pvr playback, no a/v setting");
       return FALSE;
    }
-   PLAY_DBG("start update pvr playback,reset [%d]", reset);
+   PLAY_DBG("start update pvr playback,reset [%d][%d][0x%x]", reset, s_recplay_status[play_index].has_video, s_recplay_status[play_index].video_pid);
    memset(&play_pids, 0, sizeof(play_pids));
 
    play_pids.streams[AML_MP_DVR_VIDEO_INDEX].type = AML_MP_STREAM_TYPE_VIDEO;
@@ -2484,7 +2484,10 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
             if (STB_CADescramblerRequired(&ca_id, 1))
             {
-               play_params.blockSize = 188*1024;
+                     if (s_recplay_status[play_index].has_video)
+			play_params.blockSize = 188 * 1024;
+		      else
+			 play_params.blockSize = 188 * 6;
                play_params.drmMode = AML_MP_INPUT_STREAM_NORMAL;
             }
          }
@@ -2554,6 +2557,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
         } while (0);
 #endif
+
 
     Aml_MP_DVRPlayerCreateParams createParams;
     int  vendorId = DVR_PLAYBACK_VENDOR_AML;

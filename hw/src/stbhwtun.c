@@ -2178,79 +2178,22 @@ E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path)
  */
 void STB_TuneGetSupportedSystemType(U8BIT path, U8BIT *support_sys)
 {
-#if 0  //get supported system type from ioctl
-    U32BIT type = 0;
-    U32BIT len = 0, i = 0;
-    struct dtv_property cmd;
-    struct dtv_properties props;
-    memset(&cmd, 0, sizeof(struct dtv_property));
-
+//get supported system type from /etc/tvconfig/dtvkit/config.xml
     if (support_sys == NULL)
     {
        TUN_ERR("%u: support_sys is null!", path);
        return;
     }
 
-    for (i = 0; i < TUNE_SYSTEM_TYPE_END; i++)
-    {
-       support_sys[i] = FALSE;
-    }
-
-    cmd.cmd = DTV_ENUM_DELSYS;
-    props.num = 1;
-    props.props = &cmd;
-
-    if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
-    {
-        len = cmd.u.buffer.len;
-        TUN_DBG("%u: len=%lu", path, len);
-        for (i = 0; i < len; i++)
-        {
-            type = cmd.u.buffer.data[i];
-            TUN_DBG("%u: type=%lu", path, type);
-            switch (type)
-            {
-               case SYS_DVBT:
-                   support_sys[TUNE_SYSTEM_TYPE_DVBT] = TRUE;
-                   break;
-
-               case SYS_DVBT2:
-                   support_sys[TUNE_SYSTEM_TYPE_DVBT2] = TRUE;
-                   break;
-
-               case SYS_DVBS:
-                   support_sys[TUNE_SYSTEM_TYPE_DVBS] = TRUE;
-                   break;
-
-               case SYS_DVBS2:
-                   support_sys[TUNE_SYSTEM_TYPE_DVBS2] = TRUE;
-                   break;
-
-               case SYS_DVBC_ANNEX_A:
-               case SYS_DVBC_ANNEX_B:
-               case SYS_DVBC_ANNEX_C:
-                   support_sys[TUNE_SYSTEM_TYPE_DVBC] = TRUE;
-                   break;
-
-               default:
-                   break;
-           }
-        }
-    }
-    else
-    {
-        TUN_ERR("%u: Failed to read system type, errno %d", path, errno);
-    }
-#else //get supported system type from /etc/tvconfig/dtvkit/config.xml
     if (aml_hw_cfg.tuner_num > path)
     {
        TUN_DBG("%u: signal_types=%lu", path, aml_hw_cfg.tuners[path].signal_types);
-       if (aml_hw_cfg.tuners[path].signal_types | TUNE_SIGNAL_QAM)
+       if (aml_hw_cfg.tuners[path].signal_types & TUNE_SIGNAL_QAM)
        {
           support_sys[TUNE_SYSTEM_TYPE_DVBC] = TRUE;
        }
 
-       if (aml_hw_cfg.tuners[path].signal_types | TUNE_SIGNAL_COFDM)
+       if (aml_hw_cfg.tuners[path].signal_types & TUNE_SIGNAL_COFDM)
        {
           support_sys[TUNE_SYSTEM_TYPE_DVBT] = TRUE;
           if (aml_hw_cfg.tuners[path].support_dvbt2)
@@ -2259,7 +2202,7 @@ void STB_TuneGetSupportedSystemType(U8BIT path, U8BIT *support_sys)
           }
        }
 
-       if (aml_hw_cfg.tuners[path].signal_types | TUNE_SIGNAL_QPSK)
+       if (aml_hw_cfg.tuners[path].signal_types & TUNE_SIGNAL_QPSK)
        {
           support_sys[TUNE_SYSTEM_TYPE_DVBS] = TRUE;
           if (aml_hw_cfg.tuners[path].support_dvbs2)
@@ -2268,9 +2211,6 @@ void STB_TuneGetSupportedSystemType(U8BIT path, U8BIT *support_sys)
           }
        }
     }
-#endif
-
-    return;
 }
 
 BOOLEAN STB_TuneOpen(U8BIT path)

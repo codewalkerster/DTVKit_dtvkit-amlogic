@@ -875,11 +875,6 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
 {
     int ssi = 0;
 
-    if (!STB_TuneIsTvPlatform())
-    {
-        return (U8BIT)strength;
-    }
-
     switch (STB_TuneGetSignalType(path))
     {
         case TUNE_SIGNAL_COFDM:
@@ -1058,11 +1053,6 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
 static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
 {
     int sqi = 0;
-
-    if (!STB_TuneIsTvPlatform())
-    {
-        return (U8BIT)snr;
-    }
 
     switch (STB_TuneGetSignalType(path))
     {

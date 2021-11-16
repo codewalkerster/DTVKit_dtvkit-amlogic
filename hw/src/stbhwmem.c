@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
 
 
 /* third party header files */
@@ -407,9 +408,11 @@ BOOLEAN STB_MEMWriteSecureVariable(U8BIT key, void *value, U32BIT len)
  */
 const void* STB_MEMReadSecureConstant(U8BIT key, U32BIT *len)
 {
+   char buf[4096];
+   char *p1, *p2;
+   uint64_t key_v = 0;
+   static uint8_t des_key[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
    FUNCTION_START(STB_MEMReadSecureConstant);
-   USE_UNWANTED_PARAM(key);
-
    /*If the private global encrypt procedure for pvr data is on,
      return a fake key to make the encrypt procedure correct in DVBCore.*/
 
@@ -419,9 +422,39 @@ const void* STB_MEMReadSecureConstant(U8BIT key, U32BIT *len)
      fix me later.*/
    int force_fake = 1;
 
-   if (force_fake || aml_hw_cfg.pvr.encrypt) {
+   if ((key == SECURE_NVM_DEFAULT_ENCRYPTION_KEY
+               || key == SECURE_NVM_DEFAULT_ENC_INIT_VECTOR)
+               && aml_hw_cfg.pvr.encrypt) {
+      int readlen;
+      int fd = open("/proc/cpuinfo", O_RDONLY);
+      *len = sizeof(des_key);
+      if (fd == -1) {
+	return &des_key[0];
+      }
+      readlen = read(fd, buf, sizeof(buf));
+      close(fd);
+      if ((readlen != 0) && (p1 = strstr(buf, "Serial"))) {
+         if ((p2 = strstr(p1, ": "))) {
+            char *pc = p2 + 2;
+	    while (1) {
+               int r;
+	       uint8_t n;
+	       r = sscanf(pc, "%02hhx", &n);
+	       if (r != 1)
+		  break;
+	       key_v = ((key_v << 5) | n);
+	       pc += 2;
+	    }
+	    *(uint64_t *)des_key = key_v;
+	    return &des_key[0];
+	 }
+      } else {
+	 return &des_key[0];
+      }
+
+   } else if (force_fake) {
       *len = 64;
-      return "012345678abcdef";
+      return "0123456789abcdef";
    }
 
    FUNCTION_FINISH(STB_MEMReadSecureConstant);

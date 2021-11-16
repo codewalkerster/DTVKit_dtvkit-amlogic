@@ -807,3 +807,12 @@ S_CAPTURE_ADC_CFG STB_GetCaptureADCCfg()
 {
     return aml_hw_cfg.capture_adc;
 }
+
+/**
+ * @brief   get pvr encrypt enable status
+ * @return  TRUE if yes
+ */
+BOOLEAN STB_Get_PVR_Encrypt()
+{
+   return aml_hw_cfg.pvr.encrypt == 1 ? 1 : 0;
+}

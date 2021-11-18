@@ -3,6 +3,14 @@ include $(CLEAR_VARS)
 
 include $(LOCAL_PATH)/Config.mk
 
+#LOCAL_SANITIZE := address
+ifeq ($(DTVKIT_AMLOGIC_SANITIZE), true)
+    LOCAL_SANITIZE := address
+    $(warning "DTVKIT_AMLOGIC_SANITIZE Opened")
+else
+    $(warning "DTVKIT_AMLOGIC_SANITIZE Closed")
+endif
+
 ifeq ($(TARGET_ARCH),"arm")
     DTVKIT_USE_STDINT = 0
 else

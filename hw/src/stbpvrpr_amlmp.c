@@ -1828,12 +1828,12 @@ BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
           KPI requirement.
         */
         //STB_DSKFullPathname(disk_id, DEFAULT_TIMESHIFT_BASENAME, file_path, sizeof(file_path));
-        //error = dvr_segment_del_by_location(file_path);
+        //error = dvr_wrapper_segment_del_by_location(file_path);
     }
     else
     {
         STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
-        error = dvr_segment_del_by_location(file_path);
+        error = dvr_wrapper_segment_del_by_location(file_path);
     }
     REC_DBG("delete seg del end");
    if (!error)
@@ -1856,12 +1856,8 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
    BOOLEAN retval;
 
    int error;
-   uint32_t n_ids;
-   uint64_t *p_ids;
-   Aml_MP_DVRSegmentInfo info;
-   uint64_t size_b;
-
    char file_path[AML_MP_MAX_PATH_SIZE];
+   DVR_WrapperInfo_t info;
 
    FUNCTION_START(STB_PVRGetRecordingInfo);
 
@@ -1870,27 +1866,12 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
 
    STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
 
-   size_b = 0;
    memset(&info, 0, sizeof(info));
-   error = Aml_MP_DVRRecorder_GetSegmentList(file_path, &n_ids, &p_ids);
-   if (!error) {
-      int i;
-      for (i = 0; i < n_ids; i++) {
-         error = Aml_MP_DVRRecorder_GetSegmentInfo(file_path, p_ids[i], &info);
-         if (!error) {
-            size_b += info.size;
-         } else {
-            REC_DBG("recording: %s:%d getinfo fail.", file_path, p_ids[i]);
-            break;
-         }
-      }
-      free(p_ids);
-   }
-
+   error = dvr_wrapper_segment_get_info_by_location(file_path, &info);
    if (!error)
    {
       retval = TRUE;
-      *rec_size_kb = size_b / 1024;
+      *rec_size_kb = info.size / 1024;
    }
    else
    {

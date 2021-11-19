@@ -2810,34 +2810,52 @@ void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
    amp_spdif_mode type = AMP_TSPLAYER_KEY_SPDIF_MODE_NONE;
    U8BIT path = 0;
 
-   ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+
+   AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
+      return;
+   }
+
+   ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
+                                  av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
    if (ret < 0)
    {
-       AUD_DBG("Cannot get player handle audio[%d]", path);
+       AUD_DBG("Cannot get player handle[%d]", av_path);
        return;
    }
-   AUD_DBG("set spdf protection: scms:[0x%x ] scms_set:[0x%x ] ", copy_protection->scms, copy_protection->scms_set);
+
+   AUD_DBG("set spdif protection: scms:[0x%x ] scms_set:[0x%x ] ", copy_protection->scms, copy_protection->scms_set);
 
    if(copy_protection->scms_set== TRUE)
    {
-           if(copy_protection->scms == 2)
-           {
-                type = AMP_TSPLAYER_KEY_SPDIF_MODE_NONE;
-           }
-           else if(copy_protection->scms == 0)
-           {
-                type = AMP_TSPLAYER_KEY_SPDIF_MODE_ONCE;
-           }
-           else if(copy_protection->scms == 1)
-           {
-                type = AMP_TSPLAYER_KEY_SPDIF_MODE_NEVER;
-           }
+       if(copy_protection->scms == 2)
+        {
+            type = AMP_TSPLAYER_KEY_SPDIF_MODE_NONE;
+        }
+        else if(copy_protection->scms == 0)
+        {
+            type = AMP_TSPLAYER_KEY_SPDIF_MODE_ONCE;
+        }
+        else if(copy_protection->scms == 1)
+        {
+            type = AMP_TSPLAYER_KEY_SPDIF_MODE_NEVER;
+        }
 
-           ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SPDIF_PROTECTION, (void*)&type);
-           if (ret < 0)
-           {
-               AUD_DBG("Set audio spdf protection failed, err:%d", ret);
-           }
+        if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+        {
+            ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SPDIF_PROTECTION, (void*)&type);
+        }
+        else
+        {
+            ret = Aml_MP_DVRPlayer_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SPDIF_PROTECTION, (void*)&type);
+        }
+
+        if (ret < 0)
+        {
+           AUD_DBG("Set audio spdf protection failed, err:%d", ret);
+        }
     }
    FUNCTION_FINISH(STB_AVSetCopyProtection);
 }

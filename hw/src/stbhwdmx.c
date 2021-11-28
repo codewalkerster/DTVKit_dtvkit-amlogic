@@ -58,7 +58,7 @@
 #include "linuxdvbdmx_wrapper.h"
 
 
-//#define DEMUX_DEBUG 1
+#define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
 #ifdef DEMUX_DEBUG
 #define DMX_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
@@ -207,8 +207,7 @@ static int             dsc_dev_num   = 0;
 
 /*---global function definitions---------------------------------------------*/
 
-static void
-dsc_set_src (int dev_id, int dmx_id)
+void STB_DMXDscSetSrc(int dev_id, int dmx_id)
 {
    char dev_name[256];
    char dst_name[32];
@@ -222,8 +221,7 @@ dsc_set_src (int dev_id, int dmx_id)
       DMX_DBG("set descrambler source failed");
 }
 
-static int
-dsc_alloc (int dev_id, int pid, E_STB_DMX_DESC_TYPE type)
+int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type)
 {
    S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
    int chan_id = -1;
@@ -363,8 +361,7 @@ dsc_set_aes_output(BOOLEAN enable)
       DMX_DBG("set descrambler source failed");
 }
 
-static void
-dsc_free (int dev_id, int chan_id)
+void STB_DMXDscFree(int dev_id, int chan_id)
 {
    S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
    int r;
@@ -489,8 +486,7 @@ key_free (int key_id)
    }
 }
 
-static int
-set_key (int dev_id, int chan_id, int key_id, E_STB_DMX_DESC_TYPE type, E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *data)
+int STB_DMXSetKey(int dev_id, int chan_id, int key_id, E_STB_DMX_DESC_TYPE type, E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *data)
 {
    S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
    int r;
@@ -548,6 +544,16 @@ set_key (int dev_id, int chan_id, int key_id, E_STB_DMX_DESC_TYPE type, E_STB_DM
          DMX_DBG("illegal descrambler type %d", type);
          return -1;
       }
+
+      if (type == DESC_TYPE_DVB)
+      {
+         dsc_set_aes_output(FALSE);
+      }
+      else //aes & des need set this.
+      {
+         dsc_set_aes_output(TRUE);
+      }
+
       if (mode == CA_DSC_CBC)
       {
          DMX_DBG("Set iv data");
@@ -579,14 +585,14 @@ set_key (int dev_id, int chan_id, int key_id, E_STB_DMX_DESC_TYPE type, E_STB_DM
          DMX_DBG("CA_SET_DESCR_EX set key success");
 
    }
-   if (type == DESC_TYPE_AES)
+   /*if (type == DESC_TYPE_AES)
    {
       dsc_set_aes_output(TRUE);
    }
    else
    {
       dsc_set_aes_output(FALSE);
-   }
+   }*/
 
    return r;
 }
@@ -754,7 +760,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 
       for (i = 0; i < dsc_dev_num; i ++)
       {
-         dsc_set_src(i, i);
+         STB_DMXDscSetSrc(i, i);
          dsc_dev_info[i].dmx_src = i;
       }
    }
@@ -1764,6 +1770,8 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       return;
    }
 
+   dvb_enable_ciplus(plug);
+
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
       if (plug == 0) {
          //cam card is unplug.used camUnplug_tssource to
@@ -2120,7 +2128,7 @@ BOOLEAN STB_DMXGetDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 
       ClearKey(path, track);
 
-      dsc_set_src(dsc_dev, path);
+      STB_DMXDscSetSrc(dsc_dev, path);
 
       result = TRUE;
    }
@@ -2394,7 +2402,7 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    {
       if (ptrk->chanid == -1)
       {
-         ptrk->chanid = dsc_alloc(dsc_dev, pdmx->pids[track], ptrk->type);
+         ptrk->chanid = STB_DMXDscAlloc(dsc_dev, pdmx->pids[track], ptrk->type);
          if (ptrk->chanid == -1)
          {
             DMX_DBG("dsc alloc failed");
@@ -2409,9 +2417,9 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
       }
 
       if (ptrk->iseven)
-         set_key(dsc_dev, ptrk->chanid, ptrk->even_key_id, ptrk->type, KEY_PARITY_EVEN, ptrk->even);
+         STB_DMXSetKey(dsc_dev, ptrk->chanid, ptrk->even_key_id, ptrk->type, KEY_PARITY_EVEN, ptrk->even);
       if (ptrk->isodd)
-         set_key(dsc_dev, ptrk->chanid, ptrk->odd_key_id, ptrk->type, KEY_PARITY_ODD, ptrk->odd);
+         STB_DMXSetKey(dsc_dev, ptrk->chanid, ptrk->odd_key_id, ptrk->type, KEY_PARITY_ODD, ptrk->odd);
    }
 }
 static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track)
@@ -2427,7 +2435,7 @@ static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track)
 
    if (ptrk->chanid != -1)
    {
-      dsc_free(dsc_dev, ptrk->chanid);
+      STB_DMXDscFree(dsc_dev, ptrk->chanid);
       ptrk->chanid = -1;
    }
 }
@@ -2453,7 +2461,7 @@ static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 
    if (ptrk->chanid != -1)
    {
-      dsc_free(dsc_dev, ptrk->chanid);
+      STB_DMXDscFree(dsc_dev, ptrk->chanid);
       ptrk->chanid = -1;
    }
 }

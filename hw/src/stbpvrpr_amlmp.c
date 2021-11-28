@@ -59,6 +59,8 @@
 #define  AV_AUDIO_CODEC_AAC    AV_AUDIO_CODEC_AAC_TSP
 #define  AV_AUDIO_CODEC_AC4    AV_AUDIO_CODEC_AC4_TSP
 
+#define DSC_DEV_NO 0
+
 #include <string.h>
 #include "dvr_wrapper.h"
 
@@ -138,6 +140,8 @@ typedef struct
 
    U8BIT tuner;
    U8BIT rec_demux;
+   S8BIT v_chanid;
+   S8BIT a_chanid;
 
    AML_MP_DVRRECORDER recorder;
    Aml_MP_DVRStreamArray pids_info;
@@ -254,7 +258,7 @@ static U32BIT getPVRConfigInt(const char *config, U32BIT def);
 static U16BIT getDiskIdByRecIndex(U8BIT index);
 static BOOLEAN updatePlayback(U8BIT play_index, int reset);
 static U16BIT getFakePid();
-
+static void AllocateDescramblers(U8BIT rec_index, U8BIT cipher);
 
 //---global function definitions-----------------------------------------------
 /*#define DVR_STREAM_TYPE_TO_TYPE(_t) (((_t) >> 24) & 0xF)*/
@@ -312,6 +316,7 @@ static Aml_MP_CodecID toDvrAudioFormat(E_STB_AV_AUDIO_CODEC codec)
    }
    return fmt;
 }
+
 /**
  * @brief   Initialisation for playback
  * @param   num_audio_decoders number of audio decoders available
@@ -355,7 +360,7 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
 
             s_recplay_status[index].rec_start = 0;
             s_recplay_status[index].limit = 0;
-	    memset(&s_recplay_status[index].clearkey, 0, sizeof(S_CLEAR_KEY));
+            memset(&s_recplay_status[index].clearkey, 0, sizeof(S_CLEAR_KEY));
          }
       }
    }
@@ -396,7 +401,9 @@ U8BIT STB_PVRInitRecording(U8BIT num_tuners)
             s_rec_status[index].rec_demux = INVALID_RES_ID;
             s_rec_status[index].rec_mode = START_RUNNING;
             s_rec_status[index].rec_state = REC_STOPPED;
-	    memset(&s_rec_status[index].clearkey, 0, sizeof(S_CLEAR_KEY));
+            s_rec_status[index].a_chanid = -1;
+            s_rec_status[index].v_chanid = -1;
+            memset(&s_rec_status[index].clearkey, 0, sizeof(S_CLEAR_KEY));
          }
       }
    }
@@ -832,7 +839,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].player = NULL;
          s_recplay_status[play_index].rec_start = 0;
          s_recplay_status[play_index].limit = 0;
-	 memset(&s_recplay_status[play_index].clearkey, 0, sizeof(S_CLEAR_KEY));
+         memset(&s_recplay_status[play_index].clearkey, 0, sizeof(S_CLEAR_KEY));
       }
       else
       {
@@ -944,6 +951,17 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
    {
       s_rec_status[rec_index].tuner = INVALID_RES_ID;
       s_rec_status[rec_index].rec_demux = INVALID_RES_ID;
+
+      if (s_rec_status[rec_index].a_chanid != -1)
+      {
+         STB_DMXDscFree(DSC_DEV_NO, s_rec_status[rec_index].a_chanid);
+         s_rec_status[rec_index].a_chanid = -1;
+      }
+      if (s_rec_status[rec_index].v_chanid != -1)
+      {
+         STB_DMXDscFree(DSC_DEV_NO, s_rec_status[rec_index].v_chanid);
+         s_rec_status[rec_index].v_chanid = -1;
+      }
    }
 
    FUNCTION_FINISH(STB_PVRReleaseRecorderIndex);
@@ -960,14 +978,61 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
  * @return  TRUE if successful, FALSE otherwise
  */
 BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_type,
-   E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *key, U8BIT *iv)
+   E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *key, U8BIT *iv, U16BIT num_pids, S_PVR_PID_INFO *pid_array)
 {
    FUNCTION_START(STB_PVRApplyDescramblerKey);
-   USE_UNWANTED_PARAM(rec_index);
-   USE_UNWANTED_PARAM(desc_type);
-   USE_UNWANTED_PARAM(parity);
-   USE_UNWANTED_PARAM(key);
-   USE_UNWANTED_PARAM(iv);
+   int i;
+   BOOLEAN ret = FALSE;
+   U8BIT key_buffer[32];
+
+   //Set descrambler source
+   STB_DMXDscSetSrc(rec_index, 0);
+
+   //Alloc dsc pid channel
+   for (i = 0; i < num_pids; i++)
+   {
+      if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
+      {
+         REC_DBG("Found pvr audio pid %d", pid_array[i].pid);
+         s_rec_status[rec_index].a_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+         if (s_rec_status[rec_index].a_chanid == -1)
+         {
+            REC_DBG("FAILED: alloc pvr audio pid failed");
+            ret = FALSE;
+         }
+      }
+   }
+
+   for (i = 0; i < num_pids; i++)
+   {
+      if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
+      {
+         REC_DBG("Found pvr video pid %d", pid_array[i].pid);
+         s_rec_status[rec_index].v_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+         if (s_rec_status[rec_index].v_chanid == -1)
+         {
+            REC_DBG("alloc pvr audio pid failed");
+            ret = FALSE;
+         }
+      }
+   }
+
+   switch(desc_type)
+   {
+      case DESC_TYPE_AES:
+         memcpy(key_buffer, key, 16);
+         memcpy(key_buffer + 16, iv, 16);
+         break;
+      case DESC_TYPE_DES:
+         memcpy(key_buffer, key, 16);
+         break;
+   }
+   //Set key
+   if (s_rec_status[rec_index].v_chanid != -1)
+      STB_DMXSetKey(0, s_rec_status[rec_index].v_chanid, 0, desc_type, parity, key_buffer);
+   if (s_rec_status[rec_index].a_chanid != -1)
+      STB_DMXSetKey(0, s_rec_status[rec_index].a_chanid, 0, desc_type, parity, key_buffer);
+
    FUNCTION_FINISH(STB_PVRApplyDescramblerKey);
 
    return(FALSE);
@@ -1001,7 +1066,6 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    Aml_MP_DVRRecorderEncryptParams rec_encrypt_params;
    Aml_MP_DVRStreamArray rec_streams;
 
-
    BOOLEAN is_timeshift;
    U8BIT dvr_mode;
    int cnt;
@@ -1031,85 +1095,89 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       rec_basic_params.demuxId = (Aml_MP_DemuxId)s_rec_status[rec_index].rec_demux;
       rec_basic_params.segmentSize = STB_PVRGetRecordingSegmentSizeKB() * 1024;
       rec_basic_params.isTimeShift = is_timeshift;
-      if (is_timeshift) {
-        rec_timeshift_params.maxTime = s_rec_status[rec_index].timeshift_duration * 1000;
-        rec_timeshift_params.maxSize = s_rec_status[rec_index].timeshift_size * 1024 * 1024;
+      if (is_timeshift)
+      {
+         rec_timeshift_params.maxTime = s_rec_status[rec_index].timeshift_duration * 1000;
+         rec_timeshift_params.maxSize = s_rec_status[rec_index].timeshift_size * 1024 * 1024;
       }
       //TODO:later register event callback
       /*rec_open_params.event_fn = RecEventHandler;*/
       /*rec_open_params.event_userdata = &s_rec_status[rec_index];*/
       rec_basic_params.flags = 0;
       if (is_timeshift)
-          rec_basic_params.flags |= AML_MP_DVRRECORDER_ACCURATE;
+         rec_basic_params.flags |= AML_MP_DVRRECORDER_ACCURATE;
 
       dvr_mode = getDvrMode();
       setDvrMode(rec_basic_params.demuxId, dvr_mode);
       /*rec_open_params.is_timeshift = (is_timeshift) ? true : false;*/
 
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)rec_basic_params.location,
-         sizeof(rec_basic_params.location));
-      strncpy((char*)s_rec_status[rec_index].basename, (char*)basename, sizeof(s_rec_status[rec_index].basename));
+                          sizeof(rec_basic_params.location));
+      strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename));
 
       /*rec_open_params.is_timeshift = (is_timeshift) ? true : false;*/
 
-      if (is_timeshift == true) {
-        snprintf(rec_basic_params.location, AML_MP_MAX_PATH_SIZE,
-              "%s/%s", rec_basic_params.location, DEFAULT_TIMESHIFT_BASENAME);
-      } else {
-        snprintf(rec_basic_params.location, AML_MP_MAX_PATH_SIZE,
-              "%s/%s", rec_basic_params.location, s_rec_status[rec_index].basename);
+      if (is_timeshift == true)
+      {
+         snprintf(rec_basic_params.location, AML_MP_MAX_PATH_SIZE,
+                  "%s/%s", rec_basic_params.location, DEFAULT_TIMESHIFT_BASENAME);
+      }
+      else
+      {
+         snprintf(rec_basic_params.location, AML_MP_MAX_PATH_SIZE,
+                  "%s/%s", rec_basic_params.location, s_rec_status[rec_index].basename);
       }
 
       REC_DBG("Starting recording in directory \"%s\" :: \"%s\"  len:%d \"%s\"", rec_basic_params.location, strrchr(rec_basic_params.location, '/'), strlen(strrchr(rec_basic_params.location, '/')), s_rec_status[rec_index].basename);
 
-     PLAY_DBG("is_smp:%d, clearkey enable:%d",
-	      s_rec_status[rec_index].cas_status.is_smp,
-	      s_rec_status[rec_index].clearkey.enabled);
-     if (s_rec_status[rec_index].cas_status.is_smp)
-     {
-        rec_basic_params.flags |= AML_MP_DVRRECORDER_SCRAMBLED;
-        rec_encrypt_params.cryptoData = (void *)s_rec_status[rec_index].cas_status.cb_param;
-        rec_encrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_rec_status[rec_index].cas_status.crypto_cb;
-     }
-     else if (s_rec_status[rec_index].clearkey.enabled)
-     {
-	rec_encrypt_params.clearKey = &s_rec_status[rec_index].clearkey.key[0];
-	rec_encrypt_params.clearIV = &s_rec_status[rec_index].clearkey.iv[0];
-	rec_encrypt_params.keyLength = s_rec_status[rec_index].clearkey.len;
-     }
+      PLAY_DBG("is_smp:%d, clearkey enable:%d",
+               s_rec_status[rec_index].cas_status.is_smp,
+               s_rec_status[rec_index].clearkey.enabled);
+      if (s_rec_status[rec_index].cas_status.is_smp)
+      {
+         rec_basic_params.flags |= AML_MP_DVRRECORDER_SCRAMBLED;
+         rec_encrypt_params.cryptoData = (void *)s_rec_status[rec_index].cas_status.cb_param;
+         rec_encrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_rec_status[rec_index].cas_status.crypto_cb;
+      }
+      else if (s_rec_status[rec_index].clearkey.enabled)
+      {
+         rec_encrypt_params.clearKey = &s_rec_status[rec_index].clearkey.key[0];
+         rec_encrypt_params.clearIV = &s_rec_status[rec_index].clearkey.iv[0];
+         rec_encrypt_params.keyLength = s_rec_status[rec_index].clearkey.len;
+      }
 
-    do
-    {
-        void *buf = NULL;
-        AML_MP_SECMEM secmem_handle;
-        uint32_t secmem_size = 0;
+      do
+      {
+         void *buf = NULL;
+         AML_MP_SECMEM secmem_handle;
+         uint32_t secmem_size = 0;
 
-        if (!s_rec_status[rec_index].cas_status.is_smp)
+         if (!s_rec_status[rec_index].cas_status.is_smp)
             break;
-        AML_MP_CASSESSION sec_handle;
-        STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
-        REC_DBG("get dvr section:[%p].", sec_handle);
+         AML_MP_CASSESSION sec_handle;
+         STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+         REC_DBG("get dvr section:[%p].", sec_handle);
 
-        secmem_handle = Aml_MP_CAS_CreateSecmem(sec_handle, AML_MP_CAS_SERVICE_PVR_RECORDING, &buf, &secmem_size);
-        if (!secmem_handle)
-        {
+         secmem_handle = Aml_MP_CAS_CreateSecmem(sec_handle, AML_MP_CAS_SERVICE_PVR_RECORDING, &buf, &secmem_size);
+         if (!secmem_handle)
+         {
             REC_DBG("Create secmem session failed.");
             break;
-        }
-        s_rec_status[rec_index].secmem_handle = secmem_handle;
-        s_rec_status[rec_index].secure_buf = buf;
-        REC_DBG("secmem handle: %#x, secure_buf:%#x, size:%#x",
-                secmem_handle, buf, secmem_size);
+         }
+         s_rec_status[rec_index].secmem_handle = secmem_handle;
+         s_rec_status[rec_index].secure_buf = buf;
+         REC_DBG("secmem handle: %#x, secure_buf:%#x, size:%#x",
+                 secmem_handle, buf, secmem_size);
 
-        //TODO: set to encrypt params
-        /*dvr_wrapper_set_record_secure_buffer(*/
-            /*s_rec_status[rec_index].recorder,*/
-            /*s_rec_status[rec_index].secure_buf,*/
-            /*secmem_size);*/
-        rec_encrypt_params.secureBuffer = buf;
-        rec_encrypt_params.secureBufferSize = secmem_size;
+         //TODO: set to encrypt params
+         /*dvr_wrapper_set_record_secure_buffer(*/
+         /*s_rec_status[rec_index].recorder,*/
+         /*s_rec_status[rec_index].secure_buf,*/
+         /*secmem_size);*/
+         rec_encrypt_params.secureBuffer = buf;
+         rec_encrypt_params.secureBufferSize = secmem_size;
 
-    } while (0);
+      } while (0);
 
       {
          s_rec_status[rec_index].disk_id = disk_id;
@@ -1178,20 +1246,21 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          rec_basic_params.bufferSize = 1024;
       else
          rec_basic_params.bufferSize = 188 * 1024;
-     /*dvbcore ring buf size for ts date, need set buf size set to 20*188*1024 for 4k*/
-     rec_basic_params.ringbufSize = 20*188*1024;
+      /*dvbcore ring buf size for ts date, need set buf size set to 20*188*1024 for 4k*/
+      rec_basic_params.ringbufSize = 20 * 188 * 1024;
 
       Aml_MP_DVRRecorderCreateParams recorderCreateParams;
       memset(&recorderCreateParams, 0, sizeof(recorderCreateParams));
       recorderCreateParams.basicParams = rec_basic_params;
 
-      if (is_timeshift) {
-          recorderCreateParams.timeshiftParams = rec_timeshift_params;
+      if (is_timeshift)
+      {
+         recorderCreateParams.timeshiftParams = rec_timeshift_params;
       }
 
-      if (s_rec_status[rec_index].cas_status.is_smp
-	  || s_rec_status[rec_index].clearkey.enabled) {
-          recorderCreateParams.encryptParams = rec_encrypt_params;
+      if (s_rec_status[rec_index].cas_status.is_smp || s_rec_status[rec_index].clearkey.enabled)
+      {
+         recorderCreateParams.encryptParams = rec_encrypt_params;
       }
 
       /*error = dvr_wrapper_open_record(&s_rec_status[rec_index].recorder, &rec_open_params);*/
@@ -1199,18 +1268,18 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       if (!error)
       {
          REC_DBG("Starting %s recording %p for %lld secs/%llu B, [%s.ts]",
-            (is_timeshift)? "timeshift" : "normal",
-            s_rec_status[rec_index].recorder,
-            rec_timeshift_params.maxTime,
-            rec_timeshift_params.maxSize,
-            rec_basic_params.location);
+                 (is_timeshift) ? "timeshift" : "normal",
+                 s_rec_status[rec_index].recorder,
+                 rec_timeshift_params.maxTime,
+                 rec_timeshift_params.maxSize,
+                 rec_basic_params.location);
 
          Aml_MP_DVRRecorder_RegisterEventCallback(s_rec_status[rec_index].recorder, RecEventHandler, &s_rec_status[rec_index]);
 
          /*memset(&rec_start_params, 0, sizeof(rec_start_params));*/
          rec_streams.nbStreams = s_rec_status[rec_index].pids_info.nbStreams;
          memcpy(&rec_streams.streams, s_rec_status[rec_index].pids_info.streams,
-            sizeof(rec_streams.streams));
+                sizeof(rec_streams.streams));
          error = Aml_MP_DVRRecorder_SetStreams(s_rec_status[rec_index].recorder, &rec_streams);
          error |= Aml_MP_DVRRecorder_Start(s_rec_status[rec_index].recorder);
          if (!error)
@@ -1220,23 +1289,23 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          }
          else
          {
-             if (s_rec_status[rec_index].cas_status.is_smp)
-             {
-                 REC_DBG("rease secmem handle:%#x, secure_buf:%#x",
-                    s_rec_status[rec_index].secmem_handle,
-                    s_rec_status[rec_index].secure_buf);
+            if (s_rec_status[rec_index].cas_status.is_smp)
+            {
+               REC_DBG("rease secmem handle:%#x, secure_buf:%#x",
+                       s_rec_status[rec_index].secmem_handle,
+                       s_rec_status[rec_index].secure_buf);
 
-                 if (s_rec_status[rec_index].secmem_handle)
-                 {
-                     AML_MP_CASSESSION sec_handle;
-                     STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
-                     REC_DBG("get dvr section:[%p].", sec_handle);
+               if (s_rec_status[rec_index].secmem_handle)
+               {
+                  AML_MP_CASSESSION sec_handle;
+                  STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
+                  REC_DBG("get dvr section:[%p].", sec_handle);
 
-                     Aml_MP_CAS_DestroySecmem(sec_handle, s_rec_status[rec_index].secmem_handle);
-                     s_rec_status[rec_index].secmem_handle = NULL;
-                     s_rec_status[rec_index].secure_buf = NULL;
-                 }
-             }
+                  Aml_MP_CAS_DestroySecmem(sec_handle, s_rec_status[rec_index].secmem_handle);
+                  s_rec_status[rec_index].secmem_handle = NULL;
+                  s_rec_status[rec_index].secure_buf = NULL;
+               }
+            }
             REC_DBG("Failed to start recording, error %d", error);
 
             Aml_MP_DVRRecorder_Destroy(s_rec_status[rec_index].recorder);
@@ -1255,9 +1324,8 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
    FUNCTION_FINISH(STB_PVRRecordStart);
 
-   return(retval);
+   return (retval);
 }
-
 
 /**
 * @brief   Pauses a recording currently taking place
@@ -1369,7 +1437,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
                         &rec_index, sizeof(U8BIT));
          s_rec_status[rec_index].rec_state = REC_STOPPED;
-	 memset(&s_rec_status[rec_index].clearkey, 0, sizeof(S_CLEAR_KEY));
+         memset(&s_rec_status[rec_index].clearkey, 0, sizeof(S_CLEAR_KEY));
       }
    }
 
@@ -2019,7 +2087,7 @@ void STB_PVRSetPlaybackDecryptionKey(U8BIT audio_decoder, U8BIT video_decoder, B
       }
       if (iv)
       {
-	 memcpy(clearkey->iv, iv, key_len);
+         memcpy(clearkey->iv, iv, key_len);
       }
       clearkey->len = key_len;
       clearkey->enabled = state;
@@ -2084,7 +2152,7 @@ static U64BIT ConvertToTimestamp(U16BIT code, U8BIT hour, U8BIT min, U8BIT sec)
  * @param   rec_min minute when the recording was taken
  */
 void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32BIT retention_limit,
-   U16BIT rec_date, U8BIT rec_hour, U8BIT rec_min)
+                                  U16BIT rec_date, U8BIT rec_hour, U8BIT rec_min)
 {
    FUNCTION_START(STB_PVRPlaySetRetentionLimit);
    BOOLEAN retval;
@@ -2097,13 +2165,16 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
    U32BIT rec_time = (U32BIT)ConvertToTimestamp(rec_date, rec_hour, rec_min, 0);
    U32BIT tdt_time = STB_OSGetClockRTC();
    REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d  tdt_time[%u]rec[%u]",
-      audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min, tdt_time, rec_time);
+           audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min, tdt_time, rec_time);
 
-   if (tdt_time > rec_time) {
-     diff = tdt_time - rec_time;
-   } else {
-    	REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d tdt_time:%d record time error",
-      		audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min, tdt_time);
+   if (tdt_time > rec_time)
+   {
+      diff = tdt_time - rec_time;
+   }
+   else
+   {
+      REC_DBG("adec %d vdec %d retention_limit %d rec_date %d hour %d min %d tdt_time:%d record time error",
+              audio_decoder, video_decoder, retention_limit, rec_date, rec_hour, rec_min, tdt_time);
    }
 
    clock_gettime(CLOCK_REALTIME, &ts);
@@ -2117,9 +2188,11 @@ void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32B
       s_recplay_status[play_index].rec_start = ms - diff;
       //change to ms
       s_recplay_status[play_index].limit = retention_limit * (60);
-      REC_DBG("limit:%u ms:%u rec:%u  diff:%u rec[%u]tdt[%u]",s_recplay_status[play_index].limit, ms, s_recplay_status[play_index].rec_start, diff, rec_time, tdt_time);
-   } else {
-      REC_DBG("limit:%u ms:%u rec:%u  diff:%u rec[%u]tdt[%u]error",s_recplay_status[play_index].limit, ms, s_recplay_status[play_index].rec_start, diff, rec_time, tdt_time);
+      REC_DBG("limit:%u ms:%u rec:%u  diff:%u rec[%u]tdt[%u]", s_recplay_status[play_index].limit, ms, s_recplay_status[play_index].rec_start, diff, rec_time, tdt_time);
+   }
+   else
+   {
+      REC_DBG("limit:%u ms:%u rec:%u  diff:%u rec[%u]tdt[%u]error", s_recplay_status[play_index].limit, ms, s_recplay_status[play_index].rec_start, diff, rec_time, tdt_time);
    }
    FUNCTION_FINISH(STB_PVRPlaySetRetentionLimit);
 }
@@ -2233,7 +2306,6 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
    play_index = getPlayIndex(audio_decoder, video_decoder);
    PLAY_DBG("%u: pcr=%u, video=%u, audio=%u, ad=%u", play_index, pcr_pid, video_pid, audio_pid, ad_pid);
-
    if (play_index != INVALID_RES_ID)
    {
       if (s_recplay_status[play_index].audio_pid != audio_pid)
@@ -2468,144 +2540,152 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       /*play_params.event_fn = PlayEventHandler;*/
       /*play_params.event_userdata = &s_recplay_status[play_index];*/
       if (s_recplay_status[play_index].has_video)
-	play_params.blockSize = 188 * 1024;
+         play_params.blockSize = 188 * 1024;
       else
          play_params.blockSize = 188 * 6;
 
       PLAY_DBG("is_smp:%d, clearkey enable:%d",
-	       s_recplay_status[play_index].cas_status.is_smp,
-	       s_recplay_status[play_index].clearkey.enabled);
+               s_recplay_status[play_index].cas_status.is_smp,
+               s_recplay_status[play_index].clearkey.enabled);
       if (s_recplay_status[play_index].cas_status.is_smp)
       {
-          snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
-          r = stat(node, &st);
-          if (r == -1)/* demux is new. use 188 KB. */
-          {
-            play_params.blockSize = 188*1024;
+         snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
+         r = stat(node, &st);
+         if (r == -1) /* demux is new. use 188 KB. */
+         {
+            play_params.blockSize = 188 * 1024;
             play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
-          }
-          else/* demux is old. */
-          {
-              play_params.blockSize = 256*1024;
-              play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
-          }
+         }
+         else /* demux is old. */
+         {
+            play_params.blockSize = 256 * 1024;
+            play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
+         }
 
-          decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
-          decrypt_params.cryptoData = NULL;
-          PLAY_DBG("dec_func:%#x", decrypt_params.cryptoFn);
-      } else if (s_recplay_status[play_index].clearkey.enabled)
+         decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
+         decrypt_params.cryptoData = NULL;
+         PLAY_DBG("dec_func:%#x", decrypt_params.cryptoFn);
+      }
+      else if (s_recplay_status[play_index].clearkey.enabled)
       {
-          decrypt_params.clearKey = &s_recplay_status[play_index].clearkey.key[0];
-          decrypt_params.clearIV = &s_recplay_status[play_index].clearkey.iv[0];
-          decrypt_params.keyLength = s_recplay_status[play_index].clearkey.len;
+         decrypt_params.clearKey = &s_recplay_status[play_index].clearkey.key[0];
+         decrypt_params.clearIV = &s_recplay_status[play_index].clearkey.iv[0];
+         decrypt_params.keyLength = s_recplay_status[play_index].clearkey.len;
       }
 
-      play_params.isTimeShift = (s_recplay_status[play_index].is_timeshift)? true : false;
+      play_params.isTimeShift = (s_recplay_status[play_index].is_timeshift) ? true : false;
       play_params.isNotifyTime = false;
 
-      if (STB_Cam_Is_CIPlus_Mode() == TRUE) {
+      if (STB_Cam_Is_CIPlus_Mode() == TRUE)
+      {
          play_params.isNotifyTime = true;
       }
 
-      if (play_params.isTimeShift == true) {
-        STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
-           DEFAULT_TIMESHIFT_BASENAME,
-           play_params.location,
-           sizeof(play_params.location));
-      } else {
-        STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
-           s_recplay_status[play_index].basename,
-           play_params.location,
-           sizeof(play_params.location));
+      if (play_params.isTimeShift == true)
+      {
+         STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
+                             DEFAULT_TIMESHIFT_BASENAME,
+                             play_params.location,
+                             sizeof(play_params.location));
+      }
+      else
+      {
+         STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
+                             s_recplay_status[play_index].basename,
+                             play_params.location,
+                             sizeof(play_params.location));
       }
 
       Aml_MP_CASDVRReplayParams param;
       param.dmxDev = (Aml_MP_DemuxId)s_recplay_status[play_index].play_demux;
 
-        //get section handle
-        AML_MP_CASSESSION section_handle;
-        do
-        {
-            void *buf = NULL;
-            AML_MP_SECMEM secmem_handle;
-            uint32_t secmem_size = 0;
+      //get section handle
+      AML_MP_CASSESSION section_handle;
+      do
+      {
+         void *buf = NULL;
+         AML_MP_SECMEM secmem_handle;
+         uint32_t secmem_size = 0;
 
-            if (!s_recplay_status[play_index].cas_status.is_smp)
-                break;
+         if (!s_recplay_status[play_index].cas_status.is_smp)
+            break;
 
-            STB_CAPVRPlayStart(&param);
-            STB_CAPVRGetPlaySection(&section_handle);
-            PLAY_DBG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
-            secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_PLAY, &buf, &secmem_size);
-            if (!secmem_handle)
-            {
-                PLAY_DBG("Create replay secmem session failed.");
-                break;
-            }
+         STB_CAPVRPlayStart(&param);
+         STB_CAPVRGetPlaySection(&section_handle);
+         PLAY_DBG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
+         secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_PLAY, &buf, &secmem_size);
+         if (!secmem_handle)
+         {
+            PLAY_DBG("Create replay secmem session failed.");
+            break;
+         }
 
-            s_recplay_status[play_index].secmem_handle = secmem_handle;
-            s_recplay_status[play_index].secure_buf = buf;
-            PLAY_DBG("secmem session: %#x, secure_buf:%#x, size:%#x",
-                    secmem_handle, buf, secmem_size);
+         s_recplay_status[play_index].secmem_handle = secmem_handle;
+         s_recplay_status[play_index].secure_buf = buf;
+         PLAY_DBG("secmem session: %#x, secure_buf:%#x, size:%#x",
+                  secmem_handle, buf, secmem_size);
 
-            /*dvr_wrapper_set_playback_secure_buffer(*/
-                /*s_recplay_status[play_index].player,*/
-                /*s_recplay_status[play_index].secure_buf,*/
-                /*secmem_size);*/
+         /*dvr_wrapper_set_playback_secure_buffer(*/
+         /*s_recplay_status[play_index].player,*/
+         /*s_recplay_status[play_index].secure_buf,*/
+         /*secmem_size);*/
 
-            decrypt_params.secureBuffer = (uint8_t*)buf;
-            decrypt_params.secureBufferSize = secmem_size;
+         decrypt_params.secureBuffer = (uint8_t *)buf;
+         decrypt_params.secureBufferSize = secmem_size;
 
-        } while (0);
+      } while (0);
 
-    Aml_MP_DVRPlayerCreateParams createParams;
-    int  vendorId = DVR_PLAYBACK_VENDOR_AML;
-    createParams.basicParams = play_params;
-    createParams.decryptParams = decrypt_params;
+      Aml_MP_DVRPlayerCreateParams createParams;
+      int vendorId = DVR_PLAYBACK_VENDOR_AML;
+      createParams.basicParams = play_params;
+      createParams.decryptParams = decrypt_params;
 
       error = Aml_MP_DVRPlayer_Create(&createParams, &s_recplay_status[play_index].player);
       if (!error)
       {
-        {
+         {
             U32BIT decoder_id;
             int ret = Aml_MP_DVRPlayer_GetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
             if (ret != 0)
-                decoder_id = -1;
+               decoder_id = -1;
 
-           S_VIDEO_DECODER_PRIV_DATA priv =
-           {
-              .decoder = play_index,
-              .decoder_id = decoder_id,
-              .decoder_id_valid = TRUE,
-              .sync_id_valid = FALSE,
-           };
-           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
-        }
-        bool useTif = true;
-        Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
+            S_VIDEO_DECODER_PRIV_DATA priv =
+                {
+                    .decoder = play_index,
+                    .decoder_id = decoder_id,
+                    .decoder_id_valid = TRUE,
+                    .sync_id_valid = FALSE,
+                };
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+         }
+         bool useTif = true;
+         Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
 
-        //set surface
-        void * surface = STB_AVGetSurface(s_recplay_status[play_index].video_decoder);
-        if (surface != NULL) {
+         //set surface
+         void *surface = STB_AVGetSurface(s_recplay_status[play_index].video_decoder);
+         if (surface != NULL)
+         {
             PLAY_DBG("set playback AML MP surface [%d:%d] [%p]",
-                play_index,
-                s_recplay_status[play_index].video_decoder,
-                surface);
+                     play_index,
+                     s_recplay_status[play_index].video_decoder,
+                     surface);
             Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, surface);
-        } else {
+         }
+         else
+         {
             PLAY_DBG("Cannot set surface to TsPlayer, surface is NULL. play_index path:%d", play_index);
-        }
-          Aml_MP_DVRPlayer_RegisterEventCallback(s_recplay_status[play_index].player, PlayEventHandler, &s_recplay_status[play_index]);
+         }
+         Aml_MP_DVRPlayer_RegisterEventCallback(s_recplay_status[play_index].player, PlayEventHandler, &s_recplay_status[play_index]);
 
          /*DVR_PlaybackFlag_t play_flag =*/
-            /*(s_recplay_status[play_index].play_speed == 0)? DVR_PLAYBACK_STARTED_PAUSEDLIVE : 0;*/
-          bool play_flag = s_recplay_status[play_index].play_speed == 0;
-          U32BIT start = s_recplay_status[play_index].rec_start;
-          U32BIT limit = s_recplay_status[play_index].limit;
+         /*(s_recplay_status[play_index].play_speed == 0)? DVR_PLAYBACK_STARTED_PAUSEDLIVE : 0;*/
+         bool play_flag = s_recplay_status[play_index].play_speed == 0;
+         U32BIT start = s_recplay_status[play_index].rec_start;
+         U32BIT limit = s_recplay_status[play_index].limit;
 
          PLAY_DBG("Starting pvr playback, speed=%u%% vendor Id:%d start:%u", s_recplay_status[play_index].play_speed, vendorId, start);
          s_recplay_status[play_index].play_state = PLAY_STARTING;
-         error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void* )(&vendorId));
+         error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void *)(&vendorId));
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
          error |= Aml_MP_DVRPlayer_SetLimit(s_recplay_status[play_index].player, start, limit);
          error |= Aml_MP_DVRPlayer_Start(s_recplay_status[play_index].player, play_flag);
@@ -2618,7 +2698,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
          if (s_recplay_status[play_index].has_audio)
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED,
-               &s_recplay_status[play_index].audio_decoder, sizeof(U8BIT));
+                            &s_recplay_status[play_index].audio_decoder, sizeof(U8BIT));
       }
       else
       {
@@ -2642,7 +2722,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       {
          PLAY_DBG("update pvr playback reset 2, seek");
          Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,
-               s_recplay_status[play_index].last_position_in_seconds * 1000);
+                               s_recplay_status[play_index].last_position_in_seconds * 1000);
       }
    }
 

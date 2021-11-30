@@ -545,14 +545,14 @@ int STB_DMXSetKey(int dev_id, int chan_id, int key_id, E_STB_DMX_DESC_TYPE type,
          return -1;
       }
 
-      if (type == DESC_TYPE_DVB)
+      /*if (type == DESC_TYPE_DVB)
       {
          dsc_set_aes_output(FALSE);
       }
       else //aes & des need set this.
       {
          dsc_set_aes_output(TRUE);
-      }
+      }*/
 
       if (mode == CA_DSC_CBC)
       {
@@ -852,7 +852,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
             }
          }
       }
-      dsc_set_aes_output(TRUE);
+      //dsc_set_aes_output(TRUE);
       STB_DMXChangeTextPID(path, text_pid);
    }
 

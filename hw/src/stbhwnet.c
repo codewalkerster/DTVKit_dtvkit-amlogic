@@ -364,7 +364,7 @@ BOOLEAN STB_NWGetMACAddress(E_NW_INTERFACE interface, U8BIT *mac_addr)
    }
 
    close(fd);
-   if (found = 1)
+   if (found == 1)
       return TRUE;
    else
       return FALSE;
@@ -689,7 +689,7 @@ E_NW_ERROR STB_NWConnect(void *socket, U8BIT *address, U32BIT port)
 
    if (ctx->af == NW_AF_INET)
       in_addr.sin_family = AF_INET;
-   else if (ctx->af = NW_AF_INET6)
+   else if (ctx->af == NW_AF_INET6)
       in_addr.sin_family = AF_INET6;
    else
    {

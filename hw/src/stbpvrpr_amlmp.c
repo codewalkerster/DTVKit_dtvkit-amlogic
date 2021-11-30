@@ -90,6 +90,7 @@
 
 
 //---constant definitions for this file----------------------------------------
+#undef INVALID_RES_ID
 #define INVALID_RES_ID           255
 #define DVR_MODE_PROP    "vendor.tv.dtv.dvr.mode"
 #define DEFAULT_TIMESHIFT_BASENAME   "timeshif"

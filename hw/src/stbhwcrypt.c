@@ -32,6 +32,7 @@
 #include <dbgfuncs.h>
 
 /*---constant definitions for this file--------------------------------------*/
+#undef DBG
 #ifdef CRYPT_DEBUG
    #define DBG(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else

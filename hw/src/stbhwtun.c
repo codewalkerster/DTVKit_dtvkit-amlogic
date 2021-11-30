@@ -3688,6 +3688,11 @@ static void* fend_blindscan_thread(void *arg)
                 if(!ret)
                 {
                     BS_Status = DVBSx_BS_Status_Exit;
+                    if(tuner_status[path].blindscan_cb)
+                    {
+                        evt.status = AM_FEND_BLIND_START_FAILED;
+                        tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
+                    }
                 }
                 else
                 {

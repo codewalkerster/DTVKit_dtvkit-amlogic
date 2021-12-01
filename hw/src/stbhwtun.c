@@ -1128,12 +1128,12 @@ static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
             break;
 
         case TUNE_SIGNAL_QAM:
-            if (snr <= 300)
+            if (snr <= 220)
                 sqi = 0;
-            else if (snr >= 400)
+            else if (snr >= 320)
                 sqi = 100;
             else
-                sqi = snr - 300;
+                sqi = snr - 220;
             break;
 
         case TUNE_SIGNAL_QPSK:

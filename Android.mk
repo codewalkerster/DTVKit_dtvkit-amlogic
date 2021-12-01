@@ -147,6 +147,7 @@ else
     ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm64"
 endif
 
+
 LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwini.c \
     hw/src/stbhwmem.c \
@@ -171,6 +172,13 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     os/src/stbos_rtc.c        \
     os/src/stbos_semaphore.c  \
     os/src/stbos_task.c
+
+ifeq ($(SUPPORT_CAS), true)
+    LOCAL_CFLAGS += -DSUPPORT_CAS
+    LOCAL_SRC_FILES += hw/src/ca_glue_amlmp.c
+    LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/aml_mp_sdk/include
+    LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
+endif
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     ifneq ($(DTVKIT_WITH_AML_MP_SDK), true)

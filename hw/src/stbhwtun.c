@@ -2474,9 +2474,10 @@ void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)
 
 }
 
-BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, struct dvb_frontend_parameters *para, U16BIT *count)
+BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
 {
     BOOLEAN ret = TRUE;
+    para = (struct dvb_frontend_parameters *)para;
 
     pthread_mutex_lock(&tuner_status[path].lock);
 

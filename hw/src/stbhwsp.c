@@ -72,7 +72,7 @@ static char debug_msg_buff[512];
 
 static char *lf_file()
 {
-    char buf[256] = { 0 };
+    static char buf[256] = { 0 };
     char log_prop[] = "tv.dtvkit.logfile";
     //AM_PropRead(log_prop, buf, sizeof(buf));
 #ifdef DTVKIT_IN_VENDOR_PARTITION

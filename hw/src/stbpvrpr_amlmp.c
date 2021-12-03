@@ -2361,7 +2361,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
       if (video_changed || audio_changed || ad_changed)
       {
-         if (reset == 1)
+         if (0 && reset == 1)
          {
             PLAY_DBG("pids ready, reset to %d", s_recplay_status[play_index].last_position_in_seconds);
             Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,
@@ -2709,7 +2709,10 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
    else
    {
       /*update*/
-      error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
+      if (reset == 0)
+         error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
+      else
+         error = Aml_MP_DVRPlayer_OnlySetStreams(s_recplay_status[play_index].player, &play_pids);
       if (!error)
       {
          done = TRUE;
@@ -2719,7 +2722,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          PLAY_DBG("update pvr playback failed, error %d", error);
       }
 
-      if (reset == 2)
+      if (reset != 0)
       {
          PLAY_DBG("update pvr playback reset 2, seek");
          Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,

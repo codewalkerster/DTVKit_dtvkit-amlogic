@@ -501,7 +501,6 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    S_SOCKET_CTX *ctx = (S_SOCKET_CTX *)malloc(sizeof(S_SOCKET_CTX));
 
    USE_UNWANTED_PARAM(protocol); /* used in windows socket implementation */
-   STB_SPDebugWrite("sock %d type %d protocol %d", sock, type, protocol);
    FUNCTION_START(STB_NWOpenSocket);
 
    if (af == NW_AF_INET)
@@ -520,6 +519,7 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
 
    USE_UNWANTED_PARAM(nonblock);
    sock = socket(s_domain, s_type, 0);
+   STB_SPDebugWrite("sock %d type %d protocol %d", sock, type, protocol);
    if (sock < 0)
       return NULL;
 

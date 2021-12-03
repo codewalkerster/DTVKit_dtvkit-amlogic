@@ -229,7 +229,7 @@ static void free_sess_list(U32BIT handle)
     ((STB_CA_Glue_t *)handle)->session_info = NULL;
 }
 
-static is_sess_empty(U32BIT handle)
+static BOOLEAN is_sess_empty(U32BIT handle)
 {
     return (((STB_CA_Glue_t *)handle)->session_info)? 0 : 1;
 }
@@ -315,8 +315,7 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         return 0;
     }
 
-    if (g_pvrplay_session &&
-    (((U32BIT)session) == g_pvrplay_session))
+    if (g_pvrplay_session && (session == g_pvrplay_session))
     {
         isPlaybackPath = TRUE;
     }
@@ -425,13 +424,12 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
 {
 #ifdef SUPPORT_CAS
     U8BIT i;
-    U8BIT demux;
 
     FUNCTION_START(STB_CAAcquireDescrambler);
     ASSERT(handle);
 
-    CA_DBG(("%s(path=%u, demux=%d, serv_id=%u, ca_ids=%p, num_ca_ids=%u)",
-            __FUNCTION__, path, demux, serv_id, ca_ids, num_ca_ids));
+    CA_DBG(("%s(path=%u, serv_id=%u, ca_ids=%p, num_ca_ids=%u)",
+            __FUNCTION__, path, serv_id, ca_ids, num_ca_ids));
 
     if (num_ca_ids == 0)
     {

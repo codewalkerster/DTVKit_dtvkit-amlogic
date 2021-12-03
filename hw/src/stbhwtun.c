@@ -1678,11 +1678,11 @@ static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path)
  */
 E_STB_TUNE_TCODERATE STB_TuneGetActualTerrLpCodeRate(U8BIT path)
 {
-	E_STB_TUNE_TGUARDINT t_rc;
+    E_STB_TUNE_TCODERATE t_rc;
 
     FUNCTION_START(STB_TuneGetActualTerrLpCodeRate);
 
-	t_rc = TuneGetActualTerrCodeRate(path);
+    t_rc = TuneGetActualTerrCodeRate(path);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrLpCodeRate);
 
@@ -1696,11 +1696,11 @@ E_STB_TUNE_TCODERATE STB_TuneGetActualTerrLpCodeRate(U8BIT path)
  */
 E_STB_TUNE_TCODERATE STB_TuneGetActualTerrHpCodeRate(U8BIT path)
 {
-	E_STB_TUNE_TGUARDINT t_rc;
+    E_STB_TUNE_TCODERATE t_rc;
 
     FUNCTION_START(STB_TuneGetActualTerrHpCodeRate);
 
-	t_rc = TuneGetActualTerrCodeRate(path);
+    t_rc = TuneGetActualTerrCodeRate(path);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrHpCodeRate);
 

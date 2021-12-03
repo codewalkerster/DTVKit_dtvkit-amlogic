@@ -1027,6 +1027,8 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       case DESC_TYPE_DES:
          memcpy(key_buffer, key, 16);
          break;
+      default:
+         break;
    }
    //Set key
    if (s_rec_status[rec_index].v_chanid != -1)

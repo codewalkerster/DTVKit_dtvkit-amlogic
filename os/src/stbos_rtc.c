@@ -99,7 +99,7 @@ void STB_OSSetClockRTC(U32BIT num_seconds)
    //minus current timezone and app will translate it stream time by adding current timezone
    temp_time = (int64_t)num_seconds - local_time;
 
-   sprintf(prop_time, "%ld000", temp_time);//prop need ms
+   sprintf(prop_time, "%ld000", (LONG)temp_time);//prop need ms
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.localtime", prop_time);
 #else
@@ -198,7 +198,7 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
    system_time = (int64_t)(STB_OSGetSystemUnixTimeStamp()/*STB_OSGetSystemTime()*/);
    temp_time = (int64_t)num_seconds - system_time;
 
-   sprintf(prop_time, "%ld000", temp_time);//prop need ms
+   sprintf(prop_time, "%ld000", (LONG)temp_time);//prop need ms
    //use time that contains timezone instead in STB_OSSetClockRTC
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.realtime", prop_time);
@@ -241,7 +241,7 @@ void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
 
    char prop_time[64] = {0};
 
-   sprintf(prop_time, "%ld000", num_seconds);//prop need ms
+   sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.timeozone", prop_time);
 #else

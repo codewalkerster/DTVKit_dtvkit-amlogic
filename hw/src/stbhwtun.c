@@ -1779,6 +1779,7 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
 
     FUNCTION_FINISH(STB_TuneSetLNBVoltage);
 }
+
 void STB_TuneSetFrontendFd(U8BIT path, U32BIT fe_fd)
 {
     tuner_status[path].frontend_fd = fe_fd;
@@ -1894,6 +1895,39 @@ void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
     }
 
     FUNCTION_FINISH(STB_TuneSendDISEQCMessage);
+}
+
+/**
+ * @brief   Sends the Burst message
+ * @param   path - tuner path
+ * @param   data - message data
+ */
+void STB_TuneSendBurstMessage(U8BIT path, U8BIT data)
+{
+    FUNCTION_START(STB_TuneSendBurstMessage);
+    fe_sec_mini_cmd_t cmd;
+
+    TUN_DBG("STB_TuneSendBurstMessage cmd:0x%x", data);
+
+    if (data == 0x00 || data == 0xFF)
+    {
+        if (data == 0x00)
+        {
+            cmd = SEC_MINI_A;
+        }
+        else
+        {
+            cmd = SEC_MINI_B;
+        }
+
+        if (ioctl(tuner_status[path].frontend_fd, FE_DISEQC_SEND_BURST, cmd) == -1)
+        {
+            TUN_DBG("ioctl FE_DISEQC_SEND_BURST failed, path:%d fd:%d error:%d",
+                    path, tuner_status[path].frontend_fd, errno);
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneSendBurstMessage);
 }
 
 /**

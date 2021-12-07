@@ -384,8 +384,8 @@ void STB_DMXDscFree(int dev_id, int chan_id)
    {
       struct ca_pid params;
 
-      params.pid   = dsc->pid[chan_id];
-      params.index = -1;
+      params.pid = 0x1fff;
+      params.index = chan_id;
 
       r = ioctl(dsc->fd, CA_SET_PID, &params);
       if (r == -1)

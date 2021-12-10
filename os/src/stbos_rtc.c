@@ -237,6 +237,32 @@ U32BIT STB_OSGetClockGMT(void)
 }
 
 /**
+ * @brief   Set the daylight change time timestamp in seconds
+ * @param   num_seconds time in seconds
+ */
+void STB_OSSetClockOffsetChange(U32BIT num_seconds)
+{
+   char prop_time[64] = {0};
+   int64_t system_time,temp_time;
+
+   FUNCTION_START(STB_OSSetClockOffsetChange);
+
+   sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
+
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+   property_set("vendor.sys.tv.stream.offsetchange", prop_time);
+#else
+#ifdef USE_TSPLAYER
+      dvr_prop_echo("vendor.sys.tv.stream.offsetchange", prop_time);
+#else
+      AM_PropEcho("vendor.sys.tv.stream.offsetchange", prop_time);
+#endif
+#endif
+
+   FUNCTION_FINISH(STB_OSSetClockOffsetChange);
+}
+
+/**
  * @brief   Set the time zone timestamp in seconds
  * @param   num_seconds time in seconds
  */
@@ -258,6 +284,30 @@ void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
 #endif
 
    FUNCTION_FINISH(STB_OSSetClockTimeZoneDiff);
+}
+
+/**
+ * @brief   Set the next time zone timestamp in seconds
+ * @param   num_seconds time in seconds
+ */
+void STB_OSSetClockTimeZoneNext(S16BIT num_seconds)
+{
+   char prop_time[64] = {0};
+
+   FUNCTION_START(STB_OSSetClockTimeZoneNext);
+
+   sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+       property_set("vendor.sys.tv.stream.timeozone.next", prop_time);
+#else
+#ifdef USE_TSPLAYER
+       dvr_prop_echo("vendor.sys.tv.stream.timeozone.next", prop_time);
+#else
+       AM_PropEcho("vendor.sys.tv.stream.timeozone.next", prop_time);
+#endif
+#endif
+
+   FUNCTION_FINISH(STB_OSSetClockTimeZoneNext);
 }
 
 

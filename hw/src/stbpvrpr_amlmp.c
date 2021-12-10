@@ -1246,7 +1246,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       /*flush size for radio*/
       if (!s_rec_status[rec_index].has_video)
-         rec_basic_params.bufferSize = 1024;
+         rec_basic_params.bufferSize = 16*1024;
       else
          rec_basic_params.bufferSize = 188 * 1024;
       /*dvbcore ring buf size for ts date, need set buf size set to 20*188*1024 for 4k*/

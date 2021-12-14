@@ -258,6 +258,12 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			} else if (!strcmp(an, "dev_id")){
 				cam->dev_id = atoi(av);
 				STB_SPDebugWrite("cam->dev_id %d", cam->dev_id);
+			} else if (!strcmp(an, "host_mode")){
+				if(!strcmp(av, "user_mode"))
+				{
+					cam->host_mode = 2;
+				}
+				CFG_DBG("cam->host_mode(%s)  %d",av, cam->host_mode);
 			}
 			att += 2;
 		}
@@ -816,3 +822,13 @@ BOOLEAN STB_Get_PVR_Encrypt()
 {
    return aml_hw_cfg.pvr.encrypt == 1 ? 1 : 0;
 }
+
+/**
+ * @brief   get cam CI host mode.
+ * @return  host mode 2:ask user to confirm, others: no need
+ */
+int STB_GetCIHostMode(void)
+{
+    return aml_hw_cfg.cam->host_mode;
+}
+

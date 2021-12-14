@@ -76,7 +76,7 @@ ifneq (,$(wildcard vendor/amlogic/common/libdvr))
 LIBDVR_PATH:=vendor/amlogic/common/libdvr/include
 endif
 
-LOCAL_CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
+#LOCAL_CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)

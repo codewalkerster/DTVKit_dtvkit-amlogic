@@ -995,7 +995,10 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
       {
          REC_DBG("Found pvr audio pid %d", pid_array[i].pid);
-         s_rec_status[rec_index].a_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+         if (s_rec_status[rec_index].a_chanid == -1)
+         {
+            s_rec_status[rec_index].a_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+         }
          if (s_rec_status[rec_index].a_chanid == -1)
          {
             REC_DBG("FAILED: alloc pvr audio pid failed");
@@ -1009,6 +1012,10 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
       {
          REC_DBG("Found pvr video pid %d", pid_array[i].pid);
+         if (s_rec_status[rec_index].a_chanid == -1)
+         {
+            s_rec_status[rec_index].a_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+         }
          s_rec_status[rec_index].v_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
          if (s_rec_status[rec_index].v_chanid == -1)
          {
@@ -1017,8 +1024,13 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
          }
       }
    }
+   if (!ret)
+   {
+      REC_DBG("Failed to alloc channel");
+      return ret;
+   }
 
-   switch(desc_type)
+   switch (desc_type)
    {
       case DESC_TYPE_AES:
          memcpy(key_buffer, key, 16);
@@ -1038,7 +1050,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
 
    FUNCTION_FINISH(STB_PVRApplyDescramblerKey);
 
-   return(FALSE);
+   return(ret);
 }
 
 U32BIT STB_PVRGetRecordingSegmentSizeKB()

@@ -1417,7 +1417,7 @@ void STB_CAPVRRecordStart(U32BIT handle)
     Aml_MP_CASServiceInfo ca_serv_info;
 
     ASSERT(handle);
-    ASSERT(cryptoPara);
+    //ASSERT(cryptoPara);
 
     if (!(((STB_CA_Glue_t *)handle)->session_info))
     {

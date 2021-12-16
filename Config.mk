@@ -5,6 +5,6 @@ DTVKIT_INCLUDE_HBBTV:=0
 DTVKIT_INCLUDE_TEST_KEYS:=1
 
 DTVKIT_WITH_AML_MP_SDK := false
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28 && echo OK),OK)
 DTVKIT_WITH_AML_MP_SDK := true
 endif

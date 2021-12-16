@@ -1770,7 +1770,9 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       return;
    }
 
+#ifdef COMMON_INTERFACE
    dvb_enable_ciplus(plug);
+#endif
 
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
       if (plug == 0) {

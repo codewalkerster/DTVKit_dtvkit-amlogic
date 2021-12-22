@@ -219,6 +219,8 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
 
    if (r != 0)
       DMX_DBG("set descrambler source failed");
+
+   dvb_enable_ciplus(TRUE);
 }
 
 int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type)

@@ -607,7 +607,7 @@ void STB_AVBlankVideo(U8BIT path, BOOLEAN blank)
     AML_MP_PLAYER player_handle;
     FUNCTION_START(STB_AVBlankVideo);
     U8BIT av_path = INVALID_RES_ID;
-
+    VID_DBG("path[%u], blank[%d]", path, blank);
     ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
     if (ret < 0)
     {

@@ -8,3 +8,7 @@ DTVKIT_WITH_AML_MP_SDK := false
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28 && echo OK),OK)
 DTVKIT_WITH_AML_MP_SDK := true
 endif
+
+ifneq ($(PRODUCT_SUPPORT_CIPLUS),false)
+LOCAL_CFLAGS += -DCOMMON_INTERFACE
+endif

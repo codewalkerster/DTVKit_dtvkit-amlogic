@@ -1453,6 +1453,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
                         &rec_index, sizeof(U8BIT));
          s_rec_status[rec_index].rec_state = REC_STOPPED;
          memset(&s_rec_status[rec_index].clearkey, 0, sizeof(S_CLEAR_KEY));
+         memset(&s_rec_status[rec_index].cas_status, 0, sizeof(S_CAS_STATUS));
       }
    }
 

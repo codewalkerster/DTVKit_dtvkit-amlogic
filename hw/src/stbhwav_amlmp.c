@@ -2228,6 +2228,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
    {
       DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
       if (ad_pid != 0 && ad_pid != INVALID_PID && ad_pid != av_paths_status[av_path].ad_pid) {
+          memset(&ad_param, 0, sizeof(ad_param));
           ad_param.pid = ad_pid;
           ad_param.audioCodec = av_paths_status[path].ad_format;
           err = Aml_MP_Player_SetADParams(player_handle, &ad_param);
@@ -3389,6 +3390,8 @@ int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
 {
     int ret;
     Aml_MP_AudioParams audio_param;
+
+    memset(&audio_param, 0, sizeof(audio_param));
 
     audio_param.pid = a_pid;
     audio_param.audioCodec = format;

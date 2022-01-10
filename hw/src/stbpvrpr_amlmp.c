@@ -2992,7 +2992,7 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
             STB_AVNotifyEventHandler(play_status->audio_decoder, play_status->video_decoder, &eventType, params);
             break;
          case AML_MP_DVRPLAYER_EVENT_NOTIFY_PLAYTIME:
-            PLAY_DBG("TsPlayer event: %d, notify time", eventType);
+            //PLAY_DBG("TsPlayer event: %d, notify time", eventType);
             {
                S_NOTIFY_TIME_INFO info;
                Aml_MP_DVRPlayerStatus *status = (Aml_MP_DVRPlayerStatus *)params;
@@ -3000,7 +3000,7 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
                info.time = (status->infoCur.time + status->infoObsolete.time) / 1000;
                STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_NOTIFY_TIME, &info, sizeof(info));
             }
-            PLAY_DBG("TsPlayer event: %d, notify time END", eventType);
+            //PLAY_DBG("TsPlayer event: %d, notify time END", eventType);
             break;
          default:
          {

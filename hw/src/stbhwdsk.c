@@ -544,7 +544,7 @@ void* STB_DSKOpenFile(U16BIT disk_id, U8BIT *name, E_STB_DSK_FILE_MODE mode)
 
          if (file != NULL)
          {
-            DISK_DBG("Opened file %s: %p", fullpath, file);
+            //DISK_DBG("Opened file %s: %p", fullpath, file);
          }
          else
          {
@@ -584,7 +584,7 @@ void STB_DSKCloseFile(void *file)
 
       fclose(fp);
 
-      DISK_DBG("Closed %p", file);
+      //DISK_DBG("Closed %p", file);
    }
 
    FUNCTION_FINISH(STB_DSKCloseFile);

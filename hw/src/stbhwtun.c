@@ -3005,7 +3005,7 @@ static void TunerTask(void *param)
         if (state == TUNER_IDLE)
         {
             /* Wait until tuning has been started */
-            TUN_DBG("%u: Waiting for tune request....", tstatus->path);
+            //TUN_DBG("%u: Waiting for tune request....", tstatus->path);
             BOOLEAN sem_ret = STB_OSSemaphoreWaitTimeout(tstatus->tune_sem, 1000);
 
             if (sem_ret)

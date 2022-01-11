@@ -3117,6 +3117,12 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
           audioFormat->channels);
           break;
       }
+      case AML_MP_PLAYER_EVENT_VIDEO_DECODE_FIRST_FRAME:
+      {
+          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_DECODE_FIRST_FRAME!\n", status->decoder);
+          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_VIDEO_FIRST_FRAME, &status->decoder, sizeof(U8BIT));
+          break;
+      }
       case AML_MP_PLAYER_EVENT_DATA_LOSS:
       {
           AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_LOSS!\n", status->decoder);
@@ -3126,6 +3132,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       case AML_MP_PLAYER_EVENT_DATA_RESUME:
       {
           AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_RESUME\n", status->decoder);
+          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_DATA_RESUME, &status->decoder, sizeof(U8BIT));
           break;
       }
       case AML_MP_PLAYER_EVENT_SCRAMBLING:

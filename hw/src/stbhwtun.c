@@ -3698,6 +3698,7 @@ static void* fend_blindscan_thread(void *arg)
     BOOLEAN ret = FALSE;
     unsigned short index = 0;
     enum DVBSx_BlindScanAPI_Status BS_Status = DVBSx_BS_Status_Init;
+    U8BIT wait_reports = 0;
 
     while(BS_Status != DVBSx_BS_Status_Exit)
     {
@@ -3746,10 +3747,18 @@ static void* fend_blindscan_thread(void *arg)
                 {
                     BS_Status = DVBSx_BS_Status_User_Process;
                 }
-
-                if(!ret)
+                else
                 {
                     BS_Status = DVBSx_BS_Status_Wait;
+
+                    wait_reports++;
+                    // to avoid wait event reporting frequently
+                    if(wait_reports == 5 && tuner_status[path].blindscan_cb)
+                    {
+                        evt.status = AM_FEND_BLIND_WAIT;
+                        tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
+                        wait_reports = 0;
+                    }
                 }
 
                 break;

@@ -62,6 +62,20 @@
 
 #define  DISK_ERR(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
+#if 0
+#define STB_OSMutexLock(_m)\
+   do {\
+      STB_OSMutexLock(_m);\
+      STB_SPDebugWrite("%s:%d lock",__FUNCTION__,__LINE__);\
+   } while (0)
+
+#define STB_OSMutexUnlock(_m)\
+   do {\
+      STB_SPDebugWrite("%s:%d unlock",__FUNCTION__,__LINE__);\
+      STB_OSMutexUnlock(_m);\
+   } while (0)
+#endif
+
 int add_flag = 0;
 
 /*---constant definitions for this file--------------------------------------*/
@@ -1271,9 +1285,13 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
 
          if (send_events)
          {
+            STB_OSMutexUnlock(disk_mutex);
+
             /* Send an event to indicate a device has been attached */
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_CONNECTED,
                &(disk->disk_id), sizeof(disk->disk_id));
+
+            STB_OSMutexLock(disk_mutex);
          }
       }
    }
@@ -1374,9 +1392,13 @@ static void RefreshDiskList(BOOLEAN send_events)
 
                   if (send_events)
                   {
+                     STB_OSMutexUnlock(disk_mutex);
+
                      /* Send an event to indicate a device has been attached */
                      STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_CONNECTED,
                         &(disk->disk_id), sizeof(disk->disk_id));
+
+                     STB_OSMutexLock(disk_mutex);
                   }
                }
             }
@@ -1405,9 +1427,13 @@ static void RefreshDiskList(BOOLEAN send_events)
 
             if (send_events)
             {
+               STB_OSMutexUnlock(disk_mutex);
+
                /* Send an event to indicate a device has been removed */
                STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED,
                   &disk_id, sizeof(disk_id));
+
+               STB_OSMutexLock(disk_mutex);
             }
          }
          else

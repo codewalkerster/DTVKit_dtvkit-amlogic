@@ -550,6 +550,24 @@ void STB_CfgInitialise(void)
                                 aml_hw_cfg.epg_cfg.is_not_match_orignetid,
                                 aml_hw_cfg.epg_cfg.is_not_match_tsid);
 
+    // B: Starting Up Log
+    CERT_Log_StartingUp("tuner_num:%d demux_num:%d ci_slot_num:%d recorder_num:%d vdec_num:%d adec_num:%d demux:%d",
+                                aml_hw_cfg.tuner_num,
+                                aml_hw_cfg.demux_num,
+                                aml_hw_cfg.ci_slot_num,
+                                aml_hw_cfg.recorder_num,
+                                aml_hw_cfg.vdec_num,
+                                aml_hw_cfg.adec_num,
+                                aml_hw_cfg.demux);
+    CERT_Log_StartingUp("srate_auto:%d srate_auto_value:%d\n",
+                                aml_hw_cfg.demo_cap.srate_auto,
+                                aml_hw_cfg.demo_cap.srate_auto_value);
+
+    CERT_Log_StartingUp("get epg config: is_not_match_orignetid:%d is_not_match_tsid:%d\n",
+                                aml_hw_cfg.epg_cfg.is_not_match_orignetid,
+                                aml_hw_cfg.epg_cfg.is_not_match_tsid);
+    // E: Starting Up Log
+
     for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
         stb_tuner_cfg *tun = &aml_hw_cfg.tuners[i];
 
@@ -560,6 +578,16 @@ void STB_CfgInitialise(void)
                                 tun->signal_types,
                                 tun->support_dvbt2,
                                 tun->support_dvbs2);
+
+       // B: Starting Up Log
+       CERT_Log_StartingUp("tuner%d ts_input:%d frontend:%d signal_types:%d dvbt2:%d dvbs2:%d",
+                                i,
+                                tun->ts_input_idx,
+                                tun->frontend_idx,
+                                tun->signal_types,
+                                tun->support_dvbt2,
+                                tun->support_dvbs2);
+       // E: Starting Up Log
     }
 
     XML_ParserFree(parser);

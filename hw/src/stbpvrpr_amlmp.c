@@ -983,7 +983,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
 {
    FUNCTION_START(STB_PVRApplyDescramblerKey);
    int i;
-   BOOLEAN ret = FALSE;
+   BOOLEAN ret = TRUE;
    U8BIT key_buffer[32];
 
    //Set descrambler source

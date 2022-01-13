@@ -77,7 +77,8 @@ void* STB_OSCreateTask(void (*function)(void *), void *param, U32BIT stack, U8BI
 
    if (stack > 0)
    {
-      pthread_attr_setstacksize(&attr, stack);
+      TASK_DBG("not set stack size");
+      //pthread_attr_setstacksize(&attr, stack);
    }
 
    // Ensure thread is detached so resources are freed on exit

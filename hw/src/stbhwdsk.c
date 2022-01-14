@@ -826,7 +826,7 @@ BOOLEAN STB_DSKFileExists(U16BIT disk_id, U8BIT *filename)
  * @brief   Returns the size in KB of the given file
  * @param   disk_id disk on which the file exists
  * @param   filename name of the file on disk
- * @param   filesize returned value giving the file size in KB
+ * @param   filesize returned value giving the file size in B
  * @return  TRUE if the file exists, FALSE otherwise
  */
 BOOLEAN STB_DSKFileSize(U16BIT disk_id, U8BIT *filename, U32BIT *filesize)
@@ -855,7 +855,7 @@ BOOLEAN STB_DSKFileSize(U16BIT disk_id, U8BIT *filename, U32BIT *filesize)
 
          if (stat(fullpath, &statbuf) == 0)
          {
-            *filesize = statbuf.st_size / 1024;
+            *filesize = statbuf.st_size;
             retval = TRUE;
          }
 

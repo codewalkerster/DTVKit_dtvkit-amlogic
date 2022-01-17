@@ -1635,6 +1635,7 @@ void * STB_AVGetSurface(U8BIT path)
  *
  * @return TRUE if video window set correctly
  */
+//TODO: this function is set video crop actually, need change its name to STB_AVSetVideoCrop
 BOOLEAN STB_AVSetVideoWindow(U8BIT path, int x, int y, int width, int height)
 {
     int ret;
@@ -1657,10 +1658,11 @@ BOOLEAN STB_AVSetVideoWindow(U8BIT path, int x, int y, int width, int height)
     BOOLEAN isLive = STB_PVRIsPlayStopped(INVALID_RES_ID, path);
     VID_DBG("[%d,%d,%d,%d], isLive:%d", x, y, width, height, isLive);
 
+    Aml_MP_Rect videoCrop = {x, y, width, height};
     if (isLive) {
-        ret = Aml_MP_Player_SetVideoWindow(player_handle, x, y, width, height);
+        ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_VIDEO_CROP, &videoCrop);
     } else {
-        ret = Aml_MP_DVRPlayer_SetVideoWindow(player_handle, x, y, width, height);
+        ret = Aml_MP_DVRPlayer_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_VIDEO_CROP, &videoCrop);
     }
 
     if (ret < 0) {

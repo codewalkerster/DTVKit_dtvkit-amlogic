@@ -131,6 +131,7 @@ U32BIT STB_OSGetClockRTC(void)
     * utc_seconds with the difference between the time
     * when it was set (sync_time) and the time now.   */
    time_now = utc_seconds + ((SysBootTime() - sync_time) / RTC_TICKS_PER_SEC);
+   RTC_DBG("time_now:%u = utc_seconds:%u + (SysBootTime:%u-sync_time:%u)/1000",time_now,utc_seconds,SysBootTime(),sync_time);
 
    FUNCTION_FINISH(STB_OSGetClockRTC);
 
@@ -268,32 +269,18 @@ void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
  ****************************************************************************/
 static U32BIT SysBootTime(void)
 {
-   struct timeval tv;
-   U32BIT sec, msec, usec;
-   static BOOLEAN first_call = TRUE;
-   static struct timeval first_tv;
+    struct timespec tsp;
+    U64BIT boot_time_in_msec=0;
 
-   if (first_call)
-   {
-      gettimeofday(&first_tv, NULL);
-      first_call = FALSE;
-   }
-
-   gettimeofday(&tv, NULL);
-   sec = tv.tv_sec - first_tv.tv_sec;
-   if (tv.tv_usec < first_tv.tv_usec)
-   {
-      usec = tv.tv_usec + 1000000 - first_tv.tv_usec;
-      --sec;
-   }
-   else
-   {
-      usec = tv.tv_usec - first_tv.tv_usec;
-   }
-
-   msec = sec * 1000 + usec / 1000;
-
-   return msec;
+    /* Notice CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time */
+    clock_gettime(CLOCK_MONOTONIC,&tsp);
+    /* Overflow is unlikely to happen here for reasons below:
+     * 1) Time out of CLOCK_MONOTONIC starts from 0 and reflects actual elapsed time from boot;
+     * 2) Time out of CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time;
+     */
+    boot_time_in_msec=tsp.tv_sec*1000+tsp.tv_nsec/1000000;
+    //RTC_DBG("timespec=(%u,%ld), ret=%u", tsp.tv_sec,tsp.tv_nsec,(U32BIT)boot_time_in_msec);
+    return (U32BIT)boot_time_in_msec;
 }
 
 static U32BIT STB_OSGetSystemTime(void)

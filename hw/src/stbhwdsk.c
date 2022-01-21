@@ -46,6 +46,7 @@
 
 
 /*---macro definitions for this file-----------------------------------------*/
+#define DISK_DEBUG_LOOP 1
 #ifdef  DISK_DEBUG_LOOP
    #define  DISK_DBGLOOP(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
@@ -318,6 +319,7 @@ U32BIT STB_DSKGetUsed(U16BIT disk_id)
    STB_OSMutexLock(disk_mutex);
 
    disk = FindDisk(disk_id);
+   
    if (disk != NULL)
    {
       /* Found the disk */
@@ -334,6 +336,7 @@ U32BIT STB_DSKGetUsed(U16BIT disk_id)
          {
             disk_used = (fs_info.f_bsize * blocks_used) / 1024;
          }
+         DISK_ERR("disk used 0x%04x, path %s [%d][%d][%u]", disk_id, disk->mount_path,blocks_used, fs_info.f_bsize, disk_used);
       }
       else
       {
@@ -1205,7 +1208,7 @@ BOOLEAN STB_DSKAddDevicePath(char *device, char *path)
 void STB_DSKCheckSpace(U16BIT disk_id)
 {
     U32BIT free = STB_DSKGetSize(disk_id) - STB_DSKGetUsed(disk_id);
-    DISK_DBGLOOP("Disk: id[0x%x] free[%uKB]", disk_id, free);
+    DISK_DBG("Disk: id[0x%x] free[%uKB] total[%u]", disk_id, free, STB_DSKGetSize(disk_id));
     if (free < STB_PVRGetMinDiskSpaceLeft())
     {
        DISK_DBG("Disk: Exceed the free space limit[%uKB] for PVR, now[%uKB]",
@@ -1269,6 +1272,28 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
                RemoveDisk(disk);
                disk = NULL;
             }
+            else
+            {
+               struct statfs fs_info;
+               int retval = statfs(disk->mount_path, &fs_info);
+
+               if (retval == 0)
+               {
+                  /* Calculate the disk size in KB. It's done various ways to avoid overflow */
+                  if ((fs_info.f_bsize > 1024) && ((fs_info.f_bsize % 1024) == 0))
+                  {
+                     disk->disk_size = (fs_info.f_bsize / 1024) * fs_info.f_blocks;
+                  }
+                  else
+                  {
+                     disk->disk_size = (fs_info.f_bsize * fs_info.f_blocks) / 1024;
+                  }
+               }
+               else
+               {
+                  DISK_ERR("Failed to get disk info to calculate the size, errno %d", errno);
+               }
+            }
          }
          else
          {
@@ -1320,7 +1345,7 @@ static void DiskMonitorTask(void *param)
       STB_OSTaskDelay(3000);
 
       RefreshDiskList(TRUE);
-
+      DISK_DBG("check disk start");
       /*check for the free space of the disk which has recording running*/
       STB_PVRCheckDiskSpace();
    }

@@ -1262,9 +1262,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       if (!s_rec_status[rec_index].has_video)
          rec_basic_params.bufferSize = 16*1024;
       else
-         rec_basic_params.bufferSize = 188 * 1024;
+         rec_basic_params.bufferSize = 4 * 188 * 1024;
       /*dvbcore ring buf size for ts date, need set buf size set to 20*188*1024 for 4k*/
-      rec_basic_params.ringbufSize = 20 * 188 * 1024;
+      rec_basic_params.ringbufSize = 60 * 188 * 1024;
 
       Aml_MP_DVRRecorderCreateParams recorderCreateParams;
       memset(&recorderCreateParams, 0, sizeof(recorderCreateParams));
@@ -1979,8 +1979,8 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
  * @param   elapsed_ms current number of seconds into the playback
  * @return  TRUE if the info has been successfully gathered
  */
-BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *elapsed_hours,
-   U8BIT *elapsed_mins, U8BIT *elapsed_secs, U8BIT *elapsed_ms)
+BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *elapsed_hours,
+   U8BIT *elapsed_mins, U8BIT *elapsed_secs, U16BIT *elapsed_ms)
 {
    BOOLEAN retval;
    int error;
@@ -2007,8 +2007,8 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U8BIT *e
          *elapsed_mins = seconds / 60 - (*elapsed_hours * 60);
          *elapsed_secs = seconds - (*elapsed_hours * 3600) - (*elapsed_mins * 60);
 
-         PLAY_DBG("%02u:%02u:%02u", *elapsed_hours, *elapsed_mins,
-            *elapsed_secs);
+         PLAY_DBG("%08u:%02u:%02u:%08u:chl:%ld", *elapsed_hours, *elapsed_mins,
+            *elapsed_secs, elapsed_ms, status.infoCur.time + status.infoObsolete.time);
 
          retval = TRUE;
       }
@@ -2402,6 +2402,7 @@ U32BIT STB_PVRGetMinDiskSpace()
    return getPVRConfigInt("vendor.tv.dtv.pvr.disk_free_min_to_start_kb", 0);
 }
 
+
 /**
  * @brief   PVR will stop if less than this minimum free space(default 10MB)
  * @return  minimum free space in KB
@@ -2419,6 +2420,7 @@ void STB_PVRCheckDiskSpace(void)
       if (STB_PVRIsRecordStarted(index))
       {
          U16BIT disk_id = getDiskIdByRecIndex(index);
+         PLAY_DBG("check disk_id [%u] mount[%d]index[%d]", disk_id, STB_DSKIsMounted(disk_id), index);
          if (disk_id != INVALID_RES_ID && STB_DSKIsMounted(disk_id))
          {
             STB_DSKCheckSpace(disk_id);

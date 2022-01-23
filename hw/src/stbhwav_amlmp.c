@@ -24,6 +24,7 @@
 /* compiler library header files */
 #include <stdio.h>
 #include <string.h>
+#include <cutils/properties.h>
 
 /* STB header files */
 #include "techtype.h"
@@ -62,6 +63,7 @@
 
 #ifdef SUPPORT_CAS
 #include "am_cas.h"
+#include "ca_glue.h"
 #endif
 
 #include <Aml_MP/Aml_MP.h>
@@ -3289,11 +3291,11 @@ int AV_CreateTsPlayer(U8BIT path,
     }
     AV_DBG("parm.drmMode = %d", parm.drmMode);
 
-    if (parm.drmMode != AML_MP_INPUT_STREAM_NORMAL)
+    if ((parm.drmMode != AML_MP_INPUT_STREAM_NORMAL) && (STB_CAGetCASType() != CAS_TYPE_NAGRA))
     {
         Aml_MP_CASDVRReplayParams param;
         param.dmxDev = (Aml_MP_DemuxId)dmx_dev_id;
-        STB_CAPVRPlayStart(&param);
+        STB_CAPVRPlayStart(&param, false);
         AML_MP_CASSESSION section_handle;
         STB_CAPVRGetPlaySection(&section_handle);
         AV_DBG("section_handle get playback [%p].", section_handle);

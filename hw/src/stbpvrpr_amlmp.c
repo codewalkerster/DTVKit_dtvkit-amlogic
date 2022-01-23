@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <cutils/properties.h>
 
 // Ocean Blue header files
 #include "techtype.h"
@@ -573,6 +574,12 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       }
       else
       {
+         if (STB_CAGetCASType() == CAS_TYPE_NAGRA)
+         {
+             PLAY_DBG("set tsn_source to local");
+             dvr_file_echo("/sys/class/stb/tsn_source", "local");
+         }
+
          s_recplay_status[play_index].play_speed = 100;
 
          {
@@ -790,6 +797,12 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
    {
+      if (STB_CAGetCASType() == CAS_TYPE_NAGRA)
+      {
+          PLAY_DBG("set tsn_source to demod");
+          dvr_file_echo("/sys/class/stb/tsn_source", "demod");
+      }
+
       if (s_recplay_status[play_index].play_state != PLAY_STOPPED)
       {
          error = Aml_MP_DVRPlayer_Stop(s_recplay_status[play_index].player);
@@ -1168,14 +1181,17 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          void *buf = NULL;
          AML_MP_SECMEM secmem_handle;
          uint32_t secmem_size = 0;
-
-         if (!s_rec_status[rec_index].cas_status.is_smp)
+         REC_DBG("is_smp=%d is_tse_mode=%d type=%d", s_rec_status[rec_index].cas_status.is_smp, STB_CAIsTSEMode(),STB_CAGetCASType());
+         if (!s_rec_status[rec_index].cas_status.is_smp || STB_CAIsTSEMode()) {
             break;
+         }
          AML_MP_CASSESSION sec_handle;
          STB_CAPVRGetDvrSection(s_rec_status[rec_index].cas_status.cb_param, &sec_handle);
          REC_DBG("get dvr section:[%p].", sec_handle);
-
-         secmem_handle = Aml_MP_CAS_CreateSecmem(sec_handle, AML_MP_CAS_SERVICE_PVR_RECORDING, &buf, &secmem_size);
+         if (is_timeshift)
+             secmem_handle = Aml_MP_CAS_CreateSecmem(sec_handle, AML_MP_CAS_SERVICE_PVR_TIMESHIFT_RECORDING, &buf, &secmem_size);
+         else
+             secmem_handle = Aml_MP_CAS_CreateSecmem(sec_handle, AML_MP_CAS_SERVICE_PVR_RECORDING, &buf, &secmem_size);
          if (!secmem_handle)
          {
             REC_DBG("Create secmem session failed.");
@@ -1606,13 +1622,15 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
 {
    FUNCTION_START(STB_PVRRecordSetCASStatus);
 
-   REC_DBG("index %u, enc_cb[%#x], is_smp[%u], cb_param[%#x]",
-    rec_index, cas_status->crypto_cb,
-    cas_status->is_smp, cas_status->cb_param);
+   REC_DBG("index %u,num_recorders=%d enc_cb[%#x], is_smp[%u], cb_param[%#x] timeshfit[%d]",
+    rec_index,num_recorders, cas_status->crypto_cb,
+    cas_status->is_smp, cas_status->cb_param, cas_status->is_timeshift);
 
    if (rec_index < num_recorders)
    {
       memcpy(&s_rec_status[rec_index].cas_status, cas_status, sizeof(S_CAS_STATUS));
+      /* set timeshift state to CA module */
+      STB_CASetTimeShiftOn(cas_status->cb_param, cas_status->is_timeshift);
    }
 
    FUNCTION_FINISH(STB_PVRRecordSetCASStatus);
@@ -2564,9 +2582,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       else
          play_params.blockSize = 188 * 6;
 
-      PLAY_DBG("is_smp:%d, clearkey enable:%d",
+      PLAY_DBG("is_smp:%d, clearkey enable:%d is_tse_mode=%d istimeshift=%d",
                s_recplay_status[play_index].cas_status.is_smp,
-               s_recplay_status[play_index].clearkey.enabled);
+               s_recplay_status[play_index].clearkey.enabled, STB_CAIsTSEMode(), s_recplay_status[play_index].is_timeshift);
       if (s_recplay_status[play_index].cas_status.is_smp)
       {
          snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
@@ -2574,17 +2592,20 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          if (r == -1) /* demux is new. use 188 KB. */
          {
             play_params.blockSize = 188 * 1024;
-            play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
          }
          else /* demux is old. */
          {
             play_params.blockSize = 256 * 1024;
-            play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
          }
+
+         if (STB_CAIsTSEMode())
+             play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED; /* if tse mode not need create secmem */
+         else
+             play_params.drmMode = AML_MP_INPUT_STREAM_SECURE_MEMORY;
 
          decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
          decrypt_params.cryptoData = NULL;
-         PLAY_DBG("dec_func:%#x", decrypt_params.cryptoFn);
+         PLAY_DBG("dec_func:%#x tse=%d drmMode=%d", decrypt_params.cryptoFn, STB_CAIsTSEMode(), play_params.drmMode);
       }
       else if (s_recplay_status[play_index].clearkey.enabled)
       {
@@ -2627,13 +2648,26 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          AML_MP_SECMEM secmem_handle;
          uint32_t secmem_size = 0;
 
-         if (!s_recplay_status[play_index].cas_status.is_smp)
+         if (!s_recplay_status[play_index].cas_status.is_smp) {
+            PLAY_DBG("is_smp=%d is_tse_mode=%d not need create secmem", s_recplay_status[play_index].cas_status.is_smp, STB_CAIsTSEMode());
             break;
+         }
 
-         STB_CAPVRPlayStart(&param);
+         STB_CAPVRPlayStart(&param, play_params.isTimeShift);
+
+         if (STB_CAIsTSEMode()) {
+             PLAY_DBG("is_smp=%d is_tse_mode=%d not need create secmem", s_recplay_status[play_index].cas_status.is_smp, STB_CAIsTSEMode());
+             break;
+         }
+
          STB_CAPVRGetPlaySection(&section_handle);
          PLAY_DBG("STB_CAPVRGetPlaySection getplayback[%p].", section_handle);
-         secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_PLAY, &buf, &secmem_size);
+
+         if (play_params.isTimeShift)
+             secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_TIMESHIFT_PLAY, &buf, &secmem_size);
+         else
+             secmem_handle = Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_PVR_PLAY, &buf, &secmem_size);
+
          if (!secmem_handle)
          {
             PLAY_DBG("Create replay secmem session failed.");

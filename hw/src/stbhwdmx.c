@@ -1664,7 +1664,7 @@ static U8BIT inline _GetDmxDMASourceById(int id)
  * @param   source the source to use
  * @param   param source specific parameters (e.g. tuner number)
  */
-void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param)
+void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
 {
    int tuner_index;
 #ifdef USE_TSPLAYER
@@ -1685,6 +1685,12 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
    tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
 #ifdef USE_TSPLAYER
    dmx_src_cfg = GetDemuxSourceByCfg(aml_hw_cfg.tuners[tuner_index].ts_input_idx);
+
+   if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER) {
+      dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1+aml_hw_cfg.tuners[tuner_index].ts_input_idx;
+      DMX_DBG("DMX_CAPS_LIVE dmx_src_cfg=%d", dmx_src_cfg);
+   }
+
    dvb_get_demux_source(path, &dmx_src_cur);
    DMX_DBG("Demux source [config:cur_node] = [%d:%d]", dmx_src_cfg, dmx_src_cur);
    if ((source != demux_status[path].source) || (param != demux_status[path].source_param) || (dmx_src_cfg != dmx_src_cur))
@@ -1798,7 +1804,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       U8BIT param;
       STB_DMXGetDemuxSource(i, &source, &param);
       if (source == DMX_TUNER)
-         STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index);
+         STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, 0);
    }
    FUNCTION_FINISH(STB_DMXChangeAllDemuxSource);
 }

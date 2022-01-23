@@ -28,6 +28,9 @@
 /* compiler library header files */
 #include <unistd.h>
 #include <string.h>
+#ifdef ANDROID
+#include <cutils/properties.h>
+#endif
 
 /* Third party header files */
 
@@ -65,6 +68,11 @@
 #define ITEM_CHECK_PIN          "checkPin"
 #define ITEM_ERROR_CODE         "errcode"
 #define VMX_CAS_STRING          "Verimatrix"
+#define ITEM_GET_CAS_MODE       "getCasMode"
+#define ITEM_CMD                "cmd"
+#define MAX_JSON_LEN            (1024)
+#define ITEM_DVR_CAS_MODE       "casMode"
+
 typedef enum {
     PIN_NEED_CHECK,
     PIN_CHECK_SUCCESS,
@@ -78,6 +86,14 @@ static U32BIT g_pvrplay_replay = 0;
 
 static U32BIT g_last_stream_pos = -1;
 static void *g_ca_mutex;
+
+static E_CAS_TYPE g_cas_type = CAS_TYPE_NONE;
+typedef enum {
+    CAS_MODE_NONE,
+    CAS_MODE_TSE,
+    CAS_MODE_R2R,
+} E_CAS_MODE;
+E_CAS_MODE g_cas_mode = CAS_MODE_NONE;
 
 typedef struct sess_info_entry
 {
@@ -98,6 +114,7 @@ typedef struct es_pid_entry
 typedef struct
 {
     BOOLEAN has_global_ca;
+    U8BIT scramble_algo;
     CA_INFO *ca_pid_list;
     CA_INFO *last_pid_entry;
 } PMT_INFO;
@@ -114,6 +131,7 @@ typedef struct
     BOOLEAN is_recording;
     BOOLEAN is_replay;
     BOOLEAN is_dvr_start;
+    BOOLEAN is_timeshift;
 } STB_CA_Glue_t;
 
 /*---local function prototypes for this file-----------------------------------*/
@@ -357,8 +375,45 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
 
     return 0;
 }
-#endif
 
+static void get_cas_mode(AML_MP_CASSESSION session)
+{
+    cJSON *input = NULL;
+    cJSON *item = NULL;
+    char in_json[MAX_JSON_LEN];
+    char out_json[MAX_JSON_LEN];
+
+    if (g_cas_mode != CAS_MODE_NONE)
+        return ;
+
+    input = cJSON_CreateObject();
+    item = cJSON_CreateString(ITEM_GET_CAS_MODE);
+    cJSON_AddItemToObject(input, ITEM_CMD, item);
+    cJSON_PrintPreallocated(input, in_json, MAX_JSON_LEN, 1);
+    if (session)
+        Aml_MP_CAS_Ioctl(session, in_json, out_json, MAX_JSON_LEN);
+    cJSON_Delete(input);
+
+    input = cJSON_Parse(out_json);
+    item = cJSON_GetObjectItemCaseSensitive(input, ITEM_DVR_CAS_MODE);
+    if (!cJSON_IsString(item) || item->valuestring[0] == '\0') {
+        cJSON_Delete(input);
+        return;
+    }
+
+    if (strncmp(item->valuestring, "r2r", 3) == 0) {
+        g_cas_mode = CAS_MODE_R2R;
+        CA_DBG(("%s:g_cas_mode is CAS_MODE_R2R", __func__));
+    } else if (strncmp(item->valuestring, "tse", 3) == 0) {
+        g_cas_mode = CAS_MODE_TSE;
+        CA_DBG(("%s:g_cas_mode is CAS_MODE_TSE", __func__));
+    } else {
+        CA_DBG(("%s:g_cas_mode is CAS_MODE_NONE", __func__));
+    }
+
+    cJSON_Delete(input);
+}
+#endif
 /*---global function definitions-----------------------------------------------*/
 
 /*!**************************************************************************
@@ -397,11 +452,41 @@ BOOLEAN STB_CAInitialise(void)
         {
             CA_DBG(("CAS RegisterEventCallback failed [%d]", ret));
         }
+
+#ifdef ANDROID
+        char castype[PROPERTY_VALUE_MAX] = { 0 };
+        property_get("vendor.cas.type", castype, "none");
+        if (!strncmp(castype, "nagra", 5)) {
+            g_cas_type = CAS_TYPE_NAGRA;
+        }
+#endif
     }
 
     FUNCTION_FINISH(STB_CAInitialise);
 #endif
     return(TRUE);
+}
+
+/*!**************************************************************************
+ * @brief   This function can get from other module, to judge cas type
+ * @return  cas type E_CAS_TYPE
+ ****************************************************************************/
+E_CAS_TYPE STB_CAGetCASType()
+{
+    return g_cas_type;
+}
+
+/*!**************************************************************************
+ * @brief   This function can get from other module, to judge under TSE mode
+ *          or not
+ * @return  true under TSE mode, false not TSE mode
+ ****************************************************************************/
+BOOLEAN STB_CAIsTSEMode()
+{
+    if (g_cas_mode == CAS_MODE_TSE)
+        return true;
+    else
+        return false;
 }
 
 /*!**************************************************************************
@@ -573,6 +658,11 @@ void STB_CADescrambleServiceStart(U32BIT handle)
     ca_serv_info.ecm_pid = ((STB_CA_Glue_t *)handle)->session_info->ecm_pid;
 
     pid_entry = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
+
+    /* pass scramble algorithm to cas hal */
+    ca_serv_info.ca_private_data_len = MAX_DATA_LEN;
+    ca_serv_info.ca_private_data[2] =  ((STB_CA_Glue_t *)handle)->pmt_info.scramble_algo;
+    CA_DBG(("%s algo ca_private_data[2]=%x", __func__, ca_serv_info.ca_private_data[2]));
 
     while (pid_entry != NULL)
     {
@@ -776,6 +866,9 @@ static void collect_pmt_streams_ca_info(U32BIT handle, PMT_INFO *pmt_info, SI_PM
 
         stream_entry = stream_entry->next;
     }
+
+    /* record the scramble algorithm */
+    pmt_info->scramble_algo = pmt_table->scramble_algo;
 }
 #endif
 
@@ -1200,7 +1293,10 @@ void STB_CAPVRRecodingEncrypt(U32BIT handle, void *param)
 
     if (FALSE && !(((STB_CA_Glue_t *)handle)->session_info->cas_session))
 {
-    ret = Aml_MP_CAS_OpenSession(&cas_session, AML_MP_CAS_SERVICE_PVR_RECORDING);
+        if (((STB_CA_Glue_t *)handle)->is_timeshift)
+            ret = Aml_MP_CAS_OpenSession(&cas_session, AML_MP_CAS_SERVICE_PVR_TIMESHIFT_RECORDING);
+        else
+            ret = Aml_MP_CAS_OpenSession(&cas_session, AML_MP_CAS_SERVICE_PVR_RECORDING);
 
         if (ret)
         {
@@ -1217,7 +1313,10 @@ void STB_CAPVRRecodingEncrypt(U32BIT handle, void *param)
         //ca_serv_info.dvr_dev = STB_DPGetPathDemux(((STB_CA_Glue_t *)handle)->path);
 
         ca_serv_info.serviceMode = AML_MP_CAS_SERVICE_DVB;
-        ca_serv_info.serviceType = AML_MP_CAS_SERVICE_PVR_RECORDING;
+        if (((STB_CA_Glue_t *)handle)->is_timeshift)
+            ca_serv_info.serviceType = AML_MP_CAS_SERVICE_PVR_TIMESHIFT_RECORDING;
+        else
+            ca_serv_info.serviceType = AML_MP_CAS_SERVICE_PVR_RECORDING;
         ca_serv_info.ecm_pid = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list->ecm_pid;
 
         pid_entry = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
@@ -1330,14 +1429,17 @@ int STB_CAPVRGetDvrSection(U32BIT handle, AML_MP_CASSESSION *sec)
     return 0;
 }
 
-void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param)
+void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeShift)
 {
     int ret;
 
     //For now, it will be zero set by STB_PVRStartPlaying
     if (!g_pvrplay_session)
     {
-        ret = Aml_MP_CAS_OpenSession(&g_pvrplay_session, AML_MP_CAS_SERVICE_PVR_PLAY);
+        if (isTimeShift)
+            ret = Aml_MP_CAS_OpenSession(&g_pvrplay_session, AML_MP_CAS_SERVICE_PVR_TIMESHIFT_PLAY);
+        else
+            ret = Aml_MP_CAS_OpenSession(&g_pvrplay_session, AML_MP_CAS_SERVICE_PVR_PLAY);
 
         if (ret)
         {
@@ -1350,6 +1452,8 @@ void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param)
         {
             CA_DBG(("CAS(PVR replay) RegisterEventCallback failed [%d]", ret));
         }
+
+        get_cas_mode(g_pvrplay_session);
 
         CA_DBG(("PVRPlay CAS open session = %p", g_pvrplay_session));
         if (Aml_MP_CAS_StartDVRReplay(g_pvrplay_session, param))
@@ -1427,8 +1531,10 @@ void STB_CAPVRRecordStart(U32BIT handle)
 
     if (!(((STB_CA_Glue_t *)handle)->session_info->cas_session))
     {
-        ret = Aml_MP_CAS_OpenSession(&cas_session, AML_MP_CAS_SERVICE_PVR_RECORDING);
-
+        if (((STB_CA_Glue_t *)handle)->is_timeshift)
+            ret = Aml_MP_CAS_OpenSession(&cas_session, AML_MP_CAS_SERVICE_PVR_TIMESHIFT_RECORDING);
+        else
+            ret = Aml_MP_CAS_OpenSession(&cas_session, AML_MP_CAS_SERVICE_PVR_RECORDING);
         if (ret)
         {
             CA_DBG(("AM_CA_OpenSession failed [%d]", ret));
@@ -1441,7 +1547,10 @@ void STB_CAPVRRecordStart(U32BIT handle)
             CA_DBG(("CAS(PVR record) RegisterEventCallback failed [%d]", ret));
         }
 
-        CA_DBG(("AM_CA_OpenSession rec start cas_session [%x]", cas_session));
+        get_cas_mode(cas_session);
+
+        CA_DBG(("AM_CA_OpenSession rec start cas_session [%x] is_timeshift=%d", cas_session,
+            ((STB_CA_Glue_t *)handle)->is_timeshift));
         ((STB_CA_Glue_t *)handle)->session_info->cas_session = cas_session;
 
         memset(&ca_serv_info, 0, sizeof(Aml_MP_CASServiceInfo));
@@ -1451,10 +1560,19 @@ void STB_CAPVRRecordStart(U32BIT handle)
         //ca_serv_info.dvr_dev = STB_DPGetPathDemux(((STB_CA_Glue_t *)handle)->path);
 
         ca_serv_info.serviceMode = AML_MP_CAS_SERVICE_DVB;
-        ca_serv_info.serviceType = AML_MP_CAS_SERVICE_PVR_RECORDING;
+
+        if (((STB_CA_Glue_t *)handle)->is_timeshift) {
+            ca_serv_info.serviceType = AML_MP_CAS_SERVICE_PVR_TIMESHIFT_RECORDING;
+        } else
+            ca_serv_info.serviceType = AML_MP_CAS_SERVICE_PVR_RECORDING;
         ca_serv_info.ecm_pid = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list->ecm_pid;
 
         pid_entry = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
+
+        /* if cas type is nagra, we need get emi and scramble algo then set to cas hal */
+        ca_serv_info.ca_private_data_len = MAX_DATA_LEN;
+        ca_serv_info.ca_private_data[2] =  ((STB_CA_Glue_t *)handle)->pmt_info.scramble_algo;
+        CA_DBG(("rec start cas_session [%x] ca_private_data[2]=%x", cas_session, ca_serv_info.ca_private_data[2]));
 
         while (pid_entry != NULL)
         {
@@ -1514,6 +1632,18 @@ void STB_CAPVRRecordStop(U32BIT handle)
 #endif
 }
 
+/*!**************************************************************************
+ * @brief   This function is called when in timeshift state
+ * @param   handle - CA descrambler handle
+ * @param   On - TRUE in timeshfit, FALSE normal record or replay
+ ****************************************************************************/
+void STB_CASetTimeShiftOn(U32BIT handle, BOOLEAN On)
+{
+    ASSERT(handle);
+    ((STB_CA_Glue_t *)handle)->is_timeshift = On;
+
+    CA_DBG(("%s(%#x): ON=%d", __func__, handle, On));
+}
 
 /*!**************************************************************************
  * @brief   This function is called when a recording starts and when it stops

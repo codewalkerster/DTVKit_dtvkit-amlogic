@@ -309,8 +309,10 @@ static Aml_MP_CodecID toDvrAudioFormat(E_STB_AV_AUDIO_CODEC codec)
          fmt = AML_MP_AUDIO_CODEC_AC4;
       break;
       case AV_AUDIO_CODEC_AAC:
-      case AV_AUDIO_CODEC_HEAAC:
          fmt = AML_MP_AUDIO_CODEC_AAC;
+      break;
+      case AV_AUDIO_CODEC_HEAAC:
+        fmt = AML_MP_AUDIO_CODEC_LATM;
       break;
       default:
       break;

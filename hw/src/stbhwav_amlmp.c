@@ -224,6 +224,8 @@ static AV_PATH_STATUS *av_paths_status = NULL;
 static void** video_surface = NULL;
 static BOOLEAN av_start_flag = FALSE;
 static U8BIT num_paths = 0;
+static BOOLEAN video_blank_lock = FALSE;
+static BOOLEAN audio_mute_lock = FALSE;
 
 typedef enum
 {
@@ -477,6 +479,16 @@ BOOLEAN STB_AVAcquirePath(U8BIT video_decoder, U8BIT audio_decoder)
    return acquired;
 }
 
+void STB_AVSetVideoBlankLock(BOOLEAN enable)
+{
+   video_blank_lock = enable;
+}
+
+void STB_AVSetAudioMuteLock(BOOLEAN enable)
+{
+   audio_mute_lock = enable;
+}
+
 BOOLEAN STB_AVReleasePath(U8BIT video_decoder, U8BIT audio_decoder)
 {
    int i;
@@ -570,31 +582,36 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
  * @param   blank TRUE to blank, FALSE to unblank
  * @param   force_black_color  set blank AV color
 */
-void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank,BOOLEAN is_black_color)
+void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
 {
-        static char buf1[PROPERTY_VALUE_MAX] = { 0 };
-        static char buf2[PROPERTY_VALUE_MAX] = { 0 };
+   static char buf1[PROPERTY_VALUE_MAX] = {0};
+   static char buf2[PROPERTY_VALUE_MAX] = {0};
 
-        property_get("vendor.tv.dtv.enable.pip",  buf1, "false") ;
-        property_get("vendor.tv.dtv.enable.fcc",  buf2, "false") ;
+   if (video_blank_lock)
+   {
+      VID_DBG("Video blank locked, can not change");
+      return;
+   }
 
-        VID_DBG(" pip [%s] fcc[%s]",buf1,buf2);
-        if ((!strncmp(buf1, "false", 5))&&(!strncmp(buf2, "false", 5)))
-        {
-            int color =    VIDEO_LAYER_COLOR_MAX;
-            VID_DBG("===========>blank=%u force_black_color %d", blank,is_black_color);
-            if (blank == TRUE)
-            {
-                color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
-                SC_setVideoColor(color);
-            }
-            else
-            {
-                SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
-            }
-        }
- }
+   property_get("vendor.tv.dtv.enable.pip", buf1, "false");
+   property_get("vendor.tv.dtv.enable.fcc", buf2, "false");
 
+   VID_DBG(" pip [%s] fcc[%s]", buf1, buf2);
+   if ((!strncmp(buf1, "false", 5)) && (!strncmp(buf2, "false", 5)))
+   {
+      int color = VIDEO_LAYER_COLOR_MAX;
+      VID_DBG("===========>blank=%u force_black_color %d", blank, is_black_color);
+      if (blank == TRUE)
+      {
+         color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
+         SC_setVideoColor(color);
+      }
+      else
+      {
+         SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
+      }
+   }
+}
 
 /**
  * @brief   Blanks or unblanks the video display
@@ -605,50 +622,62 @@ void STB_AVBlankVideo(U8BIT path, BOOLEAN blank)
 {
     int ret;
     AML_MP_PLAYER player_handle;
-    FUNCTION_START(STB_AVBlankVideo);
     U8BIT av_path = INVALID_RES_ID;
+
+    FUNCTION_START(STB_AVBlankVideo);
+
     VID_DBG("path[%u], blank[%d]", path, blank);
+
+    if (video_blank_lock)
+    {
+       VID_DBG("Video blank locked, can not change");
+       return;
+    }
+
     ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
     if (ret < 0)
     {
-        VID_DBG("Cannot get player video decoder[%d]", path);
-        return;
+       VID_DBG("Cannot get player video decoder[%d]", path);
+       return;
     }
 
-    if (STB_PVRIsPlayStopped(path, path)) {
-        if (blank == TRUE)
-        {
-            ret = Aml_MP_Player_HideVideo(player_handle);
-            if (ret < 0)
-            {
-                AUD_DBG("Hide video failed, err:%d", ret);
-            }
-        }
-        else
-        {
-            ret = Aml_MP_Player_ShowVideo(player_handle);
-            if (ret < 0)
-            {
-                AUD_DBG("Show video failed, err:%d", ret);
-            }
-        }
-    } else {
-        if (blank == TRUE)
-        {
-            ret = Aml_MP_DVRPlayer_HideVideo(player_handle);
-            if (ret < 0)
-            {
-                AUD_DBG("Hide video failed, err:%d", ret);
-            }
-        }
-        else
-        {
-            ret = Aml_MP_DVRPlayer_ShowVideo(player_handle);
-            if (ret < 0)
-            {
-                AUD_DBG("Show video failed, err:%d", ret);
-            }
-        }
+    if (STB_PVRIsPlayStopped(path, path))
+    {
+       if (blank == TRUE)
+       {
+          ret = Aml_MP_Player_HideVideo(player_handle);
+          if (ret < 0)
+          {
+             AUD_DBG("Hide video failed, err:%d", ret);
+          }
+       }
+       else
+       {
+          ret = Aml_MP_Player_ShowVideo(player_handle);
+          if (ret < 0)
+          {
+             AUD_DBG("Show video failed, err:%d", ret);
+          }
+       }
+    }
+    else
+    {
+       if (blank == TRUE)
+       {
+          ret = Aml_MP_DVRPlayer_HideVideo(player_handle);
+          if (ret < 0)
+          {
+             AUD_DBG("Hide video failed, err:%d", ret);
+          }
+       }
+       else
+       {
+          ret = Aml_MP_DVRPlayer_ShowVideo(player_handle);
+          if (ret < 0)
+          {
+             AUD_DBG("Show video failed, err:%d", ret);
+          }
+       }
     }
 
     FUNCTION_FINISH(STB_AVBlankVideo);
@@ -716,11 +745,11 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 
    AUD_DBG("set volume: %d:[-:%d] vol[%d]", av_path, path, vol);
 
-    if (av_path != INVALID_RES_ID)
-    {
-        av_paths_status[av_path].volume = vol;
-        av_paths_status[av_path].mute = (vol == 0) ? TRUE : FALSE;
-    }
+   if (av_path != INVALID_RES_ID)
+   {
+      av_paths_status[av_path].volume = vol;
+      av_paths_status[av_path].mute = (vol == 0) ? TRUE : FALSE;
+   }
 
    ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
    if (ret < 0)
@@ -796,6 +825,12 @@ void STB_AVSetAudioMute(U8BIT path, BOOLEAN mute)
    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
 
    AUD_DBG("set mute: %d:[-:%d] mute[%d]", av_path, path, mute);
+
+   if (audio_mute_lock)
+   {
+      AUD_DBG("Audio mute locked, can not change");
+      return;
+   }
 
    if (av_path != INVALID_RES_ID)
    {
@@ -3521,6 +3556,12 @@ E_DECODER_STATE AV_GetDecoderState(U8BIT path, E_DECODER_INDEX index)
 static int AV_SetAudioVolume(AML_MP_PLAYER player_handle, int dvr, U8BIT vol, BOOLEAN mute)
 {
    int ret;
+
+   if (audio_mute_lock)
+   {
+      AUD_DBG("set audio volume failed, locked");
+      return 0;
+   }
 
    int (*f_vol)(AML_MP_PLAYER, float) =
       dvr ?

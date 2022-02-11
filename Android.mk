@@ -65,26 +65,21 @@ ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
 LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
 endif
 
-ifeq (1, $(strip $(shell expr $(PLATFORM_VERSION) \>= 12)))
-    MEDIAHAL_INCLUDE:=vendor/amlogic/reference/mediahal_sdk/include
-else
-    MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
-endif
+MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
+
 ifneq (,$(wildcard media_hal))
   MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
 endif
 
-ifeq (1, $(strip $(shell expr $(PLATFORM_VERSION) \>= 12)))
-    LIBDVR_PATH:=vendor/amlogic/reference/libdvr_release/include
-    ifneq (,$(wildcard vendor/amlogic/reference/libdvr))
-        LIBDVR_PATH:=vendor/amlogic/reference/libdvr/include
-    endif
-else
-    LIBDVR_PATH:=vendor/amlogic/common/libdvr_release/include
-    ifneq (,$(wildcard vendor/amlogic/common/libdvr))
-        LIBDVR_PATH:=vendor/amlogic/common/libdvr/include
-    endif
+LIBDVR_PATH:=$(LOCAL_PATH)/../../../libdvr_release/include
+ifneq (,$(wildcard $(LOCAL_PATH)/../../../libdvr))
+    LIBDVR_PATH:=$(LOCAL_PATH)/../../../libdvr/include
 endif
+#LIBDVR_PATH:=vendor/amlogic/common/libdvr_release/include
+#ifneq (,$(wildcard vendor/amlogic/common/libdvr))
+#    LIBDVR_PATH:=vendor/amlogic/common/libdvr/include
+#endif
+
 
 #LOCAL_CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
@@ -186,11 +181,8 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS
     LOCAL_SRC_FILES += hw/src/ca_glue_amlmp.c
-    ifeq (1, $(strip $(shell expr $(PLATFORM_VERSION) \>= 12)))
-        LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/reference/aml_mp_sdk/include
-    else
-        LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/aml_mp_sdk/include
-    endif
+    LOCAL_C_INCLUDES += $(TOP)/$(LOCAL_PATH)/../../../aml_mp_sdk/include
+    #LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/aml_mp_sdk/include
     LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
 endif
 
@@ -201,11 +193,8 @@ ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     else
         LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
         LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
-        ifeq (1, $(strip $(shell expr $(PLATFORM_VERSION) \>= 12)))
-            LOCAL_C_INCLUDES += vendor/amlogic/reference/aml_mp_sdk/include
-        else
-            LOCAL_C_INCLUDES += vendor/amlogic/common/aml_mp_sdk/include
-        endif
+        LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../aml_mp_sdk/include
+        #LOCAL_C_INCLUDES += vendor/amlogic/common/aml_mp_sdk/include
         LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
     endif
 else

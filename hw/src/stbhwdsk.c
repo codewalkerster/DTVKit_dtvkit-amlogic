@@ -46,7 +46,7 @@
 
 
 /*---macro definitions for this file-----------------------------------------*/
-#define DISK_DEBUG_LOOP 1
+//#define DISK_DEBUG_LOOP 1
 #ifdef  DISK_DEBUG_LOOP
    #define  DISK_DBGLOOP(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else

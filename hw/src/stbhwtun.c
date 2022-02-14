@@ -75,6 +75,8 @@
 #define FEND_BS_MAX_CHANNEL      (512)
 #define TUNER_USELESS_TIMEOUT    (10)               /*second*/
 #define FEND_FL_LOCK             (1)
+#define TUNER_POLLING_TIMEOUT    (50)               /*ms*/
+#define TUNER_LOST_LOCK_TIMES    (40)               /*check times in search mode*/
 
 /*---local typedef structs for this file-------------------------------------*/
 typedef enum
@@ -2990,6 +2992,7 @@ static void TunerTask(void *param)
     BOOLEAN stop;
     U8BIT delay_step;
     U8BIT tune_idle_timer;
+    U16BIT lost_signal_times=0;
     struct dvb_frontend_parameters fe_params;
     struct pollfd pfd;
     struct dvb_frontend_event fe_event;
@@ -3049,7 +3052,7 @@ static void TunerTask(void *param)
                 for (locked = FALSE, start_time = STB_OSGetClockMilliseconds();
                         !stop && !locked && (STB_OSGetClockDiff(start_time) < WAIT_LOCK_TIMEOUT); )
                 {
-                    if (poll(&pfd, 1, 50) == 1)
+                    if (poll(&pfd, 1, TUNER_POLLING_TIMEOUT) == 1)
                     {
                         if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
                         {
@@ -3194,7 +3197,7 @@ static void TunerTask(void *param)
 
             while ((state == TUNER_LOCKED) || (state == TUNER_RELOCKING))
             {
-                if (poll(&pfd, 1, 50) == 1)
+                if (poll(&pfd, 1, TUNER_POLLING_TIMEOUT) == 1)
                 {
                     if (ioctl(tstatus->frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
                     {
@@ -3260,6 +3263,7 @@ static void TunerTask(void *param)
                 {
                     if (tuner_locked)
                     {
+                        lost_signal_times = 0;
                         if (!locked)
                         {
                             /* Tuner has relocked */
@@ -3278,17 +3282,41 @@ static void TunerTask(void *param)
                     {
                         if (locked)
                         {
-                            /* Lost lock */
-                            TUN_DBG("%u: Lost LOCK, relock %u", tstatus->path, tstatus->auto_relock);
-
-                            locked = FALSE;
-
-                            if (state == TUNER_LOCKED)
+                            if(TRUE == STB_TuneIsSearchMode(tstatus->path))//Filter unstable signals
                             {
-                                STB_OSMutexLock(tstatus->mutex);
-                                tstatus->state = TUNER_RELOCKING;
-                                STB_OSMutexUnlock(tstatus->mutex);
-                                STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
+                                if(lost_signal_times<TUNER_LOST_LOCK_TIMES)
+                                {
+                                    lost_signal_times++;
+                                }
+                                else
+                                {
+                                    TUN_DBG("%u: Lost LOCK, relock %u,try times(%d)", tstatus->path, tstatus->auto_relock,lost_signal_times);
+                                    locked = FALSE;
+
+                                    if (state == TUNER_LOCKED)
+                                    {
+                                        STB_OSMutexLock(tstatus->mutex);
+                                        tstatus->state = TUNER_RELOCKING;
+                                        STB_OSMutexUnlock(tstatus->mutex);
+                                        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
+                                    }
+                                    lost_signal_times=0;
+                                }
+                            }
+                            else
+                            {
+                                /* Lost lock */
+                                TUN_DBG("%u: Lost LOCK, relock %u", tstatus->path, tstatus->auto_relock);
+
+                                locked = FALSE;
+
+                                if (state == TUNER_LOCKED)
+                                {
+                                    STB_OSMutexLock(tstatus->mutex);
+                                    tstatus->state = TUNER_RELOCKING;
+                                    STB_OSMutexUnlock(tstatus->mutex);
+                                    STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
+                                }
                             }
                         }
                         else if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS || tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2)

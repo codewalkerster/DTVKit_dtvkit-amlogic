@@ -1440,8 +1440,9 @@ void STB_PVRRecordStop(U8BIT rec_index)
    {
       REC_DBG("Stopping recording %u, handle %p", rec_index, s_rec_status[rec_index].recorder);
 
-      if (s_rec_status[rec_index].recorder != NULL)
+      if (s_rec_status[rec_index].recorder != NULL && s_rec_status[rec_index].rec_state != REC_STOPPED)
       {
+         s_rec_status[rec_index].rec_state = REC_STOPPED;
          error = Aml_MP_DVRRecorder_Stop(s_rec_status[rec_index].recorder);
          if (error)
          {
@@ -2922,10 +2923,12 @@ static void RecEventHandler(void* userdata, AML_MP_DVRRecorderEventType eventTyp
          case AML_MP_DVRRECORDER_EVENT_WRITE_ERROR:
          {
             REC_DBG("## Recording stopped ##");
+            STB_DSKSetRefresh(FALSE);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP, &rec_status->rec_index, sizeof(U8BIT));
             U16BIT disk_id = getDiskIdByRecIndex(rec_status->rec_index);
             REC_DBG("## Recording write fail, disk may be removed. ##");
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED, &disk_id, sizeof(disk_id));
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_DISK_REMOVED, &disk_id, sizeof(disk_id));
+            STB_DSKSetRefresh(TRUE);
             break;
          }
          default:

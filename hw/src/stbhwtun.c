@@ -258,6 +258,7 @@ void STB_TuneInitialise(U8BIT paths)
     }
 
     TUN_ERR("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
+    CERT_Log_StartingUp("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
 
     /* Find out how many tuners are available */
     for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < aml_hw_cfg.tuner_num); )
@@ -267,6 +268,8 @@ void STB_TuneInitialise(U8BIT paths)
         if (stat(fe_name, &file_status) == 0)
         {
             TUN_DBG("found %s", fe_name);
+            CERT_Log_StartingUp("found %s", fe_name);
+
             num_paths++;
         }
         else
@@ -310,6 +313,7 @@ void STB_TuneInitialise(U8BIT paths)
                                      TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
                 {
                     TUN_ERR("Failed to create task for tuner %u", i);
+                    CERT_Log_StartingUp("Failed to create task for tuner %u", i);
                 }
             }
         }
@@ -317,6 +321,7 @@ void STB_TuneInitialise(U8BIT paths)
     else
     {
         TUN_ERR("No tuners found!");
+        CERT_Log_StartingUp("No tuners found!");
     }
 
     FUNCTION_FINISH(STB_TuneInitialise);

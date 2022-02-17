@@ -1027,11 +1027,10 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
       {
          REC_DBG("Found pvr video pid %d", pid_array[i].pid);
-         if (s_rec_status[rec_index].a_chanid == -1)
+         if (s_rec_status[rec_index].v_chanid == -1)
          {
-            s_rec_status[rec_index].a_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+            s_rec_status[rec_index].v_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
          }
-         s_rec_status[rec_index].v_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
          if (s_rec_status[rec_index].v_chanid == -1)
          {
             REC_DBG("alloc pvr audio pid failed");

@@ -245,6 +245,8 @@ void STB_TuneInitialise(U8BIT paths)
     FUNCTION_START(STB_TuneInitialise);
     USE_UNWANTED_PARAM(paths);
 
+    U8BIT init_try_count = 0;
+
     if (property_get("ro.vendor.platform.has.tvuimode", buf, "false") > 0)
     {
         if (!strncmp(buf, "true", 4))
@@ -261,22 +263,40 @@ void STB_TuneInitialise(U8BIT paths)
     CERT_Log_StartingUp("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
 
     /* Find out how many tuners are available */
-    for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < aml_hw_cfg.tuner_num); )
+    do
     {
-        snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[num_paths].frontend_idx);
-
-        if (stat(fe_name, &file_status) == 0)
+        for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < aml_hw_cfg.tuner_num); )
         {
-            TUN_DBG("found %s", fe_name);
-            CERT_Log_StartingUp("found %s", fe_name);
+            snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[num_paths].frontend_idx);
 
-            num_paths++;
+            if (stat(fe_name, &file_status) == 0)
+            {
+                TUN_DBG("found %s", fe_name);
+                CERT_Log_StartingUp("found %s", fe_name);
+
+                num_paths++;
+            }
+            else
+            {
+                CERT_Log_StartingUp("not found %s", fe_name);
+
+                adapter_found = FALSE;
+            }
+        }
+
+        if (!adapter_found && init_try_count < 10)
+        {
+            init_try_count++;
+            sleep(1);
+
+            TUN_DBG("retry: %d", init_try_count);
+            CERT_Log_StartingUp("retry: %d", init_try_count);
         }
         else
         {
-            adapter_found = FALSE;
+            break;
         }
-    }
+    } while (1);
 
     if (num_paths != 0)
     {

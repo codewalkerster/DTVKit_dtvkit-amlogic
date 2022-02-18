@@ -99,8 +99,8 @@ typedef struct s_disk_info
 static S_DISK_INFO* disk_list;
 static void* disk_mutex;
 static U8BIT next_disk_id = 0;
-
-
+static BOOLEAN refresh_disk = TRUE;
+static int delay_refresh_disk = 0;
 /*---local function prototypes for this file---------------------------------*/
 static void DiskMonitorTask(void *param);
 static void RefreshDiskList(BOOLEAN send_events);
@@ -1200,6 +1200,19 @@ void STB_DSKSetStandby(BOOLEAN state)
    FUNCTION_FINISH(STB_DSKSetStandby);
 }
 
+/**
+ * @brief   Put all disks into or out of refresh mode
+ * @param   refresh refresh mode, TRUE=refresh disk FALSE=not
+ */
+void STB_DSKSetRefresh(BOOLEAN refresh)
+{
+   FUNCTION_START(STB_DSKSetRefresh);
+   refresh_disk = refresh;
+   if (refresh_disk == FALSE)
+      delay_refresh_disk = 3000;
+   FUNCTION_FINISH(STB_DSKSetRefresh);
+}
+
 BOOLEAN STB_DSKAddDevicePath(char *device, char *path)
 {
    return STB_DSKAddDevicePathAndLoad(device, path, TRUE);
@@ -1343,7 +1356,16 @@ static void DiskMonitorTask(void *param)
    {
       /* Run the task every 3 seconds */
       STB_OSTaskDelay(3000);
-
+      if (refresh_disk == FALSE) {
+         DISK_DBG("delay refresh disk [%d]", refresh_disk);
+         continue;
+      }
+      if (delay_refresh_disk > 0) {
+         DISK_DBG("delay refresh disk [%d]ms", delay_refresh_disk);
+         STB_OSTaskDelay(delay_refresh_disk);
+         delay_refresh_disk = 0;
+      }
+      DISK_DBG("refresh disk start");
       RefreshDiskList(TRUE);
       DISK_DBG("check disk start");
       /*check for the free space of the disk which has recording running*/

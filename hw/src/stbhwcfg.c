@@ -34,6 +34,10 @@
 #define CFG_FILE_PATH "/odm/etc/tvconfig/dtvkit/config.xml"
 #endif
 
+#ifdef RDK_COMPILE
+#undef CFG_FILE_PATH
+#define CFG_FILE_PATH "/etc/config.xml"
+#endif
 
 #define CFG_PARSER_BUF_SIZE 512
 #define CFG_DEBUG 1
@@ -472,8 +476,10 @@ void STB_CfgInitialise(void)
 {
     XML_Parser      parser;
     enum XML_Status status;
-    FILE           *fp;
+    FILE           *fp = NULL;
     int             i;
+
+    #ifndef RDK_COMPILE
     char buf[64];
     BOOLEAN ret;
 
@@ -488,6 +494,7 @@ void STB_CfgInitialise(void)
             }
         }
     }
+    #endif
 
     if (!fp) {
         fp = fopen(CFG_FILE_PATH, "rb");

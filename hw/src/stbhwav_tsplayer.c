@@ -59,6 +59,7 @@
 #define  AV_AUDIO_CODEC_LATM    AV_AUDIO_CODEC_LATM_TSP
 #define  AV_AUDIO_CODEC_AC4    AV_AUDIO_CODEC_AC4_TSP
 
+#define loff_t off_t
 #ifdef SUPPORT_CAS
 #include "am_cas.h"
 #endif

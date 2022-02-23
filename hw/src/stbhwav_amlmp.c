@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <cutils/properties.h>
+#define loff_t off_t
 
 /* STB header files */
 #include "techtype.h"
@@ -586,6 +587,7 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 */
 void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
 {
+   #ifndef RDK_COMPILE
    static char buf1[PROPERTY_VALUE_MAX] = {0};
    static char buf2[PROPERTY_VALUE_MAX] = {0};
 
@@ -613,6 +615,7 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
          SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
       }
    }
+   #endif
 }
 
 /**
@@ -3090,6 +3093,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_USERDATA_AFD:
       {
+         #ifndef RDK_COMPILE
           Aml_MP_PlayerEventMpegUserData* userData = (Aml_MP_PlayerEventMpegUserData*)param;
           uint8_t* pbuf = userData->data;
           uint32_t size = userData->len;
@@ -3101,6 +3105,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
           info.flags = VIDEO_INFO_AFD;
           info.afd = afd.af & 0x7;
           VID_DBG("[evt][%d] video afd changed: flg[0x%x] fmt[0x%x]\n", status->decoder, afd.af_flag, afd.af);
+          #endif
           break;
       }
       case AML_MP_PLAYER_EVENT_VIDEO_CHANGED:
@@ -3450,6 +3455,7 @@ int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
         AUD_DBG("Set audio params failed, pid:%d fmt:%d err:%d", a_pid, format, ret);
         return ret;
     }
+   #ifndef RDK_COMPILE
     if (audioPresentationId >= 0) {
         ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &audioPresentationId);
         if (ret < 0)
@@ -3458,6 +3464,7 @@ int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
             return ret;
         }
     }
+   #endif
     ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
     if (ret < 0)
     {

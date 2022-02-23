@@ -1,7 +1,7 @@
 #**************************************************************************
 #  Makefile for platform OS layer
 #**************************************************************************
-
+include ../Config.mk
 INCLUDES += $(DTVKIT_DVBCORE_ROOT)/inc \
             $(DTVKIT_DVBCORE_ROOT)/platform/inc
 

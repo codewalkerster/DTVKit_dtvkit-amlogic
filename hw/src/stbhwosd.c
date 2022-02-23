@@ -37,12 +37,14 @@
 #include "stbhwc.h"
 #include "stbhwosd.h"
 #include "stb_osd.h"
+
+#ifndef RDK_COMPILE
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include "DTVKitInterface.h"
 #else
 #include "binderservice.h"
 #endif
-
+#endif
 
 /*---constant definitions for this file--------------------------------------*/
 
@@ -130,6 +132,7 @@ static void* CreateSurface(U16BIT width, U16BIT height, U8BIT depth);
 static void DestroySurface(void *surface);
 static void FillSurface(void *surface, S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg);
 static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE *dest, S_RECTANGLE *drect);
+
 
 
 /*---global variable definitions---------------------------------------------*/

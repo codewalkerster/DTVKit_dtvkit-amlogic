@@ -1506,7 +1506,7 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
             if (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
             {
                 cmd.cmd = DTV_DVBT2_PLP_ID;
-                cmd.u.buffer.reserved1[1] = UINT_MAX;
+                cmd.u.buffer.reserved1[1] = (~0U);
                 cmd.u.buffer.reserved2 = plp_ids;
 
                 props.num = 1;

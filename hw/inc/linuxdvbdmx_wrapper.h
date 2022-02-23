@@ -35,18 +35,18 @@ typedef enum
 
 typedef void (*AML_DMX_DataCb) (int dev_no, int fd, const uint8_t *data, int len, void *user_data);
 
-BOOLEAN AML_DMX_Open(int dev_no);
-BOOLEAN AML_DMX_Close(int dev_no);
-BOOLEAN AML_DMX_AllocateFilter(int dev_no, int *fhandle);
-BOOLEAN AML_DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_params *params);
-BOOLEAN AML_DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_params *params);
-BOOLEAN AML_DMX_SetBufferSize(int dev_no, int fhandle, int size);
-BOOLEAN AML_DMX_FreeFilter(int dev_no, int fhandle);
-BOOLEAN AML_DMX_StartFilter(int dev_no, int fhandle);
-BOOLEAN AML_DMX_StopFilter(int dev_no, int fhandle);
-BOOLEAN AML_DMX_SetCallback(int dev_no, int fhandle, AML_DMX_DataCb cb, void *user_data);
-BOOLEAN AML_DMX_SetSource(int dev_no, AML_DMX_Source_t src);
-BOOLEAN AML_DMX_FileEcho(const char *name, const char *cmd);
+BOOLEAN DMX_Open(int dev_no);
+BOOLEAN DMX_Close(int dev_no);
+BOOLEAN DMX_AllocateFilter(int dev_no, int *fhandle);
+BOOLEAN DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_params *params);
+BOOLEAN DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_params *params);
+BOOLEAN DMX_SetBufferSize(int dev_no, int fhandle, int size);
+BOOLEAN DMX_FreeFilter(int dev_no, int fhandle);
+BOOLEAN DMX_StartFilter(int dev_no, int fhandle);
+BOOLEAN DMX_StopFilter(int dev_no, int fhandle);
+BOOLEAN DMX_SetCallback(int dev_no, int fhandle, AML_DMX_DataCb cb, void *user_data);
+BOOLEAN DMX_SetSource(int dev_no, AML_DMX_Source_t src);
+BOOLEAN DMX_FileEcho(const char *name, const char *cmd);
 
 
 #ifdef __cplusplus

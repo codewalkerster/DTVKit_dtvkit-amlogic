@@ -14,9 +14,7 @@ $(warning DTVKIT_AR not set, using $(AR))
 DTVKIT_AR=$(AR)
 endif
 
-ifeq ($(DTVKIT_DVBCORE_ROOT),)
-$(error Please set DTVKIT_DVBCORE_ROOT to point to the DVBCore source tree)
-endif
+
 
 DTVKIT_OPTIMISATION_OPTION?=-O2
 
@@ -26,10 +24,39 @@ CFLAGS = $(DTVKIT_OPTIMISATION_OPTION)
 else
 CFLAGS = -g
 endif
-
+CFLAGS += -fPIC
+CFLAGS += -DSUPPORT_CAS
 CFLAGS += $(DTVKIT_ADDITIONAL_COMPILER_OPTIONS)
 
-QUIET ?= @
+ifeq ($(DTVKIT_CC),/opt/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc)
+DTVKIT_ROOT=${MODULE_ROOT}/../
+DTVKIT_DVBCORE_ROOT=${DTVKIT_ROOT}/DVBCore
+DTVKIT_CIPLUS_ROOT=${DTVKIT_ROOT}/CI-Plus
+DTVKIT_MHEG5_ROOT=${DTVKIT_ROOT}/MHEG5
+CFLAGS += -D_FILE_OFFSET_BITS=64
+CFLAGS += -DINCLUDE_TEST_KEYS
+CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
+CFLAGS += -DUSE_TSPLAYER
+CFLAGS += -DRDK_COMPILE
+
+CFLAGS += -I../../rdklib/liblog/include
+CFLAGS += -I../../rdklib/include
+CFLAGS += -I../../rdklib/libdvr_release/include/libdvr
+CFLAGS += -I../../rdklib/expat/include
+CFLAGS += -I../../rdklib/aml_mp_sdk/include
+CFLAGS += -I../../rdklib/aml-cas-hal/include/libamcas
+CFLAGS += -I../../rdklib/mediahal_sdk/include
+endif
+
+DEFINES += $(RDK_DEFINES)
+INCLUDES += $(RDK_INCLUDES)
+
+ifeq ($(DTVKIT_DVBCORE_ROOT),)
+$(error Please set DTVKIT_DVBCORE_ROOT to point to the DVBCore source tree)
+endif
+
+
+#QUIET ?= @
 
 DFLAG = -MMD
 

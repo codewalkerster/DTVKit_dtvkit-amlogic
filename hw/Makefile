@@ -1,33 +1,45 @@
 #**************************************************************************
 #  Makefile for platform hardware layer
 #**************************************************************************
-
+include ../Config.mk
 INCLUDES = ./inc \
-           $(DTVKIT_DVBCORE_ROOT)/inc \
-           $(DTVKIT_DVBCORE_ROOT)/platform/inc \
-           $(DTVKIT_CIPLUS_ROOT)/include \
+          $(DTVKIT_DVBCORE_ROOT)/inc \
+          $(DTVKIT_DVBCORE_ROOT)/platform/inc \
+          $(DTVKIT_DVBCORE_ROOT)/midware/CA/inc \
+          $(DTVKIT_DVBCORE_ROOT)/midware/stb/inc \
+          $(DTVKIT_CIPLUS_ROOT)/include \
+          $(DTVKIT_MHEG5_ROOT)/include
+
+ifneq ($(RDK_COMPILE),1)
+INCLUDES += \
            $(DTVKIT_RPCSERVICE_ROOT)/modules/binderservice/inc
-           $(DTVKIT_MHEG5_ROOT)/include
+endif
+
+
 
 SRCDIR = src
-SRCS = \
-	stbhwplatform.c \
+SRCS = stbhwplatform.c \
 	stbhwini.c \
 	stbhwmem.c \
 	stbhwtun.c \
 	stbhwdmx.c \
-	stbhwav.c  \
 	stbhwdsk.c \
 	stbhwfp.c  \
 	stbhwsp.c  \
 	stbhwcrypt.c \
 	stbhwupg.c \
-	stbhwci.c \
 	stbhwosd.c \
-	stbpvrpr.c \
 	stbhwnet.c \
-	stbhwvbi.c \
-	stbhwresm.c
+     stbhwvbi.c \
+     stbhwcfg.c \
+     stbhwresm.c \
+     linuxdvbdmx_wrapper.c \
+     stbhwav_amlmp.c \
+     stbpvrpr_amlmp.c \
+     ca_glue_amlmp.c \
+     stbhwci.c
+
+
 
 DEFINES += _FILE_OFFSET_BITS=64
 

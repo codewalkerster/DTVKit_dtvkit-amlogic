@@ -13,6 +13,7 @@
  * \date 2020-07-16: create the document
  ***************************************************************************/
 
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/prctl.h>
@@ -182,7 +183,7 @@ static dvb_dmx_filter_t* dmx_get_filter(dvb_dmx_t * dev, int fhandle)
     return &dev->filter[fhandle];
 }
 
-BOOLEAN AML_DMX_Open(int dev_no)
+BOOLEAN DMX_Open(int dev_no)
 {
     dvb_dmx_t *dev = NULL;
 
@@ -204,7 +205,7 @@ BOOLEAN AML_DMX_Open(int dev_no)
     return TRUE;
 }
 
-BOOLEAN AML_DMX_AllocateFilter(int dev_no, int *fhandle)
+BOOLEAN DMX_AllocateFilter(int dev_no, int *fhandle)
 {
     int fd;
     int fid;
@@ -258,7 +259,7 @@ BOOLEAN AML_DMX_AllocateFilter(int dev_no, int *fhandle)
     return TRUE;
 }
 
-BOOLEAN AML_DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_params *params)
+BOOLEAN DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_params *params)
 {
     BOOLEAN ret = TRUE;
     dvb_dmx_t *dev = NULL;
@@ -295,7 +296,7 @@ BOOLEAN AML_DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filte
     return ret;
 }
 
-BOOLEAN AML_DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_params *params)
+BOOLEAN DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_params *params)
 {
     BOOLEAN ret = TRUE;
     dvb_dmx_t *dev = NULL;
@@ -337,7 +338,7 @@ BOOLEAN AML_DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filte
 }
 
 
-BOOLEAN AML_DMX_SetBufferSize(int dev_no, int fhandle, int size)
+BOOLEAN DMX_SetBufferSize(int dev_no, int fhandle, int size)
 {
     BOOLEAN ret = TRUE;
     dvb_dmx_t *dev = NULL;
@@ -365,7 +366,7 @@ BOOLEAN AML_DMX_SetBufferSize(int dev_no, int fhandle, int size)
     return ret;
 }
 
-BOOLEAN AML_DMX_FreeFilter(int dev_no, int fhandle)
+BOOLEAN DMX_FreeFilter(int dev_no, int fhandle)
 {
     dvb_dmx_t *dev = NULL;
     dvb_dmx_filter_t *filter = NULL;
@@ -390,7 +391,7 @@ BOOLEAN AML_DMX_FreeFilter(int dev_no, int fhandle)
     return TRUE;
 }
 
-BOOLEAN AML_DMX_StartFilter(int dev_no, int fhandle)
+BOOLEAN DMX_StartFilter(int dev_no, int fhandle)
 {
     BOOLEAN ret = TRUE;
     dvb_dmx_t *dev = NULL;
@@ -423,7 +424,7 @@ BOOLEAN AML_DMX_StartFilter(int dev_no, int fhandle)
     return ret;
 }
 
-BOOLEAN AML_DMX_StopFilter(int dev_no, int fhandle)
+BOOLEAN DMX_StopFilter(int dev_no, int fhandle)
 {
     BOOLEAN ret = TRUE;
     dvb_dmx_t *dev = NULL;
@@ -456,7 +457,7 @@ BOOLEAN AML_DMX_StopFilter(int dev_no, int fhandle)
     return ret;
 }
 
-BOOLEAN AML_DMX_SetSource(int dev_no, AML_DMX_Source_t src)
+BOOLEAN DMX_SetSource(int dev_no, AML_DMX_Source_t src)
 {
 	char buf[32];
 	char *cmd;
@@ -487,11 +488,11 @@ BOOLEAN AML_DMX_SetSource(int dev_no, AML_DMX_Source_t src)
 		return FALSE;
 	}
 
-	return AML_DMX_FileEcho(buf, cmd);
+	return DMX_FileEcho(buf, cmd);
 }
 
 
-BOOLEAN AML_DMX_SetCallback(int dev_no, int fhandle, AML_DMX_DataCb cb, void *user_data)
+BOOLEAN DMX_SetCallback(int dev_no, int fhandle, AML_DMX_DataCb cb, void *user_data)
 {
     BOOLEAN ret = TRUE;
     dvb_dmx_t *dev = NULL;
@@ -521,7 +522,7 @@ BOOLEAN AML_DMX_SetCallback(int dev_no, int fhandle, AML_DMX_DataCb cb, void *us
     return ret;
 }
 
-BOOLEAN AML_DMX_Close(int dev_no)
+BOOLEAN DMX_Close(int dev_no)
 {
     int i;
     int open_count = 0;
@@ -564,7 +565,7 @@ BOOLEAN AML_DMX_Close(int dev_no)
     return TRUE;
 }
 
-BOOLEAN AML_DMX_FileEcho(const char *name, const char *cmd)
+BOOLEAN DMX_FileEcho(const char *name, const char *cmd)
 {
 	int fd, len, ret;
 

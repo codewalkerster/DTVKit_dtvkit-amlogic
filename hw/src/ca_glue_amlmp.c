@@ -24,6 +24,8 @@
 
 #define CA_GLUE_DEBUG
 
+#define loff_t off_t
+
 /*---Includes for this file---------------------------------------------------*/
 /* compiler library header files */
 #include <unistd.h>

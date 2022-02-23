@@ -39,6 +39,8 @@ static const sp<SystemControlClient> &getSystemControlService()
     return sysctrlClient;
 }
 
+#ifndef RDK_COMPILE
+
 extern "C"  int SC_setVideoColor(int color)
 {
 #if ANDROID_PLATFORM_SDK_VERSION >= 30
@@ -72,6 +74,7 @@ extern "C"  int SC_getScreenColorSetting()
     return -1;
 }
 
+#endif
 
 /*****************************************************************************
 *                    End Of File

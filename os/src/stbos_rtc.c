@@ -28,7 +28,11 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include <cutils/properties.h>
+
+#ifndef RDK_COMPILE
 #include <sys/system_properties.h>
+#endif
+
 #ifdef USE_TSPLAYER
 #include "dvr_utils.h"
 #else

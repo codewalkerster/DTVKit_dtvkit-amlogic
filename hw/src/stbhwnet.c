@@ -46,6 +46,7 @@
 #include "stbhwmem.h"
 #include "stbhwnet.h"
 #include "stbci.h"
+#include "stbhwdef.h"
 
 /*---constant definitions for this file--------------------------------------*/
 
@@ -1279,12 +1280,14 @@ static void EthernetMonitorTask(void *arg)
             {
                edata.cmd = ETHTOOL_GLINK;
                ifr.ifr_data = (char *)&edata;
+               #ifndef RDK_COMPILE
                if (ioctl(sock_fd, SIOCETHTOOL, &ifr) < 0)
                {
                   NET_ERR("ioctl SIOCETHTOOL failed");
                   status_now = NW_LINK_DISABLED;
                }
                else
+               #endif
                {
                   status_now = (edata.data) ? NW_LINK_ACTIVE : NW_LINK_INACTIVE;
                }

@@ -1631,7 +1631,10 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
    {
       memcpy(&s_rec_status[rec_index].cas_status, cas_status, sizeof(S_CAS_STATUS));
       /* set timeshift state to CA module */
-      STB_CASetTimeShiftOn(cas_status->cb_param, cas_status->is_timeshift);
+      if (cas_status->cb_param)
+          STB_CASetTimeShiftOn(cas_status->cb_param, cas_status->is_timeshift);
+      else
+          REC_DBG("cas_status cb param is null");
    }
 
    FUNCTION_FINISH(STB_PVRRecordSetCASStatus);

@@ -1232,9 +1232,27 @@ void STB_DSKCheckSpace(U16BIT disk_id)
 }
 
 /*---local function definitions----------------------------------------------*/
-#define SUBOF(_path1, _path2) \
-      ((strlen(_path1) > strlen(_path2)) \
-      && !strncmp((_path1), (_path2), strlen(_path2)))
+static BOOLEAN IsSubDirectoryOf(char *path1, char *path2)
+{
+    int len1 = strlen(path1);
+    int len2 = strlen(path2);
+
+    if ((len1 <= len2) || ((len1 - len2) < 2))
+        return FALSE;
+
+    if (strncmp(path1, path2, len2) != 0)
+        return FALSE;
+
+    /*not root*/
+    if (*(path1 + len2) != '/')
+        return FALSE;
+
+    /*one level only*/
+    if (strchr(path1 + len2 + 1, '/'))
+        return FALSE;
+
+    return TRUE;
+}
 
 static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load)
 {
@@ -1420,7 +1438,7 @@ static void RefreshDiskList(BOOLEAN send_events)
                   found = TRUE;
                   DISK_DBGLOOP("found: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
                }
-               else if (SUBOF(disk->mount_path, mount_path))
+               else if (!strcmp(disk->device_name, "user") && IsSubDirectoryOf(disk->mount_path, mount_path))
                {
                   disk->found = TRUE;
                   DISK_DBGLOOP("found: sub: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
@@ -1555,6 +1573,7 @@ static S_DISK_INFO* AddDisk(char *device_name, char *mount_path)
             /* renew the info of the user added path */
             {
                S_DISK_INFO *d;
+               BOOLEAN found = FALSE;
 
                for (d = disk_list; d != NULL; d = d->next)
                {
@@ -1562,10 +1581,11 @@ static S_DISK_INFO* AddDisk(char *device_name, char *mount_path)
                   if (strcmp(disk->device_name, "user") == 0)
                   {
                      if ((strcmp(d->device_name, "user") != 0)
-                        && SUBOF(disk->mount_path, d->mount_path)
+                        && IsSubDirectoryOf(disk->mount_path, d->mount_path)
                         && (disk->is_removeable != d->is_removeable))
                      {
                         disk->is_removeable = d->is_removeable;
+                        found = TRUE;
                         DISK_DBG("Changed disk %s, mount on %s, removeable %s",
                            disk->device_name, disk->mount_path, disk->is_removeable? "true" : "false");
                         break;
@@ -1575,13 +1595,20 @@ static S_DISK_INFO* AddDisk(char *device_name, char *mount_path)
                   else
                   {
                      if ((strcmp(d->device_name, "user") == 0)
-                        && SUBOF(d->mount_path, disk->mount_path)
+                        && IsSubDirectoryOf(d->mount_path, disk->mount_path)
                         && (d->is_removeable != disk->is_removeable))
                      {
                         d->is_removeable = disk->is_removeable;
+                        found = TRUE;
                         DISK_DBG("Changed disk %s, mount on %s, removeable %s",
                            d->device_name, d->mount_path, d->is_removeable? "true" : "false");
                      }
+                  }
+               }
+               if (strcmp(disk->device_name, "user") == 0) {
+                  /*force "removeable" for the NEW user add*/
+                  if (!found) {
+                      disk->is_removeable = TRUE;
                   }
                }
             }

@@ -93,7 +93,7 @@ void STB_OSSetClockRTC(U32BIT num_seconds)
    utc_seconds = num_seconds;
 
    /* Save the system time at the point the clock has been set */
-   sync_time = SysBootTime();
+   sync_time = STB_OSGetSystemUnixTimeStamp();
 
    local_time = (int64_t)(STB_OSGetSystemUnixTimeStamp());
    //minus current timezone and app will translate it stream time by adding current timezone
@@ -130,8 +130,8 @@ U32BIT STB_OSGetClockRTC(void)
    /* Actual time is given by the value saved in
     * utc_seconds with the difference between the time
     * when it was set (sync_time) and the time now.   */
-   time_now = utc_seconds + ((SysBootTime() - sync_time) / RTC_TICKS_PER_SEC);
-   RTC_DBG("time_now:%u = utc_seconds:%u + (SysBootTime:%u-sync_time:%u)/1000",time_now,utc_seconds,SysBootTime(),sync_time);
+   time_now = utc_seconds + (STB_OSGetSystemUnixTimeStamp() - sync_time);
+   RTC_DBG("time_now:%u = utc_seconds:%u + (SystemUnixTime:%u-sync_time:%u)",time_now,utc_seconds, STB_OSGetSystemUnixTimeStamp(), sync_time);
 
    FUNCTION_FINISH(STB_OSGetClockRTC);
 

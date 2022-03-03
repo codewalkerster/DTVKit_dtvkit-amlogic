@@ -422,9 +422,8 @@ const void* STB_MEMReadSecureConstant(U8BIT key, U32BIT *len)
      fix me later.*/
    int force_fake = 1;
 
-   if ((key == SECURE_NVM_DEFAULT_ENCRYPTION_KEY
-               || key == SECURE_NVM_DEFAULT_ENC_INIT_VECTOR)
-               && aml_hw_cfg.pvr.encrypt) {
+   if (key == SECURE_NVM_DEFAULT_ENCRYPTION_KEY
+               || key == SECURE_NVM_DEFAULT_ENC_INIT_VECTOR) {
       int readlen;
       int fd = open("/proc/cpuinfo", O_RDONLY);
       *len = sizeof(des_key);

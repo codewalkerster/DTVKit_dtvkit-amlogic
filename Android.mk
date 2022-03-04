@@ -120,8 +120,8 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/hw/inc \
     $(LOCAL_PATH)/os/inc \
     external/sqlite/dist \
-    vendor/amlogic/common/frameworks/services/systemcontrol \
-    vendor/amlogic/common/frameworks/services/systemcontrol/PQ/include \
+    $(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
+    $(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include \
     system/core/libutils/include \
     bionic/libc/kernel/uapi \
     bionic/libc/kernel/android/uapi \

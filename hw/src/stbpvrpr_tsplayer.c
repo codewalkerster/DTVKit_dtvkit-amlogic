@@ -866,6 +866,21 @@ void STB_PVRPlaySetCASStatus(U8BIT audio_decoder, U8BIT video_decoder, S_CAS_STA
 #endif
 
 /**
+ * @brief   Sets ad mix level for pvr play.
+ * @param   audio_decoder audio decoder being used for playback
+ * @param   video_decoder video decoder being used for playback
+ * @param   vol ad volume (0-100%)
+ */
+void STB_PVRSetPlayADMixLevel(U8BIT audio_decoder, U8BIT video_decoder, U8BIT vol)
+{
+   FUNCTION_START(STB_PVRSetPlayADMixLevel);
+   USE_UNWANTED_PARAM(audio_decoder);
+   USE_UNWANTED_PARAM(video_decoder);
+   USE_UNWANTED_PARAM(vol);
+   FUNCTION_FINISH(STB_PVRSetPlayADMixLevel);
+}
+
+/**
  * @brief   Acquires an index to be used to reference a recording
  * @param   tuner tuner to be used for the recording
  * @param   demux demux to be used for the recording

@@ -924,6 +924,41 @@ void STB_PVRPlaySetCASStatus(U8BIT audio_decoder, U8BIT video_decoder, S_CAS_STA
 #endif
 
 /**
+ * @brief   Sets ad mix level for pvr play.
+ * @param   audio_decoder audio decoder being used for playback
+ * @param   video_decoder video decoder being used for playback
+ * @param   vol ad volume (0-100%)
+ */
+
+void STB_PVRSetPlayADMixLevel(U8BIT audio_decoder, U8BIT video_decoder, U8BIT vol)
+{
+   FUNCTION_START(STB_PVRSetPlayADMixLevel);
+   int error = -1;
+   U8BIT play_index = INVALID_RES_ID;
+   Aml_MP_ADVolume ad_volume;
+   PLAY_DBG("set ADMixLevel: %d", vol);
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
+   {
+       if (vol < 0)
+           vol = 0;
+       else if (vol > 100)
+           vol = 100;
+       ad_volume.masterVolume = (int)vol;
+       ad_volume.slaveVolume = (int)(100 - vol);
+
+       error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, (void*)&ad_volume);
+       PLAY_DBG("set ADMixLevel: %d, ret : %d", vol, error);
+   }
+   else
+   {
+       PLAY_DBG("set ADMixLevel: %d error ", vol);
+   }
+   FUNCTION_FINISH(STB_PVRSetPlayADMixLevel);
+}
+
+/**
  * @brief   Acquires an index to be used to reference a recording
  * @param   tuner tuner to be used for the recording
  * @param   demux demux to be used for the recording

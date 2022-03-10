@@ -2501,6 +2501,19 @@ void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 }
 
 /**
+ * @brief   Sets the mix level of the audio description output
+ * @param   path audio path to be configured
+ * @param   vol ad volume (0-100%)
+ */
+void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
+{
+   FUNCTION_START(STB_AVSetADMixLevel);
+   USE_UNWANTED_PARAM(path);
+   USE_UNWANTED_PARAM(vol);
+   FUNCTION_FINISH(STB_AVSetADMixLevel);
+}
+
+/**
  * @brief   Sets the standby state of the HDMI output
  * @param   standby TRUE to put the HDMI in standby, FALSE to come out of standby
  */

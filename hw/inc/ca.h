@@ -216,6 +216,7 @@ struct ca_sc2_alloc {
 	enum ca_sc2_algo_type algo;
 	enum ca_sc2_dsc_type dsc_type;
 	unsigned int ca_index;
+	unsigned char loop;
 };
 
 /**
@@ -227,14 +228,15 @@ struct ca_sc2_free {
 	unsigned int ca_index;
 };
 
-enum ca_sc2_key_type {
+typedef enum ca_sc2_key_type
+{
 	CA_KEY_EVEN_TYPE,
 	CA_KEY_EVEN_IV_TYPE,
 	CA_KEY_ODD_TYPE,
 	CA_KEY_ODD_IV_TYPE,
 	CA_KEY_00_TYPE,
 	CA_KEY_00_IV_TYPE
-};
+} E_CA_KEY_TYPE_SC2;
 
 /**
  * struct ca_sc2_key - set key slot index

@@ -24,7 +24,8 @@ enum user_id {
 	DSC_LOC_ENC
 };
 
-enum key_algo {
+typedef enum key_algo
+{
 	KEY_ALGO_AES,
 	KEY_ALGO_TDES,
 	KEY_ALGO_DES,
@@ -32,7 +33,7 @@ enum key_algo {
 	KEY_ALGO_CSA3,
 	KEY_ALGO_NDL,
 	KEY_ALGO_ND
-};
+} E_KEY_ALGO_SC2;
 
 struct key_descr {
 	unsigned int key_index;
@@ -44,6 +45,8 @@ struct key_config {
 	unsigned int key_index;
 	int key_userid;
 	int key_algo;
+	// cur just for s17 algo
+	unsigned int ext_value;
 };
 
 struct key_alloc {

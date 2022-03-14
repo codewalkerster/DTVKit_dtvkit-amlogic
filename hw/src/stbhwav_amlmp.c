@@ -3150,10 +3150,13 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       case AML_MP_PLAYER_EVENT_AUDIO_CHANGED:
       {
           Aml_MP_PlayerEventAudioFormat* audioFormat = (Aml_MP_PlayerEventAudioFormat*)param;
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
-            status->decoder,
-          audioFormat->sample_rate,
-          audioFormat->channels);
+          if (audioFormat != NULL)
+          {
+              AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
+                status->decoder,
+              audioFormat->sample_rate,
+              audioFormat->channels);
+          }
           break;
       }
       case AML_MP_PLAYER_EVENT_VIDEO_DECODE_FIRST_FRAME:

@@ -2498,6 +2498,54 @@ void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 }
 
 /**
+ * @brief   Sets the mix level of the audio description output
+ * @param   path audio path to be configured
+ * @param   vol ad volume (0-100%)
+ */
+void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
+{
+   FUNCTION_START(STB_AVSetADMixLevel);
+
+   int ret = -1;
+   AML_MP_PLAYER player_handle;
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+   Aml_MP_ADVolume ad_volume;
+
+   AUD_DBG("audio codec path=%u av_path = %u, vol = %d", path, av_path, vol);
+   if (av_path == INVALID_RES_ID) {
+       AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
+       return;
+   }
+
+   ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   if (ret < 0)
+   {
+       AUD_DBG("Cannot get player handle[%d]", av_path);
+       return;
+   }
+
+   if (vol < 0) {
+       vol = 0;
+   } else if (vol > 100) {
+       vol = 100;
+   }
+   ad_volume.masterVolume = (int)vol;
+   ad_volume.slaveVolume = (int)(100 - vol);
+
+   if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder)) {
+       ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, (void*)&ad_volume);
+       AUD_DBG("SetADMixLevel ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
+   } else {
+       ret = Aml_MP_DVRPlayer_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, (void*)&ad_volume);
+       AUD_DBG("SetADMixLevel ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
+   }
+
+   FUNCTION_FINISH(STB_AVSetADMixLevel);
+}
+
+
+
+/**
  * @brief   Sets the standby state of the HDMI output
  * @param   standby TRUE to put the HDMI in standby, FALSE to come out of standby
  */

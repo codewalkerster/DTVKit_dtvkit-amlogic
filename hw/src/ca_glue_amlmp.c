@@ -1511,7 +1511,7 @@ void STB_CAReleaseRecordingPids(U16BIT *pid_array, U16BIT num_pids)
  * @brief   This function is called when a record is stoped
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CAPVRRecordStart(U32BIT handle)
+int STB_CAPVRRecordStart(U32BIT handle)
 {
     int ret;
 #ifdef SUPPORT_CAS
@@ -1526,7 +1526,7 @@ void STB_CAPVRRecordStart(U32BIT handle)
     if (!(((STB_CA_Glue_t *)handle)->session_info))
     {
         CA_DBG(("CA glue PVR recoding encrypt session_info is null"));
-        return;
+        return -1;
     }
 
     if (!(((STB_CA_Glue_t *)handle)->session_info->cas_session))
@@ -1538,7 +1538,7 @@ void STB_CAPVRRecordStart(U32BIT handle)
         if (ret)
         {
             CA_DBG(("AM_CA_OpenSession failed [%d]", ret));
-            return;
+            return -1;
         }
 
         ret = Aml_MP_CAS_RegisterEventCallback(cas_session, cas_event_cb, NULL);
@@ -1588,11 +1588,12 @@ void STB_CAPVRRecordStart(U32BIT handle)
         if (ret)
         {
             CA_DBG(("CAS start DVR failed. ret = %d\r\n", ret));
-            return;
+            return -1;
         }
     }
 
 #endif
+    return 0;
 }
 
 

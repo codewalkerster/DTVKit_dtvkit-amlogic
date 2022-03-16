@@ -3129,6 +3129,12 @@ static void AVEventHandler(void *user_data, am_tsplayer_event *event)
               }
               break;
           }
+          case AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_VIDEO:
+          {
+              info.flags |= VIDEO_INFO_DECODER_STATUS;
+              info.status = DECODER_STATUS_DECODE_FIRST_FRAME_VIDEO;
+              break;
+          }
           default:
               break;
       }

@@ -3216,6 +3216,8 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       {
           AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_DECODE_FIRST_FRAME!\n", status->decoder);
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_VIDEO_FIRST_FRAME, &status->decoder, sizeof(U8BIT));
+          info.flags |= VIDEO_INFO_DECODER_STATUS;
+          info.status = DECODER_STATUS_DECODE_FIRST_FRAME_VIDEO;
           break;
       }
       case AML_MP_PLAYER_EVENT_DATA_LOSS:
@@ -3278,12 +3280,12 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_ERROR_FRAME_COUNT, NULL, 0);
           break;
       }
-        case AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT:
-        {
-           AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT  [%d]\n", status->decoder);
-           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_UNSUPPORT, &status->decoder, sizeof(U8BIT));
-            break;
-        }
+      case AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT:
+      {
+          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT  [%d]\n", status->decoder);
+          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_UNSUPPORT, &status->decoder, sizeof(U8BIT));
+          break;
+      }
       default:
           break;
   }

@@ -450,6 +450,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
     else if (!strcmp(name, "epg_config")) {
         cfg->epg_cfg.is_not_match_orignetid = 0;
         cfg->epg_cfg.is_not_match_tsid = 0;
+        cfg->epg_cfg.barker_channel_enabled = 0;
         att = atts;
         while (*att) {
             an = att[0];
@@ -461,6 +462,9 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             } else if (!strcmp(an, "not_match_ts_id")) {
                cfg->epg_cfg.is_not_match_tsid = atoi(av);
                CFG_DBG("cfg->epg_cfg.is_not_match_tsid[%d]", cfg->epg_cfg.is_not_match_tsid);
+            } else if (!strcmp(an, "barker_channel_enabled")) {
+               cfg->epg_cfg.barker_channel_enabled = atoi(av);
+               CFG_DBG("cfg->epg_cfg.barker_channel_enabled[%d]", cfg->epg_cfg.barker_channel_enabled);
             }
             att += 2;
         }
@@ -522,6 +526,7 @@ void STB_CfgInitialise(void)
     aml_hw_cfg.demux        = 0;
     aml_hw_cfg.epg_cfg.is_not_match_orignetid = 0;
     aml_hw_cfg.epg_cfg.is_not_match_tsid = 0;
+    aml_hw_cfg.epg_cfg.barker_channel_enabled = 0;
 
     while (1) {
         char    buf[CFG_PARSER_BUF_SIZE];
@@ -553,9 +558,10 @@ void STB_CfgInitialise(void)
     CFG_DBG("srate_auto:%d srate_auto_value:%d\n",
                                 aml_hw_cfg.demo_cap.srate_auto,
                                 aml_hw_cfg.demo_cap.srate_auto_value);
-    CFG_DBG("get epg config: is_not_match_orignetid:%d is_not_match_tsid:%d\n",
+    CFG_DBG("get epg config: is_not_match_orignetid:%d is_not_match_tsid:%d barker_channel_enabled:%d\n",
                                 aml_hw_cfg.epg_cfg.is_not_match_orignetid,
-                                aml_hw_cfg.epg_cfg.is_not_match_tsid);
+                                aml_hw_cfg.epg_cfg.is_not_match_tsid,
+                                aml_hw_cfg.epg_cfg.barker_channel_enabled);
 
     // B: Starting Up Log
     CERT_Log_StartingUp("tuner_num:%d demux_num:%d ci_slot_num:%d recorder_num:%d vdec_num:%d adec_num:%d demux:%d",
@@ -570,9 +576,10 @@ void STB_CfgInitialise(void)
                                 aml_hw_cfg.demo_cap.srate_auto,
                                 aml_hw_cfg.demo_cap.srate_auto_value);
 
-    CERT_Log_StartingUp("get epg config: is_not_match_orignetid:%d is_not_match_tsid:%d\n",
+    CERT_Log_StartingUp("get epg config: is_not_match_orignetid:%d is_not_match_tsid:%d barker_channel_enabled:%d\n",
                                 aml_hw_cfg.epg_cfg.is_not_match_orignetid,
-                                aml_hw_cfg.epg_cfg.is_not_match_tsid);
+                                aml_hw_cfg.epg_cfg.is_not_match_tsid,
+                                aml_hw_cfg.epg_cfg.barker_channel_enabled);
     // E: Starting Up Log
 
     for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
@@ -609,6 +616,11 @@ int STB_EpgGetIsNotMatchOrigNetId()
 int STB_EpgGetIsNotMatchTsId()
 {
 	return aml_hw_cfg.epg_cfg.is_not_match_tsid;
+}
+
+int STB_EpgGetBarkerChannelEnabled()
+{
+	return aml_hw_cfg.epg_cfg.barker_channel_enabled;
 }
 
 /**

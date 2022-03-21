@@ -207,6 +207,8 @@ typedef struct
 
    E_STB_DECODING_MODE decoding_mode;
 
+   U32BIT               video_out_control;
+   U32BIT               audio_out_control;
 #ifdef SUPPORT_CAS
    E_STB_DRM_TYPE       drm_mode;
    AML_MP_SECMEM        secmem_handle;
@@ -332,6 +334,8 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].audio_mode         = AML_MP_AUDIO_BALANCE_STEREO;
             av_paths_status[av_path].video_decoder      = INVALID_RES_ID;
             av_paths_status[av_path].audio_decoder      = INVALID_RES_ID;
+            av_paths_status[av_path].video_out_control     = 0;
+            av_paths_status[av_path].audio_out_control     = 0;
 
             av_paths_status[av_path].display_info.screen_width = 1920;
             av_paths_status[av_path].display_info.screen_height = 1080;
@@ -623,69 +627,79 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
  * @param   path the video path to be configured
  * @param   blank TRUE to blank, FALSE to unblank
  */
-void STB_AVBlankVideo(U8BIT path, BOOLEAN blank)
+void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
 {
-    int ret;
-    AML_MP_PLAYER player_handle;
-    U8BIT av_path = INVALID_RES_ID;
+   int ret;
+   AML_MP_PLAYER player_handle;
+   U8BIT av_path = INVALID_RES_ID;
+   BOOLEAN blank = FALSE;
 
-    FUNCTION_START(STB_AVBlankVideo);
+   FUNCTION_START(STB_AVBlankVideo);
 
-    VID_DBG("path[%u], blank[%d]", path, blank);
+   VID_DBG("path[%u], blank[%d], flag[%x], av_out_flag[%x]", path, blank, flag, av_paths_status[path].video_out_control);
+   if (video_blank_lock)
+   {
+      VID_DBG("Video blank locked, can not change");
+      return;
+   }
 
-    if (video_blank_lock)
-    {
-       VID_DBG("Video blank locked, can not change");
-       return;
-    }
+   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
+   if (ret < 0)
+   {
+      VID_DBG("Cannot get player video decoder[%d]", path);
+      return;
+   }
 
-    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
-    if (ret < 0)
-    {
-       VID_DBG("Cannot get player video decoder[%d]", path);
-       return;
-    }
+   if (av_blank)
+      av_paths_status[path].video_out_control |= (1<<flag);
+   else
+      av_paths_status[path].video_out_control &= (~(1<<flag));
 
-    if (STB_PVRIsPlayStopped(path, path))
-    {
-       if (blank == TRUE)
-       {
-          ret = Aml_MP_Player_HideVideo(player_handle);
-          if (ret < 0)
-          {
-             AUD_DBG("Hide video failed, err:%d", ret);
-          }
-       }
-       else
-       {
-          ret = Aml_MP_Player_ShowVideo(player_handle);
-          if (ret < 0)
-          {
-             AUD_DBG("Show video failed, err:%d", ret);
-          }
-       }
-    }
-    else
-    {
-       if (blank == TRUE)
-       {
-          ret = Aml_MP_DVRPlayer_HideVideo(player_handle);
-          if (ret < 0)
-          {
-             AUD_DBG("Hide video failed, err:%d", ret);
-          }
-       }
-       else
-       {
-          ret = Aml_MP_DVRPlayer_ShowVideo(player_handle);
-          if (ret < 0)
-          {
-             AUD_DBG("Show video failed, err:%d", ret);
-          }
-       }
-    }
+   if (av_paths_status[path].video_out_control)
+      blank = TRUE;
+   else
+      blank = FALSE;
 
-    FUNCTION_FINISH(STB_AVBlankVideo);
+   if (STB_PVRIsPlayStopped(path, path))
+   {
+      if (blank == TRUE)
+      {
+         ret = Aml_MP_Player_HideVideo(player_handle);
+         if (ret < 0)
+         {
+            AUD_DBG("Hide video failed, err:%d", ret);
+         }
+      }
+      else
+      {
+         ret = Aml_MP_Player_ShowVideo(player_handle);
+         if (ret < 0)
+         {
+            AUD_DBG("Show video failed, err:%d", ret);
+         }
+      }
+   }
+   else
+   {
+      if (blank == TRUE)
+      {
+         ret = Aml_MP_DVRPlayer_HideVideo(player_handle);
+         if (ret < 0)
+         {
+            AUD_DBG("Hide video failed, err:%d", ret);
+         }
+      }
+      else
+      {
+         ret = Aml_MP_DVRPlayer_ShowVideo(player_handle);
+         if (ret < 0)
+         {
+            AUD_DBG("Show video failed, err:%d", ret);
+         }
+      }
+   }
+
+   FUNCTION_FINISH(STB_AVBlankVideo);
 }
 
 /**
@@ -816,20 +830,34 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
    return vol;
 }
 
+void STB_ResetVideoBlank(path)
+{
+   av_paths_status[path].video_out_control = 0;
+   STB_AVBlankVideo(path, 0, FALSE);
+}
+
+void STB_ResetAudioMute(path)
+{
+   av_paths_status[path].audio_out_control = 0;
+   STB_AVSetAudioMute(path, 0, FALSE);
+}
+
 /**
  * @brief   Mutes or unmutes the audio output
  * @param   path The audio path to be configured
  * @param   mute TRUE to mute, FALSE to unmute
  */
-void STB_AVSetAudioMute(U8BIT path, BOOLEAN mute)
+void STB_AVSetAudioMute(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN audio_mute)
 {
    int ret;
    AML_MP_PLAYER player_handle;
+   BOOLEAN mute = FALSE;
+
    FUNCTION_START(STB_AVSetAudioMute);
 
    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
 
-   AUD_DBG("set mute: %d:[-:%d] mute[%d]", av_path, path, mute);
+   AUD_DBG("set mute: %d:[-:%d] mute[%d] flag[%x] path_flag[%x]", av_path, path, mute, flag, av_paths_status[path].audio_out_control);
 
    if (audio_mute_lock)
    {
@@ -848,6 +876,16 @@ void STB_AVSetAudioMute(U8BIT path, BOOLEAN mute)
        AUD_DBG("Cannot get player handle audio[%d]", path);
        return;
    }
+
+   if (audio_mute)
+      av_paths_status[path].audio_out_control |= (1<<flag);
+   else
+      av_paths_status[path].audio_out_control &= (~(1<<flag));
+
+   if (av_paths_status[path].audio_out_control)
+      mute = TRUE;
+   else
+      mute = FALSE;
 
    if (STB_PVRIsPlayStopped(path, path)) {
        ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_MUTE, (void*)&mute);

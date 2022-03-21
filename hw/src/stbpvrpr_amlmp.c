@@ -964,8 +964,8 @@ void STB_PVRSetPlayADMixLevel(U8BIT audio_decoder, U8BIT video_decoder, U8BIT vo
            vol = 0;
        else if (vol > 100)
            vol = 100;
-       ad_volume.masterVolume = (int)vol;
-       ad_volume.slaveVolume = (int)(100 - vol);
+       ad_volume.masterVolume = (int)(100 - vol);
+       ad_volume.slaveVolume = (int)vol;
 
        error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, (void*)&ad_volume);
        PLAY_DBG("set ADMixLevel: %d, ret : %d", vol, error);

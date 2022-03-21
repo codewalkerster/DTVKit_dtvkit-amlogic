@@ -2558,8 +2558,8 @@ void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
    } else if (vol > 100) {
        vol = 100;
    }
-   ad_volume.masterVolume = (int)vol;
-   ad_volume.slaveVolume = (int)(100 - vol);
+   ad_volume.masterVolume = (int)(100 - vol);
+   ad_volume.slaveVolume = (int)vol;
 
    if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder)) {
        ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, (void*)&ad_volume);

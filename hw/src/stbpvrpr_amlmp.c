@@ -1106,6 +1106,10 @@ U32BIT STB_PVRGetRecordingSegmentSizeKB()
 {
    return getPVRConfigInt("vendor.tv.dtv.pvr.segment_size_kb", 100 * 1024/*100MB*/);
 }
+U32BIT STB_PVRGetTimeshiftRecordingSegmentSizeKB()
+{
+   return getPVRConfigInt("vendor.tv.dtv.pvr.timeshift_segment_size_kb", 100 * 1024/*100MB*/);
+}
 
 /**
  * @brief   Starts recording
@@ -1163,6 +1167,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       {
          rec_timeshift_params.maxTime = s_rec_status[rec_index].timeshift_duration * 1000;
          rec_timeshift_params.maxSize = s_rec_status[rec_index].timeshift_size * 1024 * 1024;
+         rec_basic_params.segmentSize = STB_PVRGetTimeshiftRecordingSegmentSizeKB() * 1024;
       }
       //TODO:later register event callback
       /*rec_open_params.event_fn = RecEventHandler;*/

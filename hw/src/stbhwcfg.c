@@ -254,8 +254,15 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 				cam->is_changeTo_utf8 = atoi(av);
 				//CFG_DBG("cam->is_changeTo_utf8[%d]", cam->is_changeTo_utf8);
 			} else if (!strcmp(an, "encodec_source")) {
-				memcpy(cam->encodec_source, av, strlen(av));
-				CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);
+                            if(strlen(av) <= sizeof(cam->encodec_source))
+                            {
+                                memcpy(cam->encodec_source, av, strlen(av));
+                            }
+                            else
+                            {
+                                CFG_DBG("str av is too long");
+                            }
+                            CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);
 			} else if (!strcmp(an, "use_ciplus_mode")){
 				cam->is_ciplus_mode = atoi(av);
 				STB_SPDebugWrite("cam->is_ciplus_mode %d", cam->is_ciplus_mode);

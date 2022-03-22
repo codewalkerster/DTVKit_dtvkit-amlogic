@@ -2034,7 +2034,11 @@ static void* ci_signal_entry (void *arg)
       fds[0].fd     = event_fd;
       fds[0].events = POLLIN|POLLERR;
 
-      poll(fds, 1, 50);
+      if(poll(fds, 1, 50) < 0)
+      {
+         DMX_DBG("poll failure: %s", strerror(errno));
+         break;
+      }
    }
 
    if (!ci_signal_thread_run)
@@ -2072,8 +2076,19 @@ static void* ci_signal_entry (void *arg)
    filter.filter.mask[0]   = 0xff;
    filter.flags |= DMX_CHECK_CRC;
 
-   ioctl(fd, DMX_SET_FILTER, &filter);
-   ioctl(fd, DMX_START);
+   if(ioctl(fd, DMX_SET_FILTER, &filter) < 0)
+   {
+        DMX_DBG("set filter fail error:%s", strerror(errno));
+        close(fd);
+        return NULL;
+   }
+
+   if(ioctl(fd, DMX_START) < 0)
+   {
+       DMX_DBG("set START fail error:%s", strerror(errno));
+       close(fd);
+       return NULL;
+   }
 
    fds[0].fd     = event_fd;
    fds[0].events = POLLIN|POLLERR;
@@ -2548,7 +2563,7 @@ BOOLEAN STB_DMXSetDescramblerType(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_
  */
 BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid, U16BIT *ad_pid, U8BIT *preselection_id)
 {
-   BOOLEAN retval;
+   BOOLEAN retval = TRUE;
 
    FUNCTION_START(DMXGetDecodePIDs);
 

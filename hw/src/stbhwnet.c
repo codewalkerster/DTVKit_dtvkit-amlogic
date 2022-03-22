@@ -360,7 +360,7 @@ BOOLEAN STB_NWGetMACAddress(E_NW_INTERFACE interface, U8BIT *mac_addr)
    }
    else
    {
-      STB_SPDebugWrite("%s: Open socket failed");
+      STB_SPDebugWrite("%s: Open socket failed", __FUNCTION__);
       return FALSE;
    }
 
@@ -458,7 +458,7 @@ U16BIT STB_NWLookupAddress(U8BIT *name, S_NW_ADDR_INFO **nw_addrs)
       nw_addr_count++;
 
    *nw_addrs = (S_NW_ADDR_INFO *)malloc(sizeof(S_NW_ADDR_INFO) * nw_addr_count);
-   if (!nw_addrs)
+   if (NULL == *nw_addrs)
       return 0;
 
    for (i = 0, pptr = hptr->h_addr_list; *pptr != NULL; pptr++, i++)
@@ -522,7 +522,10 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    sock = socket(s_domain, s_type, 0);
    STB_SPDebugWrite("sock %d type %d protocol %d", sock, type, protocol);
    if (sock < 0)
+   {
+      free(ctx);
       return NULL;
+   }
 
    ctx->af = af;
    ctx->type = type;

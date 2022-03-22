@@ -400,7 +400,7 @@ U32BIT STB_DSKGetSize(U16BIT disk_id)
    }
    else
    {
-      disk_size = disk->disk_size;
+      disk_size = 0;
    }
 
    STB_OSMutexUnlock(disk_mutex);

@@ -557,11 +557,18 @@ static BOOLEAN ReadSecureFile(S_SECURE_VARIABLE *var)
 {
    char fname[96];
    FILE *f;
-   U32BIT len;
+   S32BIT len;
 
    FUNCTION_START(ReadSecureFile);
 
    strcpy(fname, SECURE_NVM_PATH);
+
+   if((strlen(SECURE_NVM_PATH) + strlen(var->filename)) >= sizeof(fname))
+   {
+      CI_DBG("file name too long")
+      return FALSE;
+   }
+
    strcat(fname, var->filename);
    if (var->size != 0 && !IsSymlink(fname))
    {
@@ -589,6 +596,13 @@ static BOOLEAN ReadSecureFile(S_SECURE_VARIABLE *var)
       {
          fseek(f, 0, SEEK_END);
          len = ftell(f);
+         if(len < 0)
+         {
+            CI_DBG("file %s ftell length error", fname)
+            fclose(f);
+            return FALSE;
+         }
+
          fseek(f, 0, SEEK_SET);
          if (len == 0)
          {

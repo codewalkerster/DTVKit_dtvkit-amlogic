@@ -256,7 +256,7 @@ static BOOLEAN is_sess_empty(U32BIT handle)
 
 static AML_MP_CASSESSION get_cas_session(U32BIT handle, U16BIT es_pid)
 {
-    U16BIT ecm_pid;
+    U16BIT ecm_pid = 0;
     CA_INFO *pid_entry = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
 
     while (pid_entry != NULL)
@@ -657,8 +657,11 @@ void STB_CADescrambleServiceStart(U32BIT handle)
     ca_serv_info.dmx_dev = STB_DPGetPathDemux(((STB_CA_Glue_t *)handle)->path);
     ca_serv_info.serviceMode = AML_MP_CAS_SERVICE_DVB;
     ca_serv_info.serviceType = AML_MP_CAS_SERVICE_LIVE_PLAY;
-    ca_serv_info.ecm_pid = ((STB_CA_Glue_t *)handle)->session_info->ecm_pid;
-
+    if (((STB_CA_Glue_t *)handle)->session_info)
+    {
+        ca_serv_info.ecm_pid = ((STB_CA_Glue_t *)handle)->session_info->ecm_pid;
+    }
+    
     pid_entry = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
 
     /* pass scramble algorithm to cas hal */
@@ -705,7 +708,7 @@ void STB_CADescrambleServiceStart(U32BIT handle)
     FUNCTION_FINISH(STB_CADescrambleServiceStart);
     STB_OSMutexUnlock(g_ca_mutex);
 
-    CA_DBG(("%s cas_session: %#x", __FUNCTION__, cas_session));
+    CA_DBG(("%s cas_session: %p", __FUNCTION__, cas_session));
 #endif
 }
 
@@ -1260,7 +1263,7 @@ U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
     USE_UNWANTED_PARAM(pmt_data);
     USE_UNWANTED_PARAM(pid_array);
 
-    CA_DBG(("%s(pmt_data=%p, pid_array=%u): %u", __FUNCTION__, pmt_data, pid_array, num_pids));
+    CA_DBG(("%s(pmt_data=%p, pid_array=%p): %u", __FUNCTION__, pmt_data, pid_array, num_pids));
 
     FUNCTION_FINISH(STB_CAGetRecordingPids);
 
@@ -1551,7 +1554,7 @@ int STB_CAPVRRecordStart(U32BIT handle)
 
         get_cas_mode(cas_session);
 
-        CA_DBG(("AM_CA_OpenSession rec start cas_session [%x] is_timeshift=%d", cas_session,
+        CA_DBG(("AM_CA_OpenSession rec start cas_session [%p] is_timeshift=%d", cas_session,
             ((STB_CA_Glue_t *)handle)->is_timeshift));
         ((STB_CA_Glue_t *)handle)->session_info->cas_session = cas_session;
 
@@ -1574,7 +1577,7 @@ int STB_CAPVRRecordStart(U32BIT handle)
         /* if cas type is nagra, we need get emi and scramble algo then set to cas hal */
         ca_serv_info.ca_private_data_len = MAX_DATA_LEN;
         ca_serv_info.ca_private_data[2] =  ((STB_CA_Glue_t *)handle)->pmt_info.scramble_algo;
-        CA_DBG(("rec start cas_session [%x] ca_private_data[2]=%x", cas_session, ca_serv_info.ca_private_data[2]));
+        CA_DBG(("rec start cas_session [%p] ca_private_data[2]=%x", cas_session, ca_serv_info.ca_private_data[2]));
 
         while (pid_entry != NULL)
         {
@@ -1610,7 +1613,7 @@ void STB_CAPVRRecordStop(U32BIT handle)
 
     FUNCTION_START(STB_CAPVRRecordStop);
 
-    CA_DBG(("%s(%#x): %u", __FUNCTION__, handle));
+    CA_DBG(("%s(%#x)", __FUNCTION__, handle));
 
     ASSERT(handle);
 

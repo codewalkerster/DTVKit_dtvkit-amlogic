@@ -166,6 +166,8 @@ typedef struct
    S_CLEAR_KEY clearkey;
 
    E_REC_STATE rec_state;
+
+   U8BIT libdvr_ext_mode1;
 } S_REC_STATUS;
 
 typedef struct {
@@ -1214,6 +1216,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          rec_encrypt_params.clearIV = &s_rec_status[rec_index].clearkey.iv[0];
          rec_encrypt_params.keyLength = s_rec_status[rec_index].clearkey.len;
       }
+      rec_basic_params.forceSysClock = s_rec_status[rec_index].libdvr_ext_mode1;
 
       do
       {
@@ -3129,5 +3132,24 @@ static U16BIT getFakePid()
       pid = 0xffff;
    }
    return pid;
+}
+
+/**
+ * @brief   Store libdvr specific information i.e. force_sysclock in
+            s_rec_status of porting layer
+ * @param   rec_index recorder index
+ * @param   val value of force_sysclock.
+            0: determine index time source based on actual situation
+            1: force to use system clock as PVR index time source
+ * @return  TRUE if store successfully, FALSE if invalid rec_index is given.
+ */
+BOOLEAN STB_PVRStoreLibdvrExtParam1InPortingLayer(U8BIT rec_index, U8BIT val)
+{
+   if (rec_index < num_recorders)
+   {
+      s_rec_status[rec_index].libdvr_ext_mode1 = val;
+      return TRUE;
+   }
+   return FALSE;
 }
 

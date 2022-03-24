@@ -2493,44 +2493,75 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
 /**
  * @brief   Sets the volume of the audio description output
  * @param   path audio path to be configured
- * @param   vol audio volume (0-100%)
+ * @param   vol ad volume (0-100%)
  */
 void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 {
-   int ret;
+   int ret = -1;
    AML_MP_PLAYER player_handle;
    FUNCTION_START(STB_AVSetADVolume);
-   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
 
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
    AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
+
    if (av_path == INVALID_RES_ID) {
       AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
       return;
    }
 
-   ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
-                                  av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
    if (ret < 0)
    {
        AUD_DBG("Cannot get player handle[%d]", av_path);
        return;
    }
 
-   if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder)) {
-       ret = Aml_MP_Player_SetVolume(player_handle, vol);
-       AUD_DBG("SetVolume ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
+   if (STB_PVRIsPlayStopped(path, path)) {
+       ret = Aml_MP_Player_SetADVolume(player_handle, vol);
+       AUD_DBG("SetADVolume ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
    } else {
-       ret = Aml_MP_DVRPlayer_SetVolume(player_handle, vol);
-       AUD_DBG("SetVolume ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
+       ret = Aml_MP_DVRPlayer_SetADVolume(player_handle, vol);
+       AUD_DBG("SetADVolume ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
    }
 
    FUNCTION_FINISH(STB_AVSetADVolume);
 }
 
 /**
+ * @brief   Gets the current volume of the audio description output
+ * @param   path The audio path to query
+ * @return  ad volume (0-100%)
+ */
+U8BIT STB_AVGetADVolume(U8BIT path)
+{
+   int ret = -1;
+   AML_MP_PLAYER player_handle;
+   FUNCTION_START(STB_AVGetADVolume);
+
+   ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
+   if (ret < 0)
+   {
+       AUD_DBG("Cannot get player handle audio[%d]", path);
+       return 0;
+   }
+
+   float vol = 0;
+   if (STB_PVRIsPlayStopped(path, path)) {
+       ret = Aml_MP_Player_GetADVolume(player_handle, &vol);
+       AUD_DBG("GetADVolume vol:%f, err:%d", vol, ret);
+   } else {
+       ret = Aml_MP_DVRPlayer_GetADVolume(player_handle, &vol);
+       AUD_DBG("GetADVolume vol:%f, err:%d", vol, ret);
+   }
+
+   FUNCTION_FINISH(STB_AVGetADVolume);
+   return vol;
+}
+
+/**
  * @brief   Sets the mix level of the audio description output
  * @param   path audio path to be configured
- * @param   vol ad volume (0-100%)
+ * @param   vol ad mixer level (0-100%)
  */
 void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
 {
@@ -2562,7 +2593,7 @@ void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
    ad_volume.masterVolume = (int)(100 - vol);
    ad_volume.slaveVolume = (int)vol;
 
-   if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder)) {
+   if (STB_PVRIsPlayStopped(path, path)) {
        ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, (void*)&ad_volume);
        AUD_DBG("SetADMixLevel ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
    } else {
@@ -2573,7 +2604,38 @@ void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
    FUNCTION_FINISH(STB_AVSetADMixLevel);
 }
 
+/**
+ * @brief   Gets the mix level of the audio description output
+ * @param   path The audio path to query
+ * @return  ad mixer level (0-100%)
+ */
+U8BIT STB_AVGetADMixLevel(U8BIT path)
+{
+   int ret = -1;
+   AML_MP_PLAYER player_handle;
+   FUNCTION_START(STB_AVGetADMixLevel);
 
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+   ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
+   if (ret < 0) {
+       AUD_DBG("Cannot get player handle audio[%d]", path);
+       return 0;
+   }
+
+   Aml_MP_ADVolume ad_mix_level;
+   ad_mix_level.masterVolume = 0;
+   ad_mix_level.slaveVolume = 0;
+   if (STB_PVRIsPlayStopped(path, path)) {
+       ret = Aml_MP_Player_GetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, &ad_mix_level);
+       AUD_DBG("GetADMixLevel level:%d, err:%d", ad_mix_level.slaveVolume, ret);
+   } else {
+       ret = Aml_MP_DVRPlayer_GetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, &ad_mix_level);
+       AUD_DBG("GetADMixLevel level:%d, err:%d", ad_mix_level.slaveVolume, ret);
+   }
+
+   FUNCTION_FINISH(STB_AVGetADMixLevel);
+   return ad_mix_level.slaveVolume;
+}
 
 /**
  * @brief   Sets the standby state of the HDMI output

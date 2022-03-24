@@ -2470,7 +2470,7 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
 /**
  * @brief   Sets the volume of the audio description output
  * @param   path audio path to be configured
- * @param   vol audio volume (0-100%)
+ * @param   vol ad volume (0-100%)
  */
 void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 {
@@ -2502,9 +2502,22 @@ void STB_AVSetADVolume(U8BIT path, U8BIT vol)
 }
 
 /**
+ * @brief   Gets the current volume of the audio description output
+ * @param   path The audio path to query
+ * @return  ad volume (0-100%)
+ */
+U8BIT STB_AVGetADVolume(U8BIT path)
+{
+   FUNCTION_START(STB_AVGetADVolume);
+   USE_UNWANTED_PARAM(path);
+   FUNCTION_FINISH(STB_AVGetADVolume);
+   return 0;
+}
+
+/**
  * @brief   Sets the mix level of the audio description output
  * @param   path audio path to be configured
- * @param   vol ad volume (0-100%)
+ * @param   vol ad mixer level (0-100%)
  */
 void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
 {
@@ -2512,6 +2525,19 @@ void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
    USE_UNWANTED_PARAM(path);
    USE_UNWANTED_PARAM(vol);
    FUNCTION_FINISH(STB_AVSetADMixLevel);
+}
+
+/**
+ * @brief   Gets the mix level of the audio description output
+ * @param   path The audio path to query
+ * @return  ad mixer level (0-100%)
+ */
+U8BIT STB_AVGetADMixLevel(U8BIT path)
+{
+   FUNCTION_START(STB_AVGetADMixLevel);
+   USE_UNWANTED_PARAM(path);
+   FUNCTION_FINISH(STB_AVGetADMixLevel);
+   return 0;
 }
 
 /**

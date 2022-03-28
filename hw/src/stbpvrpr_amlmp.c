@@ -40,6 +40,7 @@
 #include "stbhwmem.h"
 #include "stbhwdsk.h"
 #include "stbpvrpr.h"
+#include "stbhwdmx.h"
 
 /* third party header files */
 #define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP
@@ -144,6 +145,8 @@ typedef struct
    U8BIT rec_demux;
    S8BIT v_chanid;
    S8BIT a_chanid;
+   S8BIT v_enc_chanid;
+   S8BIT a_enc_chanid;
 
    AML_MP_DVRRECORDER recorder;
    Aml_MP_DVRStreamArray pids_info;
@@ -203,6 +206,8 @@ typedef struct {
    AML_MP_SECMEM secmem_handle;
 
    S_CLEAR_KEY clearkey;
+   int hw_dsc_achn_id;
+   int hw_dsc_vchn_id;
 
    char flags; //DVR_PLAYBACK_STARTED_PAUSEDLIVE
 
@@ -529,6 +534,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       s_recplay_status[play_index].audio_pid = 0;
       s_recplay_status[play_index].has_video = FALSE;
       s_recplay_status[play_index].video_pid = 0;
+      s_recplay_status[play_index].hw_dsc_achn_id = -1;
+      s_recplay_status[play_index].hw_dsc_vchn_id = -1;
 
       if (is_timeshift)
       {
@@ -859,6 +866,15 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].rec_start = 0;
          s_recplay_status[play_index].limit = 0;
          memset(&s_recplay_status[play_index].clearkey, 0, sizeof(S_CLEAR_KEY));
+
+         if (s_recplay_status[play_index].clearkey.enabled)
+         {
+            if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+            {
+               STB_DMXDscFree(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].hw_dsc_achn_id);
+               STB_DMXDscFree(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].hw_dsc_vchn_id);
+            }
+         }
       }
       else
       {
@@ -1050,7 +1066,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
          REC_DBG("Found pvr audio pid %d", pid_array[i].pid);
          if (s_rec_status[rec_index].a_chanid == -1)
          {
-            s_rec_status[rec_index].a_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+            s_rec_status[rec_index].a_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
          }
          if (s_rec_status[rec_index].a_chanid == -1)
          {
@@ -1067,7 +1083,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
          REC_DBG("Found pvr video pid %d", pid_array[i].pid);
          if (s_rec_status[rec_index].v_chanid == -1)
          {
-            s_rec_status[rec_index].v_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type);
+            s_rec_status[rec_index].v_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
          }
          if (s_rec_status[rec_index].v_chanid == -1)
          {
@@ -1094,15 +1110,95 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       default:
          break;
    }
-   //Set key
+   if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+   {
+      STB_DMXPrepareKey(0, DSC_TSE_TYPE, desc_type);
+   }
+   // Set key
    if (s_rec_status[rec_index].v_chanid != -1)
-      STB_DMXSetKey(0, s_rec_status[rec_index].v_chanid, 0, desc_type, parity, key_buffer);
+      STB_DMXSetKey(0, s_rec_status[rec_index].v_chanid, desc_type, parity, key_buffer);
    if (s_rec_status[rec_index].a_chanid != -1)
-      STB_DMXSetKey(0, s_rec_status[rec_index].a_chanid, 0, desc_type, parity, key_buffer);
+      STB_DMXSetKey(0, s_rec_status[rec_index].a_chanid, desc_type, parity, key_buffer);
 
    FUNCTION_FINISH(STB_PVRApplyDescramblerKey);
 
    return(ret);
+}
+
+BOOLEAN STB_PVRApplyEncryptionKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_type,
+                                   E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *key, U8BIT *iv, U16BIT num_pids, S_PVR_PID_INFO *pid_array)
+{
+   FUNCTION_START(STB_PVRApplyEncryptionKey);
+   int i;
+   BOOLEAN ret = TRUE;
+   U8BIT key_buffer[32];
+   S_CLEAR_KEY *clearkey = &s_rec_status[rec_index].clearkey;
+
+   // Set descrambler source
+   STB_DMXDscSetSrc(rec_index, 0);
+
+   // Alloc dsc pid channel
+   for (i = 0; i < num_pids; i++)
+   {
+      if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
+      {
+         REC_DBG("Found pvr audio pid %d", pid_array[i].pid);
+         if (s_rec_status[rec_index].a_enc_chanid == -1)
+         {
+            s_rec_status[rec_index].a_enc_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type, DSC_TSE_TYPE);
+         }
+         if (s_rec_status[rec_index].a_enc_chanid == -1)
+         {
+            REC_DBG("FAILED: alloc pvr audio pid failed");
+            ret = FALSE;
+         }
+      }
+   }
+
+   for (i = 0; i < num_pids; i++)
+   {
+      if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
+      {
+         REC_DBG("Found pvr video pid %d", pid_array[i].pid);
+         if (s_rec_status[rec_index].v_enc_chanid == -1)
+         {
+            s_rec_status[rec_index].v_enc_chanid = STB_DMXDscAlloc(DSC_DEV_NO, pid_array[i].pid, desc_type, DSC_TSE_TYPE);
+         }
+         if (s_rec_status[rec_index].v_enc_chanid == -1)
+         {
+            REC_DBG("alloc pvr audio pid failed");
+            ret = FALSE;
+         }
+      }
+   }
+   if (!ret)
+   {
+      REC_DBG("Failed to alloc channel");
+      return ret;
+   }
+
+   STB_SPDebugWrite("%s: clear key %02x %02x %02x", __FUNCTION__, clearkey->key[0], clearkey->key[1], clearkey->key[2]);
+   switch (desc_type)
+   {
+   case DESC_TYPE_AES:
+      memcpy(key_buffer, clearkey->key, 16);
+      memcpy(key_buffer + 16, clearkey->iv, 16);
+      break;
+   case DESC_TYPE_DES:
+      memcpy(key_buffer, clearkey->key, 16);
+      break;
+   default:
+      break;
+   }
+   // Set key
+   if (s_rec_status[rec_index].v_enc_chanid != -1)
+      STB_DMXSetKey(0, s_rec_status[rec_index].v_enc_chanid, desc_type, parity, key_buffer);
+   if (s_rec_status[rec_index].a_enc_chanid != -1)
+      STB_DMXSetKey(0, s_rec_status[rec_index].a_enc_chanid, desc_type, parity, key_buffer);
+
+   FUNCTION_FINISH(STB_PVRApplyEncryptionKey);
+
+   return (ret);
 }
 
 U32BIT STB_PVRGetRecordingSegmentSizeKB()
@@ -2130,6 +2226,7 @@ void STB_PVRSetRecordEncryptionKey(U8BIT rec_index, BOOLEAN state, U8BIT *key, U
 {
    S_CLEAR_KEY *clearkey = &s_rec_status[rec_index].clearkey;
    FUNCTION_START(STB_PVRSetRecordEncryptionKey);
+   int fd;
 
    if (key)
    {
@@ -2141,6 +2238,7 @@ void STB_PVRSetRecordEncryptionKey(U8BIT rec_index, BOOLEAN state, U8BIT *key, U
    }
    clearkey->len = key_len;
    clearkey->enabled = state;
+   STB_SPDebugWrite("%s: key %02x %02x %02x", __FUNCTION__, clearkey->key[0], clearkey->key[1], clearkey->key[2]);
 
    FUNCTION_FINISH(STB_PVRSetRecordEncryptionKey);
 }
@@ -2525,6 +2623,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
    char node[32];
    struct stat st;
    int r;
+   int apid;
+   int vpid;
 
    if (!s_recplay_status[play_index].has_video
       && !s_recplay_status[play_index].has_audio)
@@ -2541,15 +2641,19 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
    if (s_recplay_status[play_index].has_video) {
       play_pids.streams[AML_MP_DVR_VIDEO_INDEX].pid = s_recplay_status[play_index].video_pid;
+      vpid = s_recplay_status[play_index].video_pid;
       play_pids.streams[AML_MP_DVR_VIDEO_INDEX].codecId = s_recplay_status[play_index].video_fmt;
    } else {
       play_pids.streams[AML_MP_DVR_VIDEO_INDEX].pid = 0x1fff;
+      vpid = 0x1fff;
    }
    if (s_recplay_status[play_index].has_audio) {
       play_pids.streams[AML_MP_DVR_AUDIO_INDEX].pid = s_recplay_status[play_index].audio_pid;
+      apid = s_recplay_status[play_index].audio_pid;
       play_pids.streams[AML_MP_DVR_AUDIO_INDEX].codecId = s_recplay_status[play_index].audio_fmt;
    } else {
       play_pids.streams[AML_MP_DVR_AUDIO_INDEX].pid = 0x1fff;
+      apid = 0x1fff;
    }
 
    play_pids.streams[AML_MP_DVR_AD_INDEX].pid = s_recplay_status[play_index].ad_pid;
@@ -2658,9 +2762,23 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       }
       else if (s_recplay_status[play_index].clearkey.enabled)
       {
-         decrypt_params.clearKey = &s_recplay_status[play_index].clearkey.key[0];
-         decrypt_params.clearIV = &s_recplay_status[play_index].clearkey.iv[0];
-         decrypt_params.keyLength = s_recplay_status[play_index].clearkey.len;
+         if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+         {
+            U8BIT dmx_aes_key[32];
+            memcpy(dmx_aes_key, s_recplay_status[play_index].clearkey.key, 16);
+            memcpy(dmx_aes_key + 16, s_recplay_status[play_index].clearkey.iv, 16);
+            s_recplay_status[play_index].hw_dsc_achn_id = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, apid, DESC_TYPE_AES, DSC_TSD_TYPE);
+            s_recplay_status[play_index].hw_dsc_vchn_id = STB_DMXDscAlloc(0, vpid, DESC_TYPE_AES, DSC_TSD_TYPE);
+            STB_DMXPrepareKey(s_recplay_status[play_index].play_demux, DSC_TSD_TYPE, DESC_TYPE_AES);
+            STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].hw_dsc_achn_id, DESC_TYPE_AES, KEY_PARITY_EVEN, dmx_aes_key);
+            STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].hw_dsc_vchn_id, DESC_TYPE_AES, KEY_PARITY_EVEN, dmx_aes_key);
+         }
+         else
+         {
+            decrypt_params.clearKey = &s_recplay_status[play_index].clearkey.key[0];
+            decrypt_params.clearIV = &s_recplay_status[play_index].clearkey.iv[0];
+            decrypt_params.keyLength = s_recplay_status[play_index].clearkey.len;
+         }
       }
 
       play_params.isTimeShift = (s_recplay_status[play_index].is_timeshift) ? true : false;

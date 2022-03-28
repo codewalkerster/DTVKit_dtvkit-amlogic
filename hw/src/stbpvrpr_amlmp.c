@@ -158,6 +158,7 @@ typedef struct
 
    U16BIT disk_id;
    U8BIT basename[255];
+   BOOLEAN rec_start_flag;
 
    S_CAS_STATUS cas_status;
    void *secure_buf;
@@ -1362,6 +1363,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          {
             retval = TRUE;
             s_rec_status[rec_index].rec_state = REC_STARTING;
+            s_rec_status[rec_index].rec_start_flag = FALSE;
          }
          else
          {
@@ -2943,17 +2945,20 @@ static void RecEventHandler(void* userdata, AML_MP_DVRRecorderEventType eventTyp
             switch (status->state)
             {
                 case AML_MP_DVRRECORDER_STATE_STARTED:
-                  if (rec_status->rec_state == REC_STARTING) {
-                     rec_status->rec_state = REC_STARTED;
-                     REC_DBG("Recording started, handle %p", rec_status->recorder);
-                     STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,
-                        &rec_status->rec_index, sizeof(U8BIT));
-                  } else {
-                    REC_DBG("Recording started, send store handle %p", rec_status->recorder);
-                     STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STORE,
-                         &rec_status->rec_index, sizeof(U8BIT));
-                  }
-               break;
+                {
+                    if (rec_status->rec_state == REC_STARTING||((rec_status->rec_start_flag == FALSE)&&(rec_status->rec_state == REC_STARTED))) {
+                        rec_status->rec_state = REC_STARTED;
+                        rec_status->rec_start_flag = TRUE;
+                        REC_DBG("Recording started, handle %p", rec_status->recorder);
+                        STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,
+                            &rec_status->rec_index, sizeof(U8BIT));
+                    } else {
+                        REC_DBG("Recording started, send store handle %p", rec_status->recorder);
+                        STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STORE,
+                            &rec_status->rec_index, sizeof(U8BIT));
+                    }
+                    break;
+                }
                case AML_MP_DVRRECORDER_STATE_STOPPED:
                   REC_DBG("Recording stopped evt, handle %p", rec_status->recorder);
                   //move HW_EV_TYPE_PVR_REC_STOP to STB_PVRRecordStop

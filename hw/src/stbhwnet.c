@@ -440,7 +440,7 @@ void STB_IPGetIPByDhcp(BOOLEAN wait_for_completion)
  */
 U16BIT STB_NWLookupAddress(U8BIT *name, S_NW_ADDR_INFO **nw_addrs)
 {
-   struct hostent *hptr;
+   struct hostent *hptr = NULL;
    char **pptr;
    int nw_addr_count = 0;
    int i;
@@ -495,9 +495,9 @@ U16BIT STB_NWLookupAddress(U8BIT *name, S_NW_ADDR_INFO **nw_addrs)
  */
 void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLEAN nonblock)
 {
-   int s_domain;
+   int s_domain = 0;
    int s_protocol;
-   int s_type;
+   int s_type = 0;
    int sock;
    S_SOCKET_CTX *ctx = (S_SOCKET_CTX *)malloc(sizeof(S_SOCKET_CTX));
 

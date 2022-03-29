@@ -435,7 +435,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       desc.cmd = CA_ALLOC;
       desc.params.alloc_params.pid      = pid;
       desc.params.alloc_params.algo = algo;
-      desc.params.alloc_params.dsc_type = dsc_type;
+      desc.params.alloc_params.dsc_type = (enum ca_sc2_dsc_type)dsc_type;
       desc.params.alloc_params.ca_index = -1;
 
       DMX_DBG("type %d algo %d dsc_type %d", type, algo, dsc_type);
@@ -643,7 +643,7 @@ BOOLEAN STB_DMXPrepareKey(int dev_id, E_STB_DSC_CA_TYPE ca_type, E_STB_DMX_DESC_
 int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *data)
 {
    S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
-   int r;
+   int r = 0;
    int i;
    char buffer[512] = {0};
 
@@ -2559,6 +2559,7 @@ BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT 
       *audio_pid = demux_status[path].pids[DMX_AUDIO];
       *ad_pid = demux_status[path].pids[DMX_ADES];
       *preselection_id = demux_status[path].pids[DMX_PRESELECTION];
+      retval = TRUE;
    }
    else
    {

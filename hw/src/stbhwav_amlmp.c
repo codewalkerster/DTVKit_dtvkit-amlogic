@@ -120,6 +120,9 @@
 
 #define INVALID_PID 0x1fff
 
+#ifdef  INVALID_RES_ID
+#undef  INVALID_RES_ID
+#endif
 #define INVALID_RES_ID   255
 
 #define MIN_AV_SPEED    -600
@@ -3399,7 +3402,7 @@ int AV_CreateTsPlayer(U8BIT path,
 
 int AV_ReleaseTsPlayer(U8BIT path)
 {
-    int ret;
+    int ret = 0;
 
     if (path >= num_paths) {
         AV_DBG("Invalid path: %d", path);

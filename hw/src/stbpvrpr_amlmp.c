@@ -2060,7 +2060,7 @@ BOOLEAN STB_PVRCanBeUsedForRecording(U16BIT disk_id, U8BIT *basename)
 
 BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
 {
-   int error;
+   int error = 0;
    uint32_t n_ids;
    uint64_t *p_ids;
    char file_path[AML_MP_MAX_PATH_SIZE];
@@ -2434,7 +2434,7 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
 BOOLEAN PVRGetDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid, U16BIT *ad_pid)
 {
-   BOOLEAN retval;
+   BOOLEAN retval = 0;
    U8BIT play_index;
 
    FUNCTION_START(PVRGetDecodePIDs);

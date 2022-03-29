@@ -135,8 +135,8 @@ LOCAL_CFLAGS += \
     -Wno-unused-variable \
     -Wno-pointer-sign \
     -Wno-implicit-function-declaration \
-    -Wno-sometimes-uninitialized \
-    -Wno-typedef-redefinition
+    -Wno-typedef-redefinition \
+    -Werror
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux

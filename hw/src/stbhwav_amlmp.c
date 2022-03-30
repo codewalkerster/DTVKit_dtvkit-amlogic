@@ -833,13 +833,13 @@ U8BIT STB_AVGetAudioVolume(U8BIT path)
    return vol;
 }
 
-void STB_ResetVideoBlank(path)
+void STB_ResetVideoBlank(U8BIT path)
 {
    av_paths_status[path].video_out_control = 0;
    STB_AVBlankVideo(path, 0, FALSE);
 }
 
-void STB_ResetAudioMute(path)
+void STB_ResetAudioMute(U8BIT path)
 {
    av_paths_status[path].audio_out_control = 0;
    STB_AVSetAudioMute(path, 0, FALSE);

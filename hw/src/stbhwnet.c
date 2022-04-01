@@ -155,7 +155,7 @@ E_NW_INTERFACE STB_NWGetSelectedInterface(void)
  */
 BOOLEAN STB_IPGetIPAddress(U8BIT ip_addr[4])
 {
-   U32BIT fd;
+   int fd;
    struct sockaddr_in sin;
    struct ifreq ifr;
    U32BIT ip_addr_int;
@@ -203,7 +203,7 @@ BOOLEAN STB_IPGetIPAddress(U8BIT ip_addr[4])
  */
 BOOLEAN STB_IPGetSubnetMask(U8BIT subnet_mask[4])
 {
-   U32BIT fd;
+   int fd;
    struct sockaddr_in sin;
    struct ifreq ifr;
    U32BIT ip_addr_int;

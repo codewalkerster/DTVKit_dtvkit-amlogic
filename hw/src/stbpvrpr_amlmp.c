@@ -598,7 +598,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             Aml_MP_DVRSegmentInfo seg_info;
             int error;
             char location[512];
-            int segment_index = 0;
+            uint32_t segment_index = 0;
             int free_flag = 0;
             STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
                 s_recplay_status[play_index].basename,

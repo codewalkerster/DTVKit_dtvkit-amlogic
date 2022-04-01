@@ -2999,7 +2999,7 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
          {
             num_bytes = pdmx->text_buffer + TEXT_BUFFER_SIZE - pdmx->write_ptr;
 
-            if (num_bytes > len)
+            if (num_bytes > (U32BIT)len)
             {
                /* There's room for all the data */
                memcpy(pdmx->write_ptr, data, len);

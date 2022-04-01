@@ -1639,7 +1639,7 @@ static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE
    }
 
    // Go through the rect we made
-   for (sx = lowSX, sy = lowSY, dx = lowDX, dy = lowDY; (sy < highSY) && (dy < highDY); )
+   for (sx = lowSX, sy = lowSY, dx = lowDX, dy = lowDY; (sy < (int)highSY) && (dy < (int)highDY); )
    {
       // Get the source colour
       colour = *((U32BIT*)source->surface_data + (sy * source->pitch) / 4 + sx);
@@ -1691,7 +1691,7 @@ static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE
       dx++;
 
       // Check sx bound to move on to the next horizontal line
-      if (sx >= highSX)
+      if (sx >= (int)highSX)
       {
          sx = lowSX;
          sy++;

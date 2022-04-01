@@ -501,7 +501,8 @@ static void ReadDataFile(FILE *f, S_SECURE_VARIABLE *var)
    U8BIT *data = var->data;
    char *line = (char *)data;
    size_t len = var->size;
-   ssize_t read, prev_read;
+   size_t read, prev_read;
+   ssize_t sread;
 
    FUNCTION_START(ReadDataFile);
 
@@ -515,11 +516,11 @@ static void ReadDataFile(FILE *f, S_SECURE_VARIABLE *var)
    {/* Base64 encoded certificate */
       /* Skip first line */
       getline(&line, &len, f);
-      while ((read = getline(&line, &len, f)) != -1)
+      while ((sread = getline(&line, &len, f)) != -1)
       {
-         line += read - 1;
-         len -= read - 1;
-         prev_read = read;
+         line += sread - 1;
+         len -= sread - 1;
+         prev_read = sread;
       }
 
       /* Ignore last line */

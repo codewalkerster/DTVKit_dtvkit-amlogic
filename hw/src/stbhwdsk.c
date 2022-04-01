@@ -1222,7 +1222,7 @@ void STB_DSKCheckSpace(U16BIT disk_id)
 {
     U32BIT free = STB_DSKGetSize(disk_id) - STB_DSKGetUsed(disk_id);
     DISK_DBG("Disk: id[0x%x] free[%uKB] total[%u]", disk_id, free, STB_DSKGetSize(disk_id));
-    if (free < STB_PVRGetMinDiskSpaceLeft())
+    if (free < (U32BIT)STB_PVRGetMinDiskSpaceLeft())
     {
        DISK_DBG("Disk: Exceed the free space limit[%uKB] for PVR, now[%uKB]",
           STB_PVRGetMinDiskSpaceLeft(), free);

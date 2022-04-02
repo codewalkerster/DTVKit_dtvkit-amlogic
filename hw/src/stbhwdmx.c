@@ -214,7 +214,7 @@ static S_DSC_DEV_INFO *dsc_dev_info  = NULL;
 static int             dsc_dev_num   = 0;
 
 /*--- static function definitions---------------------------------------------*/
-int key_open(void)
+static int key_open(void)
 {
    char buf[32];
    int s_fd = -1;
@@ -229,7 +229,7 @@ int key_open(void)
    return s_fd;
 }
 
-int key_close(int fd)
+static int key_close(int fd)
 {
    if (fd == -1)
    {
@@ -240,7 +240,7 @@ int key_close(int fd)
    return 0;
 }
 
-int key_alloc(int fd, int is_iv)
+static int key_alloc(int fd, int is_iv)
 {
    int ret = 0;
    struct key_alloc param;
@@ -267,7 +267,7 @@ int key_alloc(int fd, int is_iv)
    }
 }
 
-int key_config(int fd, int key_index, int key_userid, int key_algo, unsigned int ext_value)
+static int key_config(int fd, int key_index, int key_userid, int key_algo, unsigned int ext_value)
 {
    int ret = 0;
    struct key_config config;
@@ -297,7 +297,7 @@ int key_config(int fd, int key_index, int key_userid, int key_algo, unsigned int
    }
 }
 
-int key_set(int fd, int key_index, char *key, int key_len)
+static int key_set(int fd, int key_index, char *key, int key_len)
 {
    int ret = 0;
    struct key_descr key_d;
@@ -326,7 +326,7 @@ int key_set(int fd, int key_index, char *key, int key_len)
    }
 }
 
-int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
+static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
 {
    int ret = 0;
    int fd = 0;

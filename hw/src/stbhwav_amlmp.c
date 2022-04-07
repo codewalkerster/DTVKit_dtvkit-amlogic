@@ -3534,7 +3534,7 @@ int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
         AUD_DBG("Set audio params failed, pid:%d fmt:%d err:%d", a_pid, format, ret);
         return ret;
     }
-   #ifndef RDK_COMPILE
+
     if (audioPresentationId >= 0) {
         ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &audioPresentationId);
         if (ret < 0)
@@ -3543,7 +3543,7 @@ int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
             return ret;
         }
     }
-   #endif
+
     ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
     if (ret < 0)
     {

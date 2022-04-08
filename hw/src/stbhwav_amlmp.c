@@ -993,7 +993,7 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
        ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
        if (ret < 0)
        {
-          AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
+          AUD_DBG("%d Set aduio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
           return;
        }
        AUD_DBG("Set aduio stereo mode[%d]", audio_mode);
@@ -1001,7 +1001,7 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
        ret = Aml_MP_DVRPlayer_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
        if (ret < 0)
        {
-          AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
+          AUD_DBG("%d Set aduio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
           return;
        }
        AUD_DBG("Set aduio stereo mode[%d]", audio_mode);
@@ -1194,7 +1194,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
              return;
          }
          if (video_surface[av_path] != NULL) {
-            VID_DBG("set AML MP surface %d:[%d:%d] [%p], player[0x%zx]",
+            VID_DBG("set AML MP surface %d:[%d:%d] [%p], player[0x%p]",
                av_path,
                av_paths_status[av_path].video_decoder,
                av_paths_status[av_path].audio_decoder,
@@ -1559,7 +1559,7 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
        stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
        stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
        stc[4] = (U8BIT)(video_pts & 0xff);
-       AUD_DBG("######### %x%x%x%x%x [%u] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
+       AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
    }
    pthread_rwlock_unlock(&av_paths_status[av_path].lock);
    FUNCTION_FINISH(STB_AVGetSTC);
@@ -1652,7 +1652,7 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
         if (ret == 0) {
             Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, surface ? surface : (void*)-1);
-            AV_DBG("set AML MP surface %d:[%d:%d]:[%p] = %d, player[0x%zx]",
+            AV_DBG("set AML MP surface %d:[%d:%d]:[%p] = %d, player[0x%p]",
                av_path,
                av_paths_status[av_path].video_decoder,
                av_paths_status[av_path].audio_decoder,
@@ -3019,7 +3019,7 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
                Aml_MP_PlayerWorkMode work_mode =
                   IS_CACHED(mode) ? AML_MP_PLAYER_MODE_CACHING_ONLY : AML_MP_PLAYER_MODE_NORMAL;
                ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void*)(&work_mode));
-               AV_DBG("set AML MP work mode: (%d:%d) %d:[%d:%d] [%d] = %d, player[0x%zx]",
+               AV_DBG("set AML MP work mode: %d:[%d:%d] [%d] = %d, player[0x%p]",
                     av_path,
                     av_paths_status[av_path].video_decoder,
                     av_paths_status[av_path].audio_decoder,
@@ -3309,12 +3309,14 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_ERROR_FRAME_COUNT, NULL, 0);
           break;
       }
+
       case AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT  [%d]\n", status->decoder);
+          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT\n", status->decoder);
           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_UNSUPPORT, &status->decoder, sizeof(U8BIT));
           break;
       }
+
       default:
           break;
   }
@@ -3415,7 +3417,7 @@ int AV_CreateTsPlayer(U8BIT path,
         bool useTif = true;
         Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
         ret = Aml_MP_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);
-        AV_DBG("Create Aml MP player success. player_hdle[%d]:0x%zx dxm_id:%d", path, player_handle, numb, dmx_dev_id);
+        AV_DBG("Create Aml MP player success. path=%d player_hdle[%p]:0x%zx dxm_id:%d", path, player_handle, numb, dmx_dev_id);
     }
     else
     {
@@ -3451,7 +3453,7 @@ int AV_ReleaseTsPlayer(U8BIT path)
         }
         else
         {
-            AV_DBG("Destroy Aml MP player, player_hdle[%d]:0x%zx", path, av_paths_status[path].player_handle);
+            AV_DBG("Destroy Aml MP player, player_hdle[%d]:0x%p", path, av_paths_status[path].player_handle);
             av_paths_status[path].player_handle = AML_MP_INVALID_HANDLE;
         }
 #ifdef SUPPORT_CAS
@@ -3495,7 +3497,7 @@ int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PL
            {
             Aml_MP_PlayerWorkMode work_mode = AML_MP_PLAYER_MODE_CACHING_ONLY;
               int result = Aml_MP_Player_SetParameter(av_paths_status[av_path].player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void*)(&work_mode));
-              AV_DBG("set AML MP work mode: %d:[%d:%d] caching_only = %d, player[0x%zx]",
+              AV_DBG("set AML MP work mode: %d:[%d:%d] caching_only = %d, player[0x%p]",
                   av_path,
                   av_paths_status[av_path].video_decoder,
                   av_paths_status[av_path].audio_decoder,
@@ -3560,11 +3562,11 @@ int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
     ret = Aml_MP_Player_StartAudioDecoding(player_hdle);
     if (ret < 0)
     {
-        AUD_DBG("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%zx]", a_pid, format, ret, player_hdle);
+        AUD_DBG("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%p]", a_pid, format, ret, player_hdle);
         return ret;
     }
 
-    AUD_DBG("Start audio decode, pid:%d fmt:%d, volume[%d], audio_mode[%d], mute[%d], player[0x%zx]", a_pid, format, vol, audio_mode, mute, player_hdle);
+    AUD_DBG("Start audio decode, pid:%d fmt:%d, volume[%d], audio_mode[%d], mute[%d], player[0x%p]", a_pid, format, vol, audio_mode, mute, player_hdle);
     return ret;
 }
 
@@ -3584,7 +3586,7 @@ int AV_SetAudioDecode(AML_MP_PLAYER player_hdle, Aml_MP_AudioBalance audio_mode,
     {
         return ret;
     }
-    AUD_DBG("Set audio decode, volume[%d], audio_mode[%d], player[0x%zx]", vol, audio_mode, player_hdle);
+    AUD_DBG("Set audio decode, volume[%d], audio_mode[%d], player[0x%p]", vol, audio_mode, player_hdle);
     return ret;
 }
 
@@ -3620,11 +3622,11 @@ int AV_StartVideoDecode(AML_MP_PLAYER player_hdle,
     ret = Aml_MP_Player_StartVideoDecoding(player_hdle);
     if (ret < 0)
     {
-        VID_DBG("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d sync:%d err:%d, player[0x%zx]", v_pid, pcr_pid, format, mode, ret, player_hdle);
+        VID_DBG("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d sync:%d err:%d, player[0x%p]", v_pid, pcr_pid, format, mode, ret, player_hdle);
         return ret;
     }
 
-    VID_DBG("Start video decode, v_pid:%d pcr_pid:%d fmt:%d sync:%d, player[0x%zx]", v_pid, pcr_pid, format, mode, player_hdle);
+    VID_DBG("Start video decode, v_pid:%d pcr_pid:%d fmt:%d sync:%d, player[0x%p]", v_pid, pcr_pid, format, mode, player_hdle);
     return ret;
 }
 

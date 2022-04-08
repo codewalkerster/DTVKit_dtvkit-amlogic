@@ -1637,7 +1637,7 @@ S32BIT STB_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
             }
             else
             {
-                TUN_ERR("%u: Not MPLP , errno %d", path);
+                TUN_ERR("%u: Not MPLP , errno %d", path, errno);
             }
         }
     }
@@ -2567,7 +2567,7 @@ static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_ty
     BOOLEAN retval;
     char fe_name[24];
     int mode;
-
+    memset(fe_name, 0, sizeof(fe_name));
     retval = FALSE;
 
     if (tstatus->frontend_fd != INVALID_FD)
@@ -3015,8 +3015,8 @@ static void TunerTask(void *param)
     BOOLEAN tuner_locked;
     U32BIT start_time;
     BOOLEAN stop;
-    U8BIT delay_step;
-    U8BIT tune_idle_timer;
+    U8BIT delay_step = 0;
+    U8BIT tune_idle_timer =0;
     U16BIT lost_signal_times=0;
     struct dvb_frontend_parameters fe_params;
     struct pollfd pfd;
@@ -3048,7 +3048,7 @@ static void TunerTask(void *param)
                     TUN_INFO("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
                     tstatus->lock_flags &= ~FEND_FL_LOCK;
                     STB_OSSemaphoreSignal(tstatus->tune_sem_lock);
-                    TUN_INFO("path:%u: already sem_signal:%p  tune_status:%d", tstatus->path, tstatus->tune_sem_lock, tstatus->state, tstatus->state);
+                    TUN_INFO("path:%u: already sem_signal:%p  tune_status:%d", tstatus->path, tstatus->tune_sem_lock, tstatus->state);
                     STB_TimeConsumeDebug("Tune lock end");
                     goto Already_Tuned;
                 }
@@ -3515,7 +3515,9 @@ static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspar
     int num = 8;
 
     property = malloc(num * sizeof(struct dtv_property));
-
+    if(NULL == property)
+        return FALSE;
+    
     prop.num = num;
     prop.props = property;
     /*set min fre*/
@@ -3694,7 +3696,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
         }
 
         if (tuner_status[path].bs_setting.m_uiChannelCount == FEND_BS_MAX_CHANNEL) {
-            TUN_ERR("channel count(%d) reaches the limit(%d):%d\n",
+            TUN_ERR("channel count(%d) reaches the limit(%d)\n",
                     tuner_status[path].bs_setting.m_uiChannelCount, FEND_BS_MAX_CHANNEL);
             pthread_mutex_unlock(&tuner_status[path].lock);
             return ret;
@@ -3752,7 +3754,8 @@ static void* fend_blindscan_thread(void *arg)
     unsigned short index = 0;
     enum DVBSx_BlindScanAPI_Status BS_Status = DVBSx_BS_Status_Init;
     U8BIT wait_reports = 0;
-
+    memset(&evt, 0, sizeof(E_STB_TUNE_BlindEvent_t));
+    memset(&cur_bsevent, 0, sizeof(cur_bsevent));
     while(BS_Status != DVBSx_BS_Status_Exit)
     {
         if(!tuner_status[path].enable_blindscan_thread)
@@ -3884,6 +3887,10 @@ static void* fend_blindscan_thread(void *arg)
                 AM_FEND_BlindDump(path);
 
                 ret = AM_FEND_IBlindScanAPI_Exit(path);
+                if(FALSE == ret)
+                {
+                    TUN_DBG( "AM_FEND_IBlindScanAPI_Exit error");
+                }
                 BS_Status = DVBSx_BS_Status_Exit;
 
                 TUN_DBG( "AM_FEND_IBlindScanAPI_Exit");

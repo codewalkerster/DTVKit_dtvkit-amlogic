@@ -408,7 +408,7 @@ BOOLEAN STB_MEMWriteSecureVariable(U8BIT key, void *value, U32BIT len)
  */
 const void* STB_MEMReadSecureConstant(U8BIT key, U32BIT *len)
 {
-   char buf[4096];
+   char buf[4096+1];
    char *p1, *p2;
    uint64_t key_v = 0;
    static uint8_t des_key[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
@@ -430,7 +430,9 @@ const void* STB_MEMReadSecureConstant(U8BIT key, U32BIT *len)
       if (fd == -1) {
 	return &des_key[0];
       }
-      readlen = read(fd, buf, sizeof(buf));
+
+      readlen = read(fd, buf, sizeof(buf)-1);
+      buf[sizeof(buf)-1]= '\0';
       close(fd);
       if ((readlen != 0) && (p1 = strstr(buf, "Serial"))) {
          if ((p2 = strstr(p1, ": "))) {
@@ -714,7 +716,7 @@ static BOOLEAN CreateDirectories(U8BIT* path)
    U32BIT cursor;
 
    /*Make a temporary buffer where we can manipulate the path*/
-   dir_path = STB_MEMGetSysRAM(strlen(path));
+   dir_path = STB_MEMGetSysRAM(strlen(path)+1);
    if (dir_path != NULL)
    {
       /*start from the preset NVM_PATH*/

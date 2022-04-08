@@ -77,7 +77,7 @@ static void* dmx_data_thread(void *arg)
 {
     int i, fid;
     int ret;
-    int cnt, len;
+    int cnt, len =0;
     uint32_t mask;
     uint8_t *sec_buf = NULL;
     int fids[DMX_FILTER_COUNT];
@@ -135,7 +135,7 @@ static void* dmx_data_thread(void *arg)
         		filter = &dmx->filter[fids[i]];
         		if (!filter->enable || !filter->used || filter->need_free)
         		{
-        		    DMX_DBG("ch[%d] not used, not read", fids[i], len);
+        		    DMX_DBG("ch[%d] not used, not read %d", fids[i], len);
         		    len = 0;
         		}
         		else
@@ -323,12 +323,17 @@ BOOLEAN DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_pa
 	   }
 	   else
 	   {
-	      fcntl(filter->fd, F_SETFL, O_NONBLOCK);
-	      if (ioctl(filter->fd, DMX_SET_PES_FILTER, params) < 0)
-	      {
-                  DMX_DBG("set filter failed error:%s", strerror(errno));
-                  ret = FALSE;
-              }
+            if(fcntl(filter->fd, F_SETFL, O_NONBLOCK) < 0)
+            {
+                DMX_DBG("set F_SETFL failed error:%s", strerror(errno));
+                ret = FALSE;
+            }
+
+            if (ioctl(filter->fd, DMX_SET_PES_FILTER, params) < 0)
+            {
+                DMX_DBG("set filter failed error:%s", strerror(errno));
+                ret = FALSE;
+            }
 	   }
     }
 
@@ -528,6 +533,7 @@ BOOLEAN DMX_Close(int dev_no)
     int open_count = 0;
 	dvb_dmx_t *dev = NULL;
     dvb_dmx_filter_t *filter = NULL;
+    BOOLEAN ret = TRUE;
 
     if (!dmx_get_dev(dev_no, &dev))
     {
@@ -544,7 +550,11 @@ BOOLEAN DMX_Close(int dev_no)
     	{
     	    if (filter->enable)
     	    {
-                ioctl(filter->fd, DMX_STOP, 0);
+                if(ioctl(filter->fd, DMX_STOP, 0) < 0)
+                {
+                    DMX_DBG("set filter failed error:%s", strerror(errno));
+                    ret = FALSE;
+                }
     	    }
     	    close(filter->fd);
     	}
@@ -562,7 +572,7 @@ BOOLEAN DMX_Close(int dev_no)
     }
 
     pthread_mutex_unlock(&dev->lock);
-    return TRUE;
+    return ret;
 }
 
 BOOLEAN DMX_FileEcho(const char *name, const char *cmd)

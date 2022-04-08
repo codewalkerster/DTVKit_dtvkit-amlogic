@@ -526,8 +526,11 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
       s_recplay_status[play_index].play_demux = demux;
       s_recplay_status[play_index].disk_id = disk_id;
+
+      memset((char*)s_recplay_status[play_index].basename, 0, sizeof(s_recplay_status[play_index].basename));
       strncpy((char*)s_recplay_status[play_index].basename,
-         (char*)basename, sizeof(s_recplay_status[play_index].basename));
+            (char*)basename, sizeof(s_recplay_status[play_index].basename)-1);
+
       s_recplay_status[play_index].is_timeshift = is_timeshift;
 
       s_recplay_status[play_index].has_audio = FALSE;
@@ -600,6 +603,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             char location[512];
             uint32_t segment_index = 0;
             int free_flag = 0;
+            memset(&seg_info, 0, sizeof(seg_info));
             STB_DSKFullPathname(s_recplay_status[play_index].disk_id,
                 s_recplay_status[play_index].basename,
                 location,
@@ -828,7 +832,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 #ifdef SUPPORT_CAS
          if (s_recplay_status[play_index].cas_status.is_smp)
          {
-             PLAY_DBG("destroy secmem handle:%#x, secure_buf:%#x",
+             PLAY_DBG("destroy secmem handle:%p, secure_buf:%p",
                 s_recplay_status[play_index].secmem_handle,
                 s_recplay_status[play_index].secure_buf);
 
@@ -927,7 +931,7 @@ void STB_PVRPlaySetCASStatus(U8BIT audio_decoder, U8BIT video_decoder, S_CAS_STA
 
    FUNCTION_START(STB_PVRPlaySetCASStatus);
 
-   REC_DBG("dec_cb[%#x], is_smp[%u], cb_param[%#x]",
+   REC_DBG("dec_cb[%p], is_smp[%u], cb_param[%#x]",
     cas_status->crypto_cb,
     cas_status->is_smp,
     cas_status->cb_param);
@@ -1054,7 +1058,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
    int i;
    BOOLEAN ret = TRUE;
    U8BIT key_buffer[32];
-
+   memset(key_buffer, 0, sizeof(key_buffer));
    //Set descrambler source
    STB_DMXDscSetSrc(rec_index, 0);
 
@@ -1281,7 +1285,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       STB_DSKFullPathname(disk_id, NULL, (U8BIT *)rec_basic_params.location,
                           sizeof(rec_basic_params.location));
-      strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename));
+      strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename)-1);
 
       /*rec_open_params.is_timeshift = (is_timeshift) ? true : false;*/
 
@@ -1338,7 +1342,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          }
          s_rec_status[rec_index].secmem_handle = secmem_handle;
          s_rec_status[rec_index].secure_buf = buf;
-         REC_DBG("secmem handle: %#x, secure_buf:%#x, size:%#x",
+         REC_DBG("secmem handle: %p, secure_buf:%p, size:%#x",
                  secmem_handle, buf, secmem_size);
 
          //TODO: set to encrypt params
@@ -1353,7 +1357,8 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       {
          s_rec_status[rec_index].disk_id = disk_id;
-         strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename));
+         memset((char *)s_rec_status[rec_index].basename, 0, sizeof(s_rec_status[rec_index].basename));
+         strncpy((char *)s_rec_status[rec_index].basename, (char *)basename, sizeof(s_rec_status[rec_index].basename)-1);
 
          s_rec_status[rec_index].has_video = FALSE;
          s_rec_status[rec_index].has_audio = FALSE;
@@ -1465,7 +1470,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          {
             if (s_rec_status[rec_index].cas_status.is_smp)
             {
-               REC_DBG("rease secmem handle:%#x, secure_buf:%#x",
+               REC_DBG("rease secmem handle:%p, secure_buf:%p",
                        s_rec_status[rec_index].secmem_handle,
                        s_rec_status[rec_index].secure_buf);
 
@@ -1521,7 +1526,7 @@ BOOLEAN STB_PVRRecordPause(U8BIT rec_index)
          error = Aml_MP_DVRRecorder_Pause(s_rec_status[rec_index].recorder);
          if (error)
          {
-            REC_DBG("Failed to pause recording %u, error %d", s_rec_status[rec_index].recorder, error);
+            REC_DBG("Failed to pause recording %p, error %d", s_rec_status[rec_index].recorder, error);
          }
          //STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
          //               &rec_index, sizeof(U8BIT));
@@ -1553,7 +1558,7 @@ BOOLEAN STB_PVRRecordResume(U8BIT rec_index)
          error = Aml_MP_DVRRecorder_Resume(s_rec_status[rec_index].recorder);
          if (error)
          {
-            REC_DBG("Failed to resume recording %u, error %d", s_rec_status[rec_index].recorder, error);
+            REC_DBG("Failed to resume recording %p, error %d", s_rec_status[rec_index].recorder, error);
          }
          //STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
          //               &rec_index, sizeof(U8BIT));
@@ -1586,12 +1591,12 @@ void STB_PVRRecordStop(U8BIT rec_index)
          error = Aml_MP_DVRRecorder_Stop(s_rec_status[rec_index].recorder);
          if (error)
          {
-            REC_DBG("Failed to stop recording %u, error %d", s_rec_status[rec_index].recorder, error);
+            REC_DBG("Failed to stop recording %p, error %d", s_rec_status[rec_index].recorder, error);
          }
 #ifdef SUPPORT_CAS
          if (s_rec_status[rec_index].cas_status.is_smp)
          {
-             REC_DBG("rease secmem session:%#x, secure_buf:%#x",
+             REC_DBG("rease secmem session:%p, secure_buf:%p",
                 s_rec_status[rec_index].secmem_handle,
                 s_rec_status[rec_index].secure_buf);
 
@@ -1745,7 +1750,7 @@ BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO
           REC_DBG("wrap  update recording %u, handle %p end", rec_index, s_rec_status[rec_index].recorder);
           if (error)
           {
-             REC_DBG("Failed to update recording %u, error %d", s_rec_status[rec_index].recorder, error);
+             REC_DBG("Failed to update recording %p, error %d", s_rec_status[rec_index].recorder, error);
           }
        }
    }
@@ -1764,7 +1769,7 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
 {
    FUNCTION_START(STB_PVRRecordSetCASStatus);
 
-   REC_DBG("index %u,num_recorders=%d enc_cb[%#x], is_smp[%u], cb_param[%#x] timeshfit[%d]",
+   REC_DBG("index %u,num_recorders=%d enc_cb[%p], is_smp[%u], cb_param[%#x] timeshfit[%d]",
     rec_index,num_recorders, cas_status->crypto_cb,
     cas_status->is_smp, cas_status->cb_param, cas_status->is_timeshift);
 
@@ -2006,6 +2011,7 @@ BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
    int error;
    char file_path[AML_MP_MAX_PATH_SIZE];
    Aml_MP_DVRSegmentInfo info;
+   memset(&info, 0, sizeof(info));
 
    FUNCTION_START(STB_PVRIsValidRecording);
 
@@ -2016,7 +2022,6 @@ BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
    error = Aml_MP_DVRRecorder_GetSegmentList(file_path, &n_ids, &p_ids);
    if (!error && n_ids)
    {
-      memset(&info, 0, sizeof(info));
       error = Aml_MP_DVRRecorder_GetSegmentInfo(file_path, p_ids[0], &info);
       if (!error && info.size)
       {
@@ -2170,7 +2175,7 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *
          *elapsed_mins = seconds / 60 - (*elapsed_hours * 60);
          *elapsed_secs = seconds - (*elapsed_hours * 3600) - (*elapsed_mins * 60);
 
-         PLAY_DBG("%08u:%02u:%02u:%08u:chl:%ld", *elapsed_hours, *elapsed_mins,
+         PLAY_DBG("%08u:%02u:%02u:%p:chl:%ld", *elapsed_hours, *elapsed_mins,
             *elapsed_secs, elapsed_ms, status.infoCur.time + status.infoObsolete.time);
 
          retval = TRUE;
@@ -2758,7 +2763,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
          decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
          decrypt_params.cryptoData = NULL;
-         PLAY_DBG("dec_func:%#x tse=%d drmMode=%d", decrypt_params.cryptoFn, STB_CAIsTSEMode(), play_params.drmMode);
+         PLAY_DBG("dec_func:%p tse=%d drmMode=%d", decrypt_params.cryptoFn, STB_CAIsTSEMode(), play_params.drmMode);
       }
       else if (s_recplay_status[play_index].clearkey.enabled)
       {
@@ -2843,7 +2848,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
          s_recplay_status[play_index].secmem_handle = secmem_handle;
          s_recplay_status[play_index].secure_buf = buf;
-         PLAY_DBG("secmem session: %#x, secure_buf:%#x, size:%#x",
+         PLAY_DBG("secmem session: %p, secure_buf:%p, size:%#x",
                   secmem_handle, buf, secmem_size);
 
          /*dvr_wrapper_set_playback_secure_buffer(*/

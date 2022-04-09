@@ -650,10 +650,16 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       {
          U8BIT dvr_mode = getDvrMode();
          if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
-             && (dvr_mode == 0))
+             && (dvr_mode == 0)
+             && STB_DMXGetBoardType() == STB_BOARD_TYPE_T5D)
+         {
             AM_AV_SetCryptOps(video_decoder, &des_ops);
+         }
          else
+         {
+            PLAY_DBG("will not enable scramble to lidvr");
             AM_AV_SetCryptOps(video_decoder, NULL);
+         }
 
          PLAY_DBG("ready to start play...");
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START, NULL, 0);
@@ -1512,9 +1518,10 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                rec_params.total_time, rec_params.prefix_name);
          }
 
-         if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
-             && (dvr_mode == 0))
-             rec_params.crypt_ops = &des_ops;
+         if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift) ? 0x10 : 0x01)) && (dvr_mode == 0) && STB_DMXGetBoardType() == STB_BOARD_TYPE_T5D)
+         {
+            rec_params.crypt_ops = &des_ops;
+         }
 
          am_error = AM_REC_StartRecord(s_rec_status[rec_index].rec_handle, &rec_params);
          if (am_error == AM_SUCCESS)

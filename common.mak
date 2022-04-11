@@ -28,7 +28,7 @@ CFLAGS += -fPIC
 CFLAGS += -DSUPPORT_CAS
 CFLAGS += $(DTVKIT_ADDITIONAL_COMPILER_OPTIONS)
 
-ifeq ($(DTVKIT_CC),/opt/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc)
+#ifeq ($(DTVKIT_CC),/opt/gcc-linaro-6.3.1-2017.02-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc)
 DTVKIT_ROOT=${MODULE_ROOT}/../
 DTVKIT_DVBCORE_ROOT=${DTVKIT_ROOT}/DVBCore
 DTVKIT_CIPLUS_ROOT=${DTVKIT_ROOT}/CI-Plus
@@ -46,7 +46,7 @@ CFLAGS += -I../../rdklib/expat/include
 CFLAGS += -I../../rdklib/aml_mp_sdk/include
 CFLAGS += -I../../rdklib/aml-cas-hal/include/libamcas
 CFLAGS += -I../../rdklib/mediahal_sdk/include
-endif
+#endif
 
 DEFINES += $(RDK_DEFINES)
 INCLUDES += $(RDK_INCLUDES)

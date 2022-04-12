@@ -3170,19 +3170,19 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_USERDATA_AFD:
       {
-         #ifndef RDK_COMPILE
           Aml_MP_PlayerEventMpegUserData* userData = (Aml_MP_PlayerEventMpegUserData*)param;
-          uint8_t* pbuf = userData->data;
-          uint32_t size = userData->len;
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_USERDATA_AFD: %x-%x-%x-%x ,size %d\n",
-            status->decoder,
-          pbuf[0], pbuf[1], pbuf[2], pbuf[3], size);
-          USERDATA_AFD_t afd = *((USERDATA_AFD_t *)pbuf);
-          afd.reserved = afd.pts = 0;
-          info.flags = VIDEO_INFO_AFD;
-          info.afd = afd.af & 0x7;
-          VID_DBG("[evt][%d] video afd changed: flg[0x%x] fmt[0x%x]\n", status->decoder, afd.af_flag, afd.af);
-          #endif
+          if (userData != NULL && userData->data != NULL) {
+              uint8_t* pbuf = userData->data;
+              uint32_t size = userData->len;
+              AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_USERDATA_AFD: %x-%x-%x-%x ,size %d\n",
+                  status->decoder,
+                  pbuf[0], pbuf[1], pbuf[2], pbuf[3], size);
+              USERDATA_AFD_t *afd = (USERDATA_AFD_t *)pbuf;
+              afd->reserved = afd->pts = 0;
+              info.flags = VIDEO_INFO_AFD;
+              info.afd = afd->af & 0x7;
+              VID_DBG("[evt][%d] video afd changed: flg[0x%x] fmt[0x%x]\n", status->decoder, afd->af_flag, afd->af);
+          }
           break;
       }
       case AML_MP_PLAYER_EVENT_VIDEO_CHANGED:

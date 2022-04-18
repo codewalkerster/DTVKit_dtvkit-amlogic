@@ -594,7 +594,8 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 */
 void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
 {
-   #ifndef RDK_COMPILE
+   //this function is only supported for CVTE
+   #if 0//ndef RDK_COMPILE
    static char buf1[PROPERTY_VALUE_MAX] = {0};
    static char buf2[PROPERTY_VALUE_MAX] = {0};
 

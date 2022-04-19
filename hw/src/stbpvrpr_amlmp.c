@@ -539,6 +539,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       s_recplay_status[play_index].video_pid = 0;
       s_recplay_status[play_index].hw_dsc_achn_id = -1;
       s_recplay_status[play_index].hw_dsc_vchn_id = -1;
+      s_recplay_status[play_index].ad_pid = 0;
 
       if (is_timeshift)
       {
@@ -2487,7 +2488,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT *pids;
    U8BIT play_index;
    int video_changed = 0, audio_changed = 0, ad_changed = 0;
-   BOOLEAN done = FALSE;
+   BOOLEAN done = TRUE;
    int reset = 0;
 
    FUNCTION_START(PVRChangeDecodePIDs);

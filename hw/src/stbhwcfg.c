@@ -388,6 +388,50 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             }
             att += 2;
         }
+    } else if (!strcmp(name, "android_property")) {
+        BOOLEAN has_name = FALSE;
+        BOOLEAN has_value = FALSE;
+        const char* pname = NULL;
+        const char* pvalue = NULL;
+        ENTRY e, *ep;
+        int hret;
+
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            //CFG_DBG("an [%s] av[%s]", an, av);
+            if (strcmp(an, "name")==0) {
+                pname = av;
+                has_name=TRUE;
+            } else if (strcmp(an, "value")==0) {
+                pvalue = av;
+                has_value=TRUE;
+            }
+            att += 2;
+        }
+        if ( has_name && has_value ) {
+            e.key=strdup(pname);
+            e.data=strdup(pvalue);
+            if ( e.key!=NULL && e.data!=NULL )
+            {
+                hret = hsearch_r(e,ENTER,&ep,&(cfg->prop_htab));
+                if ( hret == 0 ) {
+                    CFG_ERR("Hash table, failed to add an entry to hash table %s:%s",pname,pvalue);
+                } else {
+                    CFG_DBG("Hash table, key:%s, value:%s", pname,pvalue);
+                }
+            } else {
+                if (e.key!=NULL) {
+                    free(e.key);
+                }
+                if (e.data!=NULL) {
+                    free(e.data);
+                }
+                CFG_ERR("Hash table, failed to duplicate strings %s,%s due to insufficient memory"
+                        ,pname,pvalue);
+            }
+        }
     }
     else if (!strcmp(name, "demo_cap"))
     {
@@ -488,12 +532,12 @@ void STB_CfgInitialise(void)
     FILE           *fp = NULL;
     int             i;
 
-    #ifndef RDK_COMPILE
-    char buf[64];
+    #ifdef DTVKIT_IN_VENDOR_PARTITION
+    char buf[128];
     BOOLEAN ret;
 
     memset(buf, 0x00, sizeof(buf));
-    ret = STB_Get_Prop("persist.vendor.tvconfig.path", buf, sizeof(buf));
+    ret = property_get("persist.vendor.tvconfig.path",buf,NULL);
     if (ret) {
         if ((access(buf, 0) == 0)) {
             CFG_ERR("read from prop, open \"%s\"", buf);
@@ -532,6 +576,13 @@ void STB_CfgInitialise(void)
     aml_hw_cfg.epg_cfg.is_not_match_orignetid = 0;
     aml_hw_cfg.epg_cfg.is_not_match_tsid = 0;
     aml_hw_cfg.epg_cfg.barker_channel_enabled = 0;
+
+    memset(&(aml_hw_cfg.prop_htab),0,sizeof(struct hsearch_data));
+    if(0==hcreate_r(100,&(aml_hw_cfg.prop_htab)))
+    {
+        CFG_ERR("Hash table, failed to create hash table");
+        return;
+    }
 
     while (1) {
         char    buf[CFG_PARSER_BUF_SIZE];
@@ -772,23 +823,45 @@ int STB_Get_Service_WithoutSDT()
 
 /**
  * @brief   get dynamic prop
-   @param   name prop name
-   @param   buf returned value
-   @param   len length of buf
-   @return  TRUE if got, FALSE otherwise
+ *          prority1: android property
+ *          prority2: config.xml
+ *          prority3: other modules
+ * @param   name prop name
+ * @param   buf returned value
+ * @param   len length of buf
+ * @return  TRUE if got, FALSE otherwise
  */
 BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
 {
+    stb_hardware_cfg *cfg = &aml_hw_cfg;
+    ENTRY e, *ep;
+    int search_ret=0;
+    int get_ret=0;
+
+    if ( buf==NULL || len<=0 ) {
+        return FALSE;
+    }
+
+    e.key = (char*)name;
+    search_ret = hsearch_r(e,FIND,&ep,&(cfg->prop_htab));
 #ifdef DTVKIT_IN_VENDOR_PARTITION
-    return (property_get(name, buf, NULL) > 0) ? TRUE : FALSE;
-#else
-#ifdef USE_TSPLAYER
-      return (DVR_SUCCESS == STB_DVRProp_Get(name, buf, len)) ? TRUE : FALSE;
-#else
-      return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
-#endif
+    get_ret = property_get(name, buf, (search_ret!=0?ep->data:NULL));
 #endif
 
+    if ( get_ret>0 ) {
+        return TRUE;
+    }
+    if ( search_ret!=0 ) {
+        strncpy(buf,ep->data,len);
+        CFG_DBG("Hash table, key:%s, value:%s",name,buf);
+        return TRUE;
+    }
+
+#ifdef USE_TSPLAYER
+    return (DVR_SUCCESS == STB_DVRProp_Get(name, buf, len)) ? TRUE : FALSE;
+#else
+    return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
+#endif
 }
 
 /**
@@ -829,14 +902,29 @@ BOOLEAN STB_GetDemoCapabilityByType(E_STB_TUNE_SIGNAL_TYPE eType, U_STB_DEMO_CAP
  */
 void STB_Set_Prop(const char *name, const char *value)
 {
+    if ( name==NULL || value==NULL ) {
+        return;
+    }
 #ifdef DTVKIT_IN_VENDOR_PARTITION
     property_set(name, value);
 #else
+    stb_hardware_cfg  *cfg = &aml_hw_cfg;
+    ENTRY e, *ep;
+    int hret;
+
+    e.key = name;
+    hret = hsearch_r(e,FIND,&ep,&(cfg->prop_htab));
+    if (hret!=0) {
+        free(ep->data);
+        ep->data=strdup(value);
+        CFG_DBG("Hash table key:%s, value:%s",ep->key,ep->data);
+    } else {
 #ifdef USE_TSPLAYER
-    STB_DVRProp_Set(name, value);
+        STB_DVRProp_Set(name, value);
 #else
-    AM_PropEcho(name, value);
+        AM_PropEcho(name, value);
 #endif
+    }
 #endif
 }
 

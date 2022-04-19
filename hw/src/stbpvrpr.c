@@ -2568,8 +2568,20 @@ void STB_PVRCheckDiskSpace(void)
 
 static U32BIT getPVRConfigInt(const char *config, U32BIT def)
 {
-    return property_get_int32(config, def);
+    char buf[16]={0};
+
+    if(!STB_Get_Prop(config,buf,sizeof(buf))) {
+        return def;
+    }
+
+    const long int i = strtol(buf,NULL,0);
+    if ((i==LONG_MIN||i==LONG_MAX)&&errno==ERANGE) {
+        return def;
+    }
+
+    return (U32BIT)i;
 }
+
 /**
  * @brief get dvr mode. This function is used for dvr
  * @return U8BIT mode
@@ -2578,7 +2590,7 @@ static U8BIT getDvrMode()
 {
    U8BIT mode = 0;
 
-   BOOLEAN dvr_ts_enable = property_get_int32(DVR_MODE_PROP, 0);
+   BOOLEAN dvr_ts_enable = getPVRConfigInt(DVR_MODE_PROP, 0);
    if (dvr_ts_enable)
    {
        mode = 1;

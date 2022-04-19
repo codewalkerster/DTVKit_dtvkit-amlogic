@@ -247,9 +247,9 @@ void STB_TuneInitialise(U8BIT paths)
 
     U8BIT init_try_count = 0;
 
-    if (property_get("ro.vendor.platform.has.tvuimode", buf, "false") > 0)
+    if (STB_Get_Prop("ro.vendor.platform.has.tvuimode", buf, sizeof(buf)))
     {
-        if (!strncmp(buf, "true", 4))
+        if (strncmp(buf, "true", 4)==0)
         {
             isTvPlatform = TRUE;
         }

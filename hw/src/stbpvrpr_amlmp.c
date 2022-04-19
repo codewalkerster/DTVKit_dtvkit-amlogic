@@ -64,7 +64,6 @@
 #define DSC_DEV_NO 0
 
 #include <string.h>
-#include "dvr_wrapper.h"
 
 #ifdef SUPPORT_CAS
 /*#include "am_cas.h"*/
@@ -590,7 +589,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          if (STB_CAGetCASType() == CAS_TYPE_NAGRA)
          {
              PLAY_DBG("set tsn_source to local");
-             dvr_file_echo("/sys/class/stb/tsn_source", "local");
+             STB_File_Echo("/sys/class/stb/tsn_source", "local");
          }
 
          s_recplay_status[play_index].play_speed = 100;
@@ -814,7 +813,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
       if (STB_CAGetCASType() == CAS_TYPE_NAGRA)
       {
           PLAY_DBG("set tsn_source to demod");
-          dvr_file_echo("/sys/class/stb/tsn_source", "demod");
+          STB_File_Echo("/sys/class/stb/tsn_source", "demod");
       }
 
       if (s_recplay_status[play_index].play_state != PLAY_STOPPED)
@@ -2087,7 +2086,7 @@ BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
     else
     {
         STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
-        error = dvr_wrapper_segment_del_by_location(file_path);
+        error = Aml_MP_DVRRecorder_DeleteRecordFile(file_path);
     }
     REC_DBG("delete seg del end");
    if (!error)
@@ -2111,7 +2110,7 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
 
    int error;
    char file_path[AML_MP_MAX_PATH_SIZE];
-   DVR_WrapperInfo_t info;
+   Aml_MP_DVRRecodFileInfo info;
 
    FUNCTION_START(STB_PVRGetRecordingInfo);
 
@@ -2121,7 +2120,7 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
    STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
 
    memset(&info, 0, sizeof(info));
-   error = dvr_wrapper_segment_get_info_by_location(file_path, &info);
+   error = Aml_MP_DVRRecorder_GetRecordFileInfo(file_path, &info);
    if (!error)
    {
       retval = TRUE;
@@ -2398,7 +2397,7 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
    U16BIT disk_id;
    U8BIT disk_path[256];
 #ifdef USE_TSPLAYER
-   dvr_prop_read(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
+   STB_DVRProp_Get(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
 #else
    AM_PropRead(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
 #endif
@@ -2862,7 +2861,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       } while (0);
 
       Aml_MP_DVRPlayerCreateParams createParams;
-      int vendorId = DVR_PLAYBACK_VENDOR_AML;
+      int vendorId = PVR_PLAYBACK_VENDOR_AML;
       createParams.basicParams = play_params;
       createParams.decryptParams = decrypt_params;
 
@@ -2995,7 +2994,7 @@ static void setDvrMode(U8BIT dvr_id, U8BIT mode)
    {
        STB_SPDebugWrite("setDvrMode: ts");
 #ifdef USE_TSPLAYER
-       dvr_file_echo(dvr_mode, "ts");
+       STB_File_Echo(dvr_mode, "ts");
 #else
        AM_FileEcho(dvr_mode, "ts");
 #endif
@@ -3004,7 +3003,7 @@ static void setDvrMode(U8BIT dvr_id, U8BIT mode)
    {
        STB_SPDebugWrite("setDvrMode: pid");
 #ifdef USE_TSPLAYER
-       dvr_file_echo(dvr_mode, "pid");
+       STB_File_Echo(dvr_mode, "pid");
 #else
        AM_FileEcho(dvr_mode, "pid");
 #endif
@@ -3250,7 +3249,7 @@ static U16BIT getFakePid()
    U32BIT pid = 0xffff;
 
 #ifdef USE_TSPLAYER
-   dvr_prop_read(fake_pid_prop, buf, sizeof(buf));
+   STB_DVRProp_Get(fake_pid_prop, buf, sizeof(buf));
 #else
    AM_PropRead(fake_pid_prop, buf, sizeof(buf));
 #endif

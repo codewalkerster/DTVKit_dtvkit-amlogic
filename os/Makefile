@@ -11,7 +11,8 @@ SRCS = stbos_event.c      \
        stbos_queue.c      \
        stbos_rtc.c        \
        stbos_semaphore.c  \
-       stbos_task.c
+       stbos_task.c       \
+       stbos_utils.c
 
 COMP=os
 

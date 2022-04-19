@@ -34,7 +34,7 @@
 #endif
 
 #ifdef USE_TSPLAYER
-#include "dvr_utils.h"
+
 #else
 #include "am_misc.h"
 #endif
@@ -108,7 +108,7 @@ void STB_OSSetClockRTC(U32BIT num_seconds)
    property_set("vendor.sys.tv.stream.localtime", prop_time);
 #else
 #ifdef USE_TSPLAYER
-      dvr_prop_echo("vendor.sys.tv.stream.localtime", prop_time);
+      STB_DVRProp_Set("vendor.sys.tv.stream.localtime", prop_time);
 #else
       AM_PropEcho("vendor.sys.tv.stream.localtime", prop_time);
 #endif
@@ -209,7 +209,7 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
    property_set("vendor.sys.tv.stream.realtime", prop_time);
 #else
 #ifdef USE_TSPLAYER
-      dvr_prop_echo("vendor.sys.tv.stream.realtime", prop_time);
+      STB_DVRProp_Set("vendor.sys.tv.stream.realtime", prop_time);
 #else
       AM_PropEcho("vendor.sys.tv.stream.realtime", prop_time);
 #endif
@@ -251,7 +251,7 @@ void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
    property_set("vendor.sys.tv.stream.timeozone", prop_time);
 #else
 #ifdef USE_TSPLAYER
-      dvr_prop_echo("vendor.sys.tv.stream.timeozone", prop_time);
+      STB_DVRProp_Set("vendor.sys.tv.stream.timeozone", prop_time);
 #else
       AM_PropEcho("vendor.sys.tv.stream.timeozone", prop_time);
 #endif

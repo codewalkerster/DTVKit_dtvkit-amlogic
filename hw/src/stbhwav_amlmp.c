@@ -2332,7 +2332,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
       ad_format = av_paths_status[av_path].ad_format;
       video_format = av_paths_status[av_path].video_format;
 
-      AUD_DBG("av-pvr: path=%u state=%u, adpid:%d vpid:%d", av_path, av_paths_status[av_path].av_decoder_state, audio_pid, video_pid);
+      AUD_DBG("av-pvr: path=%u state=%u, adpid:%d vpid:%d", av_path, av_paths_status[av_path].av_decoder_state, ad_pid, video_pid);
 
       if (ad_pid != 0 && ad_pid != INVALID_PID)
       {

@@ -57,7 +57,6 @@
 #define  AV_AUDIO_CODEC_AAC    AV_AUDIO_CODEC_AAC_TSP
 #define  AV_AUDIO_CODEC_AC4    AV_AUDIO_CODEC_AC4_TSP
 
-#include "dvr_wrapper.h"
 
 #ifdef SUPPORT_CAS
 #include "am_cas.h"
@@ -2083,7 +2082,7 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
    U16BIT disk_id;
    U8BIT disk_path[256];
 #ifdef USE_TSPLAYER
-   dvr_prop_read(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
+   STB_DVRProp_Get(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
 #else
    AM_PropRead(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
 #endif
@@ -2430,7 +2429,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
       play_params.event_fn = PlayEventHandler;
       play_params.event_userdata = &s_recplay_status[play_index];
       play_params.block_size = 188 * 1024;
-      play_params.vendor = DVR_PLAYBACK_VENDOR_AML;
+      play_params.vendor = PVR_PLAYBACK_VENDOR_AML;
 #ifdef SUPPORT_CAS
       PLAY_DBG("is_smp:%d", s_recplay_status[play_index].cas_status.is_smp);
       if (s_recplay_status[play_index].cas_status.is_smp)
@@ -2584,7 +2583,7 @@ static void setDvrMode(U8BIT dvr_id, U8BIT mode)
    {
        STB_SPDebugWrite("setDvrMode: ts");
 #ifdef USE_TSPLAYER
-       dvr_file_echo(dvr_mode, "ts");
+       STB_File_Echo(dvr_mode, "ts");
 #else
        AM_FileEcho(dvr_mode, "ts");
 #endif
@@ -2593,7 +2592,7 @@ static void setDvrMode(U8BIT dvr_id, U8BIT mode)
    {
        STB_SPDebugWrite("setDvrMode: pid");
 #ifdef USE_TSPLAYER
-       dvr_file_echo(dvr_mode, "pid");
+       STB_File_Echo(dvr_mode, "pid");
 #else
        AM_FileEcho(dvr_mode, "pid");
 #endif
@@ -2788,7 +2787,7 @@ static U16BIT getFakePid()
    U16BIT pid = 0xffff;
 
 #ifdef USE_TSPLAYER
-   dvr_prop_read(fake_pid_prop, buf, sizeof(buf));
+   STB_DVRProp_Get(fake_pid_prop, buf, sizeof(buf));
 #else
    AM_PropRead(fake_pid_prop, buf, sizeof(buf));
 #endif

@@ -178,7 +178,8 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     os/src/stbos_queue.c      \
     os/src/stbos_rtc.c        \
     os/src/stbos_semaphore.c  \
-    os/src/stbos_task.c
+    os/src/stbos_task.c       \
+    os/src/stbos_utils.c
 
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS

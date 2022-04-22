@@ -371,7 +371,7 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
 
    snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/dsc%d_source", dev_id);
    snprintf(dst_name, sizeof(dst_name), "dmx%d", dmx_id);
-   r = dvr_file_echo(dev_name, dst_name);
+   r = STB_File_Echo(dev_name, dst_name);
 
    if (r != 0)
       DMX_DBG("set descrambler source failed");
@@ -504,7 +504,7 @@ dsc_set_aes_output(BOOLEAN enable)
       for (i = 0; i < aml_hw_cfg.demux_num; i++)
       {
          snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/demux%d_source", i);
-         dvr_file_read(dev_name, dmx_src, sizeof(dmx_src));
+         STB_File_Read(dev_name, dmx_src, sizeof(dmx_src));
          DMX_DBG("dmx.%d src %s target %s",i, dmx_src, target_source_str);
          if (strncmp(target_source_str, dmx_src, 3) == 0)
          {
@@ -520,7 +520,7 @@ dsc_set_aes_output(BOOLEAN enable)
    DMX_DBG("ciplus flag %d", flag);
    snprintf(dev_name, sizeof(dev_name), "/sys/class/dmx/ciplus_output_ctrl");
    snprintf(dst_name, sizeof(dst_name), "%d", flag);
-   r = dvr_file_echo(dev_name, dst_name);
+   r = STB_File_Echo(dev_name, dst_name);
    if (r != 0)
       DMX_DBG("set descrambler source failed");
 }
@@ -1973,7 +1973,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       }
    }
    DMX_DBG("demux reset now");
-   dvr_file_echo("/sys/class/stb/demux_reset", "1");
+   STB_File_Echo("/sys/class/stb/demux_reset", "1");
    for (i = 0; i < num_paths; i++) {
       //change ts_input_idx
       E_STB_DMX_DEMUX_SOURCE source;
@@ -2006,10 +2006,10 @@ static void set_demod_mode (int mode)
    #ifdef USE_TSPLAYER
    if (mode == 0) {
       DMX_DBG("echo %s > %s", DEMOD_NODE_CMD0, DEMOD_NODE_NAME);
-      dvr_file_echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD0);
+      STB_File_Echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD0);
    } else {
       DMX_DBG("echo %s > %s", DEMOD_NODE_CMD1, DEMOD_NODE_NAME);
-      dvr_file_echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD1);
+      STB_File_Echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD1);
    }
    #else
       AM_FileEcho(buf, cmd);
@@ -2207,7 +2207,7 @@ static void STB_SetTsoutSource(void)
          return;
       }
 #ifdef USE_TSPLAYER
-      dvr_file_echo(buf, cmd);
+      STB_File_Echo(buf, cmd);
 #else
       AM_FileEcho(buf, cmd);
 #endif

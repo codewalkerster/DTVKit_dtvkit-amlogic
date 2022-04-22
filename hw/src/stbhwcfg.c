@@ -21,8 +21,6 @@
 #include <cutils/properties.h>
 #else
 #ifdef USE_TSPLAYER
-#include "dvr_types.h"
-#include "dvr_utils.h"
 #else
 #include "am_types.h"
 #endif
@@ -785,7 +783,7 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
     return (property_get(name, buf, NULL) > 0) ? TRUE : FALSE;
 #else
 #ifdef USE_TSPLAYER
-      return (DVR_SUCCESS == dvr_prop_read(name, buf, len)) ? TRUE : FALSE;
+      return (DVR_SUCCESS == STB_DVRProp_Get(name, buf, len)) ? TRUE : FALSE;
 #else
       return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
 #endif
@@ -835,7 +833,7 @@ void STB_Set_Prop(const char *name, const char *value)
     property_set(name, value);
 #else
 #ifdef USE_TSPLAYER
-    dvr_prop_echo(name, value);
+    STB_DVRProp_Set(name, value);
 #else
     AM_PropEcho(name, value);
 #endif

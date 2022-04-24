@@ -17,6 +17,7 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
+#include "dvr_types.h"
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>
 #else

@@ -2152,14 +2152,18 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 #ifdef USE_TSPLAYER
    dmx_src_cfg = GetDemuxSourceByCfg(aml_hw_cfg.tuners[tuner_index].ts_input_idx);
 
-   if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER) {
-      dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-      DMX_DBG("DMX_CAPS_LIVE dmx_src_cfg=%d", dmx_src_cfg);
-   }
-   else if (demux_cap == DMX_CAPS_RECORDING && source == DMX_TUNER)
+   if (sc2_dsc_model)
    {
-      dmx_src_cfg = DVB_DEMUX_SOURCE_TS0 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-      DMX_DBG("DMX_CAPS_Recording dmx_src_cfg=%d", dmx_src_cfg);
+      if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
+      {
+         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
+         DMX_DBG("DMX_CAPS_LIVE dmx_src_cfg=%d", dmx_src_cfg);
+      }
+      else if (demux_cap == DMX_CAPS_RECORDING && source == DMX_TUNER)
+      {
+         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
+         DMX_DBG("DMX_CAPS_Recording dmx_src_cfg=%d", dmx_src_cfg);
+      }
    }
 
    dvb_get_demux_source(path, &dmx_src_cur);
@@ -2253,6 +2257,10 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       return;
    }
 
+#ifdef COMMON_INTERFACE
+   dvb_enable_ciplus(plug);
+#endif
+
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
       if (plug == 0) {
          //cam card is unplug.used camUnplug_tssource to
@@ -2286,9 +2294,6 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          }
          else
          {
-#ifdef COMMON_INTERFACE
-            dvb_enable_ciplus(plug);
-#endif
             DMX_DBG("demux reset now");
             dvr_file_echo("/sys/class/stb/demux_reset", "1");
             STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);

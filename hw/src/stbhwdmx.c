@@ -514,6 +514,11 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       {
          return -1;
       }
+
+      /* if scb is not set, need protect pid 0 */
+      if (pid == 0)
+         return -1;
+
       STB_OSMutexLock(dsc->mutex);
       if (dsc->key_fd < 0)
          dsc->key_fd = key_open();
@@ -782,6 +787,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
                dsc_channel->iv_one_key_id = -1;
 
                dsc_channel->src = STB_TS_SOURCE_MAX;
+               dsc_channel->dsc_type = -1;
                dsc_channel->pid = -1;
                dsc_channel->chan_id = -1;
                dsc_channel->ref = 0;
@@ -847,6 +853,9 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
    }
    // memset(data, 1, 16);
    // memset(data+16, 2, 16);
+
+   // for (i=0; i<32; i++)
+      // data[i] = i;
    for (i = 0; i < 32; i++)
       sprintf(buffer + i * 3, "%02x ", data[i]);
    DMX_DBG("data: %s", buffer);
@@ -949,8 +958,8 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
             key_config(dsc->key_fd, *iv_key_id, key_userid, key_algo, 0);
          }
          /* set TSE scb */
-         if (dsc_type == CA_DSC_TSE_TYPE)
-            ca_set_scb(dev_id, chan_id, 3);
+         // if (dsc_type == CA_DSC_TSE_TYPE)
+            // ca_set_scb(dev_id, chan_id, 2);
          /* set key */
          key_set(dsc->key_fd, *key_id, data, 16);
          ca_set_key(dev_id, chan_id, key_type, *key_id);
@@ -1206,6 +1215,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
             sc2_dsc_dev_info->dsc_pid_channel[i].ref = 0;
             sc2_dsc_dev_info->dsc_pid_channel[i].pid = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].chan_id = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].dsc_type = -1;
          }
       }
       else
@@ -2948,7 +2958,6 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
             return;
          }
       }
-
       if (ptrk->iseven)
          STB_DMXSetKey(dsc_dev, ptrk->chanid, ptrk->type, DSC_COMMON_TYPE, KEY_PARITY_EVEN, ptrk->even);
       if (ptrk->isodd)

@@ -1352,7 +1352,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       else if (s_rec_status[rec_index].clearkey.enabled)
       {
          if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
-         {}
+         {
+            //demux allocation need pid, so this step move to end of this func.
+         }
          else
          {
             rec_encrypt_params.clearKey = &s_rec_status[rec_index].clearkey.key[0];
@@ -1481,11 +1483,11 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          recorderCreateParams.timeshiftParams = rec_timeshift_params;
       }
 
-      if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+      if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3 && s_rec_status[rec_index].clearkey.enabled)
       {
+         U8BIT dmx_aes_key[32];
          REC_DBG("board type T3, apid %d vpid %d dmx %d tuner %d", apid, vpid, s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].tuner);
          STB_DMXSetDemuxSource(s_rec_status[rec_index].rec_demux, DMX_TUNER, s_rec_status[rec_index].tuner, DMX_CAPS_RECORDING);
-         U8BIT dmx_aes_key[32];
          memcpy(dmx_aes_key, s_rec_status[rec_index].clearkey.key, 16);
          memcpy(dmx_aes_key + 16, s_rec_status[rec_index].clearkey.iv, 16);
          s_rec_status[rec_index].rec_a_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, apid, DESC_TYPE_AES, DSC_TSE_TYPE);
@@ -2810,7 +2812,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
                s_recplay_status[play_index].clearkey.enabled, STB_CAIsTSEMode(), s_recplay_status[play_index].is_timeshift);
       if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
       {
-
+         // demux alloc channel need pid info, so move to end of func.
       }
       else if (s_recplay_status[play_index].cas_status.is_smp)
       {
@@ -3012,8 +3014,11 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
                                s_recplay_status[play_index].last_position_in_seconds * 1000);
       }
    }
-   if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+   if ((STB_DMXGetBoardType() == STB_BOARD_TYPE_T3) &&
+         (s_recplay_status[play_index].clearkey.enabled == TRUE))
+   {
       sc2_playback_setkey(play_index);
+   }
 
    return done;
 }

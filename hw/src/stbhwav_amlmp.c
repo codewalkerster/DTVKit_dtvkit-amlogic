@@ -1539,10 +1539,10 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
       return;
    }
 
-   pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
 
    ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
                                   av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
    if (ret < 0)
    {
        AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);

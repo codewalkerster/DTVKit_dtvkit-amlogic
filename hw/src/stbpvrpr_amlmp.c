@@ -2812,12 +2812,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       }
 
       play_params.isTimeShift = (s_recplay_status[play_index].is_timeshift) ? true : false;
-      play_params.isNotifyTime = false;
-
-      if (STB_Cam_Is_CIPlus_Mode() == TRUE)
-      {
-         play_params.isNotifyTime = true;
-      }
+      play_params.isNotifyTime = true;
 
       if (play_params.isTimeShift == true)
       {

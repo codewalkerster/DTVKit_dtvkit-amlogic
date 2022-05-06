@@ -1424,6 +1424,12 @@ void STB_AVStopVideoDecoding(U8BIT path)
             break;
       }
    }
+
+   char afd_cmd[16];
+   snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", av_path);
+   if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+      AV_DBG("[AFD] [%d] disable afd failed when player stopped.", av_path);
+
    if ((info.flags != 0) && (av_paths_status[av_path].callback != NULL))
    {
       /*reset the afd*/
@@ -3333,6 +3339,11 @@ am_tsplayer_result AV_CreateTsPlayer(U8BIT path,
            };
            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
         }
+
+        char afd_cmd[16];
+        snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", path, decoder_id);
+        if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+           AV_DBG("[AFD] [%d:%d] enable afd failed when player created.", path, decoder_id);
 
         ret = AmTsPlayer_registerCb(player_handle, AVEventHandler, &av_paths_status[path]);
         AV_DBG("Create Ts player success. player_hdle[%d]:0x%zx instance_no:%d dxm_id:%d", path, player_handle, decoder_id, dmx_dev_id);

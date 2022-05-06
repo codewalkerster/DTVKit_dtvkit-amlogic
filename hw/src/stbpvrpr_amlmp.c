@@ -915,6 +915,12 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
       }
    }
 
+   char afd_cmd[16];
+   snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", play_index);
+   PLAY_DBG("[AFD] [%d] disable afd for dvr player stopped.", play_index);
+   if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+      PLAY_DBG("[AFD] [%d] disable afd failed when dvr player stopped.", play_index);
+
    FUNCTION_FINISH(STB_PVRPlayStop);
 }
 
@@ -2895,6 +2901,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       {
          {
             U32BIT decoder_id;
+            char afd_cmd[16];
             int ret = Aml_MP_DVRPlayer_GetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
             if (ret != 0)
                decoder_id = -1;
@@ -2907,7 +2914,13 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
                     .sync_id_valid = FALSE,
                 };
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+
+            snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", play_index, decoder_id);
+            PLAY_DBG("[AFD] [%d:%d] enable afd for dvr player created.", play_index, decoder_id);
+            if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+               PLAY_DBG("[AFD] [%d:%d] enable afd failed when dvr player created.", play_index, decoder_id);
          }
+
          bool useTif = true;
          Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
 

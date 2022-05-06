@@ -1448,6 +1448,12 @@ void STB_AVStopVideoDecoding(U8BIT path)
             break;
       }
    }
+
+   char afd_cmd[16];
+   snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", av_path);
+   if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+      AV_DBG("[AFD] [%d] disable afd failed when player stopped.", av_path);
+
    if ((info.flags != 0) && (av_paths_status[av_path].callback != NULL))
    {
       /*reset the afd*/
@@ -3476,6 +3482,12 @@ int AV_CreateTsPlayer(U8BIT path,
            };
            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
         }
+
+        char afd_cmd[16];
+        snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", path, decoder_id);
+        if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+           AV_DBG("[AFD] (%d:%d) enable afd failed when player created.", path, decoder_id);
+
         bool useTif = true;
         Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
         ret = Aml_MP_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);

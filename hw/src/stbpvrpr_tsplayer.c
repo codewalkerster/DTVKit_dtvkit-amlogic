@@ -804,6 +804,11 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
       }
    }
 
+   char afd_cmd[16];
+   snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", play_index);
+   if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+      PLAY_DBG("[AFD] [%d] disable afd failed when player stopped.", play_index);
+
    FUNCTION_FINISH(STB_PVRPlayStop);
 }
 
@@ -2384,6 +2389,13 @@ static BOOLEAN updatePlayback(U8BIT play_index, BOOLEAN reset)
             versionM, versionL,
             (result)? "FAIL" : "OK",
             result);
+
+         char afd_cmd[16];
+         U32BIT inst_id;
+         AmTsPlayer_getInstansNo(s_recplay_status[play_index].tsplayer_handle, &inst_id);
+         snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", play_index, inst_id);
+         if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+            PLAY_DBG("[AFD] [%d:%d] enable afd failed when player created.", play_index, inst_id);
 
          result = AmTsPlayer_registerCb(s_recplay_status[play_index].tsplayer_handle,
             tsplayer_callback,

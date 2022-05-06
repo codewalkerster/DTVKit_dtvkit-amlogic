@@ -1639,11 +1639,15 @@ void STB_PVRRecordStop(U8BIT rec_index)
          }
          /* Free descrption channel */
          STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_a_chanid);
+         s_rec_status[rec_index].descramble_a_chanid = -1;
          STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_v_chanid);
+         s_rec_status[rec_index].descramble_v_chanid = -1;
 
          /* Free record pid channel */
          STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_a_chanid);
+         s_rec_status[rec_index].rec_a_chanid = -1;
          STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_v_chanid);
+         s_rec_status[rec_index].rec_v_chanid = -1;
 #endif
 
          Aml_MP_DVRRecorder_Destroy(s_rec_status[rec_index].recorder);

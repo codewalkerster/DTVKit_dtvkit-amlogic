@@ -63,7 +63,6 @@
 /*#define  AV_AUDIO_CODEC_LATM   AV_AUDIO_CODEC_LATM_TSP*/
 
 #ifdef SUPPORT_CAS
-#include "am_cas.h"
 #include "ca_glue.h"
 #endif
 

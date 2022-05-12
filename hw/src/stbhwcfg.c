@@ -17,7 +17,6 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
-#include "dvr_types.h"
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>
 #else
@@ -859,7 +858,7 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
     }
 
 #ifdef USE_TSPLAYER
-    return (DVR_SUCCESS == STB_DVRProp_Get(name, buf, len)) ? TRUE : FALSE;
+    return (TRUE == STB_DVRProp_Get(name, buf, len)) ? TRUE : FALSE;
 #else
     return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
 #endif

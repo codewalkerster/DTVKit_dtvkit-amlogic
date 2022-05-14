@@ -108,7 +108,7 @@ static BOOLEAN SupportedFSType(char *fs_type);
 static S_DISK_INFO* AddDisk(char *device_name, char *mount_path);
 static void RemoveDisk(S_DISK_INFO* del_disk);
 static S_DISK_INFO* FindDisk(U16BIT disk_id);
-static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load);
+static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load, U16BIT *p_disk_id);
 
 /*---global function definitions----------------------------------------------*/
 
@@ -1213,9 +1213,9 @@ void STB_DSKSetRefresh(BOOLEAN refresh)
    FUNCTION_FINISH(STB_DSKSetRefresh);
 }
 
-BOOLEAN STB_DSKAddDevicePath(char *device, char *path)
+BOOLEAN STB_DSKAddDevicePath(char *device, char *path, U16BIT *p_disk_id)
 {
-   return STB_DSKAddDevicePathAndLoad(device, path, TRUE);
+   return STB_DSKAddDevicePathAndLoad(device, path, FALSE, p_disk_id);
 }
 
 void STB_DSKCheckSpace(U16BIT disk_id)
@@ -1254,7 +1254,7 @@ static BOOLEAN IsSubDirectoryOf(char *path1, char *path2)
     return TRUE;
 }
 
-static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load)
+static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load, U16BIT *p_disk_id)
 {
 
    BOOLEAN send_events = load;
@@ -1277,6 +1277,8 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
 
    if (disk != NULL)
    {
+      if (p_disk_id)
+         *p_disk_id = disk->disk_id;
       DISK_DBG("Existed disk: %s, mounted on %s, removeable %s", disk->device_name, disk->mount_path, disk->is_removeable? "true" : "false");
    }
    else
@@ -1334,6 +1336,9 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
 
       if (disk != NULL)
       {
+         if (p_disk_id)
+            *p_disk_id = disk->disk_id;
+
          added = TRUE;
 
          DISK_DBG("Added disk %s, mounted on %s, ID 0x%04x, size %lu KB, removeable %s",
@@ -1357,15 +1362,26 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
    return (added);
 }
 
+BOOLEAN STB_DSKLoadDevicePath(U16BIT disk_id)
+{
+
+   /* Send an event to indicate a device has been attached */
+   STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_CONNECTED,
+      &disk_id, sizeof(disk_id));
+
+   return TRUE;
+}
+
+
 static void DiskMonitorTask(void *param)
 {
    USE_UNWANTED_PARAM(param);
 
    /* Create the initial list of disks, but don't send events on start up */
 #ifdef DTVKIT_IN_VENDOR_PARTITION
-   STB_DSKAddDevicePathAndLoad("user", "/data/vendor/dtvkit", FALSE);
+   STB_DSKAddDevicePathAndLoad("user", "/data/vendor/dtvkit", FALSE, NULL);
 #else
-   STB_DSKAddDevicePathAndLoad("user", "/data/data/com.droidlogic.dtvkit.inputsource", FALSE);
+   STB_DSKAddDevicePathAndLoad("user", "/data/data/com.droidlogic.dtvkit.inputsource", FALSE, NULL);
 #endif
 
    RefreshDiskList(FALSE);

@@ -1396,6 +1396,7 @@ void  STB_AVResumeVideoDecoding(U8BIT path)
 void STB_AVStopVideoDecoding(U8BIT path)
 {
    int ret;
+   char afd_cmd[16];
    S_STB_AV_VIDEO_INFO info;
    FUNCTION_START(STB_AVStopVideoDecoding);
 
@@ -1425,6 +1426,11 @@ void STB_AVStopVideoDecoding(U8BIT path)
                if (ret == 0) {
                    if (AV_GetDecoderState(path, AUDIO_DECODER) == DECODER_STATE_STOPPED) {
                        AV_ReleaseTsPlayer(av_path);
+
+                       snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", av_path);
+                       AV_DBG("[AFD] [%d] disable afd for stop decoding.", av_path);
+                       if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+                          AV_DBG("[AFD] [%d] disable afd failed when player stopped.", av_path);
                    } else {
                        VID_DBG("A NOW: A_START");
                    }
@@ -1448,11 +1454,6 @@ void STB_AVStopVideoDecoding(U8BIT path)
             break;
       }
    }
-
-   char afd_cmd[16];
-   snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", av_path);
-   if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-      AV_DBG("[AFD] [%d] disable afd failed when player stopped.", av_path);
 
    if ((info.flags != 0) && (av_paths_status[av_path].callback != NULL))
    {
@@ -3485,6 +3486,7 @@ int AV_CreateTsPlayer(U8BIT path,
 
         char afd_cmd[16];
         snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", path, decoder_id);
+        AV_DBG("[AFD] [%d:%d] enable afd for player created.", path, decoder_id);
         if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
            AV_DBG("[AFD] (%d:%d) enable afd failed when player created.", path, decoder_id);
 

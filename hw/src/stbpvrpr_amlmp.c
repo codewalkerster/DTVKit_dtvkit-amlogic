@@ -836,8 +836,8 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
  */
 void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 {
-
    int error;
+   char afd_cmd[16];
    U8BIT play_index;
 
    FUNCTION_START(STB_PVRPlayStop);
@@ -883,6 +883,10 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 #endif
          error = Aml_MP_DVRPlayer_Destroy(s_recplay_status[play_index].player);
 
+         snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", play_index);
+         PLAY_DBG("[AFD] [%d] disable afd for dvr player stopped.", play_index);
+         if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+            PLAY_DBG("[AFD] [%d] disable afd failed when dvr player stopped.", play_index);
 #if 0
          {
             /*release TsPlayer*/
@@ -915,12 +919,6 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          PLAY_DBG("Timeshift playback isn't started");
       }
    }
-
-   char afd_cmd[16];
-   snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", play_index);
-   PLAY_DBG("[AFD] [%d] disable afd for dvr player stopped.", play_index);
-   if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-      PLAY_DBG("[AFD] [%d] disable afd failed when dvr player stopped.", play_index);
 
    FUNCTION_FINISH(STB_PVRPlayStop);
 }

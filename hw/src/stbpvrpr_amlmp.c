@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <cutils/properties.h>
 
 // Ocean Blue header files

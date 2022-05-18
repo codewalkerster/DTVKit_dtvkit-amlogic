@@ -2786,11 +2786,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       PLAY_DBG("is_smp:%d, clearkey enable:%d is_tse_mode=%d istimeshift=%d",
                s_recplay_status[play_index].cas_status.is_smp,
                s_recplay_status[play_index].clearkey.enabled, STB_CAIsTSEMode(), s_recplay_status[play_index].is_timeshift);
-      if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
-      {
-         // demux alloc channel need pid info, so move to end of func.
-      }
-      else if (s_recplay_status[play_index].cas_status.is_smp)
+      if (s_recplay_status[play_index].cas_status.is_smp)
       {
          snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
          r = stat(node, &st);

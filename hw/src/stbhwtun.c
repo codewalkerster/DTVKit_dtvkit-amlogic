@@ -46,7 +46,7 @@
 #include "stbhwos.h"
 #include "stbhwresm.h"
 
-
+#include "emu_internal.h"
 
 /*---Macro Definitions for this file-----------------------------------------*/
 #ifdef TUNER_DEBUG
@@ -695,25 +695,36 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                     SetTunerT2PLP(tstatus->frontend_fd, tstatus->plp_id);
                 }
 
-                if (StartTune(tstatus))
+                if (EmuTunerStart(path, freq))
                 {
-                    STB_OSSemaphoreSignal(tstatus->tune_sem);
-                    TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
-                    STB_OSSemaphoreWait(tstatus->tune_sem_lock);
-                    TUN_DBG("%u: tune sem_receive:%p", tstatus->path, tstatus->tune_sem_lock);
+                    ClearTuner(tstatus);
+                    STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
                 }
                 else
                 {
-                    STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
-                                    sizeof(U8BIT));
+                    if (StartTune(tstatus))
+                    {
+                        STB_OSSemaphoreSignal(tstatus->tune_sem);
+                        TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
+                        STB_OSSemaphoreWait(tstatus->tune_sem_lock);
+                        TUN_DBG("%u: tune sem_receive:%p", tstatus->path, tstatus->tune_sem_lock);
+                    }
+                    else
+                    {
+                        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
+                                        sizeof(U8BIT));
+                    }
                 }
             }
             else
             {
                 /* Already tuned to the required transport */
                 TUN_DBG("%u: Already tuned", tstatus->path);
-
-                if (state == TUNER_IDLE)
+                if (EmuTunerGetState(path))
+                {
+                    EmuTunerReset(path);
+                }
+                else if (state == TUNER_IDLE)
                 {
                     STB_OSMutexLock(tstatus->mutex);
                     tstatus->state = TUNER_LOCKED;
@@ -767,6 +778,7 @@ void STB_TuneStopTuner(U8BIT path)
 
         STB_OSMutexLock(tstatus->mutex);
         state = tstatus->state;
+        EmuTunerStop(path);
         STB_OSMutexUnlock(tstatus->mutex);
 
         if (state != TUNER_IDLE && state != TUNER_EXITED)
@@ -1016,7 +1028,12 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalStrength);
 
-    retval = 0;
+    retval = EmuTunerGetSignalStrength(path);
+    if (retval > 0)
+    {
+        return retval;
+    }
+
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {
@@ -1231,7 +1248,11 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalQuality);
 
-    retval = 0;
+    retval = EmuTunerGetSignalQuality(path);
+    if (retval > 0)
+    {
+        return retval;
+    }
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {
@@ -2712,6 +2733,7 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
         TUN_DBG("close frontend_fd:%d", tstatus->frontend_fd);
         close(tstatus->frontend_fd);
         tstatus->frontend_fd = INVALID_FD;
+        EmuTunerStop(tstatus->path);
     }
 
     if (STB_TuneIsTvPlatform() && resm_adc_requested && STB_Resman_Support())

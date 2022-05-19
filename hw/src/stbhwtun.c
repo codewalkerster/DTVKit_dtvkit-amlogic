@@ -2763,6 +2763,10 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 
             switch (tstatus->u.terr.tbwidth)
             {
+                case TUNE_TBWIDTH_5MHZ:
+                    fe_params.u.ofdm.bandwidth = BANDWIDTH_5_MHZ;
+                    break;
+
                 case TUNE_TBWIDTH_6MHZ:
                     fe_params.u.ofdm.bandwidth = BANDWIDTH_6_MHZ;
                     break;
@@ -2773,6 +2777,10 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 
                 case TUNE_TBWIDTH_8MHZ:
                     fe_params.u.ofdm.bandwidth = BANDWIDTH_8_MHZ;
+                    break;
+
+                case TUNE_TBWIDTH_10MHZ:
+                    fe_params.u.ofdm.bandwidth = BANDWIDTH_10_MHZ;
                     break;
 
                 default:

@@ -127,7 +127,7 @@ static long GetStreamBitrate()
     return rate;
 }
 
-static void ResetDmxInput(int dmx, int difftime)
+static void ResetDmxInput(int dmx, unsigned int difftime)
 {
     static struct timeval begin_tv;
     struct timeval now_tv;

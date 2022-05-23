@@ -32,7 +32,7 @@ int EmuTunerGetSignalQuality(unsigned char path);
 int EmuDmxInit();
 int EmuDmxOpen(int dmx_no, int search);
 int EmuDmxClose(int handle);
-int EmuDmxInjectData(int handle, unsigned char *buf, int size, int timeout);
+int EmuDmxInjectData(int handle, unsigned char *buf, int size, unsigned int timeout);
 int EmuDmxSetInput(int dmx_no, int input);
 int EmuDmxGetInput(int dmx_no);
 

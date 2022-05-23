@@ -243,7 +243,7 @@ static int X4DmxClose(int handle)
 }
 
 
-static int X4DmxInjectData(int handle, unsigned char *buf, int size, int timeout)
+static int X4DmxInjectData(int handle, unsigned char *buf, int size, unsigned int timeout)
 {
     int ret;
     int left = size;
@@ -348,7 +348,7 @@ int EmuDmxClose(int handle)
     return 0;
 }
 
-int EmuDmxInjectData(int handle, unsigned char *buf, int size, int timeout)
+int EmuDmxInjectData(int handle, unsigned char *buf, int size, unsigned int timeout)
 {
     if (dmx_driver_ver == DMX_X4)
     {

@@ -695,7 +695,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                     SetTunerT2PLP(tstatus->frontend_fd, tstatus->plp_id);
                 }
 
-                if (EmuTunerStart(path, freq))
+                if (EmuTunerStart(path, freq, tstatus->signal_type))
                 {
                     ClearTuner(tstatus);
                     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));

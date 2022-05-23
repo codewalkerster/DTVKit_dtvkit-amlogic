@@ -175,6 +175,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/systemcontrol.cpp \
     hw/src/emu_tuner.c \
     hw/src/emu_dmx.c \
+    hw/src/emu_config.c \
     os/src/stbos_event.c      \
     os/src/stbos_mutex.c      \
     os/src/stbos_queue.c      \

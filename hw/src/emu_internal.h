@@ -12,16 +12,29 @@ enum
 
 typedef struct
 {
+    unsigned int tunerid;
+    unsigned int freq;
+    unsigned int modulation;
+    unsigned int lockstate;
+    long         bitrate;
+    char         name[256];
+}S_EMU_CONFIG;
+
+
+typedef struct
+{
     int running;
     int ifd;     //file fd
     int ofd;     //dvr fd
     int dmx;
+    int path;
     pthread_t thread;
+    S_EMU_CONFIG config;
 }S_EMU_TUNER_DATA;
 
 
 int EmuTunerInit();
-int EmuTunerStart(unsigned char path, unsigned int freq);
+int EmuTunerStart(unsigned char path, unsigned int freq, unsigned int modulation);
 int EmuTunerStop(unsigned char path);
 int EmuTunerGetState(unsigned char path);
 int EmuTunerReset(unsigned char path);
@@ -30,10 +43,14 @@ int EmuTunerGetSignalQuality(unsigned char path);
 
 
 int EmuDmxInit();
-int EmuDmxOpen(int dmx_no, int search);
+int EmuDmxOpen(unsigned char path);
 int EmuDmxClose(int handle);
 int EmuDmxInjectData(int handle, unsigned char *buf, int size, unsigned int timeout);
-int EmuDmxSetInput(int dmx_no, int input);
-int EmuDmxGetInput(int dmx_no);
+int EmuDmxSetInput(int handle, int input);
+int EmuDmxGetInput(int handle);
+
+int EmuCfgLoad();
+int EmuCfgGetConfig(unsigned int tunerid, unsigned int freq, unsigned int modulation, S_EMU_CONFIG *config);
+
 
 #endif

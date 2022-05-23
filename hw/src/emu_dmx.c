@@ -21,7 +21,8 @@
 #define AMSTREAM_IOC_PORT_INIT   _IO(AMSTREAM_IOC_MAGIC, 0x11)
 
 static int dmx_driver_ver;
-
+static int dmx_no;
+static int search_mode;
 
 int EmuFileEcho(const char *name, const char *cmd)
 {
@@ -142,7 +143,7 @@ static int X2DmxClose(int handle)
     return 0;
 }
 
-static int X2DmxInjectData(int handle, unsigned char *buf, int size, int timeout)
+static int X2DmxInjectData(int handle, unsigned char *buf, int size, unsigned int timeout)
 {
     return size;
 }
@@ -320,15 +321,22 @@ int EmuDmxInit()
     return 0;
 }
 
-int EmuDmxOpen(int dmx_no, int search)
+/*
+just return fd
+we must return a struct if multi instance
+*/
+int EmuDmxOpen(unsigned char path)
 {
+    search_mode = STB_DPGetSearchMode(path);
+    dmx_no      = STB_DPGetPathDemux(path);
+
     if (dmx_driver_ver == DMX_X4)
     {
         return X4DmxOpen(dmx_no);
     }
     else if (dmx_driver_ver == DMX_X2)
     {
-        return X2DmxOpen(dmx_no, search);
+        return X2DmxOpen(dmx_no, search_mode);
     }
 
     return 0;
@@ -362,7 +370,7 @@ int EmuDmxInjectData(int handle, unsigned char *buf, int size, unsigned int time
     return 0;
 }
 
-int EmuDmxSetInput(int dmx_no, int input)
+int EmuDmxSetInput(int handle, int input)
 {
     if (dmx_driver_ver == DMX_X4)
     {
@@ -377,7 +385,7 @@ int EmuDmxSetInput(int dmx_no, int input)
 }
 
 
-int EmuDmxGetInput(int dmx_no)
+int EmuDmxGetInput(int handle)
 {
     if (dmx_driver_ver == DMX_X4)
     {

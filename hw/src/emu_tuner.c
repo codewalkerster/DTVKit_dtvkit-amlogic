@@ -10,6 +10,11 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+#include <cutils/properties.h>
+#endif
+
+#include "stbhwos.h"
 #include "stbhwdmx.h"
 
 #include "dmx.h"
@@ -17,24 +22,23 @@
 
 #define TUNER_DEV_COUNT (2)
 #define REGION_BUFFER_SIZE (164*188)
-#define STREAM_BIT_RATE (20*1024*1024) // 20 Megabits per second
 
-#define EMU_TUNER_CONFIG "/data/vendor/dtvkit/aml_emu_tuner.ini"
-
+enum
+{
+    EMU_THREAD_STOPPING = -1,
+    EMU_THREAD_STOP,
+    EMU_THREAD_RUN,
+};
 
 static S_EMU_TUNER_DATA tuner_data[TUNER_DEV_COUNT];
 static int  emu_tuner_init         = 0;
 static int  emu_support_soft_tuner = 0;
-static long emu_ts_bitrate;
 
-
-static int OpenTsFile(unsigned int freq)
+static int OpenTsFile(char *name)
 {
-    char name[128];
     int fd;
     int ret;
 
-    snprintf(name, sizeof(name), "/data/vendor/dtvkit/%d.ts", freq);
     fd = open(name, O_RDONLY);
     if (fd == -1)
     {
@@ -58,6 +62,12 @@ static int CloseTsFile(int fd)
 static int ReadTsFile(int infd, char *buf, int size)
 {
     int ret;
+
+    if (infd < 0)
+    {
+        return 0;
+    }
+
     ret = read(infd, buf, size);
     if(ret <= 0)
     {
@@ -95,36 +105,96 @@ long DiffTimeval(const struct timeval *start_tv, const struct timeval *now_tv)
     return diff_time;
 }
 
-static long GetStreamBitrate()
+static void TunerLockEvent(unsigned char path, int lock)
 {
-    char buf[64];
-    long rate = 0;
-
-    FILE* fd = fopen(EMU_TUNER_CONFIG, "r");
-    if (fd == NULL)
+    unsigned short event;
+    if (lock)
     {
-        return STREAM_BIT_RATE;
-    }
-
-    memset(buf, 0, sizeof(buf));
-    if (fgets(buf, sizeof(buf), fd) != NULL)
-    {
-       rate = atoi(buf);
-    }
-
-    EMU_DBG("\nbitrate:%sM\n",buf);
-    if (rate <= 1 || rate >= 50)
-    {
-        rate = STREAM_BIT_RATE;
+        event = HW_EV_TYPE_LOCKED;
     }
     else
     {
-        rate = rate * 1024 * 1024;
+        event = HW_EV_TYPE_NOTLOCKED;
     }
-    EMU_DBG("bitrate:%ld\n",rate);
+    //EMU_DBG("TunerLockEvent:%d", lock);
+    STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, event, &path, sizeof(path));
+}
 
-    fclose(fd);
-    return rate;
+static int TunerDataUpdate(S_EMU_TUNER_DATA *tuner)
+{
+    int ret;
+    int lock_change = 0;
+    S_EMU_CONFIG config;
+    S_EMU_CONFIG *pConfig = &tuner->config;
+
+    emu_support_soft_tuner = EmuCfgLoad();
+    ret = EmuCfgGetConfig(pConfig->tunerid, pConfig->freq, pConfig->modulation, &config);
+    if (ret == 0)
+    {
+        if (pConfig->lockstate != config.lockstate)
+        {
+            pConfig->lockstate = config.lockstate;
+            lock_change = 1;
+        }
+        pConfig->bitrate   = config.bitrate;
+        //EMU_DBG("TunerUpdate:%s %s", config.name, pConfig->name);
+        if (strcmp(config.name, pConfig->name) || tuner->ifd < 0)
+        {
+            if (tuner->ifd >= 0)
+            {
+                CloseTsFile(tuner->ifd);
+            }
+            strcpy(pConfig->name, config.name);
+            tuner->ifd = OpenTsFile(config.name);
+        }
+    }
+    else
+    {
+        lock_change = 1;
+        pConfig->lockstate = 0;
+        if (tuner->ifd >= 0)
+        {
+            CloseTsFile(tuner->ifd);
+            tuner->ifd = -1;
+        }
+    }
+
+    if (lock_change)
+    {
+        TunerLockEvent(tuner->path, pConfig->lockstate);
+    }
+
+    return 0;
+}
+
+static int IsConfigUpdate(unsigned int difftime)
+{
+    int ret = 0;
+
+#ifdef DTVKIT_IN_VENDOR_PARTITION
+    static struct timeval begin_tm;
+    struct timeval now_tm;
+
+    gettimeofday(&now_tm, NULL);
+    unsigned int diff = DiffTimeval(&begin_tm, &now_tm);
+    if (diff > difftime)
+    {
+        int size;
+        char buf[PROPERTY_VALUE_MAX];
+        char *name = "vendor.tv.softtuner.config.update";
+
+        memset(buf, 0, sizeof(buf));
+        size = property_get(name, buf, "false");
+        if (size > 0 && !strcmp(buf, "true"))
+        {
+            property_set(name, "false");
+            ret = 1;
+        }
+        begin_tm = now_tm;
+    }
+#endif
+
+    return ret;
 }
 
 static void ResetDmxInput(int dmx, unsigned int difftime)
@@ -146,7 +216,8 @@ static void ResetDmxInput(int dmx, unsigned int difftime)
     }
 }
 
-static void* EmuTunerThread(void* arg) {
+static void* EmuTunerThread(void* arg)
+{
     S_EMU_TUNER_DATA *tuner = (S_EMU_TUNER_DATA *)arg;
     int infd = tuner->ifd;
     int fd   = tuner->ofd;
@@ -155,22 +226,28 @@ static void* EmuTunerThread(void* arg) {
 
     struct timeval start_tv;
     struct timeval now_tv;
-    long diff_time = 0;
-    long bytes = 0;
-    long BURST_US = (1000000 / (emu_ts_bitrate / (REGION_BUFFER_SIZE * 8)));
+    long diff_time;
+    long BURST_US = (1000000 / (tuner->config.bitrate / (REGION_BUFFER_SIZE * 8)));
 
     EMU_DBG("emu thread start\n");
     usleep(300*1000); //wait for av init
     EmuDmxSetInput(tuner->dmx, DMX_MEMORY);
     gettimeofday(&start_tv, NULL);
+    TunerLockEvent(tuner->path, tuner->config.lockstate); //maybe it is false
 
-    while (tuner->running)
+    while (tuner->running == EMU_THREAD_RUN)
     {
         ResetDmxInput(tuner->dmx, 1000);
+        if (IsConfigUpdate(2000))
+        {
+            TunerDataUpdate(tuner);
+            infd = tuner->ifd;
+            BURST_US = (1000000 / (tuner->config.bitrate / (REGION_BUFFER_SIZE * 8)));
+        }
+
         ret = ReadTsFile(infd, buf, REGION_BUFFER_SIZE);
         if (ret > 0)
         {
-            bytes += ret;
             send = EmuDmxInjectData(fd, buf, ret, 200);
             if (send != ret)
             {
@@ -196,8 +273,7 @@ static void* EmuTunerThread(void* arg) {
     }
 
     EMU_DBG("emu thread end\n");
-
-    tuner->running = -1;
+    tuner->running = EMU_THREAD_STOPPING;
     return NULL;
 }
 
@@ -210,24 +286,17 @@ int EmuTunerInit()
     }
 
     emu_tuner_init = 1;
-    int fd = open(EMU_TUNER_CONFIG, O_RDONLY);
-    if (fd == -1)
-    {
-        emu_support_soft_tuner = 0;
-        return 0;
-    }
-    close(fd);
-    emu_support_soft_tuner = 1;
+    emu_support_soft_tuner = EmuCfgLoad();
 
     EmuDmxInit();
     return 0;
 }
 
-
-int EmuTunerStart(unsigned char path, unsigned int freq)
+int EmuTunerStart(unsigned char path, unsigned int freq, unsigned int modulation)
 {
     int fd;
-    unsigned char dmx_no, search;
+    unsigned char dmx_no;
+    S_EMU_CONFIG config;
 
     EmuTunerInit();
     if (!emu_support_soft_tuner || path >= TUNER_DEV_COUNT)
@@ -236,19 +305,24 @@ int EmuTunerStart(unsigned char path, unsigned int freq)
     }
     EmuTunerStop(path);
 
-    search = STB_DPGetSearchMode(path);
-    dmx_no = STB_DPGetPathDemux(path);
-    EMU_DBG("EmuTunerStart:support %d path %d dmx %d search:%d" , emu_support_soft_tuner, path, dmx_no, search);
+    EMU_DBG("EmuTunerStart:support %d path %d " , emu_support_soft_tuner, path);
+    memset(&tuner_data[path].config, 0, sizeof(S_EMU_CONFIG));
+    if (EmuCfgGetConfig(path, freq, modulation, &tuner_data[path].config) < 0)
+    {
+        EMU_DBG("no freq config");
+        return 0;
+    }
 
-    fd = OpenTsFile(freq);
+    fd = OpenTsFile(tuner_data[path].config.name);
     if (fd < 0)
     {
-        EMU_DBG("open ts failed");
+        EMU_DBG("open ts failed:%s" , tuner_data[path].config.name);
         return 0;
     }
     tuner_data[path].ifd = fd;
 
-    fd = EmuDmxOpen(dmx_no, search);
+    dmx_no = STB_DPGetPathDemux(path);
+    fd = EmuDmxOpen(path);
     if (fd < 0)
     {
         EMU_DBG("open demux failed");
@@ -256,10 +330,10 @@ int EmuTunerStart(unsigned char path, unsigned int freq)
         return 0;
     }
 
-    emu_ts_bitrate = GetStreamBitrate();
-    tuner_data[path].ofd = fd;
-    tuner_data[path].dmx = dmx_no;
-    tuner_data[path].running = 1;
+    tuner_data[path].path    = path;
+    tuner_data[path].ofd     = fd;
+    tuner_data[path].dmx     = dmx_no;
+    tuner_data[path].running = EMU_THREAD_RUN;
 
     pthread_create(&tuner_data[path].thread, NULL, EmuTunerThread, (void*)(long)&tuner_data[path]);
     pthread_setname_np(tuner_data[path].thread, "emu_tuner_thread");
@@ -276,19 +350,19 @@ int EmuTunerStop(unsigned char path)
 
     EMU_DBG("EmuTunerStop:%d", tuner_data[path].running);
 
-    if (tuner_data[path].running == 0)
+    if (tuner_data[path].running == EMU_THREAD_STOP)
     {
         return 0;
     }
 
-    if (tuner_data[path].running == 1)
+    if (tuner_data[path].running == EMU_THREAD_RUN)
     {
-        tuner_data[path].running = 0;
-
+        tuner_data[path].running = EMU_THREAD_STOP;
         do
         {
             usleep(20*1000);
-        }while((tuner_data[path].running != -1));
+        }while((tuner_data[path].running != EMU_THREAD_STOPPING));
+        tuner_data[path].running = EMU_THREAD_STOP;
     }
 
     CloseTsFile(tuner_data[path].ifd);
@@ -305,12 +379,11 @@ int EmuTunerGetState(unsigned char path)
         return 0;
     }
 
-    if (tuner_data[path].running == 1)
+    if (tuner_data[path].running == EMU_THREAD_RUN)
         return 1;
 
     return 0;
 }
-
 
 int EmuTunerReset(unsigned char path)
 {
@@ -323,10 +396,9 @@ int EmuTunerReset(unsigned char path)
     return 0;
 }
 
-
 int EmuTunerGetSignalStrength(unsigned char path)
 {
-    if (EmuTunerGetState(path))
+    if (EmuTunerGetState(path) && tuner_data[path].config.lockstate)
     {
         return 66;
     }
@@ -336,7 +408,7 @@ int EmuTunerGetSignalStrength(unsigned char path)
 
 int EmuTunerGetSignalQuality(unsigned char path)
 {
-    if (EmuTunerGetState(path))
+    if (EmuTunerGetState(path) && tuner_data[path].config.lockstate)
     {
         return 88;
     }

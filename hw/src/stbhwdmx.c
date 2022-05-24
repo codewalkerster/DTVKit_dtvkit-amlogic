@@ -2313,6 +2313,15 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
    FUNCTION_FINISH(STB_DMXChangeAllDemuxSource);
 }
 
+/**
+ * @brief   Reset the source of the demux
+ * @param   path the demux path to configure
+ */
+void STB_DMXResetDemuxSource(U8BIT path)
+{
+    STB_DMXSetDemuxSource(path, DMX_TUNER, 0, 0);
+}
+
 #define TUNER_PATH 0
 #define PAT_TIMEOUT (10000)
 #define POLL_TIMEOUT (100)

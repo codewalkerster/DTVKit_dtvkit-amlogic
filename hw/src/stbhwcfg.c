@@ -972,3 +972,27 @@ int STB_GetCIHostMode(void)
     return aml_hw_cfg.cam->host_mode;
 }
 
+/**
+ * @brief   get group which platform belongs to.
+ * @return  group by bits
+ */
+int STB_GetPlatformGroupId(void)
+{
+    BOOLEAN ret = FALSE;
+    char buf[64];
+    int group = 0;
+
+    memset(buf, 0, sizeof(buf));
+    ret = STB_File_Read("/sys/class/stb/dmx_ver", buf, sizeof(buf));
+    if (!ret)
+        return 0;
+
+    #define GRP_BIT(_grp) (1 << ((_grp) - 1))
+
+    /*group id 1*/
+    if (memcmp(buf, "sc2", 3) == 0 || memcmp(buf, "t7", 2))
+        group |= GRP_BIT(1);
+
+    return group;
+}
+

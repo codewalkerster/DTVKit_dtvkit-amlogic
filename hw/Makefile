@@ -37,6 +37,9 @@ SRCS = stbhwplatform.c \
      stbhwav_amlmp.c \
      stbpvrpr_amlmp.c \
      ca_glue_amlmp.c \
+     emu_tuner.c \
+     emu_dmx.c \
+     emu_config.c \
      stbhwci.c
 
 

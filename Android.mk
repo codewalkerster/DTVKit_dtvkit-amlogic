@@ -117,6 +117,8 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     $(LOCAL_PATH)/../CI-Plus/include \
     $(LOCAL_PATH)/../MHEG5/include \
     $(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \
+    $(LOCAL_PATH)/../DVBCore/CERT/inc \
+    $(LOCAL_PATH)/../DVBCore/dvb/inc \
     $(LOCAL_PATH)/hw/inc \
     $(LOCAL_PATH)/os/inc \
     external/sqlite/dist \

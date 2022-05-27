@@ -7,6 +7,8 @@ INCLUDES = ./inc \
           $(DTVKIT_DVBCORE_ROOT)/platform/inc \
           $(DTVKIT_DVBCORE_ROOT)/midware/CA/inc \
           $(DTVKIT_DVBCORE_ROOT)/midware/stb/inc \
+          $(DTVKIT_DVBCORE_ROOT)/CERT/inc \
+          $(DTVKIT_DVBCORE_ROOT)/dvb/inc \
           $(DTVKIT_CIPLUS_ROOT)/include \
           $(DTVKIT_MHEG5_ROOT)/include
 

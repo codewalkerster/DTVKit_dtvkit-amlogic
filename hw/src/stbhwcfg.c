@@ -17,6 +17,8 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
+#include "app_cfg.h"
+
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>
 #else
@@ -26,15 +28,10 @@
 #endif
 #endif
 
-#if ANDROID_PLATFORM_SDK_VERSION >= 30
-#define CFG_FILE_PATH "/mnt/vendor/odm_ext/etc/tvconfig/dtvkit/config.xml"
-#else
-#define CFG_FILE_PATH "/odm/etc/tvconfig/dtvkit/config.xml"
-#endif
-
 #ifdef RDK_COMPILE
-#undef CFG_FILE_PATH
-#define CFG_FILE_PATH "/etc/config.xml"
+#define DTVKIT_CONFIG_XML_FILE "/etc/config.xml"
+#else
+#define DTVKIT_CONFIG_XML_FILE "config.xml"
 #endif
 
 #define CFG_PARSER_BUF_SIZE 512
@@ -525,6 +522,30 @@ elem_end_handler (void *userData, const XML_Char *name)
 {
 }
 
+static BOOLEAN getDtvKitConfigXmlFile(char *strPathBuf,U16BIT u16PathBufLen)
+{
+    BOOLEAN bRet = FALSE;
+
+    if(NULL == strPathBuf)
+    {
+        STB_SPDebugWrite("%s %d ERROR!!!", __FUNCTION__, __LINE__);
+        return bRet;
+    }
+
+#ifdef RDK_COMPILE
+    if(u16PathBufLen > strlen(DTVKIT_CONFIG_XML_FILE))
+    {
+        sprintf(strPathBuf, "%s", DTVKIT_CONFIG_XML_FILE);
+    }
+#else
+    bRet = APCFG_AddFilePathForDtvKitConfigFile(strPathBuf, u16PathBufLen, DTVKIT_CONFIG_XML_FILE);
+#endif
+
+    STB_SPDebugWrite("%s %d strPathBuf = %s", __FUNCTION__, __LINE__, strPathBuf);
+
+    return bRet;
+}
+
 void STB_CfgInitialise(void)
 {
     XML_Parser      parser;
@@ -550,9 +571,13 @@ void STB_CfgInitialise(void)
     #endif
 
     if (!fp) {
-        fp = fopen(CFG_FILE_PATH, "rb");
+        char strCfgPath[APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH];
+
+        memset(strCfgPath, 0, APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
+        getDtvKitConfigXmlFile(strCfgPath,APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
+        fp = fopen(strCfgPath, "rb");
         if (!fp) {
-            CFG_ERR("cannot open \"%s\"", CFG_FILE_PATH);
+            CFG_ERR("cannot open \"%s\"", strCfgPath);
             return;
         }
     }
@@ -594,7 +619,7 @@ void STB_CfgInitialise(void)
 
         status = XML_Parse(parser, buf, len, is_end);
         if (status == XML_STATUS_ERROR) {
-            CFG_ERR("parse \"%s\" failed: %s", CFG_FILE_PATH,
+            CFG_ERR("parse config.xml failed: %s",
                                 XML_ErrorString(XML_GetErrorCode(parser)));
             break;
         }

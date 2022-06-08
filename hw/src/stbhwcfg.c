@@ -113,6 +113,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .isdbt_enabled = FALSE,
     .file_path = {0},
 },
+.mem_level_num = 0,
 };
 
 static void
@@ -284,7 +285,26 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 			if ((i != LONG_MIN) && (i != LONG_MAX))
 				cfg->pvr.encrypt = i;
 		}
-	}else if (!strcmp(name, "country")) {
+	} else if (!strcmp(name, "dmc_mem")) {
+        long int i;
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "level")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->dmc_mem[cfg->mem_level_num].level = i;
+            }else if (!strcmp(an, "size")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->dmc_mem[cfg->mem_level_num].size = i;
+            }
+            att += 2;
+        }
+        cfg->mem_level_num++;
+    }
+    else if (!strcmp(name, "country")) {
         att = atts;
 		an = att[0];
 		av = att[1];

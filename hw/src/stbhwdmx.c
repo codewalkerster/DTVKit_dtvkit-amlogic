@@ -1176,6 +1176,19 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                DMX_ERR("Failed to open demux device %u, error %d", i, am_result);
             }
          }
+
+         /*Config Demux DMC memory size */
+         for (i = 0; i < aml_hw_cfg.mem_level_num; i++) {
+            memset(buf, 0, sizeof(buf));
+            memset(cmd, 0, sizeof(cmd));
+            snprintf(buf, sizeof(buf), "/sys/class/stb/dmc_mem");
+            snprintf(cmd, sizeof(cmd), "%d %d", aml_hw_cfg.dmc_mem[i].level, aml_hw_cfg.dmc_mem[i].size);
+            am_result = DMX_FileEcho(buf, cmd);
+            if (am_result)
+            {
+                DMX_ERR("Failed to config dmc memory! level %d", aml_hw_cfg.dmc_mem[i].level);
+            }
+         }
       }
    }
    else

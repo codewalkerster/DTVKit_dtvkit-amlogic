@@ -104,7 +104,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .srate_auto_value = 0,
     },
 .service_without_sdt = 0,
-.resource_manager_by_prio = 0,
+.resource_manager_by_prio = 1,
 .capture_adc = {
     .analog_enabled = FALSE,
     .dvbs_enabled = FALSE,
@@ -442,14 +442,14 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             att += 2;
         }
     }
-    else if (!strcmp(name, "resource_manager"))
+    else if (!strcmp(name, "fcc_pip"))
     {
         att = atts;
         while (*att) {
             an = att[0];
             av = att[1];
-            if (!strcmp(an, "by_prio") && !strcmp(av, "yes")) {
-                cfg->resource_manager_by_prio = 1;
+            if (!strcmp(an, "enable") && !strcmp(av, "yes")) {
+                cfg->resource_manager_by_prio = 0;
             }
             att += 2;
         }

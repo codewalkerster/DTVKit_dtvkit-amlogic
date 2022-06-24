@@ -860,7 +860,7 @@ void STB_AVSetAudioMute(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN audio_mu
    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
    int dvr = !STB_PVRIsPlayStopped(path, INVALID_RES_ID);
 
-   AUD_DBG("set mute: %d:[-:%d] mute[%d] flag[%x] path_flag[%x]", av_path, path, mute, flag, av_paths_status[path].audio_out_control);
+   AUD_DBG("set mute: %d:[-:%d] mute[%d] flag[%x] path_flag[%x]", av_path, path, audio_mute, flag, av_paths_status[path].audio_out_control);
 
    if (audio_mute_lock)
    {
@@ -875,11 +875,6 @@ void STB_AVSetAudioMute(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN audio_mu
        return;
    }
 
-   if (av_path != INVALID_RES_ID)
-   {
-      av_paths_status[av_path].mute = mute;
-   }
-
    if (audio_mute)
       av_paths_status[path].audio_out_control |= (1<<flag);
    else
@@ -889,6 +884,11 @@ void STB_AVSetAudioMute(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN audio_mu
       mute = TRUE;
    else
       mute = FALSE;
+
+   if (av_path != INVALID_RES_ID)
+   {
+      av_paths_status[av_path].mute = mute;
+   }
 
    AV_SetAudioMute(player_handle, dvr, mute);
    FUNCTION_FINISH(STB_AVSetAudioMute);

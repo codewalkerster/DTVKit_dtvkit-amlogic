@@ -273,14 +273,15 @@ static S_VIDEO_MODE video_modes[] =
 static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, int64_t param);
 static int AV_CreateTsPlayer(U8BIT path, Aml_MP_InputSourceType source_type, int32_t dmx_dev_id, int32_t event_mask);
 static int AV_ReleaseTsPlayer(U8BIT path);
-static int AV_GetPlayerHandleByPath(U8BIT video, U8BIT audio, AML_MP_PLAYER* play_hdle, BOOLEAN recreat_hdl); //return AML_MP_PLAYER or am_tsplayer_handle
-static int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid, Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
-static int AV_StartVideoDecode(AML_MP_PLAYER player_hdle, U16BIT v_pid, U16BIT pcr_pid, Aml_MP_CodecID format, Aml_MP_AVSyncSource mode);
+static int AV_GetPlayerHandleByPath(U8BIT video, U8BIT audio, AML_MP_PLAYER* player_handle, BOOLEAN recreat_handle); //return AML_MP_PLAYER or am_tsplayer_handle
+static int AV_GetPathByPlayerHandle(AML_MP_PLAYER *player_handle);
+static int AV_StartAudioDecode(AML_MP_PLAYER player_handle, U16BIT a_pid, Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
+static int AV_StartVideoDecode(AML_MP_PLAYER player_handle, U16BIT v_pid, U16BIT pcr_pid, Aml_MP_CodecID format, Aml_MP_AVSyncSource mode);
 static void AV_SetDecoderState(U8BIT path, E_DECODER_INDEX index, E_DECODER_STATE state);
 static E_DECODER_STATE AV_GetDecoderState(U8BIT path, E_DECODER_INDEX index);
 
 //for PVR
-static int AV_SetAudioDecode(AML_MP_PLAYER player_hdle, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute);
+static int AV_SetAudioDecode(AML_MP_PLAYER player_handle, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute);
 static E_STB_AV_VIDEO_CODEC toVideoCodec(Aml_MP_CodecID codec);
 static E_STB_AV_AUDIO_CODEC toAudioCodec(Aml_MP_CodecID codec);
 BOOLEAN STB_AVAcquirePath(U8BIT video_decoder, U8BIT audio_decoder);
@@ -289,7 +290,7 @@ U8BIT STB_AVGetPath(U8BIT video_decoder, U8BIT audio_decoder);
 
 //for PVR end
 
-static int AV_SetAudioVolumeAndMute(AML_MP_PLAYER player_handle, int dvr, U8BIT vol, BOOLEAN mute);
+static int AV_SetAudioVolumeAndMute(AML_MP_PLAYER player_handle, BOOLEAN dvr, U8BIT vol, BOOLEAN mute);
 static int AV_SetAudioVolume(AML_MP_PLAYER player_handle, int dvr, U8BIT vol);
 static int AV_SetAudioMute(AML_MP_PLAYER player_handle, int dvr, BOOLEAN mute);
 
@@ -2848,30 +2849,33 @@ E_STB_AV_SRM_REPLY STB_AVApplySRM(U8BIT path, U8BIT *data, U32BIT len)
  */
 U8BIT STB_AVGetVideoFrameRate(U8BIT path)
 {
-    int ret;
-    AML_MP_PLAYER handle;
-    U8BIT frame_rate = 0;
-    FUNCTION_START(STB_AVGetVideoFrameRate);
-    //VID_DBG("vpath:%u", path);
+   int ret;
+   AML_MP_PLAYER handle;
+   U8BIT frame_rate = 0;
+   FUNCTION_START(STB_AVGetVideoFrameRate);
+   // VID_DBG("vpath:%u", path);
 
-    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
-    if (ret == 0)
-    {
-        Aml_MP_VideoInfo info;
+   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+   if (ret == 0)
+   {
+      Aml_MP_VideoInfo info;
 
-        if (STB_PVRIsPlayStopped(path, path)) {
-            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
-        } else {
-            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
-        }
+      if (STB_PVRIsPlayStopped(path, path))
+      {
+         ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+      }
+      else
+      {
+         ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+      }
 
-        if (ret == 0)
-        {
-            frame_rate = (U8BIT)info.frameRate;
-        }
-    }
-    FUNCTION_FINISH(STB_AVGetVideoFrameRate);
-    return frame_rate;
+      if (ret == 0)
+      {
+         frame_rate = (U8BIT)info.frameRate;
+      }
+   }
+   FUNCTION_FINISH(STB_AVGetVideoFrameRate);
+   return frame_rate;
 }
 
 /**
@@ -2881,30 +2885,33 @@ U8BIT STB_AVGetVideoFrameRate(U8BIT path)
  */
 U32BIT STB_AVGetVideoWidth(U8BIT path)
 {
-    int ret;
-    AML_MP_PLAYER handle;
-    U32BIT width = 0;
-    FUNCTION_START(STB_AVGetVideoWidth);
-    VID_DBG("vpath:%u", path);
+   int ret;
+   AML_MP_PLAYER handle;
+   U32BIT width = 0;
+   FUNCTION_START(STB_AVGetVideoWidth);
+   VID_DBG("vpath:%u", path);
 
-    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
-    if (ret == 0)
-    {
-        Aml_MP_VideoInfo info;
+   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+   if (ret == 0)
+   {
+      Aml_MP_VideoInfo info;
 
-        if (STB_PVRIsPlayStopped(path, path)) {
-            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
-        } else {
-            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
-        }
+      if (STB_PVRIsPlayStopped(path, path))
+      {
+         ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+      }
+      else
+      {
+         ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+      }
 
-        if (ret == 0)
-        {
-            width = info.width;
-        }
-    }
-    FUNCTION_FINISH(STB_AVGetVideoWidth);
-    return width;
+      if (ret == 0)
+      {
+         width = info.width;
+      }
+   }
+   FUNCTION_FINISH(STB_AVGetVideoWidth);
+   return width;
 }
 
 /**
@@ -2914,30 +2921,33 @@ U32BIT STB_AVGetVideoWidth(U8BIT path)
  */
 U32BIT STB_AVGetVideoHeight(U8BIT path)
 {
-    int ret;
-    AML_MP_PLAYER handle;
-    U32BIT height = 0;
-    FUNCTION_START(STB_AVGetVideoHeight);
-    VID_DBG("vpath:%u", path);
+   int ret;
+   AML_MP_PLAYER handle;
+   U32BIT height = 0;
+   FUNCTION_START(STB_AVGetVideoHeight);
+   VID_DBG("vpath:%u", path);
 
-    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
-    if (ret == 0)
-    {
-        Aml_MP_VideoInfo info;
+   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+   if (ret == 0)
+   {
+      Aml_MP_VideoInfo info;
 
-        if (STB_PVRIsPlayStopped(path, path)) {
-            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
-        } else {
-            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
-        }
+      if (STB_PVRIsPlayStopped(path, path))
+      {
+         ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+      }
+      else
+      {
+         ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_INFO, &info);
+      }
 
-        if (ret == 0)
-        {
-            height = info.height;
-        }
-    }
-    FUNCTION_FINISH(STB_AVGetVideoHeight);
-    return height;
+      if (ret == 0)
+      {
+         height = info.height;
+      }
+   }
+   FUNCTION_FINISH(STB_AVGetVideoHeight);
+   return height;
 }
 
 /**
@@ -2947,37 +2957,40 @@ U32BIT STB_AVGetVideoHeight(U8BIT path)
  */
 U8BIT STB_AVGetVideoScanType(U8BIT path)
 {
-    int ret;
-    AML_MP_PLAYER handle;
-    U8BIT scan_type = 0;
+   int ret;
+   AML_MP_PLAYER handle;
+   U8BIT scan_type = 0;
 
-    FUNCTION_START(STB_AVGetVideoScanType);
+   FUNCTION_START(STB_AVGetVideoScanType);
 
    // VID_DBG("vpath:%u", path);
 
-    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
-    if (ret == 0)
-    {
-        Aml_MP_VdecStat info;
-        if (STB_PVRIsPlayStopped(path, path)) {
-            ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
-        } else {
-            ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
-        }
+   ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+   if (ret == 0)
+   {
+      Aml_MP_VdecStat info;
+      if (STB_PVRIsPlayStopped(path, path))
+      {
+         ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
+      }
+      else
+      {
+         ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
+      }
 
-        if (ret == 0)
-        {
-            if ((info.vf_type & 0x01) == 0x01 ||
-                (info.vf_type & 0x03) == 0x03 ||
-                (info.vf_type & 0x08) == 0x08)
-                scan_type = 0;
-            else
-                scan_type = 1;
-        }
-    }
+      if (ret == 0)
+      {
+         if ((info.vf_type & 0x01) == 0x01 ||
+             (info.vf_type & 0x03) == 0x03 ||
+             (info.vf_type & 0x08) == 0x08)
+            scan_type = 0;
+         else
+            scan_type = 1;
+      }
+   }
 
-    FUNCTION_FINISH(STB_AVGetVideoScanType);
-    return scan_type;
+   FUNCTION_FINISH(STB_AVGetVideoScanType);
+   return scan_type;
 }
 
 /**
@@ -3057,45 +3070,46 @@ void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
  */
 void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECODING_MODE mode)
 {
-    U8BIT av_path;
+   U8BIT av_path;
    FUNCTION_START(STB_AVSetDecodingMode);
    av_path = STB_AVGetPath(video_decoder, audio_decoder);
 
-    if (av_path == INVALID_RES_ID) {
-        VID_DBG("get av_path error, %d(%d:%d)", av_path, video_decoder, audio_decoder);
-        return;
-    }
-      AV_DBG("[decoding mode]: %d(a:%d v:%d) = (%d -> %d)",
-         av_path,
-         audio_decoder,
-         video_decoder,
-         av_paths_status[av_path].decoding_mode,
-         mode);
+   if (av_path == INVALID_RES_ID)
+   {
+      VID_DBG("get av_path error, %d(%d:%d)", av_path, video_decoder, audio_decoder);
+      return;
+   }
+   AV_DBG("[decoding mode]: %d(a:%d v:%d) = (%d -> %d)",
+          av_path,
+          audio_decoder,
+          video_decoder,
+          av_paths_status[av_path].decoding_mode,
+          mode);
 
-      if (av_paths_status[av_path].decoding_mode != mode)
+   if (av_paths_status[av_path].decoding_mode != mode)
+   {
+
+      if (IS_CACHED(av_paths_status[av_path].decoding_mode) != IS_CACHED(mode))
       {
+         int ret;
+         AML_MP_PLAYER player_handle;
 
-         if (IS_CACHED(av_paths_status[av_path].decoding_mode) != IS_CACHED(mode))
+         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
+                                        av_paths_status[av_path].audio_decoder,
+                                        &player_handle,
+                                        FALSE);
+         if (ret == 0)
          {
-            int ret;
-            AML_MP_PLAYER player_handle;
-
-            ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
-                                     av_paths_status[av_path].audio_decoder,
-                                     &player_handle,
-                                     FALSE);
-            if (ret == 0)
-            {
-               Aml_MP_PlayerWorkMode work_mode =
-                  IS_CACHED(mode) ? AML_MP_PLAYER_MODE_CACHING_ONLY : AML_MP_PLAYER_MODE_NORMAL;
-               ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void*)(&work_mode));
-               AV_DBG("set AML MP work mode: %d:[%d:%d] [%d] = %d, player[0x%p]",
-                    av_path,
-                    av_paths_status[av_path].video_decoder,
-                    av_paths_status[av_path].audio_decoder,
-                    work_mode,
-                    ret,
-                    player_handle);
+            Aml_MP_PlayerWorkMode work_mode =
+                IS_CACHED(mode) ? AML_MP_PLAYER_MODE_CACHING_ONLY : AML_MP_PLAYER_MODE_NORMAL;
+            ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void *)(&work_mode));
+            AV_DBG("set AML MP work mode: %d:[%d:%d] [%d] = %d, player[0x%p]",
+                   av_path,
+                   av_paths_status[av_path].video_decoder,
+                   av_paths_status[av_path].audio_decoder,
+                   work_mode,
+                   ret,
+                   player_handle);
          }
          else
          {
@@ -3205,15 +3219,15 @@ void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event, i
    FUNCTION_FINISH(STB_AVNotifyEventHandler);
 }
 
-pthread_rwlock_t * STB_AVGetLockByPath(U8BIT path)
+pthread_rwlock_t *STB_AVGetLockByPath(U8BIT path)
 {
-    FUNCTION_START(STB_AVGetLockByPath);
+   FUNCTION_START(STB_AVGetLockByPath);
 
-    if (path < num_paths)
-        return &(av_paths_status[path].lock);
-    return NULL;
+   if (path < num_paths)
+      return &(av_paths_status[path].lock);
+   return NULL;
 
-    FUNCTION_FINISH(STB_AVGetLockByPath);
+   FUNCTION_FINISH(STB_AVGetLockByPath);
 }
 
 /*---local function definitions----------------------------------------------*/
@@ -3226,8 +3240,8 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
    status = (AV_PATH_STATUS *)user_data;
    info.flags = 0;
 
-  switch (eventType)
-  {
+   switch (eventType)
+   {
       case AML_MP_PLAYER_EVENT_USERDATA_CC:
       {
           Aml_MP_PlayerEventMpegUserData* userData = (Aml_MP_PlayerEventMpegUserData*)param;
@@ -3257,144 +3271,144 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_VIDEO_CHANGED:
       {
-          Aml_MP_PlayerEventVideoFormat* videoFormat = (Aml_MP_PlayerEventVideoFormat*)param;
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_CHANGED: [width:height] [%d x %d] @%d aspectratio[%d]\n",
-            status->decoder,
-          videoFormat->frame_width,
-          videoFormat->frame_height,
-          videoFormat->frame_rate,
-          videoFormat->frame_aspectratio);
-          if ((videoFormat->frame_width != 0) && (videoFormat->frame_height != 0))
-          {
-              info.flags |= VIDEO_INFO_VIDEO_RESOLUTION;
-              info.video_width = videoFormat->frame_width;
-              info.video_height = videoFormat->frame_height;
-              AV_DBG("Video res changed, %u x %u", info.video_width, info.video_height);
-              invokeCallback(status, &info);
-/*
-              if ((status != NULL) && (status->callback != NULL))
-                  status->callback(&info, status->user_data, status->video_decoder);
-*/
-          }
-          info.flags = 0;
-          switch (videoFormat->frame_aspectratio)
-          {
-             case 0:
-                info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
-                info.video_aspect_ratio = ASPECT_RATIO_4_3;
-                VID_DBG("Video aspect ratio 4:3");
-                break;
-             case 1:
-                info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
-                info.video_aspect_ratio = ASPECT_RATIO_16_9;
-                VID_DBG("Video aspect ratio 16:9");
-                break;
-             default:
-                VID_DBG(" Unhandled video aspect ratio default is 16:9");
-                info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
-                info.video_aspect_ratio = ASPECT_RATIO_16_9;
+         Aml_MP_PlayerEventVideoFormat *videoFormat = (Aml_MP_PlayerEventVideoFormat *)param;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_CHANGED: [width:height] [%d x %d] @%d aspectratio[%d]\n",
+                status->decoder,
+                videoFormat->frame_width,
+                videoFormat->frame_height,
+                videoFormat->frame_rate,
+                videoFormat->frame_aspectratio);
+         if ((videoFormat->frame_width != 0) && (videoFormat->frame_height != 0))
+         {
+            info.flags |= VIDEO_INFO_VIDEO_RESOLUTION;
+            info.video_width = videoFormat->frame_width;
+            info.video_height = videoFormat->frame_height;
+            AV_DBG("Video res changed, %u x %u", info.video_width, info.video_height);
+            invokeCallback(status, &info);
+            /*
+                          if ((status != NULL) && (status->callback != NULL))
+                              status->callback(&info, status->user_data, status->video_decoder);
+            */
+         }
+         info.flags = 0;
+         switch (videoFormat->frame_aspectratio)
+         {
+         case 0:
+            info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
+            info.video_aspect_ratio = ASPECT_RATIO_4_3;
+            VID_DBG("Video aspect ratio 4:3");
+            break;
+         case 1:
+            info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
+            info.video_aspect_ratio = ASPECT_RATIO_16_9;
+            VID_DBG("Video aspect ratio 16:9");
+            break;
+         default:
+            VID_DBG(" Unhandled video aspect ratio default is 16:9");
+            info.flags |= VIDEO_INFO_VIDEO_ASPECT_RATIO;
+            info.video_aspect_ratio = ASPECT_RATIO_16_9;
+            break;
+         }
+         info.flags |= VIDEO_INFO_DECODER_STATUS;
+         info.status = DECODER_STATUS_VIDEO;
          break;
-          }
-          info.flags |= VIDEO_INFO_DECODER_STATUS;
-          info.status = DECODER_STATUS_VIDEO;
-          break;
       }
       case AML_MP_PLAYER_EVENT_AUDIO_CHANGED:
       {
-          Aml_MP_PlayerEventAudioFormat* audioFormat = (Aml_MP_PlayerEventAudioFormat*)param;
-          if (audioFormat != NULL)
-          {
-              AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
-                status->decoder,
-              audioFormat->sample_rate,
-              audioFormat->channels);
-          }
-          break;
+         Aml_MP_PlayerEventAudioFormat *audioFormat = (Aml_MP_PlayerEventAudioFormat *)param;
+         if (audioFormat != NULL)
+         {
+            AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
+                   status->decoder,
+                   audioFormat->sample_rate,
+                   audioFormat->channels);
+         }
+         break;
       }
       case AML_MP_PLAYER_EVENT_VIDEO_DECODE_FIRST_FRAME:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_DECODE_FIRST_FRAME!\n", status->decoder);
-          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_VIDEO_FIRST_FRAME, &status->decoder, sizeof(U8BIT));
-          info.flags |= VIDEO_INFO_DECODER_STATUS;
-          info.status = DECODER_STATUS_DECODE_FIRST_FRAME_VIDEO;
-          break;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_DECODE_FIRST_FRAME!\n", status->decoder);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_VIDEO_FIRST_FRAME, &status->decoder, sizeof(U8BIT));
+         info.flags |= VIDEO_INFO_DECODER_STATUS;
+         info.status = DECODER_STATUS_DECODE_FIRST_FRAME_VIDEO;
+         break;
       }
       case AML_MP_PLAYER_EVENT_DATA_LOSS:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_LOSS!\n", status->decoder);
-          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
-          break;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_LOSS!\n", status->decoder);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
+         break;
       }
       case AML_MP_PLAYER_EVENT_DATA_RESUME:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_RESUME\n", status->decoder);
-          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_DATA_RESUME, &status->decoder, sizeof(U8BIT));
-          break;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_RESUME\n", status->decoder);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_DATA_RESUME, &status->decoder, sizeof(U8BIT));
+         break;
       }
       case AML_MP_PLAYER_EVENT_SCRAMBLING:
       {
-          Aml_MP_PlayerEventScrambling* scrambling = (Aml_MP_PlayerEventScrambling*)param;
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_SCRAMBLING: stream_type:%d is_scramling[%d]\n",
-            status->decoder,
-          scrambling->type,
-          scrambling->scramling);
-          if (scrambling->type == AML_MP_STREAM_TYPE_VIDEO)
-          {
-              AV_DBG("Video Scambled");
-              STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_SCAMBLED, &status->decoder, sizeof(U8BIT));
-          }
-          else if (scrambling->type == AML_MP_STREAM_TYPE_AUDIO || scrambling->type == AML_MP_STREAM_TYPE_AD)
-          {
-              AV_DBG("Audio Scambled");
-              STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_SCAMBLED, &status->decoder, sizeof(U8BIT));
-          }
-          break;
+         Aml_MP_PlayerEventScrambling *scrambling = (Aml_MP_PlayerEventScrambling *)param;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_SCRAMBLING: stream_type:%d is_scramling[%d]\n",
+                status->decoder,
+                scrambling->type,
+                scrambling->scramling);
+         if (scrambling->type == AML_MP_STREAM_TYPE_VIDEO)
+         {
+            AV_DBG("Video Scambled");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_SCAMBLED, &status->decoder, sizeof(U8BIT));
+         }
+         else if (scrambling->type == AML_MP_STREAM_TYPE_AUDIO || scrambling->type == AML_MP_STREAM_TYPE_AD)
+         {
+            AV_DBG("Audio Scambled");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_SCAMBLED, &status->decoder, sizeof(U8BIT));
+         }
+         break;
       }
       case AML_MP_PLAYER_EVENT_FIRST_FRAME:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_FIRST_FRAME: ## VIDEO_AVAILABLE ##\n", status->decoder);
-          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
-          {
-             int ret;
-             U32BIT sync_id;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_FIRST_FRAME: ## VIDEO_AVAILABLE ##\n", status->decoder);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
+         {
+            int ret;
+            U32BIT sync_id;
 
-             ret = Aml_MP_Player_GetParameter(status->player_handle, AML_MP_PLAYER_PARAMETER_SYNC_ID, (void*)&sync_id);
-             if (ret != 0)
-                sync_id = -1;
+            ret = Aml_MP_Player_GetParameter(status->player_handle, AML_MP_PLAYER_PARAMETER_SYNC_ID, (void *)&sync_id);
+            if (ret != 0)
+               sync_id = -1;
 
-             S_VIDEO_DECODER_PRIV_DATA priv =
-             {
-                .decoder = status->decoder,
-                .decoder_id_valid = FALSE,
-                .sync_id = sync_id,
-                .sync_id_valid = TRUE,
-             };
-             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
-          }
-          break;
+            S_VIDEO_DECODER_PRIV_DATA priv =
+                {
+                    .decoder = status->decoder,
+                    .decoder_id_valid = FALSE,
+                    .sync_id = sync_id,
+                    .sync_id_valid = TRUE,
+                };
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+         }
+         break;
       }
       case AML_MP_PLAYER_EVENT_VIDEO_ERROR_FRAME_COUNT:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_ERROR_FRAME_COUNT\n", status->decoder);
-          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_ERROR_FRAME_COUNT, NULL, 0);
-          break;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_ERROR_FRAME_COUNT\n", status->decoder);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_ERROR_FRAME_COUNT, NULL, 0);
+         break;
       }
 
       case AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT:
       {
-          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT\n", status->decoder);
-          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_UNSUPPORT, &status->decoder, sizeof(U8BIT));
-          break;
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_UNSUPPORT\n", status->decoder);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_UNSUPPORT, &status->decoder, sizeof(U8BIT));
+         break;
       }
 
       default:
-          break;
+         break;
   }
 
   if ((info.flags != 0) && (status != NULL) && (status->callback != NULL))
   {
-        invokeCallback(status, &info);
-        //status->callback(&info, status->user_data, status->video_decoder);
+     invokeCallback(status, &info);
+     // status->callback(&info, status->user_data, status->video_decoder);
   }
 }
 
@@ -3427,317 +3441,351 @@ void AV_InjectData(U8BIT path,U8BIT *data, U32BIT size)
 int AV_CreateTsPlayer(U8BIT path,
                        Aml_MP_InputSourceType source_type, int32_t dmx_dev_id, int32_t event_mask)
 {
-    U32BIT decoder_id;
-    uint32_t numb = 0;
-    int ret;
-    Aml_MP_PlayerCreateParams parm;
-    AML_MP_PLAYER player_handle;
+   U32BIT decoder_id;
+   uint32_t numb = 0;
+   int ret;
+   Aml_MP_PlayerCreateParams parm;
+   AML_MP_PLAYER player_handle;
 
-    if (path >= num_paths) {
-        AV_DBG("Invalid path: %d", path);
-        return AML_MP_ERROR;
-    }
+   if (path >= num_paths)
+   {
+      AV_DBG("Invalid path: %d", path);
+      return AML_MP_ERROR;
+   }
 
-    memset(&parm, 0, sizeof(parm));
-    parm.channelId = path;
-    parm.demuxId = (Aml_MP_DemuxId)dmx_dev_id;
-    parm.sourceType = source_type;
+   memset(&parm, 0, sizeof(parm));
+   parm.channelId = path;
+   parm.demuxId = (Aml_MP_DemuxId)dmx_dev_id;
+   parm.sourceType = source_type;
 #ifdef SUPPORT_CAS
-    if (av_paths_status[path].drm_mode == DRM_NONE) {
-        parm.drmMode = AML_MP_INPUT_STREAM_NORMAL;
-    } else {
-        parm.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
-    }
-    AV_DBG("parm.drmMode = %d", parm.drmMode);
+   if (av_paths_status[path].drm_mode == DRM_NONE)
+   {
+      parm.drmMode = AML_MP_INPUT_STREAM_NORMAL;
+   }
+   else
+   {
+      parm.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
+   }
+   AV_DBG("parm.drmMode = %d", parm.drmMode);
 
-    if ((parm.drmMode != AML_MP_INPUT_STREAM_NORMAL) && (STB_CAGetCASType() != CAS_TYPE_NAGRA))
-    {
-        Aml_MP_CASDVRReplayParams param;
-        param.dmxDev = (Aml_MP_DemuxId)dmx_dev_id;
-        STB_CAPVRPlayStart(&param, false);
-        AML_MP_CASSESSION section_handle;
-        STB_CAPVRGetPlaySection(&section_handle);
-        AV_DBG("section_handle get playback [%p].", section_handle);
-        av_paths_status[path].secmem_handle =
-                Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_LIVE_PLAY, NULL, NULL);
-        if (!av_paths_status[path].secmem_handle) {
-            AV_DBG("Create live secmem failed.");
-        }
-    }
+   if ((parm.drmMode != AML_MP_INPUT_STREAM_NORMAL) && (STB_CAGetCASType() != CAS_TYPE_NAGRA))
+   {
+      Aml_MP_CASDVRReplayParams param;
+      param.dmxDev = (Aml_MP_DemuxId)dmx_dev_id;
+      STB_CAPVRPlayStart(&param, false);
+      AML_MP_CASSESSION section_handle;
+      STB_CAPVRGetPlaySection(&section_handle);
+      AV_DBG("section_handle get playback [%p].", section_handle);
+      av_paths_status[path].secmem_handle =
+          Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_LIVE_PLAY, NULL, NULL);
+      if (!av_paths_status[path].secmem_handle)
+      {
+         AV_DBG("Create live secmem failed.");
+      }
+   }
 #endif
-    pthread_rwlock_wrlock(&av_paths_status[path].lock);
-    ret = Aml_MP_Player_Create(&parm, &player_handle);
-    if (ret == 0)
-    {
-        av_paths_status[path].player_handle = player_handle;
-        ret = Aml_MP_Player_GetParameter(player_handle, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
-        if (ret != 0)
-           decoder_id = -1;
+   pthread_rwlock_wrlock(&av_paths_status[path].lock);
+   ret = Aml_MP_Player_Create(&parm, &player_handle);
+   if (ret == 0)
+   {
+      av_paths_status[path].player_handle = player_handle;
+      ret = Aml_MP_Player_GetParameter(player_handle, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
+      if (ret != 0)
+         decoder_id = -1;
 
-        {
-           S_VIDEO_DECODER_PRIV_DATA priv =
-           {
-              .decoder = av_paths_status[path].decoder,
-              .decoder_id = decoder_id,
-              .decoder_id_valid = TRUE,
-              .sync_id_valid = FALSE,
-           };
-           STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
-        }
+      {
+         S_VIDEO_DECODER_PRIV_DATA priv =
+             {
+                 .decoder = av_paths_status[path].decoder,
+                 .decoder_id = decoder_id,
+                 .decoder_id_valid = TRUE,
+                 .sync_id_valid = FALSE,
+             };
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+      }
 
-        char afd_cmd[16];
-        snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", path, decoder_id);
-        AV_DBG("[AFD] [%d:%d] enable afd for player created.", path, decoder_id);
-        if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-           AV_DBG("[AFD] (%d:%d) enable afd failed when player created.", path, decoder_id);
+      char afd_cmd[16];
+      snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", path, decoder_id);
+      AV_DBG("[AFD] [%d:%d] enable afd for player created.", path, decoder_id);
+      if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+         AV_DBG("[AFD] (%d:%d) enable afd failed when player created.", path, decoder_id);
 
-        bool useTif = true;
-        Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
-        ret = Aml_MP_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);
-        AV_DBG("Create Aml MP player success. path=%d player_hdle[%p]:0x%zx dxm_id:%d", path, player_handle, numb, dmx_dev_id);
-    }
-    else
-    {
-        av_paths_status[path].player_handle = AML_MP_INVALID_HANDLE;
-        AV_DBG("Create Aml MP player failed, err:%d", ret);
-    }
-    pthread_rwlock_unlock(&av_paths_status[path].lock);
-    return ret;
+      bool useTif = true;
+      Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
+      ret = Aml_MP_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);
+      AV_DBG("Create Aml MP player success. path=%d player_handle[%p]:0x%zx dxm_id:%d", path, player_handle, numb, dmx_dev_id);
+   }
+   else
+   {
+      av_paths_status[path].player_handle = AML_MP_INVALID_HANDLE;
+      AV_DBG("Create Aml MP player failed, err:%d", ret);
+   }
+   pthread_rwlock_unlock(&av_paths_status[path].lock);
+   return ret;
 }
 
 int AV_ReleaseTsPlayer(U8BIT path)
 {
-    int ret = 0;
+   int ret = 0;
 
-    if (path >= num_paths) {
-        AV_DBG("Invalid path: %d", path);
-        return AML_MP_ERROR;
-    }
+   if (path >= num_paths)
+   {
+      AV_DBG("Invalid path: %d", path);
+      return AML_MP_ERROR;
+   }
 
-    pthread_rwlock_wrlock(&av_paths_status[path].lock);
-    AV_DBG("Will Release Ts player");
-    if (IS_INVALID_PLAYER_HANDLE(path))
-    {
-        AV_DBG("Release Ts player alreadly.");
-    }
-    else
-    {
-        ret = Aml_MP_Player_RegisterEventCallBack(av_paths_status[path].player_handle, NULL, NULL);
-        ret = Aml_MP_Player_Destroy(av_paths_status[path].player_handle);
-        if (ret < 0)
-        {
-            AV_DBG("Destroy Aml MP player failed, err:%d", ret);
-        }
-        else
-        {
-            AV_DBG("Destroy Aml MP player, player_hdle[%d]:0x%p", path, av_paths_status[path].player_handle);
-            av_paths_status[path].player_handle = AML_MP_INVALID_HANDLE;
-        }
+   pthread_rwlock_wrlock(&av_paths_status[path].lock);
+   AV_DBG("Will Release Ts player");
+   if (IS_INVALID_PLAYER_HANDLE(path))
+   {
+      AV_DBG("Release Ts player alreadly.");
+   }
+   else
+   {
+      ret = Aml_MP_Player_RegisterEventCallBack(av_paths_status[path].player_handle, NULL, NULL);
+      ret = Aml_MP_Player_Destroy(av_paths_status[path].player_handle);
+      if (ret < 0)
+      {
+         AV_DBG("Destroy Aml MP player failed, err:%d", ret);
+      }
+      else
+      {
+         AV_DBG("Destroy Aml MP player, player_handle[%d]:0x%p", path, av_paths_status[path].player_handle);
+         av_paths_status[path].player_handle = AML_MP_INVALID_HANDLE;
+      }
 #ifdef SUPPORT_CAS
-        if (av_paths_status[path].secmem_handle)
-        {
-            AML_MP_CASSESSION section_handle;
-            STB_CAPVRGetPlaySection(&section_handle);
-            Aml_MP_CAS_DestroySecmem(section_handle, av_paths_status[path].secmem_handle);
-            av_paths_status[path].secmem_handle = NULL;
-        }
+      if (av_paths_status[path].secmem_handle)
+      {
+         AML_MP_CASSESSION section_handle;
+         STB_CAPVRGetPlaySection(&section_handle);
+         Aml_MP_CAS_DestroySecmem(section_handle, av_paths_status[path].secmem_handle);
+         av_paths_status[path].secmem_handle = NULL;
+      }
 #endif
-    }
-    pthread_rwlock_unlock(&av_paths_status[path].lock);
+   }
+   pthread_rwlock_unlock(&av_paths_status[path].lock);
 
-    return ret;
+   return ret;
 }
 
-int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PLAYER * play_hdle, BOOLEAN recreat_hdl)
+int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PLAYER * player_handle, BOOLEAN recreat_handle)
 {
-    int ret = -1;
+   int ret = -1;
 
-    if (STB_PVRIsPlayStopped(audio_decoder, video_decoder))
-    {
-        //get path
-       U8BIT av_path = INVALID_RES_ID;
-       av_path = STB_AVGetPath(video_decoder, audio_decoder);
+   if (STB_PVRIsPlayStopped(audio_decoder, video_decoder))
+   {
+      // get path
+      U8BIT av_path = INVALID_RES_ID;
+      av_path = STB_AVGetPath(video_decoder, audio_decoder);
 
-        if (av_path == INVALID_RES_ID) {
-            VID_DBG("get av_path error, %d(%d:%d)", av_path, video_decoder, audio_decoder);
-            return -1;
-        }
+      if (av_path == INVALID_RES_ID)
+      {
+         VID_DBG("get av_path error, %d(%d:%d)", av_path, video_decoder, audio_decoder);
+         return -1;
+      }
 
-       if (av_path != INVALID_RES_ID && !IS_INVALID_PLAYER_HANDLE(av_path)) {
-           ret = 0;
-       }
-       else if (recreat_hdl && av_path != INVALID_RES_ID)
-       {
-           ret = AV_CreateTsPlayer(av_path, AML_MP_INPUT_SOURCE_TS_DEMOD, av_paths_status[av_path].demux, 0);
+      if (av_path != INVALID_RES_ID && !IS_INVALID_PLAYER_HANDLE(av_path))
+      {
+         ret = 0;
+      }
+      else if (recreat_handle && av_path != INVALID_RES_ID)
+      {
+         ret = AV_CreateTsPlayer(av_path, AML_MP_INPUT_SOURCE_TS_DEMOD, av_paths_status[av_path].demux, 0);
 
-           if (ret != AML_MP_OK && IS_CACHED(av_paths_status[av_path].decoding_mode))
-           {
+         if (ret != AML_MP_OK && IS_CACHED(av_paths_status[av_path].decoding_mode))
+         {
             Aml_MP_PlayerWorkMode work_mode = AML_MP_PLAYER_MODE_CACHING_ONLY;
-              int result = Aml_MP_Player_SetParameter(av_paths_status[av_path].player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void*)(&work_mode));
-              AV_DBG("set AML MP work mode: %d:[%d:%d] caching_only = %d, player[0x%p]",
-                  av_path,
-                  av_paths_status[av_path].video_decoder,
-                  av_paths_status[av_path].audio_decoder,
-                  result,
-                  av_paths_status[av_path].player_handle);
-           }
-       }
-        pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
-        *play_hdle = av_paths_status[av_path].player_handle;
-        pthread_rwlock_unlock(&av_paths_status[av_path].lock);
-    }
-    else
-    {
-       if (STB_PVRGetPlayerHandle(video_decoder, audio_decoder, (void **)play_hdle) == TRUE)
-          ret = 0;
+            int result = Aml_MP_Player_SetParameter(av_paths_status[av_path].player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void *)(&work_mode));
+            AV_DBG("set AML MP work mode: %d:[%d:%d] caching_only = %d, player[0x%p]",
+                   av_path,
+                   av_paths_status[av_path].video_decoder,
+                   av_paths_status[av_path].audio_decoder,
+                   result,
+                   av_paths_status[av_path].player_handle);
+         }
+      }
+      pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
+      *player_handle = av_paths_status[av_path].player_handle;
+      pthread_rwlock_unlock(&av_paths_status[av_path].lock);
+   }
+   else
+   {
+      if (STB_PVRGetPlayerHandle(video_decoder, audio_decoder, (void **)player_handle) == TRUE)
+         ret = 0;
 
-        AV_DBG("pvr path, handle:%p", play_hdle);
-    }
+      AV_DBG("pvr path, handle:%p", player_handle);
+   }
 
-    return ret;
+   return ret;
 }
 
-int AV_StartAudioDecode(AML_MP_PLAYER player_hdle, U16BIT a_pid,
-                                     Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId)
+int AV_GetPathByPlayerHandle(AML_MP_PLAYER *player_handle)
 {
-    int ret;
-    Aml_MP_AudioParams audio_param;
-
-    memset(&audio_param, 0, sizeof(audio_param));
-
-    audio_param.pid = a_pid;
-    audio_param.audioCodec = format;
-    ret = Aml_MP_Player_SetAudioParams(player_hdle, &audio_param);
-    if (ret < 0)
-    {
-        AUD_DBG("Set audio params failed, pid:%d fmt:%d err:%d", a_pid, format, ret);
-        return ret;
-    }
-
-    if (audioPresentationId >= 0) {
-        ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &audioPresentationId);
-        if (ret < 0)
-        {
-            AUD_DBG("Set aduio presentation id[%d] failed, err:%d", audioPresentationId, ret);
-            return ret;
-        }
-    }
-
-    ret = Aml_MP_Player_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
-    if (ret < 0)
-    {
-        AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
-        return ret;
-    }
-
-    ret = AV_SetAudioVolumeAndMute(player_hdle, 0, vol, mute);
-    if (ret < 0)
-    {
-        return ret;
-    }
-
-    ret = Aml_MP_Player_StartAudioDecoding(player_hdle);
-    if (ret < 0)
-    {
-        AUD_DBG("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%p]", a_pid, format, ret, player_hdle);
-        return ret;
-    }
-
-    AUD_DBG("Start audio decode, pid:%d fmt:%d, volume[%d], audio_mode[%d], mute[%d], player[0x%p]", a_pid, format, vol, audio_mode, mute, player_hdle);
-    return ret;
+   int i;
+   if (!player_handle)
+      return INVALID_RES_ID;
+   for (i = 0; i < num_paths; i++)
+   {
+      if (av_paths_status[i].player_handle == player_handle)
+         return i;
+   }
+   return INVALID_RES_ID;
 }
 
-int AV_SetAudioDecode(AML_MP_PLAYER player_hdle, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute)
+int AV_StartAudioDecode(AML_MP_PLAYER player_handle, U16BIT a_pid,
+                        Aml_MP_CodecID format, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId)
 {
-    int ret;
+   int ret;
+   Aml_MP_AudioParams audio_param;
 
-    ret = Aml_MP_DVRPlayer_SetParameter(player_hdle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
-    if (ret < 0)
-    {
-        AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
-        return ret;
-    }
+   memset(&audio_param, 0, sizeof(audio_param));
 
-    ret = AV_SetAudioVolumeAndMute(player_hdle, 1, vol, mute);
-    if (ret < 0)
-    {
-        return ret;
-    }
-    AUD_DBG("Set audio decode, volume[%d], audio_mode[%d], player[0x%p]", vol, audio_mode, player_hdle);
-    return ret;
+   audio_param.pid = a_pid;
+   audio_param.audioCodec = format;
+   ret = Aml_MP_Player_SetAudioParams(player_handle, &audio_param);
+   if (ret < 0)
+   {
+      AUD_DBG("Set audio params failed, pid:%d fmt:%d err:%d", a_pid, format, ret);
+      return ret;
+   }
+
+   if (audioPresentationId >= 0)
+   {
+      ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &audioPresentationId);
+      if (ret < 0)
+      {
+         AUD_DBG("Set aduio presentation id[%d] failed, err:%d", audioPresentationId, ret);
+         return ret;
+      }
+   }
+
+   ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
+   if (ret < 0)
+   {
+      AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
+      return ret;
+   }
+
+   ret = AV_SetAudioVolumeAndMute(player_handle, FALSE, vol, mute);
+   if (ret < 0)
+   {
+      return ret;
+   }
+
+   ret = Aml_MP_Player_StartAudioDecoding(player_handle);
+   if (ret < 0)
+   {
+      AUD_DBG("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%p]", a_pid, format, ret, player_handle);
+      return ret;
+   }
+
+   AUD_DBG("Start audio decode, pid:%d fmt:%d, volume[%d], audio_mode[%d], mute[%d], player[0x%p]", a_pid, format, vol, audio_mode, mute, player_handle);
+   return ret;
 }
 
-int AV_StartVideoDecode(AML_MP_PLAYER player_hdle,
+int AV_SetAudioDecode(AML_MP_PLAYER player_handle, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute)
+{
+   int ret;
+
+   ret = Aml_MP_DVRPlayer_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
+   if (ret < 0)
+   {
+      AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
+      return ret;
+   }
+
+   ret = AV_SetAudioVolumeAndMute(player_handle, TRUE, vol, mute);
+   if (ret < 0)
+   {
+      return ret;
+   }
+   AUD_DBG("Set audio decode, volume[%d], audio_mode[%d], player[0x%p]", vol, audio_mode, player_handle);
+   return ret;
+}
+
+int AV_StartVideoDecode(AML_MP_PLAYER player_handle,
                        U16BIT v_pid, U16BIT pcr_pid, Aml_MP_CodecID format, Aml_MP_AVSyncSource mode)
 {
-    int ret;
-    Aml_MP_VideoParams video_param;
+   int ret;
+   Aml_MP_VideoParams video_param;
 
-    memset(&video_param, 0, sizeof(video_param));
-    ret = Aml_MP_Player_SetAVSyncSource(player_hdle, mode);
-    if (ret < 0)
-    {
-        VID_DBG("Set sync mode failed, sync_mode:%d err:%d", mode, ret);
-        return ret;
-    }
-    if (pcr_pid) {
-      ret = Aml_MP_Player_SetPcrPid(player_hdle, pcr_pid);
+   memset(&video_param, 0, sizeof(video_param));
+   ret = Aml_MP_Player_SetAVSyncSource(player_handle, mode);
+   if (ret < 0)
+   {
+      VID_DBG("Set sync mode failed, sync_mode:%d err:%d", mode, ret);
+      return ret;
+   }
+   if (pcr_pid)
+   {
+      ret = Aml_MP_Player_SetPcrPid(player_handle, pcr_pid);
       if (ret < 0)
       {
          VID_DBG("Set pcr pid failed, pcr_pid:%d err:%d", pcr_pid, ret);
          return ret;
       }
-    }
-    video_param.pid = v_pid;
-    video_param.videoCodec = format;
-    ret = Aml_MP_Player_SetVideoParams(player_hdle, &video_param);
-    if (ret < 0)
-    {
-        VID_DBG("Set video params failed, v_pid:%d fmt:%d err:%d", v_pid, format, ret);
-        return ret;
-    }
-    ret = Aml_MP_Player_StartVideoDecoding(player_hdle);
-    if (ret < 0)
-    {
-        VID_DBG("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d sync:%d err:%d, player[0x%p]", v_pid, pcr_pid, format, mode, ret, player_hdle);
-        return ret;
-    }
+   }
+   video_param.pid = v_pid;
+   video_param.videoCodec = format;
+   ret = Aml_MP_Player_SetVideoParams(player_handle, &video_param);
+   if (ret < 0)
+   {
+      VID_DBG("Set video params failed, v_pid:%d fmt:%d err:%d", v_pid, format, ret);
+      return ret;
+   }
+   ret = Aml_MP_Player_StartVideoDecoding(player_handle);
+   if (ret < 0)
+   {
+      VID_DBG("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d sync:%d err:%d, player[0x%p]", v_pid, pcr_pid, format, mode, ret, player_handle);
+      return ret;
+   }
 
-    VID_DBG("Start video decode, v_pid:%d pcr_pid:%d fmt:%d sync:%d, player[0x%p]", v_pid, pcr_pid, format, mode, player_hdle);
-    return ret;
+   VID_DBG("Start video decode, v_pid:%d pcr_pid:%d fmt:%d sync:%d, player[0x%p]", v_pid, pcr_pid, format, mode, player_handle);
+   return ret;
 }
 
 static void AV_SetDecoderState(U8BIT path, E_DECODER_INDEX index, E_DECODER_STATE state)
 {
-    E_DECODER_STATE* decoder_state = &av_paths_status[path].av_decoder_state;
+   E_DECODER_STATE *decoder_state = &av_paths_status[path].av_decoder_state;
 
-    *decoder_state &= ~(DECODER_STATE_MASK << index);
-    *decoder_state |= state << index;
+   *decoder_state &= ~(DECODER_STATE_MASK << index);
+   *decoder_state |= state << index;
 }
 
 E_DECODER_STATE AV_GetDecoderState(U8BIT path, E_DECODER_INDEX index)
 {
-    E_DECODER_STATE* decoder_state = &av_paths_status[path].av_decoder_state;
+   E_DECODER_STATE *decoder_state = &av_paths_status[path].av_decoder_state;
 
-    E_DECODER_STATE state = (*decoder_state >> index) & DECODER_STATE_MASK;
-    return state;
+   E_DECODER_STATE state = (*decoder_state >> index) & DECODER_STATE_MASK;
+   return state;
 }
 
-static int AV_SetAudioVolumeAndMute(AML_MP_PLAYER player_handle, int dvr, U8BIT vol, BOOLEAN mute)
+static int AV_SetAudioVolumeAndMute(AML_MP_PLAYER player_handle, BOOLEAN dvr, U8BIT vol, BOOLEAN mute)
 {
-    int ret = 0;
+   int ret = 0;
+   int av_path;
 
-    AUD_DBG("set aud vol[%d] mute[%d], dvr[%d]", vol, mute, dvr);
+   av_path = AV_GetPathByPlayerHandle(player_handle);
 
-    if (mute) {
-        ret |= AV_SetAudioVolume(player_handle, dvr, vol);
-        ret |= AV_SetAudioMute(player_handle, dvr, mute);
-    } else {
-        ret |= AV_SetAudioMute(player_handle, dvr, mute);
-        ret |= AV_SetAudioVolume(player_handle, dvr, vol);
-    }
+   AUD_DBG("set aud path [%d] vol[%d] mute[%d], dvr[%d]", av_path, vol, mute, dvr);
+   if (av_path == INVALID_RES_ID)
+   {
+      AUD_DBG("av path invalid, fatal error");
+      return -1;
+   }
 
-    return ret;
+   if (mute)
+   {
+      ret |= AV_SetAudioVolume(player_handle, dvr, vol);
+      STB_AVSetAudioMute(av_path, AVOUT_VOL, mute);
+   }
+   else
+   {
+      STB_AVSetAudioMute(av_path, AVOUT_VOL, mute);
+      ret |= AV_SetAudioVolume(player_handle, dvr, vol);
+   }
+
+   return ret;
 }
 
 static int AV_SetAudioVolume(AML_MP_PLAYER player_handle, int dvr, U8BIT vol)
@@ -3751,9 +3799,7 @@ static int AV_SetAudioVolume(AML_MP_PLAYER player_handle, int dvr, U8BIT vol)
    }
 
    int (*f_vol)(AML_MP_PLAYER, float) =
-      dvr ?
-      Aml_MP_DVRPlayer_SetVolume :
-      Aml_MP_Player_SetVolume;
+       dvr ? Aml_MP_DVRPlayer_SetVolume : Aml_MP_Player_SetVolume;
 
    AUD_DBG("set aud vol[%d] dvr[%d]", vol, dvr);
 

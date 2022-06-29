@@ -1492,6 +1492,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       {
          if (STB_DMXGetBoardType() != STB_BOARD_TYPE_T3)
             recorderCreateParams.encryptParams = rec_encrypt_params;
+         if (s_rec_status[rec_index].cas_status.is_smp &&
+             (s_rec_status[rec_index].clearkey.enabled == 0))
+            recorderCreateParams.encryptParams = rec_encrypt_params;
       }
 
       /*error = dvr_wrapper_open_record(&s_rec_status[rec_index].recorder, &rec_open_params);*/

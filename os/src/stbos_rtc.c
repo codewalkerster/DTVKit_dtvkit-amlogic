@@ -253,7 +253,7 @@ void STB_OSSetClockOffsetChange(U32BIT num_seconds)
    property_set("vendor.sys.tv.stream.offsetchange", prop_time);
 #else
 #ifdef USE_TSPLAYER
-      dvr_prop_echo("vendor.sys.tv.stream.offsetchange", prop_time);
+      STB_DVRProp_Set("vendor.sys.tv.stream.offsetchange", prop_time);
 #else
       AM_PropEcho("vendor.sys.tv.stream.offsetchange", prop_time);
 #endif
@@ -301,7 +301,7 @@ void STB_OSSetClockTimeZoneNext(S16BIT num_seconds)
        property_set("vendor.sys.tv.stream.timeozone.next", prop_time);
 #else
 #ifdef USE_TSPLAYER
-       dvr_prop_echo("vendor.sys.tv.stream.timeozone.next", prop_time);
+       STB_DVRProp_Set("vendor.sys.tv.stream.timeozone.next", prop_time);
 #else
        AM_PropEcho("vendor.sys.tv.stream.timeozone.next", prop_time);
 #endif

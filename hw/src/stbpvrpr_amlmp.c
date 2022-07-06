@@ -2192,7 +2192,7 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
    char file_path[AML_MP_MAX_PATH_SIZE];
    Aml_MP_DVRRecodFileInfo info;
 
-   FUNCTION_START(STB_PVRGetRecordingInfo);
+   FUNCTION_START(STB_PVRGetRecordingSize);
 
    retval = FALSE;
    *rec_size_kb = 0;
@@ -2211,11 +2211,56 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
       REC_DBG("Failed to get size on recording \"%s\", error %d", file_path, error);
    }
 
-   FUNCTION_FINISH(STB_PVRGetRecordingInfo);
+   FUNCTION_FINISH(STB_PVRGetRecordingSize);
 
    return(retval);
 }
+/**
+ * @brief   Returns the length in ms and the size in KB of the recording
+ * @param   disk_id disk containing the recording to be queried
+ * @param   basename base filename of recording to get info about
+ * @param   secs returned length of recording in seconds
+ * @param   rec_size_kb returned size of recording in kilobytes
+ * @return  TRUE if the information is successfully gathered
+ */
+BOOLEAN STB_PVRGetRecordingLength(U16BIT disk_id, U8BIT *basename, U32BIT *rec_length_ms, U32BIT *rec_size_kb)
+{
+   BOOLEAN retval;
 
+   int error;
+   char file_path[AML_MP_MAX_PATH_SIZE];
+   Aml_MP_DVRRecodFileInfo info;
+
+   FUNCTION_START(STB_PVRGetRecordingLength);
+
+   retval = FALSE;
+
+   if (rec_length_ms)
+       *rec_length_ms = 0;
+   if (rec_size_kb)
+      *rec_size_kb = 0;
+
+   STB_DSKFullPathname(disk_id, basename, file_path, sizeof(file_path));
+
+   memset(&info, 0, sizeof(info));
+   error = Aml_MP_DVRRecorder_GetRecordFileInfo(file_path, &info);
+   if (!error)
+   {
+      retval = TRUE;
+      if (rec_length_ms)
+         *rec_length_ms = info.time;
+      if (rec_size_kb)
+         *rec_size_kb = info.size / 1024;
+   }
+   else
+   {
+      REC_DBG("Failed to get info on recording \"%s\", error %d", file_path, error);
+   }
+
+   FUNCTION_FINISH(STB_PVRGetRecordingLength);
+
+   return(retval);
+}
 /**
  * @brief   Returns the elapsed playback time in hours, mins & secs
  * @param   audio_decoder audio decoder being used for playback

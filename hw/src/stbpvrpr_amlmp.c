@@ -2718,7 +2718,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       PLAY_DBG("Failed to start pvr playback, no a/v setting");
       return FALSE;
    }
-   PLAY_DBG("start update pvr playback,reset [%d][%d][0x%x] dmx %d", reset, s_recplay_status[play_index].has_video, s_recplay_status[play_index].video_pid, s_recplay_status[play_index].play_demux);
+
    memset(&play_pids, 0, sizeof(play_pids));
 
    play_pids.streams[AML_MP_DVR_VIDEO_INDEX].type = AML_MP_STREAM_TYPE_VIDEO;
@@ -2740,6 +2740,13 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
    play_pids.streams[AML_MP_DVR_AD_INDEX].pid = s_recplay_status[play_index].ad_pid;
    play_pids.streams[AML_MP_DVR_AD_INDEX].codecId = s_recplay_status[play_index].ad_fmt;
+
+   PLAY_DBG("update playback[%d],reset[%d] v/a/ad(%#x/%#x/%#x) dmx[%d]",
+      play_index, reset,
+      play_pids.streams[AML_MP_DVR_VIDEO_INDEX].pid,
+      play_pids.streams[AML_MP_DVR_AUDIO_INDEX].pid,
+      play_pids.streams[AML_MP_DVR_AD_INDEX].pid,
+      dmx_id);
 
    done = FALSE;
 

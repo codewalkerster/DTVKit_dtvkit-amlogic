@@ -1312,34 +1312,6 @@ void STB_AVStartVideoDecoding(U8BIT path)
 void  STB_AVPauseVideoDecoding(U8BIT path)
 {
    FUNCTION_START(STB_AVPauseVideoDecoding);
-#if 0
-   if (av_paths_status[path].injecting)
-   {
-      AM_AV_PauseInject(path);
-   }
-   else
-   {
-      switch (av_paths_status[path].av_decoder_state)
-      {
-         case DECODER_A_START_V_START:
-         {
-            /*restart the decoder in audio only, but leave last frame onscreen*/
-            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
-            AM_AV_StartTSWithPCR(path, INVALID_PID, av_paths_status[path].audio_pid, INVALID_PID, -1, av_paths_status[path].audio_format);
-            break;
-         }
-         case DECODER_A_STOP_V_START:
-         {
-            /*Stop decoding, but leave last frame onscreen*/
-            AM_AV_StopTS(path);
-            break;
-         }
-         default:
-            VID_DBG("can't pause: already stopped");
-            break;
-      }
-   }
-#endif
    FUNCTION_FINISH(STB_AVPauseVideoDecoding);
 }
 
@@ -1350,44 +1322,6 @@ void  STB_AVPauseVideoDecoding(U8BIT path)
 void  STB_AVResumeVideoDecoding(U8BIT path)
 {
    FUNCTION_START(STB_AVResumeVideoDecoding);
-#if 0
-   VID_DBG("STB_AVResumeVideoDecoding----");
-
-
-   if (av_paths_status[path].injecting)
-   {
-      AM_AV_ResumeInject(path);
-   }
-   else
-   {
-      switch (av_paths_status[path].av_decoder_state)
-      {
-         case DECODER_A_START_V_START:
-         {
-            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
-            AM_AV_StartTSWithPCR(path, av_paths_status[path].video_pid,
-                                 av_paths_status[path].audio_pid,
-                                 av_paths_status[path].pcr_pid,
-                                 av_paths_status[path].video_format,
-                                 av_paths_status[path].audio_format);
-            break;
-         }
-         case DECODER_A_STOP_V_START:
-         {
-            AM_AV_SetTSSource(path, av_paths_status[path].demux + AM_AV_TS_SRC_DMX0);
-            AM_AV_StartTSWithPCR(path, av_paths_status[path].video_pid,
-                                 av_paths_status[path].audio_pid,
-                                 av_paths_status[path].pcr_pid,
-                                 av_paths_status[path].video_format,
-                                 av_paths_status[path].audio_format);
-            break;
-         }
-         default:
-            VID_DBG("can't resume: already stopped");
-            break;
-      }
-   }
-#endif
    FUNCTION_FINISH(STB_AVResumeVideoDecoding);
 }
 
@@ -1410,13 +1344,8 @@ void STB_AVStopVideoDecoding(U8BIT path)
      return;
    }
    info.flags = (E_STB_AV_VIDEO_INFO_TYPE)0;
-#if 0
-   if (av_paths_status[path].injecting)
-   {
-      //AV_StopInjection(path);
-   }
-   else
-#endif
+
+   if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
    {
       switch (AV_GetDecoderState(path, VIDEO_DECODER))
       {
@@ -1456,6 +1385,70 @@ void STB_AVStopVideoDecoding(U8BIT path)
             break;
       }
    }
+   else
+   {
+      U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+      Aml_MP_CodecID video_format;
+      Aml_MP_CodecID audio_format;
+      Aml_MP_CodecID ad_format;
+      U8BIT preselection_id;
+
+      VID_DBG("av-pvr: V NOW:V_START: Stop Video decoding");
+
+      DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
+      audio_format = av_paths_status[av_path].audio_format;
+      ad_format = av_paths_status[av_path].ad_format;
+      video_format = av_paths_status[av_path].video_format;
+
+      if (audio_pid == 0)
+      {
+         audio_pid = INVALID_PID;
+      }
+
+      if (video_pid != 0)
+      {
+         switch (AV_GetDecoderState(path, VIDEO_DECODER))
+         {
+         case DECODER_STATE_STARTED:
+            /*Just in case we get two calls to audio start without a stop
+              There's an API to switch, so we'll use it*/
+            VID_DBG("av-pvr: Video decoder started");
+            video_pid = INVALID_PID;
+            if (video_pid != av_paths_status[av_path].video_pid)
+            {
+               VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[av_path].video_pid, video_pid);
+               if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
+                                         av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
+                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format)))
+               {
+                  av_paths_status[av_path].video_pid = video_pid;
+                  if (AV_GetDecoderState(path, AUDIO_DECODER) == DECODER_STATE_STOPPED) {
+                     snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", av_path);
+                     AV_DBG("[AFD] [%d] disable afd for stop decoding.", av_path);
+                     if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+                        AV_DBG("[AFD] [%d] disable afd failed when player stopped.", av_path);
+                  } else {
+                     VID_DBG("av-pvr: A NOW: A_START");
+                  }
+               }
+               {
+                   av_paths_status[av_path].video_pid = INVALID_PID;
+                   av_paths_status[av_path].pcr_pid = INVALID_PID;
+                   AV_SetDecoderState(path, VIDEO_DECODER, DECODER_STATE_STOPPED);
+                   STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STOPPED, &path, sizeof(U8BIT));
+               }
+               info.status = DECODER_STATUS_NONE;
+               info.flags = VIDEO_INFO_DECODER_STATUS;
+            }
+            break;
+         case DECODER_STATE_STOPPED:
+            VID_DBG("av-pvr: video stoppped already");
+            break;
+         default:
+            break;
+         }
+      }
+   }
 
    if ((info.flags != 0) && (av_paths_status[av_path].callback != NULL))
    {
@@ -1486,13 +1479,7 @@ void STB_AVStopAudioDecoding(U8BIT path)
      VID_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
      return;
    }
-#if 0
-   if (av_paths_status[path].injecting)
-   {
-      AV_StopInjection(path);
-   }
-   else
-#endif
+
    {
       switch (AV_GetDecoderState(path, AUDIO_DECODER))
       {

@@ -3387,7 +3387,7 @@ static U16BIT getFakePid()
    U32BIT pid = 0xffff;
 
 #ifdef USE_TSPLAYER
-   STB_DVRProp_Get(fake_pid_prop, buf, sizeof(buf));
+   STB_Get_Prop(fake_pid_prop, buf, sizeof(buf));
 #else
    AM_PropRead(fake_pid_prop, buf, sizeof(buf));
 #endif

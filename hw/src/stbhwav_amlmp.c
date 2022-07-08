@@ -1574,6 +1574,50 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
    FUNCTION_FINISH(STB_AVGetSTC);
 }
 
+void STB_AVGetSTCByStreamType(U8BIT path, U8BIT stc[5], int streamType)
+{
+   int64_t video_pts;
+   int ret;
+   AML_MP_PLAYER player_handle;
+   FUNCTION_START(STB_AVGetSTC);
+   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   VID_DBG("Aml_MP_StreamType streamType = %d", streamType);
+   if (av_path == INVALID_RES_ID) {
+      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+      return;
+   }
+
+
+   ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
+                                  av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
+   if (ret < 0)
+   {
+       AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
+       pthread_rwlock_unlock(&av_paths_status[av_path].lock);
+       return;
+   }
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+   ret = Aml_MP_Player_GetCurrentPts(player_handle, (Aml_MP_StreamType)streamType, &video_pts);
+   AUD_DBG("the ret value = %d",ret);
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+   if (ret == 0)
+   {
+       memset(stc, 0, 5);
+       stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
+       stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
+       stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
+       stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
+       stc[4] = (U8BIT)(video_pts & 0xff);
+       AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
+   }
+   pthread_rwlock_unlock(&av_paths_status[av_path].lock);
+   FUNCTION_FINISH(STB_AVGetSTC);
+}
+
+
 /**
  * @brief   Sets the source of the video decoder
  * @param   path video path to configure

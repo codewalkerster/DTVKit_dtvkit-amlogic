@@ -650,8 +650,6 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
          }
          dsc->ref = 0;
       }
-      else
-         dsc->ref += 1;
 
       for (id = 0; id < DSC_CHAN_NUM; id++)
       {
@@ -672,13 +670,10 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
                DMX_DBG("CA_SET_PID ok pid %d", pid);
 
             dsc->pid[id] = pid;
+            dsc->ref++;
             chan_id = id;
             break;
          }
-      }
-      if (chan_id != -1)
-      {
-         dsc->ref++;
       }
    }
 

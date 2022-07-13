@@ -185,7 +185,7 @@ static BOOLEAN pid_on_decoding(U8BIT path, U16BIT es_pid)
     return FALSE;
 }
 
-static void free_pid_list(U32BIT handle)
+static void free_pid_list(UINTPTR handle)
 {
     //free pid info list
     CA_INFO *head = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
@@ -201,7 +201,7 @@ static void free_pid_list(U32BIT handle)
     ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list = NULL;
 }
 
-static void add_sess_pid(U32BIT handle, U16BIT pid)
+static void add_sess_pid(UINTPTR handle, U16BIT pid)
 {
     SESSION_INFO *sess_node;
     SESSION_INFO *sess_entry = (((STB_CA_Glue_t *)handle)->session_info);
@@ -233,7 +233,7 @@ static void add_sess_pid(U32BIT handle, U16BIT pid)
     ((STB_CA_Glue_t *)handle)->last_sess_entry = sess_node;
 }
 
-static void free_sess_list(U32BIT handle)
+static void free_sess_list(UINTPTR handle)
 {
     //free session info list
     SESSION_INFO *sess_head = (((STB_CA_Glue_t *)handle)->session_info);
@@ -249,12 +249,12 @@ static void free_sess_list(U32BIT handle)
     ((STB_CA_Glue_t *)handle)->session_info = NULL;
 }
 
-static BOOLEAN is_sess_empty(U32BIT handle)
+static BOOLEAN is_sess_empty(UINTPTR handle)
 {
     return (((STB_CA_Glue_t *)handle)->session_info)? 0 : 1;
 }
 
-static AML_MP_CASSESSION get_cas_session(U32BIT handle, U16BIT es_pid)
+static AML_MP_CASSESSION get_cas_session(UINTPTR handle, U16BIT es_pid)
 {
     U16BIT ecm_pid = 0;
     CA_INFO *pid_entry = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
@@ -285,7 +285,7 @@ static AML_MP_CASSESSION get_cas_session(U32BIT handle, U16BIT es_pid)
     return NULL;
 }
 
-static void update_desc_pid(U32BIT handle)
+static void update_desc_pid(UINTPTR handle)
 {
     CA_INFO *pid_entry;
     U16BIT old_es_pid = DVB_INVALID_ID;
@@ -507,7 +507,7 @@ BOOLEAN STB_CAIsTSEMode()
  * @return  TRUE if a descrambler is acquired, FALSE otherwise
  ****************************************************************************/
 BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16BIT num_ca_ids,
-                                 U32BIT *handle)
+                                 UINTPTR *handle)
 {
 #ifdef SUPPORT_CAS
     U8BIT i;
@@ -563,7 +563,7 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
  * @param   handle - CA descrambler handle being released
  * @return  TRUE if the descrambler is released, FALSE otherwise
  ****************************************************************************/
-BOOLEAN STB_CAReleaseDescrambler(U32BIT handle)
+BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
 {
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CAReleaseDescrambler);
@@ -600,7 +600,7 @@ BOOLEAN STB_CAReleaseDescrambler(U32BIT handle)
  *          and there's an associated descrambler.
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CADescrambleServiceStart(U32BIT handle)
+void STB_CADescrambleServiceStart(UINTPTR handle)
 {
 #ifdef SUPPORT_CAS
     U32BIT ret;
@@ -716,7 +716,7 @@ void STB_CADescrambleServiceStart(U32BIT handle)
  * @brief   This function will be called when decoding of a service is stopped
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CADescrambleServiceStop(U32BIT handle)
+void STB_CADescrambleServiceStop(UINTPTR handle)
 {
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADescrambleServiceStop);
@@ -762,7 +762,7 @@ void STB_CADescrambleServiceStop(U32BIT handle)
  * @brief   This function will be called when set CA descramble ioctl
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CADescrambleIoctl(U32BIT handle, const char* inJson, char* outJson, U32BIT outLen)
+void STB_CADescrambleIoctl(UINTPTR handle, const char* inJson, char* outJson, U32BIT outLen)
 {
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADescrambleIoctl);
@@ -786,7 +786,7 @@ void STB_CADescrambleIoctl(U32BIT handle, const char* inJson, char* outJson, U32
  * @brief   This function will be called when set CA descramble ioctl
  * @param   session - CA descrambler session
  ****************************************************************************/
-void STB_CADescrambleSessionIoctl(U32BIT session, const char* inJson, char* outJson, U32BIT outLen)
+void STB_CADescrambleSessionIoctl(UINTPTR session, const char* inJson, char* outJson, U32BIT outLen)
 {
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADescrambleSessionIoctl);
@@ -814,7 +814,7 @@ void STB_CADescrambleSessionIoctl(U32BIT session, const char* inJson, char* outJ
  * @param   data_len - number of bytes in the PMT
  ****************************************************************************/
 #ifdef SUPPORT_CAS
-static void collect_pmt_streams_ca_info(U32BIT handle, PMT_INFO *pmt_info, SI_PMT_TABLE *pmt_table, U16BIT global_ecm_pid)
+static void collect_pmt_streams_ca_info(UINTPTR handle, PMT_INFO *pmt_info, SI_PMT_TABLE *pmt_table, U16BIT global_ecm_pid)
 {
     SI_PMT_STREAM_ENTRY *stream_entry;
     CA_INFO *ca_pid_info;
@@ -877,7 +877,7 @@ static void collect_pmt_streams_ca_info(U32BIT handle, PMT_INFO *pmt_info, SI_PM
 }
 #endif
 
-void STB_CAReportPMT(U32BIT handle, U8BIT *pmt_data, U16BIT data_len)
+void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
 {
 #ifdef SUPPORT_CAS
     U8BIT i;
@@ -1270,7 +1270,7 @@ U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
     return(num_pids);
 }
 
-void STB_CAPVRRecodingEncrypt(U32BIT handle, void *param)
+void STB_CAPVRRecodingEncrypt(UINTPTR handle, void *param)
 {
     int ret;
 #ifdef SUPPORT_CAS
@@ -1419,7 +1419,7 @@ int STB_CAPVRGetPlaySection(AML_MP_CASSESSION *sec)
     return 0;
 }
 
-int STB_CAPVRGetDvrSection(U32BIT handle, AML_MP_CASSESSION *sec)
+int STB_CAPVRGetDvrSection(UINTPTR handle, AML_MP_CASSESSION *sec)
 {
     if (handle && ((STB_CA_Glue_t *)handle)->session_info)
     {
@@ -1516,7 +1516,7 @@ void STB_CAReleaseRecordingPids(U16BIT *pid_array, U16BIT num_pids)
  * @brief   This function is called when a record is stoped
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-int STB_CAPVRRecordStart(U32BIT handle)
+int STB_CAPVRRecordStart(UINTPTR handle)
 {
     int ret;
 #ifdef SUPPORT_CAS
@@ -1606,7 +1606,7 @@ int STB_CAPVRRecordStart(U32BIT handle)
  * @brief   This function is called when a record is stoped
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CAPVRRecordStop(U32BIT handle)
+void STB_CAPVRRecordStop(UINTPTR handle)
 {
 #ifdef SUPPORT_CAS
     U32BIT ret;
@@ -1643,7 +1643,7 @@ void STB_CAPVRRecordStop(U32BIT handle)
  * @param   handle - CA descrambler handle
  * @param   On - TRUE in timeshfit, FALSE normal record or replay
  ****************************************************************************/
-void STB_CASetTimeShiftOn(U32BIT handle, BOOLEAN On)
+void STB_CASetTimeShiftOn(UINTPTR handle, BOOLEAN On)
 {
     ASSERT(handle);
     ((STB_CA_Glue_t *)handle)->is_timeshift = On;
@@ -1656,7 +1656,7 @@ void STB_CASetTimeShiftOn(U32BIT handle, BOOLEAN On)
  * @param   handle - CA descrambler handle
  * @param   status - TRUE when a recording starts, FALSE when it stops
  ****************************************************************************/
-void STB_CANotifyRecordingStatus(U32BIT handle, BOOLEAN status)
+void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status)
 {
 #ifdef SUPPORT_CAS
     U32BIT ret;

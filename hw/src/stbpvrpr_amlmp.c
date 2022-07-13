@@ -2130,7 +2130,7 @@ BOOLEAN STB_PVRCanBeUsedForRecording(U16BIT disk_id, U8BIT *basename)
    FUNCTION_START(STB_PVRCanBeUsedForRecording);
    USE_UNWANTED_PARAM(disk_id);
    USE_UNWANTED_PARAM(basename);
-   REC_DBG("disk 0x%04x, name %s", disk_id, basename);
+   //REC_DBG("disk 0x%04x, name %s", disk_id, basename);
    FUNCTION_FINISH(STB_PVRCanBeUsedForRecording);
 
    return(TRUE);

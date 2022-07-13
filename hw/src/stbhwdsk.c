@@ -93,6 +93,7 @@ typedef struct s_disk_info
    U32BIT disk_size;
    BOOLEAN blocked;
    BOOLEAN found;
+   U32BIT current_filename_serial;
 } S_DISK_INFO;
 
 
@@ -1232,6 +1233,39 @@ void STB_DSKCheckSpace(U16BIT disk_id)
     }
 }
 
+/**
+ * @brief   Return current valid serial according to the serialized filename schema under the disk path
+ * @param   disk_id disk on which the serial belongs to
+ * @return  the next valid serial
+ */
+U32BIT STB_DSKIncreaseCurrentFileNameSerial(U16BIT disk_id)
+{
+   S_DISK_INFO *disk;
+   U32BIT serial;
+
+   FUNCTION_START(STB_DSKIncreaseCurrentFileNameSerail);
+
+   serial = 0;
+
+   STB_OSMutexLock(disk_mutex);
+
+   disk = FindDisk(disk_id);
+   if (disk != NULL)
+   {
+      serial = ++disk->current_filename_serial;
+   }
+
+   STB_OSMutexUnlock(disk_mutex);
+
+   DISK_DBG("Current file name serial: %#x", serial);
+
+   FUNCTION_FINISH(STB_DSKIncreaseCurrentFileNameSerail);
+
+   return(serial);
+
+
+}
+
 /*---local function definitions----------------------------------------------*/
 static BOOLEAN IsSubDirectoryOf(char *path1, char *path2)
 {
@@ -1253,6 +1287,54 @@ static BOOLEAN IsSubDirectoryOf(char *path1, char *path2)
         return FALSE;
 
     return TRUE;
+}
+
+static BOOLEAN updateFileNameSerial(S_DISK_INFO *disk)
+{
+#define DB_FILENAME_LEN       255
+#define BASENAME_LEN          255
+
+#define DB_FILE_EXTENSION     ".odb"
+#define DB_FILE_EXTENTION_LEN 4
+
+   BOOLEAN found = FALSE;
+   void *dir = STB_DSKOpenDirectory(disk->disk_id, "");
+   if (dir != NULL)
+   {
+      U8BIT filename[DB_FILENAME_LEN];
+      E_STB_DIR_ENTRY_TYPE entry_type;
+      U32BIT serial = 0;
+
+      while (STB_DSKReadDirectory(dir, filename, sizeof(filename), &entry_type))
+      {
+         if (entry_type == DIR_ENTRY_FILE)
+         {
+            /* Look for recording database files */
+            if ((strlen((char *)filename) > strlen(DB_FILE_EXTENSION)) &&
+                    (strlen((char *)filename) <= (BASENAME_LEN + strlen(DB_FILE_EXTENSION))) &&
+                    (strcmp((char *)&filename[strlen((char *)filename) - strlen(DB_FILE_EXTENSION)], DB_FILE_EXTENSION) == 0))
+            {
+               if (sscanf(filename, "%08x"DB_FILE_EXTENSION, &serial) == 1)
+               {
+                  found = TRUE;
+
+                  if (serial > disk->current_filename_serial)
+                  {
+                     disk->current_filename_serial = serial;
+                  }
+               }
+            }
+         }
+      }
+
+      STB_DSKCloseDirectory(dir);
+
+      DISK_DBG("Current file name serial: %d(%#x), disk:%#04x",
+         disk->current_filename_serial,
+         disk->current_filename_serial,
+         disk->disk_id);
+   }
+   return found;
 }
 
 static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN load, U16BIT *p_disk_id)
@@ -1344,6 +1426,8 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
 
          DISK_DBG("Added disk %s, mounted on %s, ID 0x%04x, size %lu KB, removeable %s",
             disk->device_name, disk->mount_path, disk->disk_id, disk->disk_size, disk->is_removeable? "true":"false");
+
+         updateFileNameSerial(disk);
 
          if (send_events)
          {

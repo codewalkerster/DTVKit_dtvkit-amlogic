@@ -651,7 +651,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          U8BIT dvr_mode = getDvrMode();
          if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift)? 0x10 : 0x01))
              && (dvr_mode == 0)
-             && STB_DMXGetBoardType() == STB_BOARD_TYPE_T5D)
+             && STB_DMXGetModel() == STB_DMX_MODEL_905X2)
          {
             AM_AV_SetCryptOps(video_decoder, &des_ops);
          }
@@ -1503,7 +1503,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                rec_params.total_time, rec_params.prefix_name);
          }
 
-         if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift) ? 0x10 : 0x01)) && (dvr_mode == 0) && STB_DMXGetBoardType() == STB_BOARD_TYPE_T5D)
+         if ((aml_hw_cfg.pvr.encrypt & ((is_timeshift) ? 0x10 : 0x01)) && (dvr_mode == 0) && STB_DMXGetModel() == STB_DMX_MODEL_905X2)
          {
             rec_params.crypt_ops = &des_ops;
          }

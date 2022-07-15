@@ -911,7 +911,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].limit = 0;
          memset(&s_recplay_status[play_index].clearkey, 0, sizeof(S_CLEAR_KEY));
 
-         if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+         if (STB_DMXGetModel() == STB_DMX_MODEL_SC2)
          {
             sc2_playback_freekey(play_index);
          }
@@ -1341,7 +1341,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       }
       else if (s_rec_status[rec_index].clearkey.enabled)
       {
-         if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+         if (STB_DMXGetModel() == STB_DMX_MODEL_SC2)
          {
             //demux allocation need pid, so this step move to end of this func.
             REC_DBG("board type T3, dmx %d tuner %d", s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].tuner);
@@ -1419,7 +1419,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                vpid = s_rec_status[rec_index].pids_info.streams[cnt].pid;
                cnt++;
                REC_DBG("  VIDEO %u", pid_array[i].pid);
-               if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3 && s_rec_status[rec_index].clearkey.enabled)
+               if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_rec_status[rec_index].clearkey.enabled)
                {
                   s_rec_status[rec_index].rec_v_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, vpid, DESC_TYPE_AES, DSC_TSE_TYPE);
                   STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_v_chanid, DESC_TYPE_AES, DSC_TSE_TYPE, KEY_PARITY_NONE, dmx_aes_key);
@@ -1434,7 +1434,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                apid = s_rec_status[rec_index].pids_info.streams[cnt].pid;
                cnt++;
                REC_DBG("  AUDIO %u", pid_array[i].pid);
-               if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3 && s_rec_status[rec_index].clearkey.enabled)
+               if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_rec_status[rec_index].clearkey.enabled)
                {
                   s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids] = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, apid, DESC_TYPE_AES, DSC_TSE_TYPE);
                   STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids], DESC_TYPE_AES, DSC_TSE_TYPE, KEY_PARITY_NONE, dmx_aes_key);
@@ -1490,7 +1490,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       if (s_rec_status[rec_index].cas_status.is_smp || s_rec_status[rec_index].clearkey.enabled)
       {
-         if (STB_DMXGetBoardType() != STB_BOARD_TYPE_T3)
+         if (STB_DMXGetModel() != STB_DMX_MODEL_SC2)
             recorderCreateParams.encryptParams = rec_encrypt_params;
          if (s_rec_status[rec_index].cas_status.is_smp &&
              (s_rec_status[rec_index].clearkey.enabled == 0))
@@ -2679,7 +2679,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
                   s_recplay_status[play_index].last_position_in_seconds * 1000);
          }
          PLAY_DBG("pid changed. %d", reset);
-         if (STB_DMXGetBoardType() == STB_BOARD_TYPE_T3)
+         if (STB_DMXGetModel() == STB_DMX_MODEL_SC2)
             sc2_playback_freekey(play_index);
          done = updatePlayback(play_index, reset);
       }
@@ -2896,7 +2896,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       }
       else if (s_recplay_status[play_index].clearkey.enabled)
       {
-         if (STB_DMXGetBoardType() != STB_BOARD_TYPE_T3)
+         if (STB_DMXGetModel() != STB_DMX_MODEL_SC2)
          {
             decrypt_params.clearKey = &s_recplay_status[play_index].clearkey.key[0];
             decrypt_params.clearIV = &s_recplay_status[play_index].clearkey.iv[0];
@@ -3074,7 +3074,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
                                s_recplay_status[play_index].last_position_in_seconds * 1000);
       }
    }
-   if ((STB_DMXGetBoardType() == STB_BOARD_TYPE_T3) &&
+   if ((STB_DMXGetModel() == STB_DMX_MODEL_SC2) &&
          (s_recplay_status[play_index].clearkey.enabled == TRUE))
    {
       sc2_playback_setkey(play_index);

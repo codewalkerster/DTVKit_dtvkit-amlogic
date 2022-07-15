@@ -225,7 +225,7 @@ typedef struct s_sc2_dsc_dev_info
    } dsc_pid_channel[SC2_DSC_CH_NUM];
 } S_SC2_DSC_DEV_INFO;
 
-static BOOLEAN                sc2_dsc_model = FALSE;
+static BOOLEAN                dmx_model_sc2 = FALSE;
 static int                    sc2_key_fd    = -1;
 static int                    sc2_key_ref   = 0;
 static S_DSC_DEV_INFO         *dsc_dev_info  = NULL;
@@ -480,7 +480,7 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
    char dst_name[32];
    int  r;
 
-   if (sc2_dsc_model)
+   if (dmx_model_sc2)
       return;
 
    snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/dsc%d_source", dev_id);
@@ -502,7 +502,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
    
    DMX_DBG("dev %d pid %x dsc_type %d %s", dev_id, pid, type, name);
 
-   if (sc2_dsc_model)
+   if (dmx_model_sc2)
    {
       S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
       struct ca_sc2_descr_ex desc = {0};
@@ -692,7 +692,7 @@ dsc_set_aes_output(BOOLEAN enable)
    U8BIT target_source_str[8];
    U8BIT target_source;
 
-   if (sc2_dsc_model)
+   if (dmx_model_sc2)
       return;
    STB_GetCamSource(&target_source, NULL);
    snprintf(target_source_str, sizeof(target_source_str), "ts%d", target_source);
@@ -727,7 +727,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
    int i;
    int r;
 
-   if (sc2_dsc_model)
+   if (dmx_model_sc2)
    {
       S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
       struct ca_sc2_descr_ex desc;
@@ -839,7 +839,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
    char buffer[512] = {0};
 
    DMX_DBG("setkey: %x %x %x", data[0], data[1], data[2]);
-   DMX_DBG("dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, sc2_dsc_model);
+   DMX_DBG("dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, dmx_model_sc2);
 
    if (dev_id > MAX_DSC_DEV || chan_id < 0)
    {
@@ -855,7 +855,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
       sprintf(buffer + i * 3, "%02x ", data[i]);
    DMX_DBG("data: %s", buffer);
 
-   if (sc2_dsc_model)
+   if (dmx_model_sc2)
    {
       S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
       E_STB_TS_SOURCE ts_src;
@@ -1199,7 +1199,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       r = stat("/dev/key", &st);
       if (r == 0)
       {
-         sc2_dsc_model = TRUE;
+         dmx_model_sc2 = TRUE;
          dsc_dev_num   = num_paths;
       }
       else
@@ -1207,7 +1207,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
          sc2_dsc_model = FALSE;
          dsc_dev_num   = 1;
       }
-      if (sc2_dsc_model)
+      if (dmx_model_sc2)
       {
          sc2_dsc_dev_info = (S_SC2_DSC_DEV_INFO *)STB_MEMGetSysRAM(sizeof(S_SC2_DSC_DEV_INFO));
          sc2_dsc_dev_info->key_fd = -1;
@@ -2170,7 +2170,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 #ifdef USE_TSPLAYER
    dmx_src_cfg = GetDemuxSourceByCfg(aml_hw_cfg.tuners[tuner_index].ts_input_idx);
 
-   if (sc2_dsc_model)
+   if (dmx_model_sc2)
    {
       if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
       {
@@ -2302,7 +2302,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       STB_DMXGetDemuxSource(i, &source, &param);
       if (source == DMX_TUNER)
       {
-         if (sc2_dsc_model)
+         if (dmx_model_sc2)
          {
             if (STB_DPIsDecodingPath(i))
                param = DMX_CAPS_LIVE;
@@ -2675,7 +2675,7 @@ BOOLEAN STB_DMXGetDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 
    if ((path < num_paths) && (track < DESC_NUM_TRACKS))
    {
-      dsc_dev = sc2_dsc_model ? path : DSC_DEV_NO;
+      dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
 
       dsc = &dsc_dev_info[dsc_dev];
 
@@ -2716,7 +2716,7 @@ BOOLEAN STB_DMXFreeDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 
    DMX_DBG("path %u track %u", path, track);
 
-   dsc_dev = sc2_dsc_model ? path : DSC_DEV_NO;
+   dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
    dsc     = &dsc_dev_info[dsc_dev];
 
    if ((path < num_paths) && (track < DESC_NUM_TRACKS))
@@ -2811,12 +2811,12 @@ BOOLEAN STB_DMXGetKeyUsage(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_KEY
  * @brief   Get Board type, different board has different demux structure.
  * @return  Board type E_STB_BOARD_TYPE.
  */
-E_STB_BOARD_TYPE STB_DMXGetBoardType()
+E_STB_BOARD_TYPE STB_DMXGetModel()
 {
-   if (sc2_dsc_model)
-      return STB_BOARD_TYPE_T3;
+   if (dmx_model_sc2)
+      return STB_DMX_MODEL_SC2;
    else
-      return STB_BOARD_TYPE_T5D;
+      return STB_DMX_MODEL_905X2;
 }
 
 /**
@@ -2951,7 +2951,7 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    int desc_chan;
    int dsc_dev;
 
-   dsc_dev = sc2_dsc_model ? path : DSC_DEV_NO;
+   dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
 
    pdmx = demux_status + path;
    ptrk = pdmx->tracks + track;
@@ -2990,7 +2990,7 @@ static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track)
    pdmx = demux_status + path;
    ptrk = pdmx->tracks + track;
 
-   dsc_dev = sc2_dsc_model ? path : DSC_DEV_NO;
+   dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
 
    if (ptrk->chanid != -1)
    {
@@ -3013,7 +3013,7 @@ static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 
    DMX_DBG("Clear key");
 
-   dsc_dev = sc2_dsc_model ? path : DSC_DEV_NO;
+   dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
 
    pdmx = demux_status + path;
    ptrk = pdmx->tracks + track;

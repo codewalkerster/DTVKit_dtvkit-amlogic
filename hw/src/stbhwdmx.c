@@ -1204,7 +1204,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       }
       else
       {
-         sc2_dsc_model = FALSE;
+         dmx_model_sc2 = FALSE;
          dsc_dev_num   = 1;
       }
       if (dmx_model_sc2)

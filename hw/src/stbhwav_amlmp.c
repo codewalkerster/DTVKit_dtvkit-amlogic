@@ -40,6 +40,7 @@
 #include "stbpvrpr.h"
 #include "internal.h"
 #include "stbhwdef.h"
+#include "stb_utils.h"
 
 /* third party header files */
 /*#define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP*/

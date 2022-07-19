@@ -25,6 +25,7 @@
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -34,17 +35,21 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cutils/properties.h>
+#include <pthread.h>
 
 #include "frontend.h"
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "cert_log.h"
 
 #include "stbhwdef.h"
 #include "stbhwtun.h"
 #include "stbhwmem.h"
 #include "stbhwos.h"
 #include "stbhwresm.h"
+#include "stbdpc.h"
+#include "stbhwc.h"
 
 #include "emu_internal.h"
 

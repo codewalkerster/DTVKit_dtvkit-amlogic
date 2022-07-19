@@ -25,6 +25,7 @@
 
 /*---includes for this file--------------------------------------------------*/
 /* compiler library header files */
+#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -36,6 +37,7 @@
 #include <linux/ethtool.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <cutils/properties.h>
 
 /* third party header files */
 
@@ -272,7 +274,7 @@ BOOLEAN STB_IPGetGatewayIPAddress(U8BIT gateway_addr[4])
 BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
 {
    U8BIT dns_prop_name[128] = {0};
-   U8BIT dns_buff[16] = {0};
+   U8BIT dns_buff[PROPERTY_VALUE_MAX] = {0};
    U32BIT dns;
 
    FUNCTION_START(STB_IPGetDnsServerIPAddress);

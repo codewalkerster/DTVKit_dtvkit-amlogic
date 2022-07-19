@@ -1,6 +1,8 @@
 #ifndef _EMU_INTERNAL_H
 #define _EMU_INTERNAL_H
 
+#include "stbhwc.h"
+
 #define EMU_DBG(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 //#define EMU_DBG(x,...)          printf("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
@@ -52,5 +54,6 @@ int EmuDmxGetInput(int handle);
 int EmuCfgLoad();
 int EmuCfgGetConfig(unsigned int tunerid, unsigned int freq, unsigned int modulation, S_EMU_CONFIG *config);
 
+long DiffTimeval(const struct timeval *start_tv, const struct timeval *now_tv);
 
 #endif

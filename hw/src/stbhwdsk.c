@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <cutils/properties.h>
 
 /* third party header files */
 /* STB Header Files */
@@ -43,7 +44,7 @@
 #include "stbhwos.h"
 #include "stbhwmem.h"
 #include "stbhwdsk.h"
-
+#include "stbpvrpr.h"
 
 /*---macro definitions for this file-----------------------------------------*/
 #define DISK_DEBUG_LOOP 1

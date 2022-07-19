@@ -15,12 +15,16 @@
 #include <stdio.h>
 #include <cutils/properties.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 /* third party header files */
 /* DVBCore header files*/
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwos.h"
+#include "stb_utils.h"
 
 /*!- Select-Deselect Local Debug Text Output */
 /*#define  UTILS_DEBUG*/

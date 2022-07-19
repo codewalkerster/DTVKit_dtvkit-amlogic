@@ -46,6 +46,8 @@
 #include "stbhwci.h"
 #include "stbhwnvm.h"
 #include "stbcios.h" /*for STB_CIDebugPrintf()*/
+#include "stbhwdmx.h"
+
 #ifdef INCLUDE_TEST_KEYS
 #include "ciptestkeys.h"
 #endif

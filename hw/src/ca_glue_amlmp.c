@@ -43,6 +43,7 @@
 #include "stbhwos.h"
 #include "stbheap.h"
 #include "ca_glue.h"
+#include "stbhwcfg.h"
 
 #ifdef SUPPORT_CAS
 #include "stbsiflt.h"

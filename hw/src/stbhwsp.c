@@ -24,6 +24,8 @@
 /* compiler library header files */
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include <unistd.h>
 
 /* third party header files */
 /* DVBCore header files*/

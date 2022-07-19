@@ -12,6 +12,7 @@
 #include <poll.h>
 
 #include "stbhwdmx.h"
+#include "stbdpc.h"
 
 #include "dmx.h"
 #include "emu_internal.h"

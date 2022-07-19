@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -16,6 +18,7 @@
 
 #include "stbhwos.h"
 #include "stbhwdmx.h"
+#include "stbdpc.h"
 
 #include "dmx.h"
 #include "emu_internal.h"

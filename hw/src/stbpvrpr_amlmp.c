@@ -42,6 +42,8 @@
 #include "stbhwdsk.h"
 #include "stbpvrpr.h"
 #include "stbhwdmx.h"
+#include "stbhwcfg.h"
+#include "stb_utils.h"
 
 /* third party header files */
 #define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP
@@ -355,14 +357,14 @@ static void sc2_playback_setkey(int play_index)
    s_recplay_status[play_index].v_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, video_pid, DESC_TYPE_AES, DSC_TSD_TYPE);
    STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].a_chanid, DESC_TYPE_AES, DSC_TSD_TYPE, KEY_PARITY_NONE, dmx_aes_key);
    STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].v_chanid, DESC_TYPE_AES, DSC_TSD_TYPE, KEY_PARITY_NONE, dmx_aes_key);
-   ca_dump_channel();
+   //ca_dump_channel();//Improper function call
 }
 
 static void sc2_playback_freekey(int play_index)
 {
    STB_DMXDscFree(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].a_chanid);
    STB_DMXDscFree(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].v_chanid);
-   ca_dump_channel();
+   //ca_dump_channel();//Improper function call
 }
 
 /**

@@ -32,6 +32,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <poll.h>
+#include <sys/ioctl.h>
+#include <sys/eventfd.h>
+#include <pthread.h>
 
 /* third party header files */
 #include <dmx.h>
@@ -56,7 +59,8 @@
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
 #include "linuxdvbdmx_wrapper.h"
-
+#include "stbdpc.h"
+#include "stb_utils.h"
 
 #define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
@@ -452,7 +456,7 @@ static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
    return 0;
 }
 
-void ca_dump_channel()
+static void ca_dump_channel()
 {
    int i;
    S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
@@ -2313,7 +2317,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          else
          {
             DMX_DBG("demux reset now");
-            dvr_file_echo("/sys/class/stb/demux_reset", "1");
+            STB_File_Echo("/sys/class/stb/demux_reset", "1");
             STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);
          }
       }

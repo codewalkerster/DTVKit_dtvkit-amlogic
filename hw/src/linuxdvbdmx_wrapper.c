@@ -12,7 +12,7 @@
  * \author Chuanzhi Wang <chuanzhi.wang@amlogic.com>
  * \date 2020-07-16: create the document
  ***************************************************************************/
-
+#include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>

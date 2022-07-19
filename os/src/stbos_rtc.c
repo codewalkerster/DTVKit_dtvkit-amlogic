@@ -23,11 +23,13 @@
 
 #include <sys/time.h>
 #include <time.h>
+#include <stdio.h>
 
 /* STB Header Files */
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include <cutils/properties.h>
+#include "stb_utils.h"
 
 #ifndef RDK_COMPILE
 #include <sys/system_properties.h>

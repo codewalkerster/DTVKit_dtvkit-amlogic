@@ -7,7 +7,6 @@
  * Description:
  */
 
-#include "stbhwcfg.h"
 #include <stdio.h>
 #include <expat.h>
 #include <string.h>
@@ -19,6 +18,9 @@
 #include "stbhwdmx.h"
 #include "app_cfg.h"
 #include "dvr_utils.h"
+#include "cert_log.h"
+#include "stb_utils.h"
+#include "stbhwcfg.h"
 
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>

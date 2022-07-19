@@ -21,10 +21,11 @@
  */
 
 // compiler library header files
+#define _GNU_SOURCE
 #include <pthread.h>
 #include <errno.h>
 #include <stdio.h>
-#include <string.h> 
+#include <string.h>
 #include <sys/prctl.h>
 
 /* STB Header Files */

@@ -117,6 +117,11 @@ stb_hardware_cfg aml_hw_cfg = {
 .mem_level_num = 0,
 };
 
+stb_custom_config aml_custom_config = {
+    .auto_time_enable = FALSE,
+    .shine_ad_enable = FALSE,
+};
+
 static void
 elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 {
@@ -535,6 +540,32 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             }
             att += 2;
         }
+    }
+    else if (!strcmp(name, "time_function"))
+    {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "auto_time_enable") && !strcmp(av, "yes")) {
+                aml_custom_config.auto_time_enable = TRUE;
+            }
+            att += 2;
+        }
+        CFG_DBG("audio_function, auto_time_enable is set to %d", aml_custom_config.auto_time_enable);
+    }
+    else if (!strcmp(name, "audio_function"))
+    {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "shine_ad_enable") && !strcmp(av, "yes")) {
+                aml_custom_config.shine_ad_enable = TRUE;
+            }
+            att += 2;
+        }
+        CFG_DBG("audio_function, shine_ad_enable is set to %d", aml_custom_config.shine_ad_enable);
     }
 }
 
@@ -1042,5 +1073,15 @@ int STB_GetPlatformGroupId(void)
         group |= GRP_BIT(1);
 
     return group;
+}
+
+BOOLEAN STB_GetCustomCFGForAutoTime(void)
+{
+    return aml_custom_config.auto_time_enable;
+}
+
+BOOLEAN STB_GetCustomCFGForShineAudio(void)
+{
+    return aml_custom_config.shine_ad_enable;
 }
 

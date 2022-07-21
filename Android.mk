@@ -136,7 +136,7 @@ LOCAL_CFLAGS += \
     -Wno-unused-parameter \
     -Wno-unused-variable \
     -Wno-pointer-sign \
-    -Wno-implicit-function-declaration \
+    -Werror=implicit-function-declaration \
     -Wno-typedef-redefinition \
     -Wno-unknown-attributes \
     -Werror

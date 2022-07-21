@@ -202,12 +202,13 @@ void STB_OSDResize(BOOLEAN scaling, U16BIT width, U16BIT height, U16BIT x_offset
    FUNCTION_FINISH(STB_OSDResize);
 }
 
-#ifndef RDK_COMPILE
 /**
  * @brief   Commit invisible buffer to visible surface and copy back
  */
 void STB_OSDUpdate(void)
 {
+#ifndef RDK_COMPILE
+
    BOOLEAN mheg_available = FALSE;
 
    FUNCTION_START(STB_OSDUpdate);
@@ -246,8 +247,9 @@ void STB_OSDUpdate(void)
    STB_OSMutexUnlock(update_mutex);
 
    FUNCTION_FINISH(STB_OSDUpdate);
-}
 #endif
+}
+
 /**
  * @brief   Enable/Disable the OSD
  * @param   enable - TRUE to enable

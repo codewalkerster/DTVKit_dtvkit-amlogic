@@ -370,7 +370,7 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
             }
         }
     }
-    cJSON_AddNumberToObject(data, "session", (U32BIT)session);
+    cJSON_AddNumberToObject(data, "session", (UINTPTR)session);
     cJSON_PrintPreallocated(data, data_str, 1024, 0);
     CA_DBG(("%s:%s", __func__, data_str));
     STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, HW_EV_TYPE_CAS_MSG, (void *)data_str, strlen(data_str));
@@ -542,7 +542,7 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
         return FALSE;
     }
 
-    *handle = (U32BIT)STB_GetMemory(sizeof(STB_CA_Glue_t));
+    *handle = (UINTPTR)STB_GetMemory(sizeof(STB_CA_Glue_t));
     ASSERT(*handle);
     memset((void *)*handle, 0x0, sizeof(STB_CA_Glue_t));
     ((STB_CA_Glue_t *)(*handle))->path = path;

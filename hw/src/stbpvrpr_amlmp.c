@@ -1142,7 +1142,6 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
          break;
    }
    // Set key
-   DebugPrintBuffer(key_buffer, 8 * 4);
    if (s_rec_status[rec_index].descramble_v_chanid != -1)
       STB_DMXSetKey(dmx_id, s_rec_status[rec_index].descramble_v_chanid, desc_type, DSC_COMMON_TYPE, parity, key_buffer);
 

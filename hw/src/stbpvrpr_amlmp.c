@@ -1114,7 +1114,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
          }
          if (s_rec_status[rec_index].descramble_v_chanid == -1)
          {
-            REC_DBG("alloc pvr audio pid failed");
+            REC_DBG("alloc pvr video pid failed");
             ret = FALSE;
          }
       }
@@ -1134,10 +1134,15 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       case DESC_TYPE_DES:
          memcpy(key_buffer, key, 16);
          break;
+      case DESC_TYPE_DVB:
+         memcpy(key_buffer, key, 16);
+         memcpy(key_buffer + 16, iv, 16);
+         break;
       default:
          break;
    }
    // Set key
+   DebugPrintBuffer(key_buffer, 8 * 4);
    if (s_rec_status[rec_index].descramble_v_chanid != -1)
       STB_DMXSetKey(dmx_id, s_rec_status[rec_index].descramble_v_chanid, desc_type, DSC_COMMON_TYPE, parity, key_buffer);
 

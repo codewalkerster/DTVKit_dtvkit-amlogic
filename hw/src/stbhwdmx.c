@@ -486,7 +486,7 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
 
    if (dmx_model_sc2)
       return;
-
+   DMX_DBG("/sys/class/stb/dsc%d_source", dev_id);
    snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/dsc%d_source", dev_id);
    snprintf(dst_name, sizeof(dst_name), "dmx%d", dmx_id);
    r = STB_File_Echo(dev_name, dst_name);
@@ -641,6 +641,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
    else
    {
       S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
+      DMX_DBG("dsc->fd  %d", dsc->fd);
       int id;
       if (dsc->fd == -1)
       {
@@ -657,6 +658,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
 
       for (id = 0; id < DSC_CHAN_NUM; id++)
       {
+         DMX_DBG("dsc->pid id %d pid %d", id, dsc->pid[id]);
          if (dsc->pid[id] == -1)
          {
             struct ca_pid params;
@@ -1209,8 +1211,9 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       else
       {
          dmx_model_sc2 = FALSE;
-         dsc_dev_num   = 1;
+         dsc_dev_num   = 2;
       }
+      DMX_DBG("STB_DMXInitialise dsc_dev_num %d",dsc_dev_num);
       if (dmx_model_sc2)
       {
          sc2_dsc_dev_info = (S_SC2_DSC_DEV_INFO *)STB_MEMGetSysRAM(sizeof(S_SC2_DSC_DEV_INFO));
@@ -1323,7 +1326,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
             }
             else
             {
-               // ClearKey(path, DESC_TRACK_AUDIO);
+               ClearKey(path, DESC_TRACK_AUDIO);
             }
          }
       }
@@ -1339,7 +1342,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
             }
             else
             {
-               // ClearKey(path, DESC_TRACK_VIDEO);
+               ClearKey(path, DESC_TRACK_VIDEO);
             }
          }
       }
@@ -3021,6 +3024,11 @@ static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 
    pdmx = demux_status + path;
    ptrk = pdmx->tracks + track;
+
+   ptrk->iseven = FALSE;
+   memset(ptrk->even, 0, 32);
+   ptrk->isodd = FALSE;
+   memset(ptrk->odd, 0, 32);
 
    if (ptrk->chanid != -1)
    {

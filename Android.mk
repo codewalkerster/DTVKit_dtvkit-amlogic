@@ -139,6 +139,8 @@ LOCAL_CFLAGS += \
     -Werror=implicit-function-declaration \
     -Wno-typedef-redefinition \
     -Wno-unknown-attributes \
+    -Werror=int-to-pointer-cast \
+    -Werror=pointer-to-int-cast \
     -Werror
     
     

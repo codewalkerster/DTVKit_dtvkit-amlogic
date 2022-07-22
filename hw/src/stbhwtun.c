@@ -1861,6 +1861,7 @@ void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
             break;
     }
 
+    TUN_DBG("STB_TuneSetVoltageInterface path:%d fd:%d voltage:%d", path, tuner_status[path].frontend_fd, voltage);
     if (ioctl(tuner_status[path].frontend_fd, FE_SET_VOLTAGE, voltage) == -1)
     {
         TUN_DBG("ioctl FE_SET_VOLTAGE failed, path:%d fd:%d error:%d", path, tuner_status[path].frontend_fd, errno);
@@ -2522,6 +2523,14 @@ void STB_TuneAllStop()
             if (state != TUNER_IDLE && state != TUNER_EXITED)
             {
                 STB_TuneStopTuner(i);
+            }
+
+            if (tuner_status[i].signal_type == TUNE_SIGNAL_QPSK)
+            {
+                TUN_DBG("STB_TuneAllStop(%d): Tuner Power and 22khz off", i);
+                STB_TuneSetLNBVoltage(i, LNB_VOLTAGE_OFF);
+                STB_TuneSetVoltageInterface(i, LNB_VOLTAGE_OFF);
+                STB_TuneSet22kState(i, FALSE);
             }
         }
 

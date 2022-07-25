@@ -994,7 +994,7 @@ void STB_Set_Prop(const char *name, const char *value)
     ENTRY e, *ep;
     int hret;
 
-    e.key = name;
+    e.key = (char *)name;
     hret = hsearch_r(e,FIND,&ep,&(cfg->prop_htab));
     if (hret!=0) {
         free(ep->data);

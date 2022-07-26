@@ -555,7 +555,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             }
             att += 2;
         }
-        CFG_DBG("audio_function, auto_time_enable is set to %d", aml_custom_config.auto_time_enable);
+        CFG_DBG("time_function, auto_time_enable is set to %d", aml_custom_config.auto_time_enable);
     }
     else if (!strcmp(name, "audio_function"))
     {

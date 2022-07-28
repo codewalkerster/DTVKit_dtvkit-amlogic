@@ -889,7 +889,8 @@ void STB_AVSetAudioMute(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN audio_mu
 
    if (av_path != INVALID_RES_ID)
    {
-      av_paths_status[av_path].mute = mute;
+      if (flag == AVOUT_VOL)
+         av_paths_status[av_path].mute = audio_mute;
    }
 
    AV_SetAudioMute(player_handle, dvr, mute);

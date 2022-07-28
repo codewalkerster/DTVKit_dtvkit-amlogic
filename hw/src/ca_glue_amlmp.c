@@ -1044,7 +1044,7 @@ void STB_CAReportCAT(U8BIT path, U8BIT *cat_data, U16BIT data_len)
  * @param   bat_data - raw BAT section data
  * @param   data_len - number of bytes in the BAT section
  ****************************************************************************/
-void STB_CAReportBAT(U32BIT handle, U8BIT *bat_data, U16BIT data_len)
+void STB_CAReportBAT(UINTPTR handle, U8BIT *bat_data, U16BIT data_len)
 {
     FUNCTION_START(STB_CAReportBAT);
 
@@ -1065,7 +1065,7 @@ void STB_CAReportBAT(U32BIT handle, U8BIT *bat_data, U16BIT data_len)
  * @param   nit_data - raw NIT section data
  * @param   data_len - number of bytes in the NIT section
  ****************************************************************************/
-void STB_CAReportNIT(U32BIT handle, U8BIT *nit_data, U16BIT data_len)
+void STB_CAReportNIT(UINTPTR handle, U8BIT *nit_data, U16BIT data_len)
 {
     FUNCTION_START(STB_CAReportNIT);
 
@@ -1154,7 +1154,7 @@ void STB_CADecodeADStatus(U32BIT handle, E_CA_DECODE_STATUS decode_status)
  * @param   handle - CA descrambler handle
  * @param   status - running status as defined in the SDT
  ****************************************************************************/
-void STB_CANotifyRunningStatus(U32BIT handle, U8BIT status)
+void STB_CANotifyRunningStatus(UINTPTR handle, U8BIT status)
 {
     FUNCTION_START(STB_CANotifyRunningStatus);
 
@@ -1357,7 +1357,7 @@ void STB_CAPVRRecodingEncrypt(UINTPTR handle, void *param)
 #endif
 }
 
-void STB_CAPVRPlayDecrypt(U32BIT handle, void *param)
+void STB_CAPVRPlayDecrypt(UINTPTR handle, void *param)
 {
 #ifdef SUPPORT_CAS
     int ret;

@@ -141,6 +141,7 @@ LOCAL_CFLAGS += \
     -Wno-unknown-attributes \
     -Werror=int-to-pointer-cast \
     -Werror=pointer-to-int-cast \
+    -Werror=incompatible-pointer-types \
     -Werror
     
     

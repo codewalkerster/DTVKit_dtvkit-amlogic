@@ -1271,7 +1271,7 @@ U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
     return(num_pids);
 }
 
-void STB_CAPVRRecodingEncrypt(UINTPTR handle, void *param)
+void STB_CAPVRRecodingEncrypt(void *handle, void *param)
 {
     int ret;
 #ifdef SUPPORT_CAS
@@ -1357,7 +1357,7 @@ void STB_CAPVRRecodingEncrypt(UINTPTR handle, void *param)
 #endif
 }
 
-void STB_CAPVRPlayDecrypt(UINTPTR handle, void *param)
+void STB_CAPVRPlayDecrypt(void *handle, void *param)
 {
 #ifdef SUPPORT_CAS
     int ret;

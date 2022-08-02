@@ -125,6 +125,9 @@ stb_custom_config aml_custom_config = {
     .shine_ad_enable = FALSE,
 };
 
+static void DVR_Get_Prop(const char *name, char *buf, int len);
+static void DVR_Set_Prop(const char *name, const char *value);
+
 static void
 elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 {
@@ -743,7 +746,7 @@ void STB_CfgInitialise(void)
     XML_ParserFree(parser);
     fclose(fp);
 
-    dvr_rgister_rw_prop((DVR_Read_Prop_Cb)STB_Get_Prop,(DVR_Write_Prop_Cb)STB_Set_Prop);
+    dvr_rgister_rw_prop((DVR_Read_Prop_Cb)DVR_Get_Prop,(DVR_Write_Prop_Cb)DVR_Set_Prop);
 }
 
 int STB_EpgGetIsNotMatchOrigNetId()
@@ -1088,3 +1091,20 @@ BOOLEAN STB_GetCustomCFGForShineAudio(void)
     return aml_custom_config.shine_ad_enable;
 }
 
+static void DVR_Get_Prop(const char *name, char *buf, int len)
+{
+    BOOLEAN am_success = STB_Get_Prop(name, buf, len);
+    if (TRUE == am_success)
+    {
+        CFG_DBG("%s: succeeded.\r\n", __FUNCTION__);
+    }
+    else
+    {
+        CFG_DBG("%s: failed.\r\n", __FUNCTION__);
+    }
+}
+
+static void DVR_Set_Prop(const char *name, const char *value)
+{
+    STB_Set_Prop(name, value);
+}

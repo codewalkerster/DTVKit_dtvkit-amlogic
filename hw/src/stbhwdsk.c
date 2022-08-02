@@ -104,7 +104,7 @@ static U8BIT next_disk_id = 0;
 static BOOLEAN refresh_disk = TRUE;
 static int delay_refresh_disk = 0;
 /*---local function prototypes for this file---------------------------------*/
-static void DiskMonitorTask(void *param);
+static void* DiskMonitorTask(void *param);
 static void RefreshDiskList(BOOLEAN send_events);
 static BOOLEAN SupportedFSType(char *fs_type);
 static S_DISK_INFO* AddDisk(char *device_name, char *mount_path);
@@ -1458,7 +1458,7 @@ BOOLEAN STB_DSKLoadDevicePath(U16BIT disk_id)
 }
 
 
-static void DiskMonitorTask(void *param)
+static void* DiskMonitorTask(void *param)
 {
    USE_UNWANTED_PARAM(param);
 
@@ -1490,6 +1490,7 @@ static void DiskMonitorTask(void *param)
       /*check for the free space of the disk which has recording running*/
       STB_PVRCheckDiskSpace();
    }
+   return NULL;
 }
 
 static U32BIT getDSKConfigInt(const char *config, U32BIT def)

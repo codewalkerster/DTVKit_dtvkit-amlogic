@@ -87,7 +87,7 @@ static E_NW_LINK_STATUS current_ethernet_status = NW_LINK_DISABLED;
 
 /*---local function prototypes for this file---------------------------------*/
 
-static void EthernetMonitorTask(void *arg);
+static void* EthernetMonitorTask(void *arg);
 
 /*---global function definitions---------------------------------------------*/
 
@@ -1253,7 +1253,7 @@ BOOLEAN STB_NWConnectToAccessPoint(U8BIT *essid, U8BIT *password)
 
 /*---local function definitions----------------------------------------------*/
 
-static void EthernetMonitorTask(void *arg)
+static void* EthernetMonitorTask(void *arg)
 {
    S_NW_ETH_MONITOR *p_nw_monitor;
    E_NW_LINK_STATUS status_now;
@@ -1323,4 +1323,5 @@ static void EthernetMonitorTask(void *arg)
       }
       close(sock_fd);
    }
+   return NULL;
 }

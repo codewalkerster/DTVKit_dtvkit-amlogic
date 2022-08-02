@@ -64,7 +64,7 @@ static int MapToOSPriority(U8BIT priority);
  * @param   name task name
  * @return  handle of task
  */
-void* STB_OSCreateTask(void (*function)(void *), void *param, U32BIT stack, U8BIT priority, U8BIT *name)
+void* STB_OSCreateTask(void *(*function)(void *), void *param, U32BIT stack, U8BIT priority, U8BIT *name)
 {
    pthread_attr_t attr;
    struct sched_param parm;
@@ -91,7 +91,7 @@ void* STB_OSCreateTask(void (*function)(void *), void *param, U32BIT stack, U8BI
    }
 
    // Create the task
-   err = pthread_create(&handle, &attr, (void *(*)(void *))function, param);
+   err = pthread_create(&handle, &attr, function, param);
    if (err != 0)
    {
       TASK_DBG("Failed to create task %s, err=%d (%s)", name, err, strerror(err));

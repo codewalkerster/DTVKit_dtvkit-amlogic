@@ -211,7 +211,7 @@ static void CloseTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTuningParameterMatched(S_TUNER_STATUS *tstatus, struct dvb_frontend_event event);
-static void TunerTask(void *param);
+static void* TunerTask(void *param);
 static void ClearTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
 static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus);
@@ -3126,7 +3126,7 @@ static BOOLEAN IsTuningParameterMatched(S_TUNER_STATUS *tstatus, struct dvb_fron
     return TRUE;
 }
 
-static void TunerTask(void *param)
+static void* TunerTask(void *param)
 {
     S_TUNER_STATUS *tstatus = param;
     E_TUNER_STATE state;
@@ -3482,6 +3482,7 @@ static void TunerTask(void *param)
             }
         }
     }
+    return NULL;
 }
 
 static void ClearTuner(S_TUNER_STATUS *tstatus)

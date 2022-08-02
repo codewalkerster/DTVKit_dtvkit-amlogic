@@ -2733,21 +2733,22 @@ void STB_PVRCheckDiskSpace(void)
 
 BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **p_handle)
 {
-   U8BIT play_index;
-   BOOLEAN ret;
+    U8BIT play_index;
+    int ret;
 
-   ret = FALSE;
+    ret = AML_MP_ERROR;
 
-   play_index = getPlayIndex(audio_decoder, video_decoder);
-   if (play_index != INVALID_RES_ID)
-   {
-      if (p_handle && s_recplay_status[play_index].player != AML_MP_INVALID_HANDLE)
-      {
-         *p_handle = (void *)s_recplay_status[play_index].player;
-         ret = TRUE;
-      }
-   }
-   return ret;
+    play_index = getPlayIndex(audio_decoder, video_decoder);
+    if (play_index != INVALID_RES_ID) {
+        if (p_handle && s_recplay_status[play_index].player != AML_MP_INVALID_HANDLE) {
+            ret = Aml_MP_DVRPlayer_GetMpPlayerHandle(s_recplay_status[play_index].player, p_handle);
+        }
+    }
+
+    if (AML_MP_OK == ret) {
+        return TRUE;
+    }
+    return FALSE;
 }
 //---local function definitions------------------------------------------------
 

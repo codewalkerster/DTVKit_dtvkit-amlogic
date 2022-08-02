@@ -123,6 +123,7 @@ stb_hardware_cfg aml_hw_cfg = {
 stb_custom_config aml_custom_config = {
     .auto_time_enable = FALSE,
     .shine_ad_enable = FALSE,
+    .ms12_ac4_enable = FALSE,
 };
 
 static void DVR_Get_Prop(const char *name, char *buf, int len);
@@ -572,6 +573,19 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             att += 2;
         }
         CFG_DBG("audio_function, shine_ad_enable is set to %d", aml_custom_config.shine_ad_enable);
+    }
+    else if (!strcmp(name, "ms12_function"))
+    {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "ms12_ac4_enable") && !strcmp(av, "yes")) {
+                aml_custom_config.ms12_ac4_enable = TRUE;
+            }
+            att += 2;
+        }
+        CFG_DBG("ms12_function, ms12_ac4_enable is set to %d", aml_custom_config.ms12_ac4_enable);
     }
 }
 
@@ -1089,6 +1103,11 @@ BOOLEAN STB_GetCustomCFGForAutoTime(void)
 BOOLEAN STB_GetCustomCFGForShineAudio(void)
 {
     return aml_custom_config.shine_ad_enable;
+}
+
+BOOLEAN STB_GetCustomCFGForMS12AC4(void)
+{
+    return aml_custom_config.ms12_ac4_enable;
 }
 
 static void DVR_Get_Prop(const char *name, char *buf, int len)

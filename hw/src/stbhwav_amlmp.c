@@ -3301,6 +3301,73 @@ pthread_rwlock_t *STB_AVGetLockByPath(U8BIT path)
    FUNCTION_FINISH(STB_AVGetLockByPath);
 }
 
+S16BIT STB_AVGetAC4ActivePresentationsID(U8BIT path)
+{
+    int ret;
+    AML_MP_PLAYER handle;
+    S16BIT presentations_id = -1;
+    FUNCTION_START(STB_AVGetAC4ActivePresentationsID);
+
+    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &handle, FALSE);
+    if (ret < 0)
+    {
+        AUD_DBG("Cannot get player handle audio[%d]", path);
+        return 0;
+    }
+
+    if (STB_PVRIsPlayStopped(path, path))
+    {
+        ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &presentations_id);
+    }
+    else
+    {
+        ret = Aml_MP_DVRPlayer_GetParameter(handle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &presentations_id);
+    }
+    AUD_DBG("presentations_id:%d, err:%d", presentations_id, ret);
+    FUNCTION_FINISH(STB_AVGetAC4ActivePresentationsID);
+    return presentations_id;
+}
+
+
+BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_language_code)
+{
+    int ret;
+    AML_MP_PLAYER player_handle;
+    Aml_MP_AudioLanguage audioLang;
+
+    FUNCTION_START(STB_AVSetVideoWindow);
+
+    VID_DBG("STB_AVSetAudioLanguage, pri_language_code:0x%x, sec_language_code:0x%x", pri_language_code, sec_language_code);
+    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+    if (av_path == INVALID_RES_ID) {
+        VID_DBG("get av path error video codec path=%u, av_path=%u", path, av_path);
+        return FALSE;
+    }
+
+    ret = AV_GetPlayerHandleByPath(path, INVALID_RES_ID, &player_handle, FALSE);
+    if (ret < 0) {
+        VID_DBG("Cannot get player handle video[%d]", path);
+        return FALSE;
+    }
+
+    BOOLEAN isLive = STB_PVRIsPlayStopped(INVALID_RES_ID, path);
+    audioLang.firstLanguage = pri_language_code;
+    audioLang.secondLanguage = sec_language_code;
+    if (isLive) {
+        ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_LANGUAGE, &audioLang);
+    } else {
+        VID_DBG("is PVR Play!");
+        //ret = Aml_MP_DVRPlayer_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_LANGUAGE, &audioLang);
+    }
+
+    if (ret < 0) {
+        VID_DBG("STB_AVSetAudioLanguage failed, err:%d, isLive:%d", ret, isLive);
+    }
+
+    FUNCTION_FINISH(STB_AVSetVideoWindow);
+    return TRUE;
+}
+
 /*---local function definitions----------------------------------------------*/
 //Dtvkit will check int and pointer convert, need convert to intptr_t or uintptr_t first
 static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, int64_t param)

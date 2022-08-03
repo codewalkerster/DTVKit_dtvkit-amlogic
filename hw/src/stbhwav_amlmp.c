@@ -3264,11 +3264,11 @@ pthread_rwlock_t *STB_AVGetLockByPath(U8BIT path)
 }
 
 /*---local function definitions----------------------------------------------*/
-
+//Dtvkit will check int and pointer convert, need convert to intptr_t or uintptr_t first
 static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, int64_t param)
 {
-   AV_PATH_STATUS *status;
-   S_STB_AV_VIDEO_INFO info;
+    AV_PATH_STATUS *status;
+    S_STB_AV_VIDEO_INFO info;
 
    status = (AV_PATH_STATUS *)user_data;
    info.flags = 0;
@@ -3277,7 +3277,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
    {
       case AML_MP_PLAYER_EVENT_USERDATA_CC:
       {
-          Aml_MP_PlayerEventMpegUserData* userData = (Aml_MP_PlayerEventMpegUserData*)param;
+          Aml_MP_PlayerEventMpegUserData* userData = (Aml_MP_PlayerEventMpegUserData*)(intptr_t)param;
           uint8_t* pbuf = userData->data;
           uint32_t size = userData->len;
           AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_USERDATA_CC: %x-%x-%x-%x ,size %d\n",
@@ -3287,7 +3287,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_USERDATA_AFD:
       {
-          Aml_MP_PlayerEventMpegUserData* userData = (Aml_MP_PlayerEventMpegUserData*)param;
+          Aml_MP_PlayerEventMpegUserData* userData = (Aml_MP_PlayerEventMpegUserData*)(intptr_t)param;
           if (userData != NULL && userData->data != NULL) {
               uint8_t* pbuf = userData->data;
               uint32_t size = userData->len;
@@ -3304,7 +3304,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_VIDEO_CHANGED:
       {
-         Aml_MP_PlayerEventVideoFormat *videoFormat = (Aml_MP_PlayerEventVideoFormat *)param;
+         Aml_MP_PlayerEventVideoFormat *videoFormat = (Aml_MP_PlayerEventVideoFormat*)(intptr_t)param;
          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_VIDEO_CHANGED: [width:height] [%d x %d] @%d aspectratio[%d]\n",
                 status->decoder,
                 videoFormat->frame_width,
@@ -3348,7 +3348,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_AUDIO_CHANGED:
       {
-         Aml_MP_PlayerEventAudioFormat *audioFormat = (Aml_MP_PlayerEventAudioFormat *)param;
+         Aml_MP_PlayerEventAudioFormat *audioFormat = (Aml_MP_PlayerEventAudioFormat*)(intptr_t)param;
          if (audioFormat != NULL)
          {
             AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
@@ -3380,7 +3380,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
       }
       case AML_MP_PLAYER_EVENT_SCRAMBLING:
       {
-         Aml_MP_PlayerEventScrambling *scrambling = (Aml_MP_PlayerEventScrambling *)param;
+         Aml_MP_PlayerEventScrambling *scrambling = (Aml_MP_PlayerEventScrambling*)(intptr_t)param;
          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_SCRAMBLING: stream_type:%d is_scramling[%d]\n",
                 status->decoder,
                 scrambling->type,

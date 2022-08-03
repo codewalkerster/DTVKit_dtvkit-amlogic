@@ -3194,14 +3194,15 @@ static U16BIT getDiskIdByRecIndex(U8BIT index)
    return s_rec_status[index].disk_id;
 }
 
+//Dtvkit will check int and pointer convert, need convert to intptr_t or uintptr_t first
 static void RecEventHandler(void* userdata, AML_MP_DVRRecorderEventType eventType, int64_t params)
 {
-   S_REC_STATUS *rec_status;
+    S_REC_STATUS *rec_status;
 
    if (userdata != NULL)
    {
       rec_status = (S_REC_STATUS *)userdata;
-      Aml_MP_DVRRecorderStatus *status = (Aml_MP_DVRRecorderStatus *)params;
+      Aml_MP_DVRRecorderStatus *status = (Aml_MP_DVRRecorderStatus*)(intptr_t)params;
       rec_status->status = *status;
 
       switch (eventType)
@@ -3257,9 +3258,10 @@ static void RecEventHandler(void* userdata, AML_MP_DVRRecorderEventType eventTyp
    return;
 }
 
+//Dtvkit will check int and pointer convert, need convert to intptr_t or uintptr_t first
 static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, int64_t params)
 {
-   S_RECPLAY_STATUS *play_status;
+    S_RECPLAY_STATUS *play_status;
 
    if (userdata != NULL)
    {
@@ -3270,7 +3272,7 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
          case AML_MP_DVRPLAYER_EVENT_TRANSITION_OK:
          {
             /**< Update the current player information*/
-            Aml_MP_DVRPlayerStatus *status = (Aml_MP_DVRPlayerStatus *)params;
+            Aml_MP_DVRPlayerStatus *status = (Aml_MP_DVRPlayerStatus*)(intptr_t)params;
             {
                PLAY_DBG("Info update: current=%lu, full=%lu, state=%d, obsolete=%lu play_status->play_state:%d",
                   status->infoCur.time,
@@ -3353,7 +3355,7 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
             //PLAY_DBG("TsPlayer event: %d, notify time", eventType);
             {
                S_NOTIFY_TIME_INFO info;
-               Aml_MP_DVRPlayerStatus *status = (Aml_MP_DVRPlayerStatus *)params;
+               Aml_MP_DVRPlayerStatus *status = (Aml_MP_DVRPlayerStatus*)(intptr_t)params;
                info.audio_codec = play_status->audio_decoder;
                info.time = (status->infoCur.time + status->infoObsolete.time) / 1000;
                STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_NOTIFY_TIME, &info, sizeof(info));
@@ -3423,4 +3425,3 @@ BOOLEAN STB_PVRStoreLibdvrExtParam1InPortingLayer(U8BIT rec_index, U8BIT val)
    }
    return FALSE;
 }
-

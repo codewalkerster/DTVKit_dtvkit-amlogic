@@ -3555,7 +3555,6 @@ int AV_CreateTsPlayer(U8BIT path,
       }
    }
 #endif
-   pthread_rwlock_wrlock(&av_paths_status[path].lock);
    ret = Aml_MP_Player_Create(&parm, &player_handle);
    if (ret == 0)
    {
@@ -3611,7 +3610,6 @@ int AV_CreateTsPlayer(U8BIT path,
       av_paths_status[path].player_handle = AML_MP_INVALID_HANDLE;
       AV_DBG("Create Aml MP player failed, err:%d", ret);
    }
-   pthread_rwlock_unlock(&av_paths_status[path].lock);
    return ret;
 }
 
@@ -3675,6 +3673,7 @@ int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PL
          return -1;
       }
 
+      pthread_rwlock_wrlock(&av_paths_status[av_path].lock);
       if (av_path != INVALID_RES_ID && !IS_INVALID_PLAYER_HANDLE(av_path))
       {
          ret = 0;
@@ -3695,7 +3694,6 @@ int AV_GetPlayerHandleByPath(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PL
                    av_paths_status[av_path].player_handle);
          }
       }
-      pthread_rwlock_rdlock(&av_paths_status[av_path].lock);
       *player_handle = av_paths_status[av_path].player_handle;
       pthread_rwlock_unlock(&av_paths_status[av_path].lock);
    }

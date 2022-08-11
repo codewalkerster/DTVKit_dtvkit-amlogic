@@ -75,6 +75,7 @@
 #define ITEM_CMD                "cmd"
 #define MAX_JSON_LEN            (1024)
 #define ITEM_DVR_CAS_MODE       "casMode"
+#define ITEM_PATH_TYPE          "pathType"
 
 typedef enum {
     PIN_NEED_CHECK,
@@ -82,6 +83,13 @@ typedef enum {
     PIN_CHECK_FAILED,
     PIN_MAX,
 } PIN_STATUS;
+
+typedef enum {
+    CAS_SESSION_PATH_LIVE,
+    CAS_SESSION_PATH_RECORD,
+    CAS_SESSION_PATH_PLAYBACK,
+    CAS_SESSION_PATH_ANY,
+} CAS_SESSION_PATH_TYPE;
 
 static int g_checkpin_status = PIN_MAX;
 static AML_MP_CASSESSION g_pvrplay_session;
@@ -136,6 +144,13 @@ typedef struct
     BOOLEAN is_dvr_start;
     BOOLEAN is_timeshift;
 } STB_CA_Glue_t;
+
+typedef struct
+{
+    U8BIT path;
+    U8BIT pathType;
+    char data_str[1024];
+} CAS_EVENT_DATA_t;
 
 /*---local function prototypes for this file-----------------------------------*/
 /*   (internal functions declared static to make them local) */
@@ -326,8 +341,10 @@ static void update_desc_pid(UINTPTR handle)
 
 static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
 {
-    char data_str[1024];
-    BOOLEAN isPlaybackPath = false;
+    CAS_EVENT_DATA_t cas_event_data;
+    BOOLEAN isPlaybackPath = false, has_ca = false;
+    U8BIT num_paths, cas_path = INVALID_RES_ID;
+    UINTPTR ca_handle = 0;
 
     cJSON* data = cJSON_Parse(json);
     if (!data)
@@ -336,12 +353,34 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         return 0;
     }
 
+    num_paths = STB_DPGetNumPaths();
+    for (U8BIT path = 0; path < num_paths; path ++)
+    {
+        has_ca = STB_DPGetPathCADescrambler(path, &ca_handle);
+        if (has_ca && (ca_handle != 0))
+        {
+            if ((((STB_CA_Glue_t *)ca_handle)->session_info)
+                && (((STB_CA_Glue_t *)ca_handle)->session_info->cas_session == session))
+            {
+                cas_path = path;
+                CA_DBG(("%s:found match path %u for cas session", __func__, cas_path));
+                break;
+            }
+        }
+    }
     if (g_pvrplay_session && (session == g_pvrplay_session))
     {
+        CA_DBG(("%s:event for dvr playback session", __func__));
         isPlaybackPath = TRUE;
+    }
+    if (cas_path == INVALID_RES_ID && isPlaybackPath == FALSE)
+    {
+        CA_DBG(("%s:cannot found match path for cas session", __func__));
+        return 0;
     }
     cJSON* cas = cJSON_GetObjectItemCaseSensitive(data, ITEM_CAS);
     cJSON* type = cJSON_GetObjectItemCaseSensitive(data, ITEM_TYPE);
+    cJSON* pathType = cJSON_GetObjectItemCaseSensitive(data, ITEM_PATH_TYPE);
     if (isPlaybackPath &&
     cJSON_IsString(cas) &&
     (!strcmp(cas->valuestring, VMX_CAS_STRING)) &&
@@ -372,9 +411,21 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         }
     }
     cJSON_AddNumberToObject(data, "session", (UINTPTR)session);
-    cJSON_PrintPreallocated(data, data_str, 1024, 0);
-    CA_DBG(("%s:%s", __func__, data_str));
-    STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, HW_EV_TYPE_CAS_MSG, (void *)data_str, strlen(data_str));
+    cJSON_PrintPreallocated(data, cas_event_data.data_str, 1024, 0);
+
+    if (cJSON_IsNumber(pathType)) {
+        cas_event_data.pathType = (U8BIT)(pathType->valuedouble);
+    } else {
+        //should not happen
+        CA_DBG(("%s: no path type info\n", __func__));
+        if (isPlaybackPath)
+            cas_event_data.pathType = CAS_SESSION_PATH_PLAYBACK;
+        else
+            cas_event_data.pathType = CAS_SESSION_PATH_ANY;
+    }
+    cas_event_data.path = cas_path;
+    CA_DBG(("%s:%s", __func__, cas_event_data.data_str));
+    STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, HW_EV_TYPE_CAS_MSG, &cas_event_data, sizeof(cas_event_data));
 
     return 0;
 }

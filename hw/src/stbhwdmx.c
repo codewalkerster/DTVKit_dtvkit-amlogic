@@ -90,6 +90,7 @@
 
 #define DSC_DEV_NO                  0
 #define MAX_DSC_DEV                 3
+#define MAX_SC2_DSC_DEV             32
 
 #define STB_TSO_SOURCE "/sys/class/stb/tso_source"
 /* Local ENUM/TYPE Definitions */
@@ -209,8 +210,8 @@ typedef struct {
 typedef struct s_sc2_dsc_dev_info
 {
    int key_fd;
-   int dsc_fd[MAX_DSC_DEV];
-   int dsc_ref[MAX_DSC_DEV];
+   int dsc_fd[MAX_SC2_DSC_DEV];
+   int dsc_ref[MAX_SC2_DSC_DEV];
    void *mutex;
    struct s_sc2_dsc_channel
    {

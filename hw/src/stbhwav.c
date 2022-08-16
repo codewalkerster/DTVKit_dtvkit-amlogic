@@ -699,7 +699,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
                AM_AV_SwitchTSAudio(path,audio_pid,audio_format);
                av_paths_status[path].audio_pid = audio_pid;
-               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0);
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0, -1);
             }
             /*state*/
             break;
@@ -712,7 +712,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
                av_paths_status[path].audio_pid = audio_pid;
                AM_AV_SwitchTSAudio(path,audio_pid,audio_format); //The audio pid and fmt have been set when video decoding
                av_paths_status[path].av_decoder_state = DECODER_A_START_V_START;
-               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0);
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0, -1);
             }
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
             break;
@@ -727,7 +727,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
                av_paths_status[path].video_pid = video_pid;
                AM_AV_SwitchTSAudio(path, audio_pid, audio_format);
                av_paths_status[path].av_decoder_state = DECODER_A_START_V_STOP;
-               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0);
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0, -1);
             }
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
             break;
@@ -899,7 +899,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
             if (video_pid != av_paths_status[path].video_pid)
             {
                VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[path].video_pid, video_pid);
-               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0);
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0, -1);
             }
             /*state*/
             break;
@@ -909,12 +909,12 @@ void STB_AVStartVideoDecoding(U8BIT path)
             if (video_pid != av_paths_status[path].video_pid)
             {
                VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[path].video_pid, video_pid);
-               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0);
+               PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0, -1);
             }
             break;
          case DECODER_A_STOP_V_STOP:
             VID_DBG("pvr: video PID=%u, PCR=%u", video_pid,pcr_pid);
-            PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0);
+            PVRChangeDecodePIDs(path, path, pcr_pid, video_pid, audio_pid, ad_pid, 0, 0, 0, -1);
             break;
          default:
             break;

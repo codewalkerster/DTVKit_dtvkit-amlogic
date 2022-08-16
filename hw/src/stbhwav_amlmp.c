@@ -1040,7 +1040,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
             {
                 AUD_DBG("av-pvr: changing audio PID %u->%d", av_paths_status[av_path].audio_pid, audio_pid);
                 if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
-                       toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format)))
+                       toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
                 {
                     AV_SetAudioDecode(player_handle, av_paths_status[av_path].audio_mode, av_paths_status[av_path].volume, av_paths_status[av_path].mute);
                     av_paths_status[av_path].audio_pid = audio_pid;
@@ -1054,7 +1054,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
             if (audio_pid != av_paths_status[av_path].audio_pid)
             {
                 if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
-                       toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format)))
+                       toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
                 {
                     AV_SetAudioDecode(player_handle, av_paths_status[av_path].audio_mode, av_paths_status[av_path].volume, av_paths_status[av_path].mute);
                     av_paths_status[av_path].audio_pid = audio_pid;
@@ -1209,7 +1209,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
                VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[av_path].video_pid, video_pid);
                if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
                                          av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
-                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format)))
+                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
                {
                   av_paths_status[av_path].video_pid = video_pid;
                }
@@ -1222,7 +1222,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
                VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[av_path].video_pid, video_pid);
                if (PVRChangeDecodePIDs(av_paths_status[av_path].video_decoder,
                                          av_paths_status[av_path].audio_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
-                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format)))
+                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
                {
                   av_paths_status[av_path].video_pid = video_pid;
                }
@@ -1357,7 +1357,7 @@ void STB_AVStopVideoDecoding(U8BIT path)
                VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[av_path].video_pid, video_pid);
                if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
                                          av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
-                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format)))
+                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
                {
                   av_paths_status[av_path].video_pid = video_pid;
                   if (AV_GetDecoderState(player_handle, AUDIO_DECODER) == DECODER_STATE_STOPPED) {
@@ -2340,7 +2340,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
       {
         ret = PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
                                     av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
-                                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format));
+                                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id);
 
         if (ret) {
             AUD_DBG("Start AD decoding ok");
@@ -2418,7 +2418,7 @@ void STB_AVStopADDecoding(U8BIT path)
       {
         ret = PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
                                     av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
-                                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format));
+                                    toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id);
 
         if (ret) {
             AUD_DBG("Stop AD decoding ok");

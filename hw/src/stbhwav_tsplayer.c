@@ -425,7 +425,7 @@ void STB_AVSetVideoCallback(U8BIT path, void (*callback)(S_STB_AV_VIDEO_INFO *, 
    av_paths_status[av_path].user_data = user_data;
 
    /*
-   if ((callback != NULL) 
+   if ((callback != NULL)
     && (av_paths_status[av_path].display_info.screen_width != 0)
     && (av_paths_status[av_path].display_info.screen_height != 0))
    {
@@ -985,7 +985,8 @@ void STB_AVStartAudioDecoding(U8BIT path)
                                           ad_pid,
                                           toVideoCodec(video_format),
                                           toAudioCodec(audio_format),
-                                          toAudioCodec(ad_format)))
+                                          toAudioCodec(ad_format),
+                                          -1))
                 {
                     AV_SetAudioDecode(player_handle,
                                         av_paths_status[av_path].audio_mode,
@@ -1003,13 +1004,14 @@ void STB_AVStartAudioDecoding(U8BIT path)
             {
                 if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
                                           av_paths_status[av_path].video_decoder,
-                                          pcr_pid, 
+                                          pcr_pid,
                                           video_pid,
                                           audio_pid,
                                           ad_pid,
                                           toVideoCodec(video_format),
                                           toAudioCodec(audio_format),
-                                          toAudioCodec(ad_format)))
+                                          toAudioCodec(ad_format),
+                                          -1))
                 {
                     AV_SetAudioDecode(player_handle,
                                         av_paths_status[av_path].audio_mode,
@@ -1035,7 +1037,8 @@ void STB_AVStartAudioDecoding(U8BIT path)
                                           ad_pid,
                                           toVideoCodec(video_format),
                                           toAudioCodec(audio_format),
-                                          toAudioCodec(ad_format)))
+                                          toAudioCodec(ad_format),
+                                          -1))
                 {
                     AV_SetAudioDecode(player_handle,
                                         av_paths_status[av_path].audio_mode,
@@ -1109,9 +1112,9 @@ void STB_AVStartVideoDecoding(U8BIT path)
 
       if (video_pid != 0)
       {
-         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder, 
-                                        av_paths_status[av_path].audio_decoder, 
-                                        &player_handle, 
+         ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder,
+                                        av_paths_status[av_path].audio_decoder,
+                                        &player_handle,
                                         TRUE);
          if (ret != AM_TSPLAYER_OK)
          {
@@ -1210,7 +1213,8 @@ void STB_AVStartVideoDecoding(U8BIT path)
                                          ad_pid,
                                          toVideoCodec(video_format),
                                          toAudioCodec(audio_format),
-                                         toAudioCodec(ad_format)))
+                                         toAudioCodec(ad_format),
+                                         -1))
                {
                   av_paths_status[av_path].video_pid = video_pid;
                }
@@ -1230,7 +1234,8 @@ void STB_AVStartVideoDecoding(U8BIT path)
                                          ad_pid,
                                          toVideoCodec(video_format),
                                          toAudioCodec(audio_format),
-                                         toAudioCodec(ad_format)))
+                                         toAudioCodec(ad_format),
+                                         -1))
                {
                   av_paths_status[av_path].video_pid = video_pid;
                   av_paths_status[av_path].av_decoder_state = DECODER_A_START_V_START;
@@ -1247,7 +1252,8 @@ void STB_AVStartVideoDecoding(U8BIT path)
                                       ad_pid,
                                       toVideoCodec(video_format),
                                       toAudioCodec(audio_format),
-                                      toAudioCodec(ad_format)))
+                                      toAudioCodec(ad_format),
+                                      -1))
             {
                av_paths_status[av_path].video_pid = video_pid;
                av_paths_status[av_path].av_decoder_state = DECODER_A_STOP_V_START;
@@ -2315,7 +2321,8 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
                                    ad_pid,
                                    toVideoCodec(video_format),
                                    toAudioCodec(audio_format),
-                                   toAudioCodec(ad_format)))
+                                   toAudioCodec(ad_format),
+                                   -1))
          {
             AUD_DBG("Start AD decoding ok");
          }
@@ -2385,7 +2392,7 @@ void STB_AVStopADDecoding(U8BIT path)
       AUD_DBG("av-pvr: path=%u state=%u, adpid:%d vpid:%d", path, av_paths_status[av_path].av_decoder_state, audio_pid, video_pid);
 
       {
-         if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder, 
+         if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
                                    av_paths_status[av_path].video_decoder,
                                    pcr_pid,
                                    video_pid,
@@ -2393,7 +2400,8 @@ void STB_AVStopADDecoding(U8BIT path)
                                    ad_pid,
                                    toVideoCodec(video_format),
                                    toAudioCodec(audio_format),
-                                   toAudioCodec(ad_format)))
+                                   toAudioCodec(ad_format),
+                                   -1))
          {
             AUD_DBG("Stop AD decoding ok");
          }
@@ -3595,4 +3603,3 @@ static E_STB_AV_AUDIO_CODEC toAudioCodec(am_tsplayer_audio_codec codec)
    }
    return AV_AUDIO_CODEC_MP2;
 }
-

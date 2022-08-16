@@ -2477,7 +2477,7 @@ BOOLEAN PVRGetDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
  */
 BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid, U16BIT ad_pid,
-   U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt)
+   U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt, U16BIT audio_presentation_id)
 {
    U16BIT *pids;
    U8BIT play_index;
@@ -2940,5 +2940,3 @@ static void des_crypt(void *cryptor, uint8_t *dst, uint8_t *src, int len, int de
 {
     AM_CRYPT_des_crypt(cryptor, dst, src, len, NULL, decrypt);
 }
-
-

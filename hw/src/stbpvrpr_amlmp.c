@@ -101,7 +101,6 @@
 //#define PRE_SET_AUDIO
 #define INVALID_PLAYER_HDLE -1
 
-
 #ifdef PLAY_DEBUG
    #define PLAY_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
@@ -166,6 +165,7 @@ typedef struct
    U16BIT disk_id;
    U8BIT basename[255];
    BOOLEAN rec_start_flag;
+   S32BIT audio_presentation_id;
 
    S_CAS_STATUS cas_status;
    void *secure_buf;
@@ -198,6 +198,7 @@ typedef struct {
    Aml_MP_CodecID video_fmt;
    U16BIT audio_pid;
    Aml_MP_CodecID audio_fmt;
+   S32BIT audio_presentation_id;
    U16BIT ad_pid;
    Aml_MP_CodecID ad_fmt;
    U16BIT pcr_pid;
@@ -405,6 +406,7 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
             s_recplay_status[index].audio_pid = 0;
             s_recplay_status[index].pcr_pid = 0;
             s_recplay_status[index].ad_pid = 0;
+            s_recplay_status[index].audio_presentation_id = -1;
             s_recplay_status[index].is_timeshift = FALSE;
             s_recplay_status[index].last_position_in_seconds = 0;
 
@@ -455,6 +457,7 @@ U8BIT STB_PVRInitRecording(U8BIT num_tuners)
             s_rec_status[index].rec_v_chanid = -1;
             s_rec_status[index].des_aids = 0;
             s_rec_status[index].descramble_v_chanid = -1;
+            s_rec_status[index].audio_presentation_id = -1;
             memset(&s_rec_status[index].clearkey, 0, sizeof(S_CLEAR_KEY));
          }
       }
@@ -575,6 +578,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
       s_recplay_status[play_index].has_audio = FALSE;
       s_recplay_status[play_index].audio_pid = 0;
+      s_recplay_status[play_index].audio_presentation_id = -1;
       s_recplay_status[play_index].has_video = FALSE;
       s_recplay_status[play_index].video_pid = 0;
 
@@ -586,6 +590,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
             Aml_MP_DVRStreamArray *p_pids_info = &s_rec_status[rec_index].pids_info;
             BOOLEAN has_audio;
             U16BIT audio_pid;
+            U16BIT audio_presentation_id;
             Aml_MP_CodecID audio_fmt;
 
             has_audio = FALSE;
@@ -603,6 +608,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                   has_audio = s_rec_status[rec_index].has_audio;
                   audio_pid = p_pids_info->streams[i].pid;
                   audio_fmt = p_pids_info->streams[i].codecId;
+                  audio_presentation_id = s_rec_status[rec_index].audio_presentation_id;
                   break;
 
                   default:
@@ -619,6 +625,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                   s_recplay_status[play_index].has_audio = has_audio;
                   s_recplay_status[play_index].audio_pid = audio_pid;
                   s_recplay_status[play_index].audio_fmt = audio_fmt;
+                  s_recplay_status[play_index].audio_presentation_id = audio_presentation_id;
                }
             }
          }
@@ -2612,7 +2619,7 @@ BOOLEAN PVRGetDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
  */
 BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid, U16BIT ad_pid,
-   U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt)
+   U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt, U16BIT audio_presentation_id)
 {
    U16BIT *pids;
    U8BIT play_index;
@@ -2623,13 +2630,15 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    FUNCTION_START(PVRChangeDecodePIDs);
 
    play_index = getPlayIndex(audio_decoder, video_decoder);
-   PLAY_DBG("%u: pcr=%u, video=%u, audio=%u, ad=%u", play_index, pcr_pid, video_pid, audio_pid, ad_pid);
+   PLAY_DBG("%u: pcr=%u, video=%u, audio=%u(%u), ad=%u", play_index, pcr_pid, video_pid, audio_pid, audio_presentation_id, ad_pid);
    if (play_index != INVALID_RES_ID)
    {
-      if (s_recplay_status[play_index].audio_pid != audio_pid)
+      if (s_recplay_status[play_index].audio_pid != audio_pid ||
+            s_recplay_status[play_index].audio_presentation_id != audio_presentation_id)
       {
          s_recplay_status[play_index].audio_pid = audio_pid;
          s_recplay_status[play_index].audio_fmt = toDvrAudioFormat((E_STB_AV_AUDIO_CODEC)audio_fmt);
+         s_recplay_status[play_index].audio_presentation_id = audio_presentation_id;
 
          if (s_recplay_status[play_index].audio_pid > 0
              && s_recplay_status[play_index].audio_pid < 0x1fff)
@@ -3039,6 +3048,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          PLAY_DBG("Starting pvr playback, speed=%u%% vendor Id:%d start:%u", s_recplay_status[play_index].play_speed, vendorId, start);
          s_recplay_status[play_index].play_state = PLAY_STARTING;
          error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_VENDOR_ID, (void *)(&vendorId));
+         if (s_recplay_status[play_index].audio_presentation_id > -1) {
+            error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &s_recplay_status[play_index].audio_presentation_id);
+         }
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
          error |= Aml_MP_DVRPlayer_SetLimit(s_recplay_status[play_index].player, start, limit);
          error |= Aml_MP_DVRPlayer_Start(s_recplay_status[play_index].player, play_flag);
@@ -3060,7 +3072,11 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
    }
    else
    {
-      /*update*/
+        /*update*/
+        if (s_recplay_status[play_index].audio_presentation_id > -1) {
+            error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &s_recplay_status[play_index].audio_presentation_id);
+        }
+
       if (reset == 0)
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
       else

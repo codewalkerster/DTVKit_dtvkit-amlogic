@@ -2156,7 +2156,7 @@ BOOLEAN PVRGetDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
  */
 BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid, U16BIT ad_pid,
-   U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt)
+   U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt, U16BIT audio_presentation_id)
 {
    U16BIT *pids;
    U8BIT play_index;
@@ -2806,4 +2806,3 @@ static U16BIT getFakePid()
    }
    return pid;
 }
-

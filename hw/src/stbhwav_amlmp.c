@@ -792,6 +792,7 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
 
    int dvr = !STB_PVRIsPlayStopped(path, INVALID_RES_ID);
    BOOLEAN mute = (vol == 0) ? TRUE : FALSE;
+   STB_AVSetAudioMute(path, AVOUT_VOL, mute);
 
    if (mute) {
        ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
@@ -800,9 +801,7 @@ void STB_AVSetAudioVolume(U8BIT path, U8BIT vol)
            return;
        }
        AV_SetAudioVolume(player_handle, dvr, vol);
-       STB_AVSetAudioMute(path, AVOUT_VOL, mute);
    } else {
-       STB_AVSetAudioMute(path, AVOUT_VOL, mute);
        ret = AV_GetPlayerHandleByPath(INVALID_RES_ID, path, &player_handle, FALSE);
        if (ret < 0) {
            AUD_DBG("Cannot get player audio path[%d](vol)", path);

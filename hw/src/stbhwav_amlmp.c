@@ -2344,6 +2344,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
 
         if (ret) {
             AUD_DBG("Start AD decoding ok");
+            av_paths_status[av_path].ad_pid = ad_pid;
         } else {
             AUD_DBG("Start AD decoding fail");
         }
@@ -2371,12 +2372,6 @@ void STB_AVStopADDecoding(U8BIT path)
       return;
    }
 
-   if (IS_INVALID_PLAYER_HANDLE(av_path))
-   {
-      AUD_DBG("Invalid player handle");
-      return;
-   }
-
     ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
     if (ret < 0) {
         AUD_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
@@ -2385,6 +2380,12 @@ void STB_AVStopADDecoding(U8BIT path)
 
    if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
    {
+      if (IS_INVALID_PLAYER_HANDLE(av_path))
+      {
+         AUD_DBG("Invalid player handle");
+         return;
+      }
+
       ret = Aml_MP_Player_StopADDecoding(av_paths_status[av_path].player_handle);
       if (ret < 0) {
           AUD_DBG("Stop AD decoding err:%d", ret);
@@ -2422,6 +2423,7 @@ void STB_AVStopADDecoding(U8BIT path)
 
         if (ret) {
             AUD_DBG("Stop AD decoding ok");
+            av_paths_status[av_path].ad_pid = INVALID_PID;
         } else {
             AUD_DBG("Stop AD decoding fail");
         }

@@ -71,7 +71,7 @@ ifneq (,$(wildcard media_hal))
   MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
 endif
 
-LIBDVR_PATH:=$(LOCAL_PATH)/../../../libdvr_release/include
+LIBDVR_PATH:=$(LOCAL_PATH)/../../../libdvr_release/$(LOCAL_DVR_SRC_FILES_APPEND)/include
 ifneq (,$(wildcard $(LOCAL_PATH)/../../../libdvr))
     LIBDVR_PATH:=$(LOCAL_PATH)/../../../libdvr/include
 endif

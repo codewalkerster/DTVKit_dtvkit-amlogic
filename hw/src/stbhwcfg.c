@@ -108,7 +108,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .srate_auto_value = 0,
     },
 .service_without_sdt = 0,
-.resource_manager_by_prio = 1,
+.fcc_pip = 1,
 .capture_adc = {
     .analog_enabled = FALSE,
     .dvbs_enabled = FALSE,
@@ -482,11 +482,11 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             an = att[0];
             av = att[1];
             if (!strcmp(an, "enable") && !strcmp(av, "yes")) {
-                cfg->resource_manager_by_prio = 0;
+                cfg->fcc_pip = 0;
             }
             att += 2;
         }
-        CFG_DBG("resource_manager_by_prio is set to %d", cfg->resource_manager_by_prio);
+        CFG_DBG("cfg->fcc_pip is set to %d", cfg->fcc_pip);
     }
     else if (!strcmp(name, "capture_adc"))
     {
@@ -1027,11 +1027,12 @@ void STB_Set_Prop(const char *name, const char *value)
 #endif
 }
 
-BOOLEAN STB_Is_ResourceManager_ByPrio()
-{
-    return aml_hw_cfg.resource_manager_by_prio != 0;
-}
 
+// 0 enable 1 disble
+int STB_GetFccPipCfgStatus(void)
+{
+    return aml_hw_cfg.fcc_pip;
+}
 /**
  * @brief   get cam card data in and out.
  * @return  TRUE if yes.

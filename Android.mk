@@ -23,6 +23,9 @@ LOCAL_CFLAGS += $(DTVKIT_OPTIMISATION_OPTION)
 else
 LOCAL_CFLAGS += -g
 endif
+ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
+    LOCAL_LDFLAGS := $(LOCAL_PATH)/../releaseDTVKit/libsmit_usbcam.a
+endif
 
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS
@@ -148,6 +151,9 @@ else
     ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm64"
 endif
 
+ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
+    LOCAL_LDFLAGS := $(LOCAL_PATH)/../releaseDTVKit/libsmit_usbcam.a
+endif
 
 LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwini.c \
@@ -165,6 +171,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwvbi.c \
     hw/src/stbhwcfg.c \
     hw/src/stbhwresm.c \
+    hw/src/stbhwdemux_usb.c \
     hw/src/linuxdvbdmx_wrapper.c \
     hw/src/systemcontrol.cpp \
     hw/src/emu_tuner.c \
@@ -212,7 +219,6 @@ ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
 else
     LOCAL_SHARED_LIBRARIES+=liblog
 endif
-
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_VENDOR_MODULE := true
     LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION

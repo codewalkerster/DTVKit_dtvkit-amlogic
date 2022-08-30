@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <unistd.h>
 
 
 /* STB Header Files */
@@ -162,6 +163,9 @@ void STB_OSSemaphoreSignal(void *semaphore)
       {
          SEM_DBG("Failed to unlock semaphore 0x%p, error %d", semaphore, errno);
       }
+
+      /*During a period of time in Amazon, two threads compete for the same lock or semaphore, resulting in an uneven allocation that causes one thread to remain in a waiting state. For details, see TV-61965 and TV-59236*/
+      usleep(10);
    }
    else
    {

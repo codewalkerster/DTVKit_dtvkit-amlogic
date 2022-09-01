@@ -1936,7 +1936,7 @@ void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
     struct dvb_diseqc_master_cmd cmd;
     memset(&cmd, 0, sizeof(struct dvb_diseqc_master_cmd));
 
-    for (int i = 0; i < size; i++)
+    for (U8BIT i = 0; i < size; i++)
     {
         cmd.msg[i] = data[i];
         TUN_DBG("STB_TuneSendDISEQCMessage cmd:0x%x", data[i]);
@@ -1950,6 +1950,43 @@ void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
     }
 
     FUNCTION_FINISH(STB_TuneSendDISEQCMessage);
+}
+
+/**
+ * @brief   Receives the DisEqc reply
+ * @param   path - tuner path
+ * @param   data - message data
+ * @param   size - number of bytes in message data
+ * @param   timneout - ioctl timeout
+ */
+void STB_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT timeout)
+{
+    FUNCTION_START(STB_TuneReceiveDISEQCReply);
+    struct dvb_diseqc_slave_reply reply;
+    memset(&reply, 0, sizeof(struct dvb_diseqc_slave_reply));
+
+    reply.timeout = (int)timeout;
+    if (ioctl(tuner_status[path].frontend_fd, FE_DISEQC_RECV_SLAVE_REPLY, &reply) == -1)
+    {
+        TUN_DBG("ioctl FE_DISEQC_RECV_SLAVE_REPLY failed, path:%d error:%d", path, errno);
+    }
+    else
+    {
+        if (data == NULL || size < reply.msg_len)
+        {
+            TUN_DBG("ioctl FE_DISEQC_RECV_SLAVE_REPLY failed, data is incorrect");
+        }
+        else
+        {
+            for (U8BIT i = 0; i < reply.msg_len; i++)
+            {
+                data[i] = reply.msg[i];
+                TUN_DBG("STB_TuneReceiveDISEQCReply reply:0x%x", data[i]);
+            }
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneReceiveDISEQCReply);
 }
 
 /**

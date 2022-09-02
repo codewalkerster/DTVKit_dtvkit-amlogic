@@ -681,7 +681,6 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                      if (fake_pid != 0xffff)
                      {
                         s_recplay_status[play_index].video_pid = fake_pid;
-                        s_recplay_status[play_index].video_fmt = AML_MP_VIDEO_CODEC_MPEG12;
                      }
                      break;
 

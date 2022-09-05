@@ -25,6 +25,8 @@
 
 /* compiler library header files */
 #include <pthread.h>
+#include <unistd.h>
+
 
 /* third party header files */
 
@@ -154,6 +156,9 @@ void STB_OSMutexUnlock(void *mutex_var)
             /* Mutex has now been released by this thread */
             mutex_handle->thread_id = 0;
             pthread_mutex_unlock((pthread_mutex_t *) &mutex_handle->lock);
+
+            /*During a period of time in Amazon, two threads compete for the same lock or semaphore, resulting in an uneven allocation that causes one thread to remain in a waiting state. For details, see TV-61965 and TV-59236*/
+            usleep(10);
          }
       }
       else

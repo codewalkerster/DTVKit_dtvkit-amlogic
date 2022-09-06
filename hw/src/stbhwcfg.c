@@ -103,7 +103,6 @@ stb_hardware_cfg aml_hw_cfg = {
     .srate_auto_value = 0,
     },
 .service_without_sdt = 0,
-.fcc_pip = 1,
 .capture_adc = {
     .analog_enabled = FALSE,
     .dvbs_enabled = FALSE,
@@ -470,19 +469,6 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             }
             att += 2;
         }
-    }
-    else if (!strcmp(name, "fcc_pip"))
-    {
-        att = atts;
-        while (*att) {
-            an = att[0];
-            av = att[1];
-            if (!strcmp(an, "enable") && !strcmp(av, "yes")) {
-                cfg->fcc_pip = 0;
-            }
-            att += 2;
-        }
-        CFG_DBG("cfg->fcc_pip is set to %d", cfg->fcc_pip);
     }
     else if (!strcmp(name, "capture_adc"))
     {
@@ -1028,11 +1014,16 @@ void STB_Set_Prop(const char *name, const char *value)
 }
 
 
-// 0 enable 1 disble
+/**
+ * @brief   Check if FCC/PIP is enabled.
+ * @return  0: Either FCC or PIP is enabled.
+ *          1: Both are disabled.
+ */
 int STB_GetFccPipCfgStatus(void)
 {
-    return aml_hw_cfg.fcc_pip;
+    return (STB_Is_PIP_Enabled() || STB_Is_FCC_Enabled()) ? 0 : 1;
 }
+
 /**
  * @brief   get cam card data in and out.
  * @return  TRUE if yes.
@@ -1133,3 +1124,30 @@ static void DVR_Set_Prop(const char *name, const char *value)
 {
     STB_Set_Prop(name, value);
 }
+
+BOOLEAN STB_Is_PIP_Enabled()
+{
+   char prop_buf[16] = {0};
+   if (TRUE == STB_Get_Prop("vendor.tv.dtv.pip.enabled",prop_buf,16))
+   {
+      if (strcmp(prop_buf,"true") == 0 || strcmp(prop_buf,"yes") == 0)
+      {
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+
+BOOLEAN STB_Is_FCC_Enabled()
+{
+   char prop_buf[16] = {0};
+   if (TRUE == STB_Get_Prop("vendor.tv.dtv.fcc.enabled",prop_buf,16))
+   {
+      if (strcmp(prop_buf,"true") == 0 || strcmp(prop_buf,"yes") == 0)
+      {
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+

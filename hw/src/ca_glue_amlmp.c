@@ -373,11 +373,7 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         CA_DBG(("%s:event for dvr playback session", __func__));
         isPlaybackPath = TRUE;
     }
-    if (cas_path == INVALID_RES_ID && isPlaybackPath == FALSE)
-    {
-        CA_DBG(("%s:cannot found match path for cas session", __func__));
-        return 0;
-    }
+
     cJSON* cas = cJSON_GetObjectItemCaseSensitive(data, ITEM_CAS);
     cJSON* type = cJSON_GetObjectItemCaseSensitive(data, ITEM_TYPE);
     cJSON* pathType = cJSON_GetObjectItemCaseSensitive(data, ITEM_PATH_TYPE);
@@ -413,16 +409,19 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
     cJSON_AddNumberToObject(data, "session", (UINTPTR)session);
     cJSON_PrintPreallocated(data, cas_event_data.data_str, 1024, 0);
 
-    if (cJSON_IsNumber(pathType)) {
+    if (cJSON_IsNumber(pathType))
         cas_event_data.pathType = (U8BIT)(pathType->valuedouble);
-    } else {
-        //should not happen
-        CA_DBG(("%s: no path type info\n", __func__));
-        if (isPlaybackPath)
-            cas_event_data.pathType = CAS_SESSION_PATH_PLAYBACK;
-        else
-            cas_event_data.pathType = CAS_SESSION_PATH_ANY;
+    else
+        cas_event_data.pathType = CAS_SESSION_PATH_ANY;
+
+    if (isPlaybackPath)
+        cas_event_data.pathType = CAS_SESSION_PATH_PLAYBACK;
+    else if (cas_path == INVALID_RES_ID)
+    {
+        CA_DBG(("%s:cannot found none playback path, maybe a global cas event.", __func__));
+        cas_event_data.pathType = CAS_SESSION_PATH_ANY;
     }
+
     cas_event_data.path = cas_path;
     CA_DBG(("%s:%s", __func__, cas_event_data.data_str));
     STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, HW_EV_TYPE_CAS_MSG, &cas_event_data, sizeof(cas_event_data));

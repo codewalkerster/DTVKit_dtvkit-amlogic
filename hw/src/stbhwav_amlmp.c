@@ -1659,6 +1659,51 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
    return success;
 }
 
+/**
+ * @brief   Whether the black screen when the device signal disappears
+ * @param   path video path
+ * @param   is_black TRUE is Black screen when the signal disappears, FALSE is still frame
+ * @return  TRUE if the codec is supported and is set correctly, FALSE otherwise
+ */
+BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
+{
+   BOOLEAN success = TRUE;
+   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+   FUNCTION_START(STB_AVSetVideoBlackOut);
+
+   if (av_path == INVALID_RES_ID) {
+      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+      return FALSE;
+   }
+
+   int ret;
+   AML_MP_PLAYER player_handle;
+   ret = AV_GetPlayerHandleByPath(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   if (ret == 0) {
+      Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_BLACK_OUT, &is_black);
+      AV_DBG("set AML MP PLAYER_PARAMETER_BLACK_OUT %d:[%d:%d]:[%d] = %d, player[0x%p]",
+         av_path,
+         av_paths_status[av_path].video_decoder,
+         av_paths_status[av_path].audio_decoder,
+         is_black,
+         ret,
+         player_handle);
+   }
+   else
+   {
+      AV_DBG("failed to get player handle, %d:[%d:%d]",
+         av_path,
+         av_paths_status[av_path].video_decoder,
+         av_paths_status[av_path].audio_decoder);
+      success = FALSE;
+   }
+
+   FUNCTION_FINISH(STB_AVSetVideoBlackOut);
+
+   return success;
+}
+
 #ifdef RDK_COMPILE
 /**
  * @brief   Set video window for specific video decoder

@@ -83,6 +83,9 @@
 #define TUNER_POLLING_TIMEOUT    (50)               /*ms*/
 #define TUNER_LOST_LOCK_TIMES    (400)              /*check times in search mode*/
 
+#define BLINDSCAN_UPDATERESULT_OTHERS (0x000)/* blind scan update result others  */
+
+
 /*---local typedef structs for this file-------------------------------------*/
 typedef enum
 {
@@ -3753,22 +3756,29 @@ static BOOLEAN dvbsx_blindscan_getscanevent(int frontend_fd, struct dvbsx_blinds
 
     struct dvb_frontend_event event;
     ret = dvb_wait_event(frontend_fd, &event, 200);
-
-    if (event.status&BLINDSCAN_UPDATESTARTFREQ)
+    if (TRUE == ret)
     {
-        pbsevent->status = BLINDSCAN_UPDATESTARTFREQ;
-        pbsevent->u.m_uistartfreq_khz = event.parameters.frequency;
-    }
-    else if (event.status&BLINDSCAN_UPDATEPROCESS)
-    {
-        pbsevent->status = BLINDSCAN_UPDATEPROCESS;
-        pbsevent->u.m_uiprogress = event.parameters.frequency;
-    }
-    else if (BLINDSCAN_UPDATERESULTFREQ)
-    {
-        pbsevent->status = BLINDSCAN_UPDATERESULTFREQ;
-        memcpy(&(pbsevent->u.parameters),
-               &(event.parameters), sizeof(struct dvb_frontend_parameters));
+        if (event.status&BLINDSCAN_UPDATESTARTFREQ)
+        {
+            pbsevent->status = BLINDSCAN_UPDATESTARTFREQ;
+            pbsevent->u.m_uistartfreq_khz = event.parameters.frequency;
+        }
+        else if (event.status&BLINDSCAN_UPDATEPROCESS)
+        {
+            pbsevent->status = BLINDSCAN_UPDATEPROCESS;
+            pbsevent->u.m_uiprogress = event.parameters.frequency;
+        }
+        else if (event.status&BLINDSCAN_UPDATERESULTFREQ)
+        {
+            pbsevent->status = BLINDSCAN_UPDATERESULTFREQ;
+            memcpy(&(pbsevent->u.parameters),
+                   &(event.parameters), sizeof(struct dvb_frontend_parameters));
+        }
+        else
+        {
+            STB_SPDebugWrite("[%s]: %d  event.status = 0x%x, frequency = %d\n", __FUNCTION__, __LINE__, event.status, event.parameters.frequency);
+            pbsevent->status = BLINDSCAN_UPDATERESULT_OTHERS;
+        }
     }
 
 #endif
@@ -4039,6 +4049,11 @@ static void* fend_blindscan_thread(void *arg)
                 }
                 else if(cur_bsevent.status == BLINDSCAN_UPDATERESULTFREQ)
                 {
+                    BS_Status = DVBSx_BS_Status_Wait;
+                }
+                else if(cur_bsevent.status == BLINDSCAN_UPDATERESULT_OTHERS)
+                {
+                    TUN_DBG( "adp result event ERROR\n");
                     BS_Status = DVBSx_BS_Status_Wait;
                 }
 

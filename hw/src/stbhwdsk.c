@@ -166,7 +166,7 @@ U16BIT STB_DSKGetNumDisks(void)
 /**
  * @brief   Returns the id of the disk at the given index
  * @param   index zero based index
- * @return  Disk id, 0 if no disk found
+ * @return  Disk id, 0xffff If no disk found
  */
 U16BIT STB_DSKGetDiskIdByIndex(U16BIT index)
 {
@@ -1551,7 +1551,7 @@ static void RefreshDiskList(BOOLEAN send_events)
                      DISK_DBGLOOP("found: dev:%s mnt:%s remove:%d", disk->device_name, disk->mount_path, disk->is_removeable);
                   }
                }
-               else if (!strcmp(disk->device_name, "user") && IsSubDirectoryOf(disk->mount_path, mount_path))
+               else if (!strcmp(disk->device_name, "user") && IsSubDirectoryOf(disk->mount_path, mount_path) && strlen(mount_path)>1)
                {
                   disk->found = TRUE;
                   if (debug_loop)
@@ -1674,6 +1674,18 @@ static S_DISK_INFO* AddDisk(char *device_name, char *mount_path)
                disk->disk_id = (U16BIT)(major << 8) + minor;
 
                /* As this disk has major/minor IDs, we'll assume it's a real disk that can be removed */
+               disk->is_removeable = TRUE;
+            }
+            else if (strncmp(device_name,"/dev/sd",7)==0)
+            {
+               next_disk_id++;
+               disk->disk_id = next_disk_id;
+               disk->is_removeable = TRUE;
+            }
+            else if (strncmp(device_name,"/dev/mmcblk",11)==0)
+            {
+               next_disk_id++;
+               disk->disk_id = next_disk_id;
                disk->is_removeable = TRUE;
             }
             else
@@ -1844,5 +1856,80 @@ static S_DISK_INFO* FindDisk(U16BIT disk_id)
    }
 
    return(disk);
+}
+
+/**
+ * @brief Gets various disk basic info.
+ *
+ * @param [in] disk_id ID of the disk
+ * @param [out] dev_name device name buffer. Caller is responsible for managing its lifecycle.
+ * @param [in] name_len device name buffer length.
+ * @param [out] mount_path device mount path buffer. Caller is responsible for manage its lifecycle.
+ * @param [in] path_len mount path buffer length.
+ * @param [out] used_in_kb a pointer to a U32BIT containing used disk space in kb.
+ * @param [out] size_in_kb a pointer to a U32BIT containing total disk space in kb.
+ * @param [out] is_removeable a pointer to a BOOLEAN indicating whether disk is removeable.
+ * @return TRUE if the disk is mounted and all output values are meaningful, FALSE otherwise.
+ */
+BOOLEAN STB_DSKGetDiskInfo(U16BIT disk_id, U8BIT* dev_name, U8BIT name_len,
+      U8BIT* mount_path, U8BIT path_len, U32BIT *used_in_kb, U32BIT *size_in_kb,
+      BOOLEAN *is_removeable)
+{
+   S_DISK_INFO* disk = NULL;
+
+   if (dev_name == NULL || mount_path == NULL)
+   {
+      DISK_ERR("Invalid buffer: dev_name:%p, mount_path:%p", dev_name, mount_path);
+      return FALSE;
+   }
+   else if (used_in_kb == NULL || size_in_kb == NULL)
+   {
+      DISK_ERR("Invalid U32BIT* size pointers: used_in_kb:%p, size_in_kb:%p",
+            used_in_kb, size_in_kb);
+      return FALSE;
+   }
+   else if (is_removeable == NULL)
+   {
+      DISK_ERR("Invalid BOOLEAN* variables: is_removeable:%p", is_removeable);
+      return FALSE;
+   }
+
+   STB_OSMutexLock(disk_mutex);
+   disk = FindDisk(disk_id);
+   if (disk == NULL)
+   {
+      DISK_ERR("Cannot find out disk_id:%hu", disk_id);
+      STB_OSMutexUnlock(disk_mutex);
+      return FALSE;
+   }
+
+   const U32BIT len1 = strlen(disk->device_name);
+   if (len1 > name_len)
+   {
+      DISK_ERR("Input devic_name buffer size is not enough. expect:%u, given:%u",
+            len1, (U32BIT)name_len);
+      STB_OSMutexUnlock(disk_mutex);
+      return FALSE;
+   }
+   strcpy(dev_name,disk->device_name);
+
+   const U32BIT len2 = strlen(disk->mount_path);
+   if (len2 > path_len)
+   {
+      DISK_ERR("Input mount_path buffer size is not enough. expect:%u, given:%u",
+            len2, (U32BIT)path_len);
+      STB_OSMutexUnlock(disk_mutex);
+      return FALSE;
+   }
+   strcpy(mount_path,disk->mount_path);
+
+   //*used_in_kb = STB_DSKGetUsed(disk_id);
+   *used_in_kb = 0;
+   *size_in_kb = disk->disk_size;
+   *is_removeable = disk->is_removeable;
+
+   STB_OSMutexUnlock(disk_mutex);
+
+   return TRUE;
 }
 

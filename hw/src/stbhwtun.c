@@ -233,7 +233,7 @@ static void* fend_blindscan_thread(void *arg);
 static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
-static BOOLEAN STB_TuneSetTone(int frontend_fd, BOOLEAN use_22khz);
+static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz);
 static void SetSymbolRateStatus(BOOLEAN symbol_rate_auto);
 
 
@@ -467,6 +467,13 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
                         SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
                         CloseTuner(tstatus);
                     }
+                }
+
+                if (tstatus->signal_type == TUNE_SIGNAL_QPSK)
+                {
+                    TUN_DBG("STB_TuneSetSignalType: Tuner %d Power and 22khz off", path);
+                    STB_TuneSetLNBVoltage(path, LNB_VOLTAGE_OFF, FALSE);
+                    STB_TuneSet22kState(path, FALSE, FALSE);
                 }
 
                 tstatus->signal_type = TUNE_SIGNAL_NONE;
@@ -1848,7 +1855,7 @@ void STB_TuneActiveAerialPower(U8BIT path, BOOLEAN enabled)
  * @param   path tuner path
  * @param   voltage voltage setting
  */
-void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
+void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune)
 {
     FUNCTION_START(STB_TuneSetLNBVoltage);
 
@@ -1857,8 +1864,13 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage)
         if (tuner_status[path].u.sat.lnb_voltage != voltage)
         {
             tuner_status[path].u.sat.lnb_voltage = voltage;
-            tuner_status[path].tuning_params_changed = TRUE;
+            if (retune)
+            {
+                tuner_status[path].tuning_params_changed = TRUE;
+            }
         }
+
+        STB_TuneSetVoltageInterface(path, voltage);
     }
 
     FUNCTION_FINISH(STB_TuneSetLNBVoltage);
@@ -1923,7 +1935,7 @@ void STB_TuneSetModulation(U8BIT path, E_STB_TUNE_MODULATION modulation)
  * @param   path tuner path
  * @param   state TRUE to turn the tone on, FALSE to turn it off
  */
-void STB_TuneSet22kState(U8BIT path, BOOLEAN state)
+void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
 {
     FUNCTION_START(STB_TuneSet22kState);
 
@@ -1932,11 +1944,14 @@ void STB_TuneSet22kState(U8BIT path, BOOLEAN state)
         if (tuner_status[path].u.sat.use_22khz != state)
         {
             tuner_status[path].u.sat.use_22khz = state;
-            tuner_status[path].tuning_params_changed = TRUE;
+            if (retune)
+            {
+                tuner_status[path].tuning_params_changed = TRUE;
+            }
         }
-    }
 
-    STB_TuneSetTone(tuner_status[path].frontend_fd, tuner_status[path].u.sat.use_22khz);
+        STB_TuneSetTone(path, state);
+    }
 
     FUNCTION_FINISH(STB_TuneSet22kState);
 }
@@ -2595,9 +2610,8 @@ void STB_TuneAllStop()
             if (tuner_status[i].signal_type == TUNE_SIGNAL_QPSK)
             {
                 TUN_DBG("STB_TuneAllStop(%d): Tuner Power and 22khz off", i);
-                STB_TuneSetLNBVoltage(i, LNB_VOLTAGE_OFF);
-                STB_TuneSetVoltageInterface(i, LNB_VOLTAGE_OFF);
-                STB_TuneSet22kState(i, FALSE);
+                STB_TuneSetLNBVoltage(i, LNB_VOLTAGE_OFF, FALSE);
+                STB_TuneSet22kState(i, FALSE, FALSE);
             }
         }
 
@@ -2620,7 +2634,7 @@ void STB_TuneAllStop()
     }
 }
 
-static BOOLEAN STB_TuneSetTone(int frontend_fd, BOOLEAN use_22khz)
+static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz)
 {
     BOOLEAN ret = FALSE;
     fe_sec_tone_mode_t tone;
@@ -2634,10 +2648,11 @@ static BOOLEAN STB_TuneSetTone(int frontend_fd, BOOLEAN use_22khz)
         tone = SEC_TONE_OFF;
     }
 
-    if (ioctl(frontend_fd, FE_SET_TONE, tone) >= 0)
+    if (ioctl(tuner_status[path].frontend_fd, FE_SET_TONE, tone) >= 0)
         ret = TRUE;
 
-    TUN_DBG( "[%s] frontend_fd:%d, use_22khz:%d, ret:%d \n", __FUNCTION__, frontend_fd, use_22khz, ret);
+    TUN_DBG("[%s] frontend_fd:%d, use_22khz:%d, ret:%d \n",
+            __FUNCTION__, tuner_status[path].frontend_fd, use_22khz, ret);
 
     return ret;
 }
@@ -3044,7 +3059,7 @@ static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 
         case TUNE_SIGNAL_QPSK:
         {
-            if (STB_TuneSetTone(tstatus->frontend_fd, tstatus->u.sat.use_22khz))
+            if (STB_TuneSetTone(tstatus->path, tstatus->u.sat.use_22khz))
             {
                 fe_params.frequency = tstatus->freq;
                 fe_params.inversion = INVERSION_AUTO;

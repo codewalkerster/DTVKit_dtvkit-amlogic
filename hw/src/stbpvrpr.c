@@ -2606,21 +2606,13 @@ static void setDvrMode(U8BIT dvr_id, U8BIT mode)
    if (dvr_ts_enable)
    {
        STB_SPDebugWrite("setDvrMode: ts");
-#ifdef USE_TSPLAYER
        STB_File_Echo(dvr_mode, "ts");
-#else
-       AM_FileEcho(dvr_mode, "ts");
-#endif
 
    }
    else
    {
        STB_SPDebugWrite("setDvrMode: pid");
-#ifdef USE_TSPLAYER
        STB_File_Echo(dvr_mode, "pid");
-#else
-       AM_FileEcho(dvr_mode, "pid");
-#endif
 
    }
 }

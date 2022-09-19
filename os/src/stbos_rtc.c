@@ -35,11 +35,6 @@
 #include <sys/system_properties.h>
 #endif
 
-#ifdef USE_TSPLAYER
-
-#else
-#include "am_misc.h"
-#endif
 
 /*!- Local MACRO Definitions */
 #define RTC_TICKS_PER_SEC     1000
@@ -109,11 +104,7 @@ void STB_OSSetClockRTC(U32BIT num_seconds)
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.localtime", prop_time);
 #else
-#ifdef USE_TSPLAYER
       STB_DVRProp_Set("vendor.sys.tv.stream.localtime", prop_time);
-#else
-      AM_PropEcho("vendor.sys.tv.stream.localtime", prop_time);
-#endif
 #endif
 
    RTC_DBG("Time set to %u secs at %u msecs", num_seconds, sync_time);
@@ -210,11 +201,7 @@ void STB_OSSetClockGMT(U32BIT num_seconds)
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.realtime", prop_time);
 #else
-#ifdef USE_TSPLAYER
       STB_DVRProp_Set("vendor.sys.tv.stream.realtime", prop_time);
-#else
-      AM_PropEcho("vendor.sys.tv.stream.realtime", prop_time);
-#endif
 #endif
    RTC_DBG("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
 
@@ -254,11 +241,7 @@ void STB_OSSetClockOffsetChange(U32BIT num_seconds)
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.offsetchange", prop_time);
 #else
-#ifdef USE_TSPLAYER
       STB_DVRProp_Set("vendor.sys.tv.stream.offsetchange", prop_time);
-#else
-      AM_PropEcho("vendor.sys.tv.stream.offsetchange", prop_time);
-#endif
 #endif
 
    FUNCTION_FINISH(STB_OSSetClockOffsetChange);
@@ -278,11 +261,7 @@ void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
 #ifdef DTVKIT_IN_VENDOR_PARTITION
    property_set("vendor.sys.tv.stream.timeozone", prop_time);
 #else
-#ifdef USE_TSPLAYER
       STB_DVRProp_Set("vendor.sys.tv.stream.timeozone", prop_time);
-#else
-      AM_PropEcho("vendor.sys.tv.stream.timeozone", prop_time);
-#endif
 #endif
 
    FUNCTION_FINISH(STB_OSSetClockTimeZoneDiff);
@@ -302,11 +281,7 @@ void STB_OSSetClockTimeZoneNext(S16BIT num_seconds)
 #ifdef DTVKIT_IN_VENDOR_PARTITION
        property_set("vendor.sys.tv.stream.timeozone.next", prop_time);
 #else
-#ifdef USE_TSPLAYER
        STB_DVRProp_Set("vendor.sys.tv.stream.timeozone.next", prop_time);
-#else
-       AM_PropEcho("vendor.sys.tv.stream.timeozone.next", prop_time);
-#endif
 #endif
 
    FUNCTION_FINISH(STB_OSSetClockTimeZoneNext);

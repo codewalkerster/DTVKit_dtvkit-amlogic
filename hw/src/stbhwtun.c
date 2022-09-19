@@ -932,7 +932,10 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
     switch (STB_TuneGetSignalType(path))
     {
         case TUNE_SIGNAL_COFDM:
-            if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_2_3)
+            if ((STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_2_3 &&
+                STB_TuneGetActualTerrConstellation(path) == TUNE_TCONST_QAM256) ||
+                (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_3_4 &&
+                STB_TuneGetActualTerrConstellation(path) == TUNE_TCONST_QAM64))
             {
                 if (strength <= -95)
                     ssi = 0;
@@ -949,7 +952,8 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
                 else
                     ssi = 100;
             }
-            else if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_3_4)
+            else if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_3_4 &&
+                STB_TuneGetActualTerrConstellation(path) == TUNE_TCONST_QAM256)
             {
                 if (strength <= -95)
                     ssi = 0;
@@ -1160,10 +1164,27 @@ static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
                     else if (snr <= 250)
                         sqi = 1 + 85 * (snr - 200) / 50;
                     else if (snr <= 260)
-                        sqi = 85 + 15 * (snr - 250) / 10;
+                        sqi = 86 + 14 * (snr - 250) / 10;
                     else
                         sqi = 100;
                 }
+            }
+            else if (STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_3_4)
+            {
+                if (snr <= 160)
+                    sqi = 0;
+                else if (snr <= 170)
+                    sqi = 10 * (snr - 160) / 10;
+                else if (snr <= 180)
+                    sqi = 10 + 12 * (snr - 170) / 10;
+                else if (snr <= 220)
+                    sqi = 22 + 64 * (snr - 180) / 40;
+                else if (snr <= 230)
+                    sqi = 86 + 8 * (snr - 220) / 10;
+                else if (snr <= 240)
+                    sqi = 94 + 6 * (snr - 230) / 10;
+                else
+                    sqi = 100;
             }
             else
             {
@@ -3689,7 +3710,7 @@ static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspar
     property = malloc(num * sizeof(struct dtv_property));
     if(NULL == property)
         return FALSE;
-    
+
     prop.num = num;
     prop.props = property;
     /*set min fre*/

@@ -3382,6 +3382,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
          }
          info.flags |= VIDEO_INFO_DECODER_STATUS;
          info.status = DECODER_STATUS_VIDEO;
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_CHANGED, &status->decoder, sizeof(U8BIT));
          break;
       }
       case AML_MP_PLAYER_EVENT_AUDIO_CHANGED:

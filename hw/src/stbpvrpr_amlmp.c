@@ -2534,11 +2534,7 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
    U16BIT index;
    U16BIT disk_id;
    U8BIT disk_path[256];
-#ifdef USE_TSPLAYER
    STB_DVRProp_Get(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
-#else
-   AM_PropRead(forced_default_path_prop, forced_default_path, sizeof(forced_default_path));
-#endif
    if (strlen((const char*)forced_default_path))
    {
       num_disks = STB_DSKGetNumDisks();
@@ -3154,20 +3150,12 @@ static void setDvrMode(U8BIT dvr_id, U8BIT mode)
    if (dvr_ts_enable)
    {
        STB_SPDebugWrite("setDvrMode: ts");
-#ifdef USE_TSPLAYER
        STB_File_Echo(dvr_mode, "ts");
-#else
-       AM_FileEcho(dvr_mode, "ts");
-#endif
    }
    else
    {
        STB_SPDebugWrite("setDvrMode: pid");
-#ifdef USE_TSPLAYER
        STB_File_Echo(dvr_mode, "pid");
-#else
-       AM_FileEcho(dvr_mode, "pid");
-#endif
    }
 }
 
@@ -3411,11 +3399,7 @@ static U16BIT getFakePid()
    U8BIT buf[32];
    U32BIT pid = 0xffff;
 
-#ifdef USE_TSPLAYER
    STB_Get_Prop(fake_pid_prop, buf, sizeof(buf));
-#else
-   AM_PropRead(fake_pid_prop, buf, sizeof(buf));
-#endif
    if (sscanf(buf, "%i", &pid) != 1)
    {
       PLAY_DBG("get fake pid error");

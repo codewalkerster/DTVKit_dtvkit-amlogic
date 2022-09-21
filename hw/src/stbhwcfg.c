@@ -26,10 +26,6 @@
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>
 #else
-#ifdef USE_TSPLAYER
-#else
-#include "am_types.h"
-#endif
 #endif
 
 #ifdef RDK_COMPILE
@@ -956,11 +952,7 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
         return TRUE;
     }
 
-#ifdef USE_TSPLAYER
     return (TRUE == STB_DVRProp_Get(name, buf, len)) ? TRUE : FALSE;
-#else
-    return (AM_SUCCESS == AM_PropRead(name, buf, len)) ? TRUE : FALSE;
-#endif
 }
 
 /**
@@ -1018,11 +1010,8 @@ void STB_Set_Prop(const char *name, const char *value)
         ep->data=strdup(value);
         CFG_DBG("Hash table key:%s, value:%s",ep->key,ep->data);
     } else {
-#ifdef USE_TSPLAYER
+
         STB_DVRProp_Set(name, value);
-#else
-        AM_PropEcho(name, value);
-#endif
     }
 #endif
 }

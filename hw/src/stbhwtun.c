@@ -217,6 +217,7 @@ static BOOLEAN IsTuningParameterMatched(S_TUNER_STATUS *tstatus, struct dvb_fron
 static void* TunerTask(void *param);
 static void ClearTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
+static U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type);
 static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus);
 static E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd);
 static void SetTunerT2PLP(U32BIT frontend_fd, U8BIT plp_id);
@@ -611,12 +612,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
         }
 
         TUN_DBG("%u: freq %lu, srate %lu fec %d sys_type %s, signal_type %d", path, freq, srate, fec,
-                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
-                 ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
-                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
-                   ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" :
-                    ((tstatus->signal_type == TUNE_SIGNAL_QAM) ? "DVB-C" :
-                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) ? "ISDB-T" : "UNSUPPORTED")))))), tstatus->signal_type);
+                    GetSysTypeDebugString(tstatus->sys_type), tstatus->signal_type);
 
         if (((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
                 ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ||
@@ -3329,8 +3325,7 @@ static void* TunerTask(void *param)
                             {
                                 locked = FALSE;
                                 TUN_INFO("%u: Ignoring LOCKED status for %s, delivery system is %s", tstatus->path,
-                                        ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
-                                         ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" : "UNKNOWN")),
+                                        GetSysTypeDebugString(tstatus->sys_type),
                                         ((p.u.data == SYS_DVBT) ? "DVB-T" : "DVB-T2"));
                             }
                             else if ((SYS_DVBS == p.u.data || SYS_DVBS2 == p.u.data) &&
@@ -3589,29 +3584,80 @@ static void ClearTuner(S_TUNER_STATUS *tstatus)
     }
 }
 
+static U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type)
+{
+    U8BIT *string;
+
+    if (sys_type == TUNE_SYSTEM_TYPE_DVBT)
+    {
+        string = (U8BIT *)"DVB-T";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_DVBT2)
+    {
+        string = (U8BIT *)"DVB-T2";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_DVBS)
+    {
+        string = (U8BIT *)"DVB-S";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_DVBS2)
+    {
+        string = (U8BIT *)"DVB-S2";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_DVBC)
+    {
+        string = (U8BIT *)"DVB-C";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_UNKNOWN)
+    {
+        string = (U8BIT *)"UNKNOWN";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_ISDBT)
+    {
+        string = (U8BIT *)"DVB-ISDBT";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_ANALOG)
+    {
+        string = (U8BIT *)"DVB-ANALOG";
+    }
+    else
+    {
+        TUN_DBG("ERROR: sys_type = %d, is invalid.", sys_type);
+        string = (U8BIT *)"UNKNOWN";
+    }
+
+    return(string);
+}
+
 static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus)
 {
-    BOOLEAN is_diff = FALSE;
+    BOOLEAN is_diff = TRUE;
 
     struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
     struct dtv_properties props = {.num = 1, .props = &p};
 
     if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
     {
-        if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data != SYS_DVBT)) ||
-                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data != SYS_DVBT2)) ||
-                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) && (p.u.data != SYS_DVBS)) ||
-                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (p.u.data != SYS_DVBS2))) &&
-                (tstatus->signal_type != TUNE_SIGNAL_QAM))
+        if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data == SYS_DVBT)) ||
+                    ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data == SYS_DVBT2)) ||
+                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) && (p.u.data == SYS_DVBS)) ||
+                    ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (p.u.data == SYS_DVBS2)) ||
+                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBC)  &&
+                     ((p.u.data == SYS_DVBC_ANNEX_A) || (p.u.data == SYS_DVBC_ANNEX_B) || (p.u.data == SYS_DVBC_ANNEX_C))))
         {
-            TUN_DBG(" different sys_type %s, delivery system is %d",
-                    ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ? "DVB-T" :
-                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? "DVB-T2" :
-                      ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ? "DVB-S" :
-                       ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? "DVB-S2" : "UNKNOW")))),
-                    p.u.data);
+            TUN_DBG(" same sys_type %s, delivery system is %d", GetSysTypeDebugString(tstatus->sys_type), p.u.data);
+            is_diff = FALSE;
+        }
+        else
+        {
+            TUN_DBG(" different sys_type %s, delivery system is %d", GetSysTypeDebugString(tstatus->sys_type), p.u.data);
             is_diff = TRUE;
         }
+    }
+    else
+    {
+        TUN_DBG("ERROR: FE_GET_PROPERTY is failed!");
+        is_diff = TRUE;
     }
 
     return is_diff;

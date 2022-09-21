@@ -3092,6 +3092,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          if (s_recplay_status[play_index].audio_presentation_id > -1) {
             error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &s_recplay_status[play_index].audio_presentation_id);
          }
+         S32BIT fake_pid = (S32BIT)getFakePid();
+         error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_LIBDVR_FAKE_PID, (void *)(&fake_pid));
+
          error = Aml_MP_DVRPlayer_SetStreams(s_recplay_status[play_index].player, &play_pids);
          error |= Aml_MP_DVRPlayer_SetLimit(s_recplay_status[play_index].player, start, limit);
          error |= Aml_MP_DVRPlayer_Start(s_recplay_status[play_index].player, play_flag);

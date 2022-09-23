@@ -251,7 +251,7 @@ void STB_OSSetClockOffsetChange(U32BIT num_seconds)
  * @brief   Set the time zone timestamp in seconds
  * @param   num_seconds time in seconds
  */
-void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
+void STB_OSSetClockTimeZoneDiff(S32BIT num_seconds)
 {
    FUNCTION_START(STB_OSSetClockTimeZoneDiff);
 
@@ -271,7 +271,7 @@ void STB_OSSetClockTimeZoneDiff(S16BIT num_seconds)
  * @brief   Set the next time zone timestamp in seconds
  * @param   num_seconds time in seconds
  */
-void STB_OSSetClockTimeZoneNext(S16BIT num_seconds)
+void STB_OSSetClockTimeZoneNext(S32BIT num_seconds)
 {
    char prop_time[64] = {0};
 

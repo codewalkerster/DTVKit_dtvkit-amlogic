@@ -2535,12 +2535,6 @@ void STB_AVStopADDecoding(U8BIT path)
       return;
    }
 
-   if (IS_INVALID_PLAYER_HANDLE(av_path))
-   {
-      AUD_DBG("Invalid player handle");
-      return;
-   }
-
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
         AUD_DBG("Can't get lock, audio decoder[%d]", path);

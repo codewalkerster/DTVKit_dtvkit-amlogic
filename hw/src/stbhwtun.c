@@ -85,7 +85,6 @@
 
 #define BLINDSCAN_UPDATERESULT_OTHERS (0x000)/* blind scan update result others  */
 
-
 /*---local typedef structs for this file-------------------------------------*/
 typedef enum
 {
@@ -139,6 +138,7 @@ struct DVBSx_BlindScanAPI_Setting
     struct dvb_frontend_parameters channels[FEND_BS_MAX_CHANNEL];	/**< Stores the channel information that all scan out results.*/
     struct dvbsx_blindscanevent bsEvent;							/**< Stores the information that scan out results by the blind scan procedure.*/
     struct dvbsx_blindscanpara	bsPara;								/**< Stores the blind scan parameters each blind scan procedure.*/
+    struct dvbsx_singlecable_parameters singlecablePara;            /**< Stores singlecable parameters each blind scan procedure.*/
 };
 
 /**\brief Defines the status of blind scan process.*/
@@ -224,6 +224,7 @@ static E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd);
 static void SetTunerT2PLP(U32BIT frontend_fd, U8BIT plp_id);
 static BOOLEAN dvb_set_prop (U32BIT fd, const struct dtv_properties *prop);
 static BOOLEAN dvb_wait_event (U32BIT fd, struct dvb_frontend_event *evt, int timeout);
+static BOOLEAN dvbsx_blindscan_setsinglecable(U8BIT fd, struct dvbsx_singlecable_parameters *psinglecablePara);
 static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara);
 static BOOLEAN dvbsx_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindscanevent *pbsevent);
 static BOOLEAN dvbsx_blindscan_cancel(U8BIT path);
@@ -1980,7 +1981,7 @@ void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
     for (U8BIT i = 0; i < size; i++)
     {
         cmd.msg[i] = data[i];
-        TUN_DBG("STB_TuneSendDISEQCMessage cmd:0x%x", data[i]);
+        TUN_DBG("STB_TuneSendDISEQCMessage cmd:0x%02x", data[i]);
     }
 
     cmd.msg_len = size;
@@ -2022,7 +2023,7 @@ void STB_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT time
             for (U8BIT i = 0; i < reply.msg_len; i++)
             {
                 data[i] = reply.msg[i];
-                TUN_DBG("STB_TuneReceiveDISEQCReply reply:0x%x", data[i]);
+                TUN_DBG("STB_TuneReceiveDISEQCReply reply:0x%02x", data[i]);
             }
         }
     }
@@ -2585,7 +2586,8 @@ static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz)
     return ret;
 }
 
-BOOLEAN STB_Tune_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_data, unsigned int start_freq, unsigned int stop_freq)
+BOOLEAN STB_Tune_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_data, unsigned int start_freq, unsigned int stop_freq,
+                           E_STB_TUNE_BlindUnicable_t unicable)
 {
     BOOLEAN ret = TRUE;
     int rc;
@@ -2608,6 +2610,13 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_d
     tuner_status[path].bs_setting.bsPara.timeout = FEND_WAIT_TIMEOUT;
     tuner_status[path].bs_setting.bsPara.minfrequency = start_freq/1000;		        /*Change default start frequency*/
     tuner_status[path].bs_setting.bsPara.maxfrequency = stop_freq/1000;			        /*Change default end frequency*/
+
+    tuner_status[path].bs_setting.singlecablePara.version = unicable.unicable;
+    tuner_status[path].bs_setting.singlecablePara.userband = unicable.channel;
+    tuner_status[path].bs_setting.singlecablePara.frequency = unicable.frequency;
+    tuner_status[path].bs_setting.singlecablePara.bank = unicable.bank;
+    tuner_status[path].bs_setting.singlecablePara.uncommitted = unicable.uncommitted;
+    tuner_status[path].bs_setting.singlecablePara.committed = unicable.committed;
 
     /*blindscan handle thread*/
     if (cb != tuner_status[path].blindscan_cb || user_data != tuner_status[path].blindscan_cb_user_data)
@@ -2678,7 +2687,6 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
     pthread_mutex_unlock(&tuner_status[path].lock);
     return ret;
 }
-
 
 /*---local function definitions----------------------------------------------*/
 
@@ -3683,6 +3691,57 @@ static BOOLEAN dvb_wait_event (U32BIT fd, struct dvb_frontend_event *evt, int ti
     return TRUE;
 }
 
+static BOOLEAN dvbsx_blindscan_setsinglecable(U8BIT fd, struct dvbsx_singlecable_parameters *psinglecablePara)
+{
+    int ret = TRUE;
+
+    /*set propty*/
+    struct dtv_properties prop;
+    struct dtv_property *property = NULL;
+    int num = 6;
+
+    property = malloc(num * sizeof(struct dtv_property));
+    if (NULL == property)
+        return FALSE;
+
+    prop.num = num;
+    prop.props = property;
+
+    /*set singlecable*/
+    (property+0)->cmd = DTV_SINGLE_CABLE_VER;
+    (property+0)->u.data = psinglecablePara->version;
+    (property+1)->cmd = DTV_SINGLE_CABLE_USER_BAND;
+    (property+1)->u.data = psinglecablePara->userband;
+    (property+2)->cmd = DTV_SINGLE_CABLE_BAND_FRE;
+    (property+2)->u.data = psinglecablePara->frequency;
+    (property+3)->cmd = DTV_SINGLE_CABLE_BANK;
+    (property+3)->u.data = psinglecablePara->bank;
+    (property+4)->cmd = DTV_SINGLE_CABLE_UNCOMMITTED;
+    (property+4)->u.data = psinglecablePara->uncommitted;
+    (property+5)->cmd = DTV_SINGLE_CABLE_COMMITTED;
+    (property+5)->u.data = psinglecablePara->committed;
+
+    for (num = 0; num < 6; num++)
+    {
+        TUN_DBG( "set singlecable num[%d] cmd[%d]data[%d]\r\n", num, (property+num)->cmd, (property+num)->u.data);
+    }
+
+    ret = dvb_set_prop(fd, &prop);
+
+    if (!ret)
+    {
+        TUN_DBG( "set singlecable cmd error\n");
+    }
+
+    if (property != NULL)
+    {
+        free(property);
+        property = NULL;
+    }
+
+    return ret;
+}
+
 static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara)
 {
     int ret = TRUE;
@@ -3841,8 +3900,18 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_Start(U8BIT path)
     BOOLEAN ret = FALSE;
 
     pthread_mutex_lock(&tuner_status[path].lock);
-    struct dvbsx_blindscanpara * pbsPara = &(tuner_status[path].bs_setting.bsPara);
+    struct dvbsx_singlecable_parameters * psinglecablePara = &(tuner_status[path].bs_setting.singlecablePara);
+    if (psinglecablePara && psinglecablePara->version != 0)
+    {
+        ret = dvbsx_blindscan_setsinglecable(tuner_status[path].frontend_fd, psinglecablePara);
+        if (!ret)
+        {
+            pthread_mutex_unlock(&tuner_status[path].lock);
+            return ret;
+        }
+    }
 
+    struct dvbsx_blindscanpara * pbsPara = &(tuner_status[path].bs_setting.bsPara);
     /*driver need to set in blindscan mode*/
     ret = dvbsx_blindscan_scan(tuner_status[path].frontend_fd, pbsPara);
 

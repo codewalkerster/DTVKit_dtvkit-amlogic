@@ -212,8 +212,8 @@ typedef struct {
 
    S_CLEAR_KEY clearkey;
 
-   S8BIT v_chanid;
-   S8BIT a_chanid;
+   S16BIT v_chanid;
+   S16BIT a_chanid;
 
    char flags; //DVR_PLAYBACK_STARTED_PAUSEDLIVE
 

@@ -120,6 +120,7 @@ stb_custom_config aml_custom_config = {
     .auto_time_enable = FALSE,
     .shine_ad_enable = FALSE,
     .ms12_ac4_enable = FALSE,
+    .deu_sort_lcn_after_last = FALSE,
 };
 
 static void DVR_Get_Prop(const char *name, char *buf, int len);
@@ -582,6 +583,19 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             att += 2;
         }
         CFG_DBG("ms12_function, ms12_ac4_enable is set to %d", aml_custom_config.ms12_ac4_enable);
+    }
+    else if (!strcmp(name, "lcn_function"))
+    {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "deu_sort_lcn_after_last") && !strcmp(av, "yes")) {
+                aml_custom_config.deu_sort_lcn_after_last = TRUE;
+            }
+            att += 2;
+        }
+        CFG_DBG("lcn_function, deu_sort_lcn_after_last is set to %d", aml_custom_config.deu_sort_lcn_after_last);
     }
 }
 
@@ -1098,6 +1112,11 @@ BOOLEAN STB_GetCustomCFGForShineAudio(void)
 BOOLEAN STB_GetCustomCFGForMS12AC4(void)
 {
     return aml_custom_config.ms12_ac4_enable;
+}
+
+BOOLEAN STB_GetCustomCFGForDEULcnSortAfterLast(void)
+{
+    return aml_custom_config.deu_sort_lcn_after_last;
 }
 
 static void DVR_Get_Prop(const char *name, char *buf, int len)

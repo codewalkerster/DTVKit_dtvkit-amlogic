@@ -206,7 +206,8 @@ static S_TUNER_STATUS *tuner_status = NULL;
 static U8BIT num_paths;
 static BOOLEAN resm_adc_requested = FALSE;
 static BOOLEAN isTvPlatform = FALSE;
-static BOOLEAN isSymbolRateAuto = FALSE;
+static U32BIT real_srate = SYMBOL_RATE_AUTO;
+static E_STB_TUNE_CMODE real_cmode = TUNE_MODE_QAM_UNDEFINED;
 
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
@@ -235,8 +236,7 @@ static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
 static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz);
-static void SetSymbolRateStatus(BOOLEAN symbol_rate_auto);
-
+static BOOLEAN GetRealParamFromDriver(U8BIT path);
 
 /*---global function definitions---------------------------------------------*/
 
@@ -2280,49 +2280,26 @@ void STB_TuneSetPLP(U8BIT path, U8BIT plp)
  */
 U32BIT STB_TuneGetActualSymbolRate(U8BIT path)
 {
-    U32BIT srate;
-    struct dtv_property cmd;
-    struct dtv_properties props;
+    U32BIT srate = 0;
 
     FUNCTION_START(STB_TuneGetActualSymbolRate);
 
-    srate = 0;
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD)
-                           && IsTunerLocked(&tuner_status[path]))
+    if (GetRealParamFromDriver(path) == TRUE)
     {
-        memset(&cmd, 0, sizeof(struct dtv_property));
-
-        cmd.cmd = DTV_SYMBOL_RATE;
-        props.num = 1;
-        props.props = &cmd;
-
-        if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+        srate = real_srate;
+    }
+    else
+    {
+        if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM)
         {
-            if (SYMBOL_RATE_AUTO == cmd.u.data)
-            {
-                SetSymbolRateStatus(TRUE);
-            }
-            else
-            {
-                SetSymbolRateStatus(FALSE);
-            }
-
-            if (TRUE == isSymbolRateAuto)
-            {
-                srate = tuner_status[path].u.sat.srate;
-            }
-            else
-            {
-                srate = cmd.u.data;
-            }
-            TUN_DBG("%u: symbol rate = %lu", path, srate);
+            srate = tuner_status[path].u.cab.srate;
         }
-        else
+        else if (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK)
         {
-            TUN_ERR("%u: Failed to read symbol rate, errno %d", path, errno);
+            srate = tuner_status[path].u.sat.srate;
         }
     }
+    TUN_DBG("%u: symbol rate = %lu", path, srate);
 
     FUNCTION_FINISH(STB_TuneGetActualSymbolRate);
 
@@ -2336,64 +2313,19 @@ U32BIT STB_TuneGetActualSymbolRate(U8BIT path)
  */
 E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path)
 {
-    E_STB_TUNE_CMODE mode;
-    struct dtv_property cmd;
-    struct dtv_properties props;
+    E_STB_TUNE_CMODE mode = TUNE_MODE_QAM_UNDEFINED;
 
     FUNCTION_START(STB_TuneGetActualCableMode);
 
-    mode = TUNE_MODE_QAM_UNDEFINED;
-
-    if (TRUE == isSymbolRateAuto)
+    if (GetRealParamFromDriver(path) == TRUE)
     {
-        if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QAM))
-        {
-            mode = tuner_status[path].u.cab.cmode;
-        }
+        mode = real_cmode;
     }
     else
     {
-        if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD)
-                               && IsTunerLocked(&tuner_status[path]))
-        {
-            memset(&cmd, 0, sizeof(struct dtv_property));
-
-            cmd.cmd = DTV_MODULATION;
-            props.num = 1;
-            props.props = &cmd;
-
-            if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
-            {
-                TUN_DBG("%u: mode = %lu", path, cmd.u.data);
-
-                switch (cmd.u.data)
-                {
-                    case QAM_16:
-                        mode = TUNE_MODE_QAM_16;
-                        break;
-                    case QAM_32:
-                        mode = TUNE_MODE_QAM_32;
-                        break;
-                    case QAM_64:
-                        mode = TUNE_MODE_QAM_64;
-                        break;
-                    case QAM_128:
-                        mode = TUNE_MODE_QAM_128;
-                        break;
-                    case QAM_256:
-                        mode = TUNE_MODE_QAM_256;
-                        break;
-                    default:
-                        mode = TUNE_MODE_QAM_UNDEFINED;
-                        break;
-                }
-            }
-            else
-            {
-                TUN_ERR("%u: Failed to read cable mode, errno %d", path, errno);
-            }
-        }
+        mode = tuner_status[path].u.cab.cmode;
     }
+    TUN_ERR("%u: cable mode: %u", path, mode);
 
     FUNCTION_FINISH(STB_TuneGetActualCableMode);
 
@@ -4174,9 +4106,70 @@ static void* fend_blindscan_thread(void *arg)
     return NULL;
 }
 
-static void SetSymbolRateStatus(BOOLEAN symbol_rate_auto)
+static BOOLEAN GetRealParamFromDriver(U8BIT path)
 {
-    isSymbolRateAuto = symbol_rate_auto;
+    U32BIT srate = 0;
+    E_STB_TUNE_CMODE cmode = TUNE_MODE_QAM_UNDEFINED;
+    struct dtv_property cmd;
+    struct dtv_properties props;
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD)
+                           && IsTunerLocked(&tuner_status[path]))
+    {
+        memset(&cmd, 0, sizeof(struct dtv_property));
+
+        cmd.cmd = DTV_DELIVERY_SYSTEM;
+        props.num = 1;
+        props.props = &cmd;
+
+        if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+        {
+            if (SYMBOL_RATE_AUTO == cmd.reserved[1])
+            {
+                return FALSE;
+            }
+            else
+            {
+                switch (cmd.reserved[0])
+                {
+                    case QAM_16:
+                        cmode = TUNE_MODE_QAM_16;
+                        break;
+                    case QAM_32:
+                        cmode = TUNE_MODE_QAM_32;
+                        break;
+                    case QAM_64:
+                        cmode = TUNE_MODE_QAM_64;
+                        break;
+                    case QAM_128:
+                        cmode = TUNE_MODE_QAM_128;
+                        break;
+                    case QAM_256:
+                        cmode = TUNE_MODE_QAM_256;
+                        break;
+                    default:
+                        cmode = TUNE_MODE_QAM_UNDEFINED;
+                        break;
+                }
+                srate = cmd.reserved[1];
+                TUN_DBG("%u: from driver:", path);
+                TUN_DBG("%u: symbol rate = %lu", path, srate);
+                if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM)
+                {
+                    TUN_DBG("%u: cable mode = %lu", path, cmd.reserved[0]);
+                }
+            }
+            real_srate = srate;
+            real_cmode = cmode;
+            return TRUE;
+        }
+        else
+        {
+            TUN_ERR("%u: Failed to get real param from driver, errno %d", path, errno);
+            return FALSE;
+        }
+    }
+    return FALSE;
 }
 
 E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path)

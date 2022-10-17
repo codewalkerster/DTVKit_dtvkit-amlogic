@@ -2311,21 +2311,19 @@ U32BIT STB_TuneGetActualSymbolRate(U8BIT path)
  * @param   path tuner path
  * @return  QAM mode
  */
+
 E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path)
 {
-    E_STB_TUNE_CMODE mode = TUNE_MODE_QAM_UNDEFINED;
+    E_STB_TUNE_CMODE mode;
 
     FUNCTION_START(STB_TuneGetActualCableMode);
 
-    if (GetRealParamFromDriver(path) == TRUE)
-    {
-        mode = real_cmode;
-    }
-    else
+    mode = TUNE_MODE_QAM_UNDEFINED;
+
+    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QAM))
     {
         mode = tuner_status[path].u.cab.cmode;
     }
-    TUN_ERR("%u: cable mode: %u", path, mode);
 
     FUNCTION_FINISH(STB_TuneGetActualCableMode);
 

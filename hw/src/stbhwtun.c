@@ -465,7 +465,6 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
                     /* after search and if have no channel, need release FE. */
                     if (STB_TuneIsTvPlatform() && type == TUNE_SIGNAL_NONE && STB_TuneIsSearchMode(path))
                     {
-                        SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
                         CloseTuner(tstatus);
                     }
                 }
@@ -2541,12 +2540,8 @@ void STB_TuneAllStop()
             }
         }
 
-        if (tuner_status[i].frontend_fd != INVALID_FD)
-            SetFeProperty(tuner_status[i].frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
-
         TUN_DBG("tune path[%d] close FE:%d, usage:%d", i, tuner_status[i].frontend_fd, tuner_status[i].frontend_usage);
         CloseTuner(&tuner_status[i]);
-        tuner_status[i].signal_type = TUNE_SIGNAL_NONE;
 
         if (STB_TuneIsTvPlatform())
         {
@@ -2825,9 +2820,11 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
 
 static void CloseTuner(S_TUNER_STATUS *tstatus)
 {
-    if (tstatus->frontend_fd != INVALID_FD)
+    if ((NULL != tstatus) && (tstatus->frontend_fd != INVALID_FD))
     {
         TUN_DBG("close frontend_fd:%d", tstatus->frontend_fd);
+        SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
+        tstatus->signal_type = TUNE_SIGNAL_NONE;
         close(tstatus->frontend_fd);
         tstatus->frontend_fd = INVALID_FD;
         EmuTunerStop(tstatus->path);
@@ -3318,7 +3315,6 @@ static void* TunerTask(void *param)
                 if (tune_idle_timer >= TUNER_USELESS_TIMEOUT && tstatus->frontend_usage == 0)
                 {
                     pthread_mutex_lock(&tstatus->lock);
-                    SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
                     CloseTuner(tstatus);
                     tune_idle_timer = 0;
                     pthread_mutex_unlock(&tstatus->lock);

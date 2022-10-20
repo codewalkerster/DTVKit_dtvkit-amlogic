@@ -3229,6 +3229,7 @@ void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
    if (ret < 0)
    {
        AUD_DBG("Cannot get player handle[%d]", av_path);
+       pthread_rwlock_unlock(_l);
        return;
    }
 

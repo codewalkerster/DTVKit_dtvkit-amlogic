@@ -18,7 +18,6 @@
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
 #include "app_cfg.h"
-#include "dvr_utils.h"
 #include "cert_log.h"
 #include "stb_utils.h"
 #include "stbhwcfg.h"
@@ -769,8 +768,6 @@ void STB_CfgInitialise(void)
 
     XML_ParserFree(parser);
     fclose(fp);
-
-    dvr_register_rw_prop((DVR_Read_Prop_Cb)DVR_Get_Prop,(DVR_Write_Prop_Cb)DVR_Set_Prop);
 }
 
 int STB_EpgGetIsNotMatchOrigNetId()

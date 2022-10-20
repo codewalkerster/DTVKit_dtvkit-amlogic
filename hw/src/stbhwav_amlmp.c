@@ -3454,7 +3454,7 @@ S16BIT STB_AVGetAC4ActivePresentationsID(U8BIT path)
     ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &presentations_id);
 
     pthread_rwlock_unlock(_l);
-    AUD_DBG("presentations_id:%d, err:%d", presentations_id, ret);
+    //AUD_DBG("presentations_id:%d, err:%d", presentations_id, ret);
     FUNCTION_FINISH(STB_AVGetAC4ActivePresentationsID);
     return presentations_id;
 }

@@ -1128,7 +1128,7 @@ static void DVR_Set_Prop(const char *name, const char *value)
 BOOLEAN STB_Is_PIP_Enabled()
 {
    char prop_buf[16] = {0};
-   if (TRUE == STB_Get_Prop("vendor.tv.dtv.pip.enabled",prop_buf,16))
+   if (TRUE == STB_Get_Prop("vendor.tv.dtv.enable.pip",prop_buf,16))
    {
       if (strcmp(prop_buf,"true") == 0 || strcmp(prop_buf,"yes") == 0)
       {
@@ -1141,7 +1141,7 @@ BOOLEAN STB_Is_PIP_Enabled()
 BOOLEAN STB_Is_FCC_Enabled()
 {
    char prop_buf[16] = {0};
-   if (TRUE == STB_Get_Prop("vendor.tv.dtv.fcc.enabled",prop_buf,16))
+   if (TRUE == STB_Get_Prop("vendor.tv.dtv.enable.fcc",prop_buf,16))
    {
       if (strcmp(prop_buf,"true") == 0 || strcmp(prop_buf,"yes") == 0)
       {

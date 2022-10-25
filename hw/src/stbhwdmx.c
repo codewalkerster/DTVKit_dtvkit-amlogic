@@ -40,7 +40,6 @@
 #include <dmx.h>
 #include <ca.h>
 #include <aml_key.h>
-#include "dvb_utils.h"
 
 /* STB header files */
 #include "techtype.h"
@@ -101,6 +100,58 @@ typedef enum
    DMX_PID_COUNT
 } E_DMX_TRACK;
 
+/**Demux input source.*/
+typedef enum
+{
+   DVB_DEMUX_SOURCE_TS0,  /**< Hardware TS input port 0.*/
+   DVB_DEMUX_SOURCE_TS1,  /**< Hardware TS input port 1.*/
+   DVB_DEMUX_SOURCE_TS2,  /**< Hardware TS input port 2.*/
+   DVB_DEMUX_SOURCE_TS3,  /**< Hardware TS input port 3.*/
+   DVB_DEMUX_SOURCE_TS4,  /**< Hardware TS input port 4.*/
+   DVB_DEMUX_SOURCE_TS5,  /**< Hardware TS input port 5.*/
+   DVB_DEMUX_SOURCE_TS6,  /**< Hardware TS input port 6.*/
+   DVB_DEMUX_SOURCE_TS7,  /**< Hardware TS input port 7.*/
+   DVB_DEMUX_SOURCE_DMA0, /**< DMA input port 0.*/
+   DVB_DEMUX_SOURCE_DMA1, /**< DMA input port 1.*/
+   DVB_DEMUX_SOURCE_DMA2, /**< DMA input port 2.*/
+   DVB_DEMUX_SOURCE_DMA3, /**< DMA input port 3.*/
+   DVB_DEMUX_SOURCE_DMA4, /**< DMA input port 4.*/
+   DVB_DEMUX_SOURCE_DMA5, /**< DMA input port 5.*/
+   DVB_DEMUX_SOURCE_DMA6, /**< DMA input port 6.*/
+   DVB_DEMUX_SOURCE_DMA7,  /**< DMA input port 7.*/
+   DVB_DEMUX_SECSOURCE_DMA0, /**< DMA secure port 0.*/
+   DVB_DEMUX_SECSOURCE_DMA1, /**< DMA secure port 1.*/
+   DVB_DEMUX_SECSOURCE_DMA2, /**< DMA secure port 2.*/
+   DVB_DEMUX_SECSOURCE_DMA3, /**< DMA secure port 3.*/
+   DVB_DEMUX_SECSOURCE_DMA4, /**< DMA secure port 4.*/
+   DVB_DEMUX_SECSOURCE_DMA5, /**< DMA secure port 5.*/
+   DVB_DEMUX_SECSOURCE_DMA6, /**< DMA secure port 6.*/
+   DVB_DEMUX_SECSOURCE_DMA7,  /**< DMA secure port 7.*/
+   DVB_DEMUX_SOURCE_DMA0_1,  /**< DMA input port 0_1.*/
+   DVB_DEMUX_SOURCE_DMA1_1,   /**< DMA input port 1_1.*/
+   DVB_DEMUX_SOURCE_DMA2_1,  /**< DMA input port 2_1.*/
+   DVB_DEMUX_SOURCE_DMA3_1,   /**< DMA input port 3_1.*/
+   DVB_DEMUX_SOURCE_DMA4_1,  /**< DMA input port 4_1.*/
+   DVB_DEMUX_SOURCE_DMA5_1,   /**< DMA input port 5_1.*/
+   DVB_DEMUX_SOURCE_DMA6_1,  /**< DMA input port 6_1.*/
+   DVB_DEMUX_SOURCE_DMA7_1,   /**< DMA input port 7_1.*/
+   DVB_DEMUX_SECSOURCE_DMA0_1, /**< DMA secure port 0_1.*/
+   DVB_DEMUX_SECSOURCE_DMA1_1, /**< DMA secure port 1_1.*/
+   DVB_DEMUX_SECSOURCE_DMA2_1, /**< DMA secure port 2_1.*/
+   DVB_DEMUX_SECSOURCE_DMA3_1, /**< DMA secure port 3_1.*/
+   DVB_DEMUX_SECSOURCE_DMA4_1, /**< DMA secure port 4_1.*/
+   DVB_DEMUX_SECSOURCE_DMA5_1, /**< DMA secure port 5_1.*/
+   DVB_DEMUX_SECSOURCE_DMA6_1, /**< DMA secure port 6_1.*/
+   DVB_DEMUX_SECSOURCE_DMA7_1,  /**< DMA secure port 7_1.*/
+   DVB_DEMUX_SOURCE_TS0_1, /**< DMA secure port 0_1.*/
+   DVB_DEMUX_SOURCE_TS1_1, /**< DMA secure port 1_1.*/
+   DVB_DEMUX_SOURCE_TS2_1, /**< DMA secure port 2_1.*/
+   DVB_DEMUX_SOURCE_TS3_1, /**< DMA secure port 3_1.*/
+   DVB_DEMUX_SOURCE_TS4_1, /**< DMA secure port 4_1.*/
+   DVB_DEMUX_SOURCE_TS5_1, /**< DMA secure port 5_1.*/
+   DVB_DEMUX_SOURCE_TS6_1, /**< DMA secure port 6_1.*/
+   DVB_DEMUX_SOURCE_TS7_1, /**< DMA secure port 7_1.*/
+} DVB_DemuxSource_t;
 
 typedef void(*SectionFilterFunc)(U8BIT path, U16BIT bytes, U16BIT pfilt_id);
 
@@ -176,6 +227,7 @@ static U8BIT num_paths;
 static U8BIT* pes_data = NULL;
 static U32BIT pes_data_size = 0;
 static BOOLEAN support_tsd = TRUE;
+static int ciplus_enable = 0;
 
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
@@ -187,6 +239,10 @@ static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void STB_SetTsoutSource(void);
 static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx);
+static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src);
+static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src);
+static int DvbEnableCIPlus(int enable);
+static int CheckIfDmxIsNew(void);
 
 
 #define DSC_CHAN_NUM 8
@@ -489,7 +545,7 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
    if (r != 0)
       DMX_DBG("set descrambler source failed");
 #ifdef COMMON_INTERFACE
-      dvb_enable_ciplus(TRUE);
+      DvbEnableCIPlus(TRUE);
 #endif
 }
 
@@ -2089,7 +2145,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
       }
    }
 
-   dvb_get_demux_source(path, &dmx_src_cur);
+   DvbGetDemuxSource(path, &dmx_src_cur);
    DMX_DBG("path %d Demux source [config:cur_node] = [%d:%d]", path, dmx_src_cfg, dmx_src_cur);
    if ((source != demux_status[path].source) || (param != demux_status[path].source_param) || (dmx_src_cfg != dmx_src_cur))
    {
@@ -2099,7 +2155,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 
       if (source == DMX_TUNER)
       {
-         ret = dvb_set_demux_source(path, dmx_src_cfg);
+         ret = DvbSetDemuxSource(path, dmx_src_cfg);
          if (ret == -1)
          {
             DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, ret);
@@ -2110,7 +2166,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
          DMX_DBG("setting source to MEMORY");
          if (dmx_src_cur != _GetDmxDMASourceById(path))
          {
-            ret = dvb_set_demux_source(path, _GetDmxDMASourceById(path));
+            ret = DvbSetDemuxSource(path, _GetDmxDMASourceById(path));
             if (ret == -1)
             {
                 DMX_ERR("Failed to set demux %u source to %u ", path, param);
@@ -2165,7 +2221,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
    }
 
 #ifdef COMMON_INTERFACE
-   dvb_enable_ciplus(plug);
+   DvbEnableCIPlus(plug);
 #endif
 
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
@@ -3274,5 +3330,340 @@ static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx)
        break;
        }
    return demux_source;
+}
+
+static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
+{
+    char node[32] = {0};
+    char node2[20] = {0};
+    int r = 0;
+
+    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", dmx_idx);
+    snprintf(node2, sizeof(node2), "/dev/dvb0.demux%d", dmx_idx);
+
+    int fd = open(node, O_RDONLY);
+    if (fd == -1)
+    {
+        int source = 0;
+        int input = 0;
+        int fd2 = open(node2, O_WRONLY);
+        if (fd2 != -1)
+        {
+            if (src <= DVB_DEMUX_SOURCE_TS7) {
+                source = FRONTEND_TS0 + src - DVB_DEMUX_SOURCE_TS0;
+                input = INPUT_DEMOD;
+            } else if (src >= DVB_DEMUX_SOURCE_DMA0 &&
+                src <= DVB_DEMUX_SOURCE_DMA7) {
+                source = DMA_0 + src - DVB_DEMUX_SOURCE_DMA0;
+                input = INPUT_LOCAL;
+            } else if (src >= DVB_DEMUX_SECSOURCE_DMA0 &&
+                src <= DVB_DEMUX_SECSOURCE_DMA7) {
+                source = DMA_0 + src - DVB_DEMUX_SECSOURCE_DMA0;
+                input = INPUT_LOCAL_SEC;
+            } else if (src >= DVB_DEMUX_SOURCE_DMA0_1 &&
+                src <= DVB_DEMUX_SOURCE_DMA7_1) {
+                source = DMA_0_1 + src - DVB_DEMUX_SOURCE_DMA0_1;
+                input = INPUT_LOCAL;
+            } else if (src >= DVB_DEMUX_SECSOURCE_DMA0_1 &&
+                src <= DVB_DEMUX_SECSOURCE_DMA7_1) {
+                source = DMA_0_1 + src - DVB_DEMUX_SECSOURCE_DMA0_1;
+                input = INPUT_LOCAL_SEC;
+            } else if (src >= DVB_DEMUX_SOURCE_TS0_1 &&
+                src <= DVB_DEMUX_SOURCE_TS7_1) {
+                source = FRONTEND_TS0_1 + src - DVB_DEMUX_SOURCE_TS0_1;
+                input = INPUT_DEMOD;
+            } else {
+               DMX_ERR("DvbSetDemuxSource:%d invalid source:%d", __LINE__, src);
+               close(fd2);
+               return -1;
+            }
+
+            if (ioctl(fd2, DMX_SET_INPUT, input) == -1)
+            {
+                 DMX_DBG("DvbSetDemuxSource ioctl DMX_SET_INPUT:%d error:%d", input, errno);
+                 r = -1;
+            }
+            else
+            {
+                 DMX_DBG("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_INPUT:%d dmx_idx:%d", src, input, dmx_idx);
+                 r = 0;
+            }
+            if (ioctl(fd2, DMX_SET_HW_SOURCE, source) == -1)
+            {
+                DMX_DBG("DvbSetDemuxSource ioctl DMX_SET_HW_SOURCE:%d error:%d", source, errno);
+                r = -1;
+            }
+            else
+            {
+                DMX_DBG("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_HW_SOURCE:%d dmx_idx:%d", src, source, dmx_idx);
+                r = 0;
+            }
+            close(fd2);
+        }
+        else
+        {
+            DMX_ERR("DvbSetDemuxSource open \"%s\" failed, error:%d", node, errno);
+        }
+    }
+    else
+    {
+        char *val = NULL;
+
+        close(fd);
+
+        if (ciplus_enable)
+        {
+            char buf[32];
+            int i, out;
+
+            out = 0;
+
+            for (i = 0; i < 3; i ++)
+            {
+                DVB_DemuxSource_t dmx_src = DVB_DEMUX_SOURCE_TS0;
+
+                if (i == dmx_idx)
+                    dmx_src = src;
+                else
+                    DvbGetDemuxSource(i, &dmx_src);
+                if (dmx_src != DVB_DEMUX_SOURCE_DMA0)
+                    out |= 1 << i;
+            }
+
+            snprintf(buf, sizeof(buf), "%d", out);
+            STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
+        }
+
+        switch (src)
+        {
+        case DVB_DEMUX_SOURCE_TS0:
+            val = "ts0";
+            break;
+        case DVB_DEMUX_SOURCE_TS1:
+            val = "ts1";
+            break;
+        case DVB_DEMUX_SOURCE_TS2:
+            val = "ts2";
+            break;
+        case DVB_DEMUX_SOURCE_DMA0:
+        case DVB_DEMUX_SOURCE_DMA1:
+        case DVB_DEMUX_SOURCE_DMA2:
+        case DVB_DEMUX_SOURCE_DMA3:
+        case DVB_DEMUX_SOURCE_DMA4:
+        case DVB_DEMUX_SOURCE_DMA5:
+        case DVB_DEMUX_SOURCE_DMA6:
+        case DVB_DEMUX_SOURCE_DMA7:
+            val = "hiu";
+            break;
+        default:
+            DMX_ERR("DvbSetDemuxSource:%d invalid source:%d", __LINE__, src);
+            return -1;
+        }
+
+        r = STB_File_Echo(node, val);
+    }
+    return r;
+}
+
+static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src)
+{
+    char node[32] = {0};
+    char node2[20] = {0};
+    char buf[32] = {0};
+    int r = 0;
+    int source_no = 0;
+
+    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", dmx_idx);
+    snprintf(node2, sizeof(node2), "/dev/dvb0.demux%d", dmx_idx);
+
+    int fd = open(node, O_RDONLY);
+    if (fd == -1)
+    {
+        int source;
+        int fd2 = open(node2, O_RDONLY);
+        if (fd2 != -1)
+        {
+            if (ioctl(fd2, DMX_GET_HW_SOURCE, &source) != -1)
+            {
+                switch (source)
+                {
+                case FRONTEND_TS0:
+                    *src = DVB_DEMUX_SOURCE_TS0;
+                    break;
+                case FRONTEND_TS1:
+                    *src = DVB_DEMUX_SOURCE_TS1;
+                    break;
+                case FRONTEND_TS2:
+                    *src = DVB_DEMUX_SOURCE_TS2;
+                    break;
+                case FRONTEND_TS3:
+                    *src = DVB_DEMUX_SOURCE_TS3;
+                    break;
+                case FRONTEND_TS4:
+                    *src = DVB_DEMUX_SOURCE_TS4;
+                    break;
+                case FRONTEND_TS5:
+                    *src = DVB_DEMUX_SOURCE_TS5;
+                    break;
+                case FRONTEND_TS6:
+                    *src = DVB_DEMUX_SOURCE_TS6;
+                    break;
+                case FRONTEND_TS7:
+                    *src = DVB_DEMUX_SOURCE_TS7;
+                    break;
+                case DMA_0:
+                    *src = DVB_DEMUX_SOURCE_DMA0;
+                    break;
+                case DMA_1:
+                    *src = DVB_DEMUX_SOURCE_DMA1;
+                    break;
+                case DMA_2:
+                    *src = DVB_DEMUX_SOURCE_DMA2;
+                    break;
+                case DMA_3:
+                    *src = DVB_DEMUX_SOURCE_DMA3;
+                    break;
+                case DMA_4:
+                    *src = DVB_DEMUX_SOURCE_DMA4;
+                    break;
+                case DMA_5:
+                    *src = DVB_DEMUX_SOURCE_DMA5;
+                    break;
+                case DMA_6:
+                    *src = DVB_DEMUX_SOURCE_DMA6;
+                    break;
+                case DMA_7:
+                    *src = DVB_DEMUX_SOURCE_DMA7;
+                    break;
+                case FRONTEND_TS0_1:
+                    *src = DVB_DEMUX_SOURCE_TS0_1;
+                    break;
+                case FRONTEND_TS1_1:
+                    *src = DVB_DEMUX_SOURCE_TS1_1;
+                    break;
+                case FRONTEND_TS2_1:
+                    *src = DVB_DEMUX_SOURCE_TS2_1;
+                    break;
+                case FRONTEND_TS3_1:
+                    *src = DVB_DEMUX_SOURCE_TS3_1;
+                    break;
+                case FRONTEND_TS4_1:
+                    *src = DVB_DEMUX_SOURCE_TS4_1;
+                    break;
+                case FRONTEND_TS5_1:
+                    *src = DVB_DEMUX_SOURCE_TS5_1;
+                    break;
+                case FRONTEND_TS6_1:
+                    *src = DVB_DEMUX_SOURCE_TS6_1;
+                    break;
+                case FRONTEND_TS7_1:
+                    *src = DVB_DEMUX_SOURCE_TS7_1;
+                    break;
+                default:
+                    DMX_ERR("DvbGetDemuxSource invalid source:%d", source);
+                    r = -1;
+                }
+            }
+            else
+            {
+                DMX_ERR("ioctl DMX_GET_HW_SOURCE:%d error:%d", source, errno);
+            }
+            close(fd2);
+        }
+        else
+        {
+            DMX_ERR("opening \"%s\" failed with errno:%d", node2, errno);
+        }
+    }
+    else
+    {
+        close(fd);
+        r = STB_File_Read(node, buf, sizeof(buf));
+        if (r != -1)
+        {
+            if (strncmp(buf, "ts", 2) == 0 && strlen(buf) == 3)
+            {
+                sscanf(buf, "ts%d", &source_no);
+                switch (source_no)
+                {
+                case 0:
+                    *src = DVB_DEMUX_SOURCE_TS0;
+                    break;
+                case 1:
+                    *src = DVB_DEMUX_SOURCE_TS1;
+                    break;
+                case 2:
+                    *src = DVB_DEMUX_SOURCE_TS2;
+                    break;
+                default:
+                    DMX_DBG("do not support demux source:%s", buf);
+                    r = -1;
+                    break;
+                }
+            }
+            else if (strncmp(buf, "hiu", 3) == 0)
+            {
+                *src = DVB_DEMUX_SOURCE_DMA0;
+            }
+            else
+            {
+                r = -1;
+            }
+            DMX_DBG("DvbGetDemuxSource \"%s\" :%s", node, buf);
+        }
+    }
+    return r;
+}
+
+static int DvbEnableCIPlus(int enable)
+{
+    int out;
+    char buf[32];
+
+    ciplus_enable = enable;
+
+    if (CheckIfDmxIsNew())
+        return 0;
+
+    if (enable)
+    {
+        int i;
+
+        out = 0;
+
+        for (i = 0; i < 3; i ++)
+        {
+            DVB_DemuxSource_t src = DVB_DEMUX_SOURCE_TS0;
+
+            DvbGetDemuxSource(i, &src);
+            if (src != DVB_DEMUX_SOURCE_DMA0)
+                out |= 1 << i;
+        }
+    }
+    else
+    {
+        out = 8;
+    }
+
+    snprintf(buf, sizeof(buf), "%d", out);
+    STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
+
+    return 0;
+}
+
+static int CheckIfDmxIsNew(void)
+{
+    char node[32];
+    struct stat st;
+    int r;
+
+    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
+
+    r = stat(node, &st);
+    if (r == -1)
+    {
+        return 1;
+    }
+    return 0;
 }
 

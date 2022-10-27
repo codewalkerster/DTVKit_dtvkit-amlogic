@@ -71,16 +71,6 @@ ifneq (,$(wildcard media_hal))
   MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
 endif
 
-LIBDVR_PATH:=$(LOCAL_PATH)/../../../libdvr_release/$(LOCAL_DVR_SRC_FILES_APPEND)/include
-ifneq (,$(wildcard $(LOCAL_PATH)/../../../libdvr))
-    LIBDVR_PATH:=$(LOCAL_PATH)/../../../libdvr/include
-endif
-#LIBDVR_PATH:=vendor/amlogic/common/libdvr_release/include
-#ifneq (,$(wildcard vendor/amlogic/common/libdvr))
-#    LIBDVR_PATH:=vendor/amlogic/common/libdvr/include
-#endif
-
-
 #LOCAL_CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
@@ -100,8 +90,7 @@ else
 endif
 
     LOCAL_C_INCLUDES += \
-        $(MEDIAHAL_INCLUDE) \
-        $(LIBDVR_PATH)
+        $(MEDIAHAL_INCLUDE)
 
     LOCAL_CFLAGS += -DUSE_TSPLAYER
 endif

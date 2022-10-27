@@ -41,7 +41,6 @@ CFLAGS += -DRDK_COMPILE
 
 CFLAGS += -I../../rdklib/liblog/include
 CFLAGS += -I../../rdklib/include
-CFLAGS += -I../../rdklib/libdvr_release/$(LOCAL_DVR_SRC_FILES_APPEND)/include/libdvr
 CFLAGS += -I../../rdklib/expat/include
 CFLAGS += -I../../rdklib/aml_mp_sdk/include
 CFLAGS += -I../../rdklib/aml-cas-hal/include/libamcas

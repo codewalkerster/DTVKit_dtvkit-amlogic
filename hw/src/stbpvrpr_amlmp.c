@@ -610,6 +610,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       s_recplay_status[play_index].has_video = FALSE;
       s_recplay_status[play_index].video_pid = 0;
       s_recplay_status[play_index].ad_pid = 0;
+      s_recplay_status[play_index].pcr_pid = 0;
 
       if (is_timeshift)
       {

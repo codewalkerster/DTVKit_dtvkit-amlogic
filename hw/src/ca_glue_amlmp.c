@@ -506,13 +506,12 @@ BOOLEAN STB_CAInitialise(void)
             CA_DBG(("CAS RegisterEventCallback failed [%d]", ret));
         }
 
-#ifdef ANDROID
-        char castype[PROPERTY_VALUE_MAX] = { 0 };
-        property_get("vendor.cas.type", castype, "none");
+        char castype[32] = { 0 };
+        STB_Get_Prop("vendor.cas.type", castype, 32);
         if (!strncmp(castype, "nagra", 5)) {
             g_cas_type = CAS_TYPE_NAGRA;
         }
-#endif
+        CA_DBG(("am cas init g_cas_type=%d", g_cas_type));
     }
 
     FUNCTION_FINISH(STB_CAInitialise);
@@ -526,6 +525,13 @@ BOOLEAN STB_CAInitialise(void)
  ****************************************************************************/
 E_CAS_TYPE STB_CAGetCASType()
 {
+    char castype[32] = { 0 };
+    STB_Get_Prop("vendor.cas.type", castype, 32);
+    CA_DBG(("STB_CAGetCASType g_cas_type=%d, castype=%s", g_cas_type, castype));
+    if (!strncmp(castype, "nagra", 5)) {
+        g_cas_type = CAS_TYPE_NAGRA;
+    }
+    CA_DBG(("STB_CAGetCASType exit g_cas_type=%d", g_cas_type));
     return g_cas_type;
 }
 

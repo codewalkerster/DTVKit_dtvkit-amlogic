@@ -119,6 +119,7 @@ stb_custom_config aml_custom_config = {
     .shine_ad_enable = FALSE,
     .ms12_ac4_enable = FALSE,
     .deu_sort_lcn_after_last = FALSE,
+    .deu_use_invisible_flag = TRUE,
 };
 
 static void DVR_Get_Prop(const char *name, char *buf, int len);
@@ -578,9 +579,13 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             if (!strcmp(an, "deu_sort_lcn_after_last") && !strcmp(av, "yes")) {
                 aml_custom_config.deu_sort_lcn_after_last = TRUE;
             }
+            else if (!strcmp(an, "deu_use_invisible_flag") && !strcmp(av, "no")) {
+                aml_custom_config.deu_use_invisible_flag = FALSE;
+            }
             att += 2;
         }
         CFG_DBG("lcn_function, deu_sort_lcn_after_last is set to %d", aml_custom_config.deu_sort_lcn_after_last);
+        CFG_DBG("lcn_function, deu_use_invisible_flag is set to %d", aml_custom_config.deu_use_invisible_flag);
     }
 }
 
@@ -1105,6 +1110,11 @@ BOOLEAN STB_GetCustomCFGForMS12AC4(void)
 BOOLEAN STB_GetCustomCFGForDEULcnSortAfterLast(void)
 {
     return aml_custom_config.deu_sort_lcn_after_last;
+}
+
+BOOLEAN STB_GetCustomCFGForDEUUseInviableFlag(void)
+{
+    return aml_custom_config.deu_use_invisible_flag;
 }
 
 static void DVR_Get_Prop(const char *name, char *buf, int len)

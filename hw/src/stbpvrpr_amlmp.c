@@ -2703,7 +2703,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
          /*pids ready, reset*/
          if (fake_pid != 0xffff && s_recplay_status[play_index].video_pid == fake_pid)
          {
-            if (video_pid > 0 && video_pid < 0x1fff)
+            //vpid changed, exit the "fake->normal" waiting state
             {
                 reset = (fake_pid == 0x2fff) ? 2 : 1;
             }

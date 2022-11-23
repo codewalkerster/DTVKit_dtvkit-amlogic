@@ -1503,6 +1503,11 @@ void STB_AVStopAudioDecoding(U8BIT path)
         case DECODER_STATE_STOPPED:
         {
             AUD_DBG("A NOW:A_STOP, Stop audio decode already");
+            if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
+                if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED) {
+                    AV_ReleaseTsPlayer_l(av_path);
+                }
+            }
             break;
         }
         case DECODER_STATE_STARTED:

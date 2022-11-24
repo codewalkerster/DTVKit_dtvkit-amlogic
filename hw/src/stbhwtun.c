@@ -208,6 +208,7 @@ static BOOLEAN resm_adc_requested = FALSE;
 static BOOLEAN isTvPlatform = FALSE;
 static U32BIT real_srate = SYMBOL_RATE_AUTO;
 static E_STB_TUNE_CMODE real_cmode = TUNE_MODE_QAM_UNDEFINED;
+void *tune_interface_sem = NULL;
 
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
@@ -353,6 +354,15 @@ void STB_TuneInitialise(U8BIT paths)
     {
         TUN_ERR("No tuners found!");
         CERT_Log_StartingUp("No tuners found!");
+    }
+    if (NULL == tune_interface_sem)
+    {
+        tune_interface_sem= STB_OSCreateSemaphore();
+    }
+
+    if (NULL == tune_interface_sem)
+    {
+        CERT_Log_StartingUp("tune_interface_sem create error");
     }
 
     FUNCTION_FINISH(STB_TuneInitialise);
@@ -572,6 +582,55 @@ static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation)
     return TUNE_MOD_AUTO;
 }
 
+ /**
+ * @brief   Stops any locking attempt, or unlocks if locked
+ * @param   path the tuner path to stop
+ */
+static void TuneStopTuner(S_TUNER_STATUS *tstatus)
+{
+    E_TUNER_STATE state;
+
+    FUNCTION_START(TuneStopTuner);
+
+    if (NULL != tstatus)
+    {
+        STB_OSMutexLock(tstatus->mutex);
+        state = tstatus->state;
+        STB_OSMutexUnlock(tstatus->mutex);
+
+        if (state != TUNER_IDLE && state != TUNER_EXITED)
+        {
+            TUN_DBG("%u: Stopping tuning...", tstatus->path);
+
+            STB_OSMutexLock(tstatus->mutex);
+            tstatus->stop = TRUE;
+            STB_OSMutexUnlock(tstatus->mutex);
+
+            while (state != TUNER_IDLE && state != TUNER_EXITED)
+            {
+                STB_OSTaskDelay(30);
+
+                STB_OSMutexLock(tstatus->mutex);
+                state = tstatus->state;
+                STB_OSMutexUnlock(tstatus->mutex);
+            }
+
+            /* The tuner state can change to idle due to it losing lock, in which case
+             * the stop flag will still be set, so reset now to be sure */
+            STB_OSMutexLock(tstatus->mutex);
+            tstatus->stop = FALSE;
+            STB_OSMutexUnlock(tstatus->mutex);
+
+            //ClearTuner(tstatus);
+
+            //tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
+        }
+
+        TUN_DBG("%u: Tuner stopped", tstatus->path);
+    }
+
+    FUNCTION_FINISH(TuneStopTuner);
+}
 /**
  * @brief   Starts the tuner, it will then attempt to lock specified signal
  * @param   path the tuner path to start
@@ -598,8 +657,11 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
     USE_UNWANTED_PARAM(freq_off);
     USE_UNWANTED_PARAM(anlg_vtype);
 
+    TUN_ERR("%s enter",__FUNCTION__);
+
     if (path < num_paths)
     {
+        STB_OSSemaphoreWait(tune_interface_sem);
         tstatus = &tuner_status[path];
 
         while (STB_TuneIsTvPlatform() && tstatus->state == TUNER_EXITED && !STB_TuneIsSearchMode(path))
@@ -697,7 +759,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
                 if (state != TUNER_IDLE && state != TUNER_EXITED)
                 {
-                    STB_TuneStopTuner(path);
+                    TuneStopTuner(tstatus);
                 }
 
                 tstatus->tuning_params_changed = FALSE;
@@ -769,12 +831,15 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
             if (state != TUNER_IDLE && state != TUNER_EXITED)
             {
-                STB_TuneStopTuner(path);
+                TuneStopTuner(tstatus);
             }
 
             STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
         }
+        STB_OSSemaphoreSignal(tune_interface_sem);
     }
+
+    TUN_ERR("%s out",__FUNCTION__);
 
     FUNCTION_FINISH(STB_TuneStartTuner);
 }
@@ -790,45 +855,21 @@ void STB_TuneStopTuner(U8BIT path)
 
     FUNCTION_START(STB_TuneStopTuner);
 
+    TUN_ERR("%s enter",__FUNCTION__);
+
     if (path < num_paths)
     {
+        STB_OSSemaphoreWait(tune_interface_sem);
         tstatus = &tuner_status[path];
 
         STB_OSMutexLock(tstatus->mutex);
-        state = tstatus->state;
         EmuTunerStop(path);
         STB_OSMutexUnlock(tstatus->mutex);
-
-        if (state != TUNER_IDLE && state != TUNER_EXITED)
-        {
-            TUN_DBG("%u: Stopping tuning...", tstatus->path);
-
-            STB_OSMutexLock(tstatus->mutex);
-            tstatus->stop = TRUE;
-            STB_OSMutexUnlock(tstatus->mutex);
-
-            while (state != TUNER_IDLE && state != TUNER_EXITED)
-            {
-                STB_OSTaskDelay(30);
-
-                STB_OSMutexLock(tstatus->mutex);
-                state = tstatus->state;
-                STB_OSMutexUnlock(tstatus->mutex);
-            }
-
-            /* The tuner state can change to idle due to it losing lock, in which case
-             * the stop flag will still be set, so reset now to be sure */
-            STB_OSMutexLock(tstatus->mutex);
-            tstatus->stop = FALSE;
-            STB_OSMutexUnlock(tstatus->mutex);
-
-            //ClearTuner(tstatus);
-
-            //tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
-        }
-
-        TUN_DBG("%u: Tuner stopped", tstatus->path);
+        TuneStopTuner(tstatus);
+        STB_OSSemaphoreSignal(tune_interface_sem);
     }
+
+    TUN_ERR("%s out",__FUNCTION__);
 
     FUNCTION_FINISH(STB_TuneStopTuner);
 }

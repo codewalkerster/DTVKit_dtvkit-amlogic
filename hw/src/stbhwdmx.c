@@ -55,6 +55,8 @@
 #include "linuxdvbdmx_wrapper.h"
 #include "stbdpc.h"
 #include "stb_utils.h"
+#include "stbhwdemux_usb.h"
+#include <Aml_MP/Aml_MP.h>
 
 #define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
@@ -2133,7 +2135,12 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 
    if (dmx_model_sc2)
    {
-      if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
+      if (STB_CIUsbModuleInserted() && source == DMX_TUNER)
+      {
+         dmx_src_cfg = STB_CIUsbGetDmxSource(demux_cap==DMX_CAPS_LIVE);
+         DMX_DBG("DMX_CAPS_LIVE usb camcard dmx_src_cfg=%d", dmx_src_cfg);
+      }
+      else if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
       {
          dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
          DMX_DBG("DMX_CAPS_LIVE dmx_src_cfg=%d", dmx_src_cfg);
@@ -2225,14 +2232,17 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
 #endif
 
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
-      if (plug == 0) {
-         //cam card is unplug.used camUnplug_tssource to
-         //set ts_input_idx for dmx source
+      if (plug == 0)
+      {
+         // cam card is unplug.used camUnplug_tssource to
+         // set ts_input_idx for dmx source
          aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camUnplug_tssource;
          DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.cam[slot].camUnplug_tssource);
-      } else if(plug == 1) {
-         //cam card is plug.used camPlug_tssource to
-         //set ts_input_idx for dmx source
+      }
+      else if (plug == 1)
+      {
+         // cam card is plug.used camPlug_tssource to
+         // set ts_input_idx for dmx source
          aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
          DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
       }

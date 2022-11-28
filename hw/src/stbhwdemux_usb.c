@@ -669,9 +669,9 @@ int STB_CIUsbClose()
 S32BIT STB_CIUsbWrite(U8BIT *buffer, U32BIT len)
 {
     int ret;
-	unsigned int dwActualSendLen = 0;
+    unsigned int dwActualSendLen = 0;
     char buf[2048];
-    int i;
+    unsigned int i;
 
     if (len > USB_CIMODULE_COMMAND_MAX_SIZE)
     {
@@ -699,7 +699,7 @@ S32BIT STB_CIUsbWrite(U8BIT *buffer, U32BIT len)
 S32BIT STB_CIUsbRead(U8BIT *buffer, U32BIT len)
 {
     int ret;
-	unsigned int dwActualRecvLen = 0;
+    unsigned int dwActualRecvLen = 0;
 #ifdef DEMUX_USB_MODULE_DEBUG
     char buf[1024];
 #endif

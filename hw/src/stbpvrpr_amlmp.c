@@ -1345,7 +1345,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       if (is_timeshift)
       {
          rec_timeshift_params.maxTime = s_rec_status[rec_index].timeshift_duration * 1000;
-         rec_timeshift_params.maxSize = s_rec_status[rec_index].timeshift_size * 1024 * 1024;
+         rec_timeshift_params.maxSize = s_rec_status[rec_index].timeshift_size * 1024 * 1024LL;
          rec_basic_params.segmentSize = STB_PVRGetTimeshiftRecordingSegmentSizeKB() * 1024;
       }
       //TODO:later register event callback

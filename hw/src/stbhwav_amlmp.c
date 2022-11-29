@@ -150,6 +150,7 @@ typedef enum
 {
     AUDIO_DECODER,
     VIDEO_DECODER,
+    AD_DECODER,
 } E_DECODER_INDEX;
 
 typedef struct
@@ -1365,7 +1366,9 @@ void STB_AVStopVideoDecoding(U8BIT path)
             if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
                ret = Aml_MP_Player_StopVideoDecoding(av_paths_status[av_path].player_handle);
                if (ret == 0) {
-                   if (AV_GetDecoderState_l(player_handle, AUDIO_DECODER) == DECODER_STATE_STOPPED) {
+                    if (AV_GetDecoderState_l(player_handle, AUDIO_DECODER) == DECODER_STATE_STOPPED &&
+                        AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
+                    {
                        AV_ReleaseTsPlayer_l(av_path);
                    } else {
                        VID_DBG("A NOW: A_START");
@@ -1504,7 +1507,9 @@ void STB_AVStopAudioDecoding(U8BIT path)
         {
             AUD_DBG("A NOW:A_STOP, Stop audio decode already");
             if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
-                if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED) {
+                if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED &&
+                    AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
+                {
                     AV_ReleaseTsPlayer_l(av_path);
                 }
             }
@@ -1516,7 +1521,9 @@ void STB_AVStopAudioDecoding(U8BIT path)
             if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
                 ret = Aml_MP_Player_StopAudioDecoding(av_paths_status[av_path].player_handle);
                 if (ret == 0) {
-                    if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED) {
+                    if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED &&
+                        AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
+                    {
                         AV_ReleaseTsPlayer_l(av_path);
                     } else {
                         AUD_DBG("V NOW:V_START");
@@ -4175,6 +4182,7 @@ static Aml_MP_StreamType toStreamType(E_DECODER_INDEX index) {
     switch (index) {
         case AUDIO_DECODER: return AML_MP_STREAM_TYPE_AUDIO;
         case VIDEO_DECODER: return AML_MP_STREAM_TYPE_VIDEO;
+        case AD_DECODER:    return AML_MP_STREAM_TYPE_AD;
         default:            return AML_MP_STREAM_TYPE_UNKNOWN;
     }
     return AML_MP_STREAM_TYPE_UNKNOWN;

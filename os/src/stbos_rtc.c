@@ -64,6 +64,7 @@ static U32BIT sync_time = 0;
 
 /* Local PROTOTYPE Declarations */
 static U32BIT SysBootTime(void);
+static U32BIT SysBootTimeSeconds(void);
 static U32BIT STB_OSGetSystemTime(void);
 static time_t STB_OSGetSystemUnixTimeStamp(void);
 
@@ -94,7 +95,7 @@ void STB_OSSetClockRTC(U32BIT num_seconds)
    utc_seconds = num_seconds;
 
    /* Save the system time at the point the clock has been set */
-   sync_time = STB_OSGetSystemUnixTimeStamp();
+   sync_time = SysBootTimeSeconds();
 
    local_time = (int64_t)(STB_OSGetSystemUnixTimeStamp());
    //minus current timezone and app will translate it stream time by adding current timezone
@@ -127,8 +128,8 @@ U32BIT STB_OSGetClockRTC(void)
    /* Actual time is given by the value saved in
     * utc_seconds with the difference between the time
     * when it was set (sync_time) and the time now.   */
-   time_now = utc_seconds + (STB_OSGetSystemUnixTimeStamp() - sync_time);
-   RTC_DBG("time_now:%u = utc_seconds:%u + (SystemUnixTime:%u-sync_time:%u)",time_now,utc_seconds, STB_OSGetSystemUnixTimeStamp(), sync_time);
+   time_now = utc_seconds + (SysBootTimeSeconds() - sync_time);
+   RTC_DBG("time_now:%u = utc_seconds:%u + (SysBootTimeSeconds:%u-sync_time:%u)",time_now,utc_seconds, SysBootTimeSeconds(), sync_time);
 
    FUNCTION_FINISH(STB_OSGetClockRTC);
 
@@ -312,6 +313,20 @@ static U32BIT SysBootTime(void)
     boot_time_in_msec=tsp.tv_sec*1000+tsp.tv_nsec/1000000;
     //RTC_DBG("timespec=(%u,%ld), ret=%u", tsp.tv_sec,tsp.tv_nsec,(U32BIT)boot_time_in_msec);
     return (U32BIT)boot_time_in_msec;
+}
+
+static U32BIT SysBootTimeSeconds(void)
+{
+    struct timespec tsp;
+
+    /* Notice CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time */
+    clock_gettime(CLOCK_MONOTONIC,&tsp);
+    /* Overflow is unlikely to happen here for reasons below:
+     * 1) Time out of CLOCK_MONOTONIC starts from 0 and reflects actual elapsed time from boot;
+     * 2) Time out of CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time;
+     */
+    //RTC_DBG("timespec=(%u,%ld), ret=%u", tsp.tv_sec,tsp.tv_nsec,(U32BIT)boot_time_in_msec);
+    return (U32BIT)tsp.tv_sec;
 }
 
 static U32BIT STB_OSGetSystemTime(void)

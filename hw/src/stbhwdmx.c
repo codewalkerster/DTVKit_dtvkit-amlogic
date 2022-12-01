@@ -85,6 +85,7 @@
 #define TEXT_BUFFER_SIZE            (65 * 1024)
 
 #define DSC_DEV_NO                  0
+#define DSC_CHAN_NUM                8
 #define MAX_DSC_DEV                 3
 #define MAX_SC2_DSC_DEV             32
 
@@ -230,6 +231,7 @@ static U8BIT* pes_data = NULL;
 static U32BIT pes_data_size = 0;
 static BOOLEAN support_tsd = TRUE;
 static int ciplus_enable = 0;
+static int g_max_dev_num;
 
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
@@ -247,7 +249,6 @@ static int DvbEnableCIPlus(int enable);
 static int CheckIfDmxIsNew(void);
 
 
-#define DSC_CHAN_NUM 8
 
 /*Descrambler device information.*/
 typedef struct {
@@ -491,7 +492,7 @@ static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
    desc.params.key_params.parity = parity;
    desc.params.key_params.key_index = key_index;
 
-   if (dev_id >= MAX_DSC_DEV)
+   if (dev_id >= g_max_dev_num)
    {
       return -1;
    }
@@ -900,7 +901,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
    DMX_DBG("setkey: %x %x %x", data[0], data[1], data[2]);
    DMX_DBG("dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, dmx_model_sc2);
 
-   if (dev_id > MAX_DSC_DEV || chan_id < 0)
+   if (dev_id > g_max_dev_num || chan_id < 0)
    {
       DMX_DBG("param invalid, set key failed");
       return -1;
@@ -1256,10 +1257,11 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       DMX_DBG("STB_DMXInitialise dsc_dev_num %d",dsc_dev_num);
       if (dmx_model_sc2)
       {
+         g_max_dev_num = MAX_SC2_DSC_DEV;
          sc2_dsc_dev_info = (S_SC2_DSC_DEV_INFO *)STB_MEMGetSysRAM(sizeof(S_SC2_DSC_DEV_INFO));
          sc2_dsc_dev_info->key_fd = -1;
          sc2_dsc_dev_info->mutex = STB_OSCreateMutex();
-         for (i = 0; i < MAX_DSC_DEV; i++)
+         for (i = 0; i < MAX_SC2_DSC_DEV; i++)
          {
             sc2_dsc_dev_info->dsc_fd[i] = -1;
             sc2_dsc_dev_info->dsc_ref[i] = 0;
@@ -1276,6 +1278,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       else
       {
          dsc_dev_info = (S_DSC_DEV_INFO *)STB_MEMGetSysRAM(sizeof(S_DSC_DEV_INFO) * num_paths);
+         g_max_dev_num = MAX_DSC_DEV;
 
          for (i = 0; i < dsc_dev_num; i++)
          {

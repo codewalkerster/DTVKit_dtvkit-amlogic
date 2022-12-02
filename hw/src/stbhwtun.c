@@ -1855,10 +1855,31 @@ E_STB_TUNE_TGUARDINT STB_TuneGetActualTerrGuardInt(U8BIT path)
  */
 U16BIT STB_TuneGetActualTerrCellId(U8BIT path)
 {
+    struct dtv_property cmd;
+    struct dtv_properties props;
+    U16BIT cell_id = 0xFFFF;
+
     FUNCTION_START(STB_TuneGetActualTerrCellId);
-    USE_UNWANTED_PARAM(path);
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        cmd.cmd = DTV_DELIVERY_SYSTEM;
+        props.num = 1;
+        props.props = &cmd;
+        if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0 &&
+            (cmd.u.data == SYS_DVBT2 || cmd.u.data == SYS_DVBT))
+        {
+            cell_id = cmd.reserved[2];
+            TUN_DBG("%u: cell_id=0x%04X", path, cell_id);
+        }
+        else
+        {
+            TUN_ERR("%u: Failed to get cell_id, errno %d", path, errno);
+        }
+    }
+
     FUNCTION_FINISH(STB_TuneGetActualTerrCellId);
-    return(0);
+    return cell_id;
 }
 
 /**

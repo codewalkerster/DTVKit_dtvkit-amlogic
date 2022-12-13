@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include "linuxdvbdmx_wrapper.h"
+#include "stbhwcfg.h"
 #include "stbhwc.h"
 
 #define DMX_COUNT (6)
@@ -63,14 +64,14 @@ static dvb_dmx_t dmx_devices[DMX_COUNT];
 
 static inline BOOLEAN dmx_get_dev(int dev_no, dvb_dmx_t **dev)
 {
-	if ((dev_no < 0) || (dev_no >= DMX_COUNT))
-	{
-		DMX_DBG("invalid demux device number %d, must in(%d~%d)", dev_no, 0, DMX_COUNT-1);
-		return FALSE;
-	}
+    if ((dev_no < 0) || (dev_no >= DMX_COUNT))
+    {
+        DMX_DBG("invalid demux device number %d, must in(%d~%d)", dev_no, 0, DMX_COUNT-1);
+        return FALSE;
+    }
 
-	*dev = &dmx_devices[dev_no];
-	return TRUE;
+    *dev = &dmx_devices[dev_no];
+    return TRUE;
 }
 
 static void* dmx_data_thread(void *arg)
@@ -113,55 +114,63 @@ static void* dmx_data_thread(void *arg)
            }
         }
 
-    	pthread_mutex_unlock(&dmx->lock);
+        pthread_mutex_unlock(&dmx->lock);
 
-    	if (!cnt)
+        if (!cnt)
         {
             usleep(20*1000);
-    	    continue;
+            continue;
         }
 
-    	ret = poll(fds, cnt, DMX_POLL_TIMEOUT);
-    	if (ret <= 0)
-    	{
-    	    continue;
-    	}
+        ret = poll(fds, cnt, DMX_POLL_TIMEOUT);
+        if (ret <= 0)
+        {
+            continue;
+        }
 
-    	for (i = 0; i < cnt; i++)
-    	{
-    	    if (fds[i].revents & (POLLIN | POLLERR))
-    	    {
-        		pthread_mutex_lock(&dmx->lock);
-        		filter = &dmx->filter[fids[i]];
-        		if (!filter->enable || !filter->used || filter->need_free)
-        		{
-        		    DMX_DBG("ch[%d] not used, not read %d", fids[i], len);
-        		    len = 0;
-        		}
-        		else
-        		{
+        for (i = 0; i < cnt; i++)
+        {
+            if (fds[i].revents & (POLLIN | POLLERR))
+            {
+                pthread_mutex_lock(&dmx->lock);
+                filter = &dmx->filter[fids[i]];
+                if (!filter->enable || !filter->used || filter->need_free)
+                {
+                    DMX_DBG("ch[%d] not used, not read %d", fids[i], len);
+                    len = 0;
+                }
+                else
+                {
                      len = read(filter->fd, sec_buf, SEC_BUF_SIZE);
                      if (len <= 0)
                      {
                          DMX_DBG("read demux filter[%d] failed (%s) %d", fids[i], strerror(errno), errno);
                      }
-        		}
-        		pthread_mutex_unlock(&dmx->lock);
+                }
+                pthread_mutex_unlock(&dmx->lock);
 #ifdef DEBUG_DEMUX_DATA
-        		if (len)
-        		    DMX_DBG("tid[%#x] ch[%d] %#x bytes", sec_buf[0], fids[i], len);
+                if (len)
+                    DMX_DBG("tid[%#x] ch[%d] %#x bytes", sec_buf[0], fids[i], len);
 #endif
-        		if (len > 0 && filter->cb)
-        		{
-        		    filter->cb(filter->dev_no, fids[i], sec_buf, len, filter->user_data);
-        		}
-    	    }
-    	}
+                if (len > 0 && filter->cb)
+                {
+                    if (TRUE == STB_GetCustomCFGForShineDemux())
+                    {
+                        DMX_DBG("dev_no:%d filter_dev_no:%d tid:%x", dmx->dev_no, filter->dev_no, sec_buf[0]);
+                        filter->cb(dmx->dev_no, fids[i], sec_buf, len, filter->user_data);
+                    }
+                    else
+                    {
+                        filter->cb(filter->dev_no, fids[i], sec_buf, len, filter->user_data);
+                    }
+                }
+            }
+        }
     }
 
     if (sec_buf)
     {
-	    free(sec_buf);
+        free(sec_buf);
     }
 
     return NULL;
@@ -171,14 +180,14 @@ static dvb_dmx_filter_t* dmx_get_filter(dvb_dmx_t * dev, int fhandle)
 {
     if (fhandle >= DMX_FILTER_COUNT)
     {
-    	DMX_DBG("wrong filter no");
-    	return NULL;
+        DMX_DBG("wrong filter no");
+        return NULL;
     }
 
     if (!dev->filter[fhandle].used)
     {
-    	DMX_DBG("filter %d not allocated", fhandle);
-    	return NULL;
+        DMX_DBG("filter %d not allocated", fhandle);
+        return NULL;
     }
     return &dev->filter[fhandle];
 }
@@ -192,11 +201,11 @@ BOOLEAN DMX_Open(int dev_no)
 
     if (dev->running)
     {
-	    DMX_DBG("dmx already initialized");
-	    return FALSE;
+        DMX_DBG("dmx already initialized");
+        return FALSE;
     }
 
-	dev->dev_no = dev_no;
+    dev->dev_no = dev_no;
 
     pthread_mutex_init(&dev->lock, NULL);
     dev->running = 1;
@@ -224,10 +233,10 @@ BOOLEAN DMX_AllocateFilter(int dev_no, int *fhandle)
     filter = &dev->filter[0];
     for (fid = 0; fid < DMX_FILTER_COUNT; fid++)
     {
-    	if (!filter[fid].used)
-    	{
-    	    break;
-    	}
+        if (!filter[fid].used)
+        {
+            break;
+        }
     }
 
     if (fid >= DMX_FILTER_COUNT)
@@ -279,16 +288,47 @@ BOOLEAN DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_pa
     filter = dmx_get_filter(dev, fhandle);
     if (filter)
     {
-	   if (ioctl(filter->fd, DMX_STOP, 0) < 0)
-	   {
-		   DMX_DBG("dmx stop filter failed error:%s", strerror(errno));
-		   ret = FALSE;
-	   }
-	   else if (ioctl(filter->fd, DMX_SET_FILTER, params) < 0)
-	   {
-	   	  DMX_DBG("set filter failed error:%s", strerror(errno));
-		  ret = FALSE;
-	   }
+        if (TRUE == STB_GetCustomCFGForShineDemux())
+        {
+            int real_dev_no = (params->pid == 0x10) ? 2 : dev_no;
+            if (filter->dev_no != real_dev_no)
+            {
+                char name[64];
+
+                close(filter->fd);
+                snprintf(name, sizeof(name), "/dev/dvb0.demux%d", real_dev_no);
+                filter->fd = open(name, O_RDWR);
+                if (filter->fd == -1)
+                {
+                    DMX_DBG("cannot open demux%d, error: %s", real_dev_no, strerror(errno));
+                    pthread_mutex_unlock(&dev->lock);
+                    return FALSE;
+                }
+                filter->dev_no = real_dev_no;
+
+                DMX_DBG("reset filter %d pid %x on demux %d", fhandle, params->pid, filter->dev_no);
+                if (ioctl(filter->fd, DMX_SET_BUFFER_SIZE, 4096) < 0)
+                {
+                    DMX_DBG("set buf size failed error: %s", strerror(errno));
+                    ret = FALSE;
+                }
+            }
+            else
+            {
+                DMX_DBG("set filter %d pid %x on demux %d", fhandle, params->pid, filter->dev_no);
+            }
+        }
+
+        if (ioctl(filter->fd, DMX_STOP, 0) < 0)
+        {
+            DMX_DBG("dmx stop filter failed error:%s", strerror(errno));
+            ret = FALSE;
+        }
+        else if (ioctl(filter->fd, DMX_SET_FILTER, params) < 0)
+        {
+            DMX_DBG("set filter failed error:%s", strerror(errno));
+            ret = FALSE;
+        }
     }
 
     pthread_mutex_unlock(&dev->lock);
@@ -316,13 +356,13 @@ BOOLEAN DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_pa
     filter = dmx_get_filter(dev, fhandle);
     if (filter)
     {
-	   if (ioctl(filter->fd, DMX_STOP, 0) < 0)
-	   {
+       if (ioctl(filter->fd, DMX_STOP, 0) < 0)
+       {
                DMX_DBG("dmx stop filter failed error:%s", strerror(errno));
                ret = FALSE;
-	   }
-	   else
-	   {
+       }
+       else
+       {
             if(fcntl(filter->fd, F_SETFL, O_NONBLOCK) < 0)
             {
                 DMX_DBG("set F_SETFL failed error:%s", strerror(errno));
@@ -334,7 +374,7 @@ BOOLEAN DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_pa
                 DMX_DBG("set filter failed error:%s", strerror(errno));
                 ret = FALSE;
             }
-	   }
+       }
     }
 
     pthread_mutex_unlock(&dev->lock);
@@ -360,11 +400,11 @@ BOOLEAN DMX_SetBufferSize(int dev_no, int fhandle, int size)
     filter = dmx_get_filter(dev, fhandle);
     if (filter)
     {
-	    if (ioctl(filter->fd, DMX_SET_BUFFER_SIZE, size) < 0)
-	    {
- 	   	  DMX_DBG("set buf size failed error:%s", strerror(errno));
-		  ret = FALSE;
-		}
+        if (ioctl(filter->fd, DMX_SET_BUFFER_SIZE, size) < 0)
+        {
+          DMX_DBG("set buf size failed error:%s", strerror(errno));
+          ret = FALSE;
+        }
     }
 
     pthread_mutex_unlock(&dev->lock);
@@ -387,7 +427,7 @@ BOOLEAN DMX_FreeFilter(int dev_no, int fhandle)
     filter = dmx_get_filter(dev, fhandle);
     if (filter)
     {
-	    filter->need_free = 1;
+        filter->need_free = 1;
     }
 
     pthread_mutex_unlock(&dev->lock);
@@ -464,36 +504,36 @@ BOOLEAN DMX_StopFilter(int dev_no, int fhandle)
 
 BOOLEAN DMX_SetSource(int dev_no, AML_DMX_Source_t src)
 {
-	char buf[32];
-	char *cmd;
+    char buf[32];
+    char *cmd;
 
-	snprintf(buf, sizeof(buf), "/sys/class/stb/demux%d_source", dev_no);
-	switch(src)
-	{
-		case AML_DMX_SRC_TS0:
-			cmd = "ts0";
-		break;
-		case AML_DMX_SRC_TS1:
-			cmd = "ts1";
-		break;
-		case AML_DMX_SRC_TS2:
-			cmd = "ts2";
-		break;
-		case AML_DMX_SRC_TS3:
-			cmd = "ts3";
-		break;
-		case AML_DMX_SRC_HIU:
-			cmd = "hiu";
-		break;
-		case AML_DMX_SRC_HIU1:
-			cmd = "hiu1";
-		break;
-		default:
-			DMX_DBG("do not support demux source %d", src);
-		return FALSE;
-	}
+    snprintf(buf, sizeof(buf), "/sys/class/stb/demux%d_source", dev_no);
+    switch(src)
+    {
+        case AML_DMX_SRC_TS0:
+            cmd = "ts0";
+        break;
+        case AML_DMX_SRC_TS1:
+            cmd = "ts1";
+        break;
+        case AML_DMX_SRC_TS2:
+            cmd = "ts2";
+        break;
+        case AML_DMX_SRC_TS3:
+            cmd = "ts3";
+        break;
+        case AML_DMX_SRC_HIU:
+            cmd = "hiu";
+        break;
+        case AML_DMX_SRC_HIU1:
+            cmd = "hiu1";
+        break;
+        default:
+            DMX_DBG("do not support demux source %d", src);
+        return FALSE;
+    }
 
-	return DMX_FileEcho(buf, cmd);
+    return DMX_FileEcho(buf, cmd);
 }
 
 
@@ -531,7 +571,7 @@ BOOLEAN DMX_Close(int dev_no)
 {
     int i;
     int open_count = 0;
-	dvb_dmx_t *dev = NULL;
+    dvb_dmx_t *dev = NULL;
     dvb_dmx_filter_t *filter = NULL;
     BOOLEAN ret = TRUE;
 
@@ -545,23 +585,24 @@ BOOLEAN DMX_Close(int dev_no)
 
     for (i = 0; i < DMX_FILTER_COUNT; i++)
     {
-    	filter = &dev->filter[i];
-    	if (filter->used && filter->dev_no == dev_no)
-    	{
-    	    if (filter->enable)
-    	    {
+        filter = &dev->filter[i];
+        if (((TRUE == STB_GetCustomCFGForShineDemux()) && (filter->used)) ||
+            ((filter->used && filter->dev_no == dev_no)))
+        {
+            if (filter->enable)
+            {
                 if(ioctl(filter->fd, DMX_STOP, 0) < 0)
                 {
                     DMX_DBG("set filter failed error:%s", strerror(errno));
                     ret = FALSE;
                 }
-    	    }
-    	    close(filter->fd);
-    	}
-	else if (filter->used)
-    	{
-    	    open_count++;
-    	}
+            }
+            close(filter->fd);
+        }
+        else if (filter->used)
+        {
+            open_count++;
+        }
     }
 
     if (open_count == 0)
@@ -577,27 +618,27 @@ BOOLEAN DMX_Close(int dev_no)
 
 BOOLEAN DMX_FileEcho(const char *name, const char *cmd)
 {
-	int fd, len, ret;
+    int fd, len, ret;
 
-	if (!name || !cmd)
-		return FALSE;
+    if (!name || !cmd)
+        return FALSE;
 
-	fd = open(name, O_WRONLY);
-	if (fd == -1)
-	{
-		DMX_DBG("cannot open file \"%s\"", name);
-		return FALSE;
-	}
+    fd = open(name, O_WRONLY);
+    if (fd == -1)
+    {
+        DMX_DBG("cannot open file \"%s\"", name);
+        return FALSE;
+    }
 
-	len = strlen(cmd);
-	ret = write(fd, cmd, len);
-	if (ret != len)
-	{
-		DMX_DBG("write failed file:\"%s\" cmd:\"%s\" error:\"%s\"", name, cmd, strerror(errno));
-		close(fd);
-		return FALSE;
-	}
+    len = strlen(cmd);
+    ret = write(fd, cmd, len);
+    if (ret != len)
+    {
+        DMX_DBG("write failed file:\"%s\" cmd:\"%s\" error:\"%s\"", name, cmd, strerror(errno));
+        close(fd);
+        return FALSE;
+    }
 
-	close(fd);
-	return TRUE;
+    close(fd);
+    return TRUE;
 }

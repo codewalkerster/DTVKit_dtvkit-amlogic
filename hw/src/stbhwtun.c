@@ -751,10 +751,9 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             state = tstatus->state;
             STB_OSMutexUnlock(tstatus->mutex);
 
-            tstatus->lock_flags |= FEND_FL_LOCK;
-
             if (start_tuning || tstatus->tuning_params_changed || GetTunerLockStatus(tstatus->frontend_fd) != TUNER_STATE_LOCKED)
             {
+                tstatus->lock_flags |= FEND_FL_LOCK;
                 TUN_DBG("start_tuning: %d tuning_params_changed:%d", start_tuning,tstatus->tuning_params_changed);
 
                 if (state != TUNER_IDLE && state != TUNER_EXITED)
@@ -803,10 +802,6 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                 }
                 else if (state == TUNER_IDLE)
                 {
-                    STB_OSMutexLock(tstatus->mutex);
-                    tstatus->state = TUNER_LOCKED;
-                    state = tstatus->state;
-                    STB_OSMutexUnlock(tstatus->mutex);
                     STB_OSSemaphoreSignal(tstatus->tune_sem);
                     TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
                     if (0 == STB_GetFccPipCfgStatus())
@@ -2892,11 +2887,12 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
 {
     if ((NULL != tstatus) && (tstatus->frontend_fd != INVALID_FD))
     {
-        TUN_DBG("close frontend_fd:%d", tstatus->frontend_fd);
+        TUN_DBG("path %u: close tuner frontend_fd:%d", tstatus->path,tstatus->frontend_fd);
         SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
         tstatus->signal_type = TUNE_SIGNAL_NONE;
         close(tstatus->frontend_fd);
         tstatus->frontend_fd = INVALID_FD;
+        tstatus->freq = 0;
         EmuTunerStop(tstatus->path);
     }
 
@@ -3233,14 +3229,13 @@ static void* TunerTask(void *param)
             if (sem_ret)
             {
                 tune_idle_timer = 0;
-                STB_OSMutexLock(tstatus->mutex);
-
-                if (tstatus->state == TUNER_LOCKED)
+                if (0 == (tstatus->lock_flags & FEND_FL_LOCK))
                 {
-                    STB_OSMutexUnlock(tstatus->mutex);
+                    STB_OSMutexLock(tstatus->mutex);
+                    tstatus->state = TUNER_LOCKED;
                     state = tstatus->state;
+                    STB_OSMutexUnlock(tstatus->mutex);
                     TUN_INFO("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
-                    tstatus->lock_flags &= ~FEND_FL_LOCK;
                     if (0 == STB_GetFccPipCfgStatus())
                     {
                         STB_OSSemaphoreSignal(tstatus->tune_sem_lock);
@@ -3381,6 +3376,7 @@ static void* TunerTask(void *param)
             else
             {
                 tune_idle_timer ++;
+                TUN_INFO("path:%u:tune_idle_timer:%u,frontend_usage=%d", tstatus->path, tune_idle_timer,tstatus->frontend_usage);
 
                 if (tune_idle_timer >= TUNER_USELESS_TIMEOUT && tstatus->frontend_usage == 0)
                 {
@@ -3561,6 +3557,7 @@ static void* TunerTask(void *param)
             }
         }
     }
+    TUN_DBG("%u: o o  task exit....", tstatus->path);
     return NULL;
 }
 

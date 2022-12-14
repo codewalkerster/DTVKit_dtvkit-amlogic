@@ -1157,7 +1157,7 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
     return retval;
 }
 
-static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
+static U8BIT SNR10ToSQI(U8BIT path, S16BIT snr)
 {
     int sqi = 0;
 
@@ -1324,7 +1324,7 @@ static U8BIT SNR10ToSQI(U8BIT path, U16BIT snr)
 U8BIT STB_TuneGetSignalQuality(U8BIT path)
 {
     U8BIT retval;
-    uint16_t quality;
+    S16BIT quality;
 
     FUNCTION_START(STB_TuneGetSignalQuality);
 
@@ -1338,7 +1338,7 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
     {
         if (IsTunerLocked(&tuner_status[path]))
         {
-            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, &quality) >= 0)
+            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, (U16BIT *)&quality) >= 0)
             {
                 retval = SNR10ToSQI(path, quality);
                 //TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);

@@ -318,13 +318,7 @@ static U32BIT SysBootTime(void)
 static U32BIT SysBootTimeSeconds(void)
 {
     struct timespec tsp;
-
-    /* Notice CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time */
-    clock_gettime(CLOCK_MONOTONIC,&tsp);
-    /* Overflow is unlikely to happen here for reasons below:
-     * 1) Time out of CLOCK_MONOTONIC starts from 0 and reflects actual elapsed time from boot;
-     * 2) Time out of CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time;
-     */
+    clock_gettime(CLOCK_BOOTTIME,&tsp);
     //RTC_DBG("timespec=(%u,%ld), ret=%u", tsp.tv_sec,tsp.tv_nsec,(U32BIT)boot_time_in_msec);
     return (U32BIT)tsp.tv_sec;
 }

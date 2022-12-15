@@ -156,7 +156,6 @@ static void* dmx_data_thread(void *arg)
                 {
                     if (TRUE == STB_GetCustomCFGForShineDemux())
                     {
-                        DMX_DBG("dev_no:%d filter_dev_no:%d tid:%x", dmx->dev_no, filter->dev_no, sec_buf[0]);
                         filter->cb(dmx->dev_no, fids[i], sec_buf, len, filter->user_data);
                     }
                     else

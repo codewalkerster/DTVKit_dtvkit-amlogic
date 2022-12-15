@@ -1599,7 +1599,7 @@ void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
    FUNCTION_FINISH(STB_AVGetSTC);
 }
 
-void STB_AVGetSTCByStreamType(U8BIT path, U8BIT stc[5], int streamType)
+void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5])
 {
    int64_t video_pts;
    int ret;
@@ -1608,7 +1608,6 @@ void STB_AVGetSTCByStreamType(U8BIT path, U8BIT stc[5], int streamType)
    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
    VID_DBG("video codec path=%u av_path = %u", path, av_path);
-   VID_DBG("Aml_MP_StreamType streamType = %d", streamType);
    if (av_path == INVALID_RES_ID) {
       VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
       return;
@@ -1630,7 +1629,7 @@ void STB_AVGetSTCByStreamType(U8BIT path, U8BIT stc[5], int streamType)
        return;
    }
    STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-   ret = Aml_MP_Player_GetCurrentPts(player_handle, (Aml_MP_StreamType)streamType, &video_pts);
+   ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_PCR, &video_pts);
    AUD_DBG("the ret value = %d",ret);
    STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
    if (ret == 0)

@@ -2493,7 +2493,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
           err = Aml_MP_Player_StartADDecoding(player_handle);
           if (err < 0) {
               AUD_DBG("Enable AD err:%d", err);
-              return FALSE;
+              ret = FALSE;;
           } else {
               AUD_DBG("Start AD decoding ok, pid[%d] fmt[%d]", ad_pid, av_paths_status[av_path].ad_format);
               av_paths_status[av_path].ad_pid = ad_pid;
@@ -2572,6 +2572,7 @@ void STB_AVStopADDecoding(U8BIT path)
       if (IS_INVALID_PLAYER_HANDLE(av_path))
       {
          AUD_DBG("Invalid player handle");
+         pthread_rwlock_unlock(_l);
          return;
       }
 

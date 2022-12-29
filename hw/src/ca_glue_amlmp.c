@@ -125,6 +125,7 @@ typedef struct es_pid_entry
 typedef struct
 {
     BOOLEAN has_global_ca;
+    BOOLEAN has_component_ca;
     U8BIT scramble_algo;
     CA_INFO *ca_pid_list;
     CA_INFO *last_pid_entry;
@@ -674,9 +675,13 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
     STB_OSMutexLock(g_ca_mutex);
 
     //only support descrambling of global ca descriptor for now.
-    if (((STB_CA_Glue_t *)handle)->pmt_info.has_global_ca == FALSE)
+    //For component level descramble stream, irdeto cas plugin will process
+    //cat and pmt by itself, don't need dtvkit to do extra things.
+    //it is not suitable for other CAS.
+    if (((STB_CA_Glue_t *)handle)->pmt_info.has_global_ca == FALSE &&
+        ((STB_CA_Glue_t *)handle)->pmt_info.has_component_ca == FALSE)
     {
-        CA_DBG(("%s Warning: DO*NOT have global ca descriptor", __FUNCTION__));
+        CA_DBG(("%s Warning: DO*NOT have ca descriptor", __FUNCTION__));
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
@@ -718,7 +723,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
     {
         ca_serv_info.ecm_pid = ((STB_CA_Glue_t *)handle)->session_info->ecm_pid;
     }
-    
+
     pid_entry = ((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list;
 
     /* pass scramble algorithm to cas hal */
@@ -905,7 +910,7 @@ static void collect_pmt_streams_ca_info(UINTPTR handle, PMT_INFO *pmt_info, SI_P
 
         for (i = 0; i < stream_entry->num_ca_entries; i++)
         {
-            if (Aml_MP_CAS_IsSystemIdSupported(stream_entry->ca_desc_array[i].ca_pid))
+            if (Aml_MP_CAS_IsSystemIdSupported(stream_entry->ca_desc_array[i].ca_id))
             {
                 ca_pid_info->es_pid = stream_entry->pid;
                 ca_pid_info->ecm_pid = stream_entry->ca_desc_array[i].ca_pid;
@@ -922,6 +927,8 @@ static void collect_pmt_streams_ca_info(UINTPTR handle, PMT_INFO *pmt_info, SI_P
 
                 pmt_info->last_pid_entry = ca_pid_info;
 
+                pmt_info->has_component_ca = TRUE;
+                CA_DBG(("%s supported component CA desc found", __FUNCTION__));
                 break;
             }
         }

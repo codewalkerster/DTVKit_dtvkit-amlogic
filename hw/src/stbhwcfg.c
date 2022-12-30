@@ -116,7 +116,7 @@ stb_hardware_cfg aml_hw_cfg = {
 
 stb_custom_config aml_custom_config = {
     .auto_time_enable = FALSE,
-    .shine_ad_enable = FALSE,
+    .fos_ad_enable = FALSE,
     .shine_dmx_enable = FALSE,
     .ms12_ac4_enable = FALSE,
     .deu_sort_lcn_after_last = FALSE,
@@ -552,11 +552,11 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             an = att[0];
             av = att[1];
             if (!strcmp(an, "shine_ad_enable") && !strcmp(av, "yes")) {
-                aml_custom_config.shine_ad_enable = TRUE;
+                aml_custom_config.fos_ad_enable = TRUE;
             }
             att += 2;
         }
-        CFG_DBG("audio_function, shine_ad_enable is set to %d", aml_custom_config.shine_ad_enable);
+        CFG_DBG("audio_function, fos_ad_enable is set to %d", aml_custom_config.fos_ad_enable);
     }
     else if (!strcmp(name, "demux_function"))
     {
@@ -1111,9 +1111,9 @@ BOOLEAN STB_GetCustomCFGForAutoTime(void)
     return aml_custom_config.auto_time_enable;
 }
 
-BOOLEAN STB_GetCustomCFGForShineAudio(void)
+BOOLEAN STB_GetCustomCFGForFOSAudio(void)
 {
-    return aml_custom_config.shine_ad_enable;
+    return aml_custom_config.fos_ad_enable;
 }
 
 BOOLEAN STB_GetCustomCFGForShineDemux(void)

@@ -121,6 +121,7 @@ stb_custom_config aml_custom_config = {
     .ms12_ac4_enable = FALSE,
     .deu_sort_lcn_after_last = FALSE,
     .deu_use_invisible_flag = TRUE,
+    .disable_automatic_update = FALSE,
 };
 
 static void DVR_Get_Prop(const char *name, char *buf, int len);
@@ -600,6 +601,19 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         }
         CFG_DBG("lcn_function, deu_sort_lcn_after_last is set to %d", aml_custom_config.deu_sort_lcn_after_last);
         CFG_DBG("lcn_function, deu_use_invisible_flag is set to %d", aml_custom_config.deu_use_invisible_flag);
+    }
+    else if (!strcmp(name,"monitor_function"))
+    {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "disable_automatic_update") && !strcmp(av, "yes")) {
+                aml_custom_config.disable_automatic_update = TRUE;
+            }
+            att += 2;
+        }
+        CFG_DBG("monitor_function, disable_automatic_update is set to %d", aml_custom_config.disable_automatic_update);
     }
 }
 
@@ -1134,6 +1148,11 @@ BOOLEAN STB_GetCustomCFGForDEULcnSortAfterLast(void)
 BOOLEAN STB_GetCustomCFGForDEUUseInviableFlag(void)
 {
     return aml_custom_config.deu_use_invisible_flag;
+}
+
+BOOLEAN STB_GetCustomCFGForDisableAutomaticUpdate(void)
+{
+    return aml_custom_config.disable_automatic_update;
 }
 
 static void DVR_Get_Prop(const char *name, char *buf, int len)

@@ -84,6 +84,9 @@ static void* dmx_data_thread(void *arg)
     int fids[DMX_FILTER_COUNT];
     struct pollfd fds[DMX_FILTER_COUNT];
     dvb_dmx_filter_t *filter = NULL;
+    int filter_dev_no;
+    AML_DMX_DataCb filter_cb = NULL;
+    void *filter_data = NULL;
     dvb_dmx_t *dmx = (dvb_dmx_t *)arg;
 
     sec_buf = (uint8_t *)malloc(SEC_BUF_SIZE);
@@ -147,20 +150,23 @@ static void* dmx_data_thread(void *arg)
                          DMX_DBG("read demux filter[%d] failed (%s) %d", fids[i], strerror(errno), errno);
                      }
                 }
+                filter_cb     = filter->cb;
+                filter_data   = filter->user_data;
+                filter_dev_no = filter->dev_no;
                 pthread_mutex_unlock(&dmx->lock);
 #ifdef DEBUG_DEMUX_DATA
                 if (len)
                     DMX_DBG("tid[%#x] ch[%d] %#x bytes", sec_buf[0], fids[i], len);
 #endif
-                if (len > 0 && filter->cb)
+                if (len > 0 && filter_cb)
                 {
                     if (TRUE == STB_GetCustomCFGForShineDemux())
                     {
-                        filter->cb(dmx->dev_no, fids[i], sec_buf, len, filter->user_data);
+                        filter_cb(dmx->dev_no, fids[i], sec_buf, len, filter_data);
                     }
                     else
                     {
-                        filter->cb(filter->dev_no, fids[i], sec_buf, len, filter->user_data);
+                        filter_cb(filter_dev_no, fids[i], sec_buf, len, filter_data);
                     }
                 }
             }

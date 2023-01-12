@@ -214,6 +214,7 @@ typedef struct {
 
    S16BIT v_chanid;
    S16BIT a_chanid;
+   S16BIT ad_chanid;
 
    char flags; //DVR_PLAYBACK_STARTED_PAUSEDLIVE
 
@@ -373,6 +374,10 @@ static void sc2_playback_setkey(int play_index, E_PLAYBACK_CHANNEL channel)
          s_recplay_status[play_index].v_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, video_pid, DESC_TYPE_AES, DSC_TSD_TYPE);
          STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].v_chanid, DESC_TYPE_AES, DSC_TSD_TYPE, KEY_PARITY_NONE, dmx_aes_key);
          break;
+      case PLAYBACK_AD_CHANNEL:
+         s_recplay_status[play_index].ad_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, ad_pid, DESC_TYPE_AES, DSC_TSD_TYPE);
+         STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].ad_chanid, DESC_TYPE_AES, DSC_TSD_TYPE, KEY_PARITY_NONE, dmx_aes_key);
+         break;
       default:
          PLAY_DBG("unknown channel type, no action.");
          break;
@@ -388,6 +393,9 @@ static void sc2_playback_freekey(int play_index, E_PLAYBACK_CHANNEL channel)
          break;
       case PLAYBACK_VIDEO_CHANNEL:
          STB_DMXDscFree(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].v_chanid);
+         break;
+      case PLAYBACK_AD_CHANNEL:
+         STB_DMXDscFree(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].ad_chanid);
          break;
       default:
          PLAY_DBG("unknown channel type, no action.");
@@ -753,6 +761,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
          {
             sc2_playback_setkey(play_index, PLAYBACK_AUDIO_CHANNEL);
             sc2_playback_setkey(play_index, PLAYBACK_VIDEO_CHANNEL);
+            sc2_playback_setkey(play_index, PLAYBACK_AD_CHANNEL);
          }
          play_started = updatePlayback(play_index, 0);
       }
@@ -959,6 +968,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          {
             sc2_playback_freekey(play_index, PLAYBACK_AUDIO_CHANNEL);
             sc2_playback_freekey(play_index, PLAYBACK_VIDEO_CHANNEL);
+            sc2_playback_freekey(play_index, PLAYBACK_AD_CHANNEL);
          }
       }
       else
@@ -2694,6 +2704,12 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
          PLAY_DBG("ad pid changed.");
          ad_changed = 1;
+         if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_recplay_status[play_index].clearkey.enabled)
+         {
+            sc2_playback_freekey(play_index, PLAYBACK_AD_CHANNEL);
+            sc2_playback_setkey(play_index, PLAYBACK_AD_CHANNEL);
+
+         }
       }
 
       if (s_recplay_status[play_index].video_pid != video_pid)

@@ -546,7 +546,7 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
    r = STB_File_Echo(dev_name, dst_name);
 
    if (r != 0)
-      DMX_DBG("set descrambler source failed");
+      DMX_DBG("set %s source failed: %s", dev_name, strerror(errno));
 #ifdef COMMON_INTERFACE
       DvbEnableCIPlus(TRUE);
 #endif
@@ -779,7 +779,7 @@ dsc_set_aes_output(BOOLEAN enable)
    snprintf(dst_name, sizeof(dst_name), "%d", flag);
    r = STB_File_Echo(dev_name, dst_name);
    if (r != 0)
-      DMX_DBG("set descrambler source failed");
+      DMX_DBG("set %s source failed", dev_name);
 }
 
 void STB_DMXDscFree(int dev_id, int chan_id)
@@ -870,7 +870,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       if ((dsc->fd == -1) || (chan_id == -1))
          return;
 
-      params.pid = 0x1fff;
+      params.pid = DEMUX_PID_NOT_USED;
       params.index = chan_id;
 
       r = ioctl(dsc->fd, CA_SET_PID, &params);
@@ -882,7 +882,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       {
          dsc->ref--;
       }
-      DMX_DBG("dsc->ref %d", dsc->ref);
+      DMX_DBG("dsc->ref %d dev_id %d free_chan_id %d", dsc->ref, dev_id, chan_id);
       if ((dsc->ref == 0) && (dsc->fd != -1))
       {
          close(dsc->fd);
@@ -3450,12 +3450,15 @@ static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
         switch (src)
         {
         case DVB_DEMUX_SOURCE_TS0:
+        case DVB_DEMUX_SOURCE_TS0_1:
             val = "ts0";
             break;
         case DVB_DEMUX_SOURCE_TS1:
+        case DVB_DEMUX_SOURCE_TS1_1:
             val = "ts1";
             break;
         case DVB_DEMUX_SOURCE_TS2:
+        case DVB_DEMUX_SOURCE_TS2_1:
             val = "ts2";
             break;
         case DVB_DEMUX_SOURCE_DMA0:

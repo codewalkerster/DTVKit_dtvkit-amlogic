@@ -1925,54 +1925,66 @@ BOOLEAN STB_AVSetVideoWindow(U8BIT path, int x, int y, int width, int height)
  */
 BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
 {
-   BOOLEAN success;
+    BOOLEAN success;
 
-   FUNCTION_START(STB_AVSetVideoCodec);
-   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+    FUNCTION_START(STB_AVSetVideoCodec);
+    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
-   VID_DBG("video codec path=%u av_path = %u", path, av_path);
-   if (av_path == INVALID_RES_ID) {
-      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
-      return FALSE;
-   }
+    VID_DBG("video codec path=%u av_path = %u", path, av_path);
+    if (av_path == INVALID_RES_ID) {
+        VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+        return FALSE;
+    }
 
-   success = TRUE;
+    success = TRUE;
 
-   switch (codec)
-   {
-     case AV_VIDEO_CODEC_AUTO:
-        av_paths_status[av_path].video_format = AML_MP_CODEC_UNKNOWN;
-        VID_DBG("AUTO");
+    switch (codec)
+    {
+        case AV_VIDEO_CODEC_AUTO:
+            av_paths_status[av_path].video_format = AML_MP_CODEC_UNKNOWN;
+            VID_DBG("AUTO");
+            break;
+        case AV_VIDEO_CODEC_H264:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_H264;
+            VID_DBG("H264");
+            break;
+        case AV_VIDEO_CODEC_H265:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_HEVC;
+            VID_DBG("H265");
+            break;
+        case AV_VIDEO_CODEC_MPEG1:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_MPEG12;
+            VID_DBG("MPEG1");
+            break;
+        case AV_VIDEO_CODEC_MPEG2:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_MPEG12;
+            VID_DBG("MPEG2");
+            break;
+        case AV_VIDEO_CODEC_VP9:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_VP9;
+            VID_DBG("VP9");
+            break;
+        case AV_VIDEO_CODEC_AVS:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_AVS;
+            VID_DBG("AVS");
+            break;
+        case AV_VIDEO_CODEC_AVS2:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_AVS2;
+            VID_DBG("AVS2");
+            break;
+        case AV_VIDEO_CODEC_MPEG4:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_MPEG4;
+            VID_DBG("MPEG4");
+            break;
+        default:
+            VID_DBG("Unrecognised video codec %u", codec);
+            success = FALSE;
         break;
-     case AV_VIDEO_CODEC_H264:
-        av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_H264;
-        VID_DBG("H264");
-        break;
-     case AV_VIDEO_CODEC_H265:
-        av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_HEVC;
-        VID_DBG("H265");
-        break;
-     case AV_VIDEO_CODEC_MPEG1:
-        av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_MPEG12;
-        VID_DBG("MPEG1");
-        break;
-     case AV_VIDEO_CODEC_MPEG2:
-        av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_MPEG12;
-        VID_DBG("MPEG2");
-        break;
-     case AV_VIDEO_CODEC_VP9:
-        av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_VP9;
-        VID_DBG("VP9");
-        break;
-     default:
-        VID_DBG("Unrecognised video codec %u", codec);
-        success = FALSE;
-        break;
-   }
+    }
 
-   FUNCTION_FINISH(STB_AVSetVideoCodec);
+    FUNCTION_FINISH(STB_AVSetVideoCodec);
 
-   return success;
+    return success;
 }
 
 /**

@@ -249,6 +249,8 @@ static BOOLEAN GetRealParamFromDriver(U8BIT path);
 void STB_TuneInitialise(U8BIT paths)
 {
     char fe_name[24];
+    int expected_tuner_num;
+    int fe_fd = INVALID_FD;
     struct stat file_status;
     BOOLEAN adapter_found;
     U8BIT i;
@@ -274,29 +276,65 @@ void STB_TuneInitialise(U8BIT paths)
     TUN_ERR("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
     CERT_Log_StartingUp("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
 
+    if (aml_hw_cfg.tuner_num != 0)
+    {
+        expected_tuner_num = aml_hw_cfg.tuner_num;
+    }
+    else
+    {
+        expected_tuner_num = AML_MAX_TUNER_NUM;
+    }
     /* Find out how many tuners are available */
     do
     {
-        for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < aml_hw_cfg.tuner_num); )
+        for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < expected_tuner_num); )
         {
-            snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[num_paths].frontend_idx);
+            // snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[num_paths].frontend_idx);
+            snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", num_paths);
+            TUN_DBG("[Path %u] Before get from driver, ts_input_idx=%u, signal_types=%u, support_dvbt2=%u, support_dvbt2=%u",
+                    num_paths,
+                    aml_hw_cfg.tuners[num_paths].ts_input_idx,
+                    aml_hw_cfg.tuners[num_paths].signal_types,
+                    aml_hw_cfg.tuners[num_paths].support_dvbt2,
+                    aml_hw_cfg.tuners[num_paths].support_dvbs2);
 
             if (stat(fe_name, &file_status) == 0)
             {
-                TUN_DBG("found %s", fe_name);
-                CERT_Log_StartingUp("found %s", fe_name);
+                fe_fd = open(fe_name, O_RDWR | O_NONBLOCK);
+                TUN_DBG("found %s, frontend_fd=%d", fe_name, fe_fd);
+                CERT_Log_StartingUp("found %s, frontend_fd=%d", fe_name, fe_fd);
+                if (fe_fd >= 0)
+                {
+                    aml_hw_cfg.tuners[num_paths].frontend_idx = num_paths;
+                    STB_TuneSetActualTsInputIdx(num_paths, fe_fd);
+                    STB_TuneSetActualSupportedSystemType(num_paths, fe_fd);
+                    TUN_DBG("[Path %u] After get from driver, ts_input_idx=%u, signal_types=%u, support_dvbt2=%u, support_dvbt2=%u",
+                            num_paths,
+                            aml_hw_cfg.tuners[num_paths].ts_input_idx,
+                            aml_hw_cfg.tuners[num_paths].signal_types,
+                            aml_hw_cfg.tuners[num_paths].support_dvbt2,
+                            aml_hw_cfg.tuners[num_paths].support_dvbs2);
+                }
+                else
+                {
+                    TUN_ERR("Failed to open tune[%d] %s, errno %d", num_paths, fe_name, errno);
+                }
+
+                close(fe_fd);
+                fe_fd = INVALID_FD;
 
                 num_paths++;
             }
             else
             {
+                TUN_DBG("not found %s", fe_name);
                 CERT_Log_StartingUp("not found %s", fe_name);
 
                 adapter_found = FALSE;
             }
         }
 
-        if (!adapter_found && init_try_count < 10)
+        if ((!adapter_found) && (init_try_count < 10) && (num_paths == 0))
         {
             init_try_count++;
             sleep(1);
@@ -312,6 +350,11 @@ void STB_TuneInitialise(U8BIT paths)
 
     if (num_paths != 0)
     {
+        if (aml_hw_cfg.tuner_num == 0)
+        {
+            TUN_DBG("Assign num_paths=%d to aml_hw_cfg.tuner_num", num_paths);
+            aml_hw_cfg.tuner_num = num_paths;
+        }
         tuner_status = (S_TUNER_STATUS *)STB_MEMGetSysRAM(sizeof(S_TUNER_STATUS) * num_paths);
 
         if (tuner_status != NULL)
@@ -383,6 +426,116 @@ void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
     }
 
     FUNCTION_FINISH(STB_TuneAutoRelock);
+}
+
+
+/**
+ * @brief Assign actual ts_input_idx (obtained from driver) to aml_hw_cfg
+ * @param path The tuner path to set up
+ * @param frontend_fd The FD identifying the fe_name, which is required to
+ *                    perform I/O control operation
+ */
+void STB_TuneSetActualTsInputIdx(U8BIT path, U32BIT frontend_fd)
+{
+    struct dtv_property cmd;
+    struct dtv_properties props;
+
+    FUNCTION_START(STB_TuneSetActualTsInputIdx);
+
+    if (/*(aml_hw_cfg.tuner_num > path) && */(frontend_fd != INVALID_FD))
+    {
+        memset(&cmd, 0, sizeof(struct dtv_property));
+
+        cmd.cmd = DTV_TS_INPUT;
+        props.num = 1;
+        props.props = &cmd;
+
+        if (ioctl(frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+        {
+            aml_hw_cfg.tuners[path].ts_input_idx = cmd.u.data;
+            TUN_DBG("%u: ts_input_idx=%lu", path, cmd.u.data);
+        }
+        else
+        {
+            TUN_ERR("%u: Failed to read ts_input from driver, errno %d", path, errno);
+        }
+    }
+    else
+    {
+        TUN_DBG("path=%u, num_paths=%u, aml_hw_cfg.tuner_num=%u, frontend_fd=%u",
+                path, num_paths, aml_hw_cfg.tuner_num, frontend_fd);
+    }
+
+    FUNCTION_FINISH(STB_TuneSetActualTsInputIdx);
+}
+
+/**
+ * @brief Assign actual supported delivery system type (obtained from driver)
+ *        to aml_hw_cfg
+ * @param path The tuner path to set up
+ * @param frontend_fd The FD identifying the fe_name, which is required to
+ *                    perform I/O control operation
+ */
+void STB_TuneSetActualSupportedSystemType(U8BIT path, U32BIT frontend_fd)
+{
+    enum fe_delivery_system delsys;
+    struct dtv_property cmd;
+    struct dtv_properties props;
+
+    FUNCTION_START(STB_TuneSetActualSupportedSystemType);
+
+    delsys = SYS_UNDEFINED;
+    if (/*(aml_hw_cfg.tuner_num > path) && */(frontend_fd != INVALID_FD))
+    {
+        memset(&cmd, 0, sizeof(struct dtv_property));
+
+        cmd.cmd = DTV_ENUM_DELSYS;
+        props.num = 1;
+        props.props = &cmd;
+
+        if (ioctl(frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+        {
+            aml_hw_cfg.tuners[path].signal_types  = 0;
+            aml_hw_cfg.tuners[path].support_dvbt2 = 0;
+            aml_hw_cfg.tuners[path].support_dvbs2 = 0;
+            for (U16BIT i = 0; i < cmd.u.buffer.len; i++)
+            {
+                delsys = cmd.u.buffer.data[i];
+                switch (delsys)
+                {
+                    case SYS_DVBT:
+                    case SYS_DVBT2:
+                        aml_hw_cfg.tuners[path].signal_types |= TUNE_SIGNAL_COFDM;
+                        if (delsys == SYS_DVBT2)
+                        {
+                            aml_hw_cfg.tuners[path].support_dvbt2 = 1;
+                        }
+                        break;
+                    case SYS_DVBS:
+                    case SYS_DVBS2:
+                        aml_hw_cfg.tuners[path].signal_types |= TUNE_SIGNAL_QPSK;
+                        if (delsys == SYS_DVBS2)
+                        {
+                            aml_hw_cfg.tuners[path].support_dvbs2 = 1;
+                        }
+                        break;
+                    case SYS_DVBC_ANNEX_A:
+                    case SYS_DVBC_ANNEX_C:
+                        aml_hw_cfg.tuners[path].signal_types |= TUNE_SIGNAL_QAM;
+                        break;
+                    default:
+                        break;
+                }
+                TUN_DBG("%u: supported delsys[%u]=%u", path, i, cmd.u.buffer.data[i]);
+            }
+        }
+        else
+        {
+            TUN_ERR("%u: Failed to read ts_input from driver, errno %d", path, errno);
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneSetActualSupportedSystemType);
 }
 
 /**

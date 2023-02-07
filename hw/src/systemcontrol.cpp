@@ -57,6 +57,22 @@ extern "C"  int SC_setVideoColor(int color)
         return s32Ret;
     }
 #endif
+
+#if (ANDROID_PLATFORM_SDK_VERSION <= 28)
+    if (color == VIDEO_LAYER_COLOR_MAX)
+    {
+        SCDBG("@@@@@@@@@@@@@ UNMUTE");
+    }
+    else
+    {
+        SCDBG("@@@@@@@@@@@@@ MUTE [%d]", color);
+        if (0 != system("echo 2 > /sys/class/video/disable_video"))
+        {
+            SCDBG("[%s]: %d disable_video error!\n", __FUNCTION__, __LINE__);
+        }
+    }
+#endif
+
     return -1;
 }
 

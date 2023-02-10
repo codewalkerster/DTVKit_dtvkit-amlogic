@@ -435,14 +435,14 @@ void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
  * @param frontend_fd The FD identifying the fe_name, which is required to
  *                    perform I/O control operation
  */
-void STB_TuneSetActualTsInputIdx(U8BIT path, U32BIT frontend_fd)
+void STB_TuneSetActualTsInputIdx(U8BIT path, S32BIT frontend_fd)
 {
     struct dtv_property cmd;
     struct dtv_properties props;
 
     FUNCTION_START(STB_TuneSetActualTsInputIdx);
 
-    if (/*(aml_hw_cfg.tuner_num > path) && */(frontend_fd != INVALID_FD))
+    if (frontend_fd != INVALID_FD)
     {
         memset(&cmd, 0, sizeof(struct dtv_property));
 
@@ -476,7 +476,7 @@ void STB_TuneSetActualTsInputIdx(U8BIT path, U32BIT frontend_fd)
  * @param frontend_fd The FD identifying the fe_name, which is required to
  *                    perform I/O control operation
  */
-void STB_TuneSetActualSupportedSystemType(U8BIT path, U32BIT frontend_fd)
+void STB_TuneSetActualSupportedSystemType(U8BIT path, S32BIT frontend_fd)
 {
     enum fe_delivery_system delsys;
     struct dtv_property cmd;
@@ -485,7 +485,7 @@ void STB_TuneSetActualSupportedSystemType(U8BIT path, U32BIT frontend_fd)
     FUNCTION_START(STB_TuneSetActualSupportedSystemType);
 
     delsys = SYS_UNDEFINED;
-    if (/*(aml_hw_cfg.tuner_num > path) && */(frontend_fd != INVALID_FD))
+    if (frontend_fd != INVALID_FD)
     {
         memset(&cmd, 0, sizeof(struct dtv_property));
 

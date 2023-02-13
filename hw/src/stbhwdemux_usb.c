@@ -56,8 +56,8 @@
 
 // #define DMX_USB_TEST
 
-static int rec_dev_id = 4;
-static int inj_dev_id = 5;
+static int rec_dev_id;
+static int inj_dev_id;
 static int rec_dvr_fd = -1;
 static int rec_dmx_fd = -1;
 static int inj_dvr_fd = -1;
@@ -314,7 +314,8 @@ static void *cimodule_media_read_task(void *args)
             }
             else
             {
-                DMX_USB_DBG("read len %d ret %d", read_len, ret);
+                // DMX_USB_DBG("read len %d ret %d", read_len, ret);
+                // sleep(1);
             }
         }
 
@@ -559,6 +560,9 @@ int STB_CIUsbOpen()
 
     init_mutex();
 
+    inj_dev_id = 4;
+    rec_dev_id = 5;
+
     const char *pbFileName = "/dev/cimodule_command0";
     if (g_pCmdFd > 0)
         return TRUE;
@@ -626,15 +630,15 @@ int STB_CIUsbClose()
 
     if (pthread_join(tMediaReadTaskId, &status) != 0)
     {
-        DMX_USB_DBG("media read task join failed =======");
+        DMX_USB_DBG("media read task join failed");
     }
     if (pthread_join(tMediaWriteTaskId, &status) != 0)
     {
-        DMX_USB_DBG("media write task join failed ======");
+        DMX_USB_DBG("media write task join failed");
     }
     if (pthread_join(tCmdReadTaskId, &status) != 0)
     {
-        DMX_USB_DBG("cmd read task join failed  =========");
+        DMX_USB_DBG("cmd read task join failed");
     }
 
     if (g_pCmdReadBuf)
@@ -669,7 +673,9 @@ S32BIT STB_CIUsbWrite(U8BIT *buffer, U32BIT len)
 {
     int ret;
     unsigned int dwActualSendLen = 0;
+#ifdef DEMUX_USB_MODULE_DEBUG
     char buf[2048];
+#endif
     unsigned int i;
 
     if (len > USB_CIMODULE_COMMAND_MAX_SIZE)
@@ -773,7 +779,7 @@ BOOLEAN STB_DMXUsbIsEnable()
 U8BIT STB_CIUsbGetDmxSource(BOOLEAN live)
 {
     if (live)
-        return AML_MP_DEMUX_SOURCE_DMA0_1 + inj_dev_id;
+        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
     else
         return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
 }

@@ -41,6 +41,7 @@
 #include "internal.h"
 #include "stbhwdef.h"
 #include "stb_utils.h"
+#include "stbhwdemux_usb.h"
 
 /* third party header files */
 /*#define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP*/
@@ -3922,6 +3923,8 @@ int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_
       else if (recreat_handle && av_path != INVALID_RES_ID)
       {
          ret = AV_CreateTsPlayer_l(av_path, AML_MP_INPUT_SOURCE_TS_DEMOD, av_paths_status[av_path].demux, 0);
+         if (STB_CIUsbModuleInserted())
+            STB_DMXSetDemuxSource(av_path, DMX_TUNER, 0, DMX_CAPS_LIVE);
 
          if (ret != AML_MP_OK && IS_CACHED(av_paths_status[av_path].decoding_mode))
          {

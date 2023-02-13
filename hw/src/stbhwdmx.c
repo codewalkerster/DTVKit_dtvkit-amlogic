@@ -3680,6 +3680,30 @@ static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src)
                 case FRONTEND_TS7_1:
                     *src = DVB_DEMUX_SOURCE_TS7_1;
                     break;
+                case DMA_0_1:
+                    *src = DVB_DEMUX_SOURCE_DMA0_1;
+                    break;
+                case DMA_1_1:
+                    *src = DVB_DEMUX_SOURCE_DMA1_1;
+                    break;
+                case DMA_2_1:
+                    *src = DVB_DEMUX_SOURCE_DMA2_1;
+                    break;
+                case DMA_3_1:
+                    *src = DVB_DEMUX_SOURCE_DMA3_1;
+                    break;
+                case DMA_4_1:
+                    *src = DVB_DEMUX_SOURCE_DMA4_1;
+                    break;
+                case DMA_5_1:
+                    *src = DVB_DEMUX_SOURCE_DMA5_1;
+                    break;
+                case DMA_6_1:
+                    *src = DVB_DEMUX_SOURCE_DMA6_1;
+                    break;
+                case DMA_7_1:
+                    *src = DVB_DEMUX_SOURCE_DMA7_1;
+                    break;
                 default:
                     DMX_ERR("DvbGetDemuxSource invalid source:%d", source);
                     r = -1;

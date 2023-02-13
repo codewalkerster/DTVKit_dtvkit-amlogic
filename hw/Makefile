@@ -42,7 +42,8 @@ SRCS = stbhwplatform.c \
      emu_tuner.c \
      emu_dmx.c \
      emu_config.c \
-     stbhwci.c
+     stbhwci.c \
+     stbhwdemux_usb.c
 
 
 

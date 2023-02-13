@@ -80,7 +80,7 @@ static DataBlock *data_block_head = NULL;
 static pthread_t tMediaReadTaskId;
 static pthread_t tMediaWriteTaskId;
 static pthread_t tCmdReadTaskId;
-
+#ifndef RDK_COMPILE
 static void prepare_working_demuxes();
 static void *cimodule_media_read_task(void *args);
 static void *cimodule_media_write_task(void *args);
@@ -524,30 +524,6 @@ static int inject_usbcam_source_demux(void* data, int data_len)
 }
 
 /**
- * \brief   When ts data route using usbcam, play/record etc demux
- *          need set source to usbcam demux.
- *          This function will return usbcam demux number.
- * \param live if requirement is called by live path.
- * \return  demux source in code.
- */
-U8BIT STB_CIUsbGetDmxSource(BOOLEAN live)
-{
-    if (live)
-        return AML_MP_DEMUX_SOURCE_DMA0_1 + inj_dev_id;
-    else
-        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
-}
-
-/**
- * \brief   Check if usbcam is plugged.
- * \return  TRUE if cam is inserted.
- */
-BOOLEAN STB_CIUsbModuleInserted()
-{
-    return module_inserted;
-}
-
-/**
  * \brief STB_CIUsbOpen
  *        called by usbt, usb monitor thread will call this function
  *          to see if usb cam is plug in/unplug.
@@ -740,7 +716,7 @@ U8BIT STB_CIUsbCamTotal(void)
 {
     return 1;
 }
-
+#endif
 /**
  * \brief STB_DMXUsbGetTsDemux
  *        get the inject usb demux number, and set other
@@ -760,4 +736,27 @@ int STB_DMXUsbGetTsDemux()
 BOOLEAN STB_DMXUsbIsEnable()
 {
     return TRUE;
+}
+/**
+ * \brief   When ts data route using usbcam, play/record etc demux
+ *          need set source to usbcam demux.
+ *          This function will return usbcam demux number.
+ * \param live if requirement is called by live path.
+ * \return  demux source in code.
+ */
+U8BIT STB_CIUsbGetDmxSource(BOOLEAN live)
+{
+    if (live)
+        return AML_MP_DEMUX_SOURCE_DMA0_1 + inj_dev_id;
+    else
+        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
+}
+
+/**
+ * \brief   Check if usbcam is plugged.
+ * \return  TRUE if cam is inserted.
+ */
+BOOLEAN STB_CIUsbModuleInserted()
+{
+    return module_inserted;
 }

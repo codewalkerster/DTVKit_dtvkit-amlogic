@@ -249,7 +249,6 @@ static BOOLEAN GetRealParamFromDriver(U8BIT path);
 void STB_TuneInitialise(U8BIT paths)
 {
     char fe_name[24];
-    int expected_tuner_num;
     int fe_fd = INVALID_FD;
     struct stat file_status;
     BOOLEAN adapter_found;
@@ -276,18 +275,10 @@ void STB_TuneInitialise(U8BIT paths)
     TUN_ERR("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
     CERT_Log_StartingUp("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
 
-    if (aml_hw_cfg.tuner_num != 0)
-    {
-        expected_tuner_num = aml_hw_cfg.tuner_num;
-    }
-    else
-    {
-        expected_tuner_num = AML_MAX_TUNER_NUM;
-    }
     /* Find out how many tuners are available */
     do
     {
-        for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < expected_tuner_num); )
+        for (num_paths = 0, adapter_found = TRUE; adapter_found && (num_paths < AML_MAX_TUNER_NUM); )
         {
             // snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", aml_hw_cfg.tuners[num_paths].frontend_idx);
             snprintf(fe_name, sizeof(fe_name), "/dev/dvb0.frontend%u", num_paths);
@@ -350,11 +341,9 @@ void STB_TuneInitialise(U8BIT paths)
 
     if (num_paths != 0)
     {
-        if (aml_hw_cfg.tuner_num == 0)
-        {
-            TUN_DBG("Assign num_paths=%d to aml_hw_cfg.tuner_num", num_paths);
-            aml_hw_cfg.tuner_num = num_paths;
-        }
+        TUN_DBG("Assign num_paths=%d to aml_hw_cfg.tuner_num", num_paths);
+        aml_hw_cfg.tuner_num = num_paths;
+
         tuner_status = (S_TUNER_STATUS *)STB_MEMGetSysRAM(sizeof(S_TUNER_STATUS) * num_paths);
 
         if (tuner_status != NULL)

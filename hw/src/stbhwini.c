@@ -52,6 +52,7 @@
 /*---local typedef structs for this file--------------------------------------*/
 
 /*---local (static) variable declarations for this file-----------------------*/
+static E_HW_DTVSYSTEM_TYPE sg_dtv_system = HW_DVB_SYSTEM;
 
 /*---global variable definitions----------------------------------------------*/
 
@@ -165,6 +166,26 @@ E_HW_WAKEUP_TYPE STB_HWGetWakeUpType(void)
    FUNCTION_FINISH(STB_HWGetWakeUpType);
    return(HW_WAKEUP_UNKNOWN);
 }
+
+/**
+ * @brief   Set DTV system type
+ * @param   type: E_DTV_SYSTEM_TYPE
+ */
+void STB_HWSetDtvSystem(E_HW_DTVSYSTEM_TYPE type)
+{
+    sg_dtv_system = type;
+}
+
+
+/**
+ * @brief   Get DTV system type
+ * @return E_DTV_SYSTEM_TYPE
+ */
+E_HW_DTVSYSTEM_TYPE STB_HWGetDtvSystem()
+{
+    return sg_dtv_system;
+}
+
 
 /*---local function definitions-----------------------------------------------*/
 

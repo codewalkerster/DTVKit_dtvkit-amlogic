@@ -6,13 +6,18 @@ INCLUDES += $(DTVKIT_DVBCORE_ROOT)/inc \
             $(DTVKIT_DVBCORE_ROOT)/platform/inc
 
 SRCDIR = src
+
 SRCS = stbos_event.c      \
        stbos_mutex.c      \
        stbos_queue.c      \
        stbos_rtc.c        \
        stbos_semaphore.c  \
        stbos_task.c       \
-       stbos_utils.c
+       stbos_utils.c      \
+       stbos_timer.c
+
+#SRCS = $(notdir $(wildcard ./src/*.c))
+$(warning "SRCS",  $(SRCS))
 
 COMP=os
 

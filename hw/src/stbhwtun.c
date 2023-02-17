@@ -45,11 +45,14 @@
 
 #include "stbhwdef.h"
 #include "stbhwtun.h"
+#include "stbhwtun_inner.h"
+#include "stbhwtun_ex.h"
 #include "stbhwmem.h"
 #include "stbhwos.h"
 #include "stbhwresm.h"
 #include "stbdpc.h"
 #include "stbhwc.h"
+#include "stbhwini.h"
 
 #include "emu_internal.h"
 
@@ -63,6 +66,7 @@
 #define TUN_ERR(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #define TUN_INFO(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
+#if 0 // move to stbhwtun_inner.h
 
 /*---constant definitions for this file--------------------------------------*/
 
@@ -158,29 +162,43 @@ typedef struct
     U8BIT path;
 
     char fe_name[24];
-    E_TUNER_STATE state;
-    BOOLEAN stop;
-    E_STB_TUNE_SYSTEM_TYPE tuned_sys_type;
+    int frontend_fd;
 
-    BOOLEAN search_mode;
+    E_TUNER_STATE state;
+    U8BIT lock_flags;
+
+
+
+    // B: Mutex & Semaphore
+    pthread_mutex_t    lock;
 
     void *mutex;
     void *tune_sem;
     void *tune_sem_lock;
     void *tunertask_sem;
+    // E: Mutex & Semaphore
 
-    int frontend_fd;
+
+
+    // B: Control Flag
+    BOOLEAN search_mode;
+    BOOLEAN stop;
+    BOOLEAN auto_relock;
+    BOOLEAN tuning_params_changed;
+
     U8BIT frontend_usage;
+    // E: Control Flag
+
+
+
+    // B: tuner parameters
+    U16BIT tuner_types;                     // configured supported tuner type (using bit map)
+    E_STB_TUNE_SIGNAL_TYPE signal_type;
+    E_STB_TUNE_SYSTEM_TYPE sys_type;
+    E_STB_TUNE_SYSTEM_TYPE tuned_sys_type;
 
     struct dvb_frontend_info fe_info;
     fe_delivery_system_t delivery_system;
-
-    U16BIT tuner_types;
-    E_STB_TUNE_SIGNAL_TYPE signal_type;
-    E_STB_TUNE_SYSTEM_TYPE sys_type;
-
-    BOOLEAN auto_relock;
-    BOOLEAN tuning_params_changed;
 
     U32BIT freq;
     U8BIT plp_id;
@@ -191,15 +209,19 @@ typedef struct
         S_SAT_STATUS sat;
         S_ISDBT_STATUS isdbt;
     } u;
+    // E: tuner parameters
 
-    U8BIT lock_flags;
-    pthread_mutex_t    lock;
+
+
+    // B: Blind Scan
     BOOLEAN    enable_blindscan_thread;
     pthread_t  blindscan_thread;
     STB_Tnue_BlindCallback_t blindscan_cb;
     void       *blindscan_cb_user_data;
     struct DVBSx_BlindScanAPI_Setting bs_setting;
+    // E: Blind Scan
 } S_TUNER_STATUS;
+#endif
 
 /*---local (static) variable declarations for this file----------------------*/
 static S_TUNER_STATUS *tuner_status = NULL;
@@ -213,15 +235,15 @@ void *tune_interface_sem = NULL;
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
 static void CloseTuner(S_TUNER_STATUS *tstatus);
-static BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
+/*static*/ BOOLEAN StartTune(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTuningParameterMatched(S_TUNER_STATUS *tstatus, struct dvb_frontend_event event);
 static void* TunerTask(void *param);
 static void ClearTuner(S_TUNER_STATUS *tstatus);
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
-static U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type);
+/*static*/ U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type);
 static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus);
-static E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd);
+/*static*/ E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd);
 static void SetTunerT2PLP(U32BIT frontend_fd, U8BIT plp_id);
 static BOOLEAN dvb_set_prop (U32BIT fd, const struct dtv_properties *prop);
 static BOOLEAN dvb_wait_event (U32BIT fd, struct dvb_frontend_event *evt, int timeout);
@@ -234,7 +256,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
 static BOOLEAN  AM_FEND_IBlindScanAPI_Exit(U8BIT path);
 static BOOLEAN AM_FEND_BlindDump(U8BIT path);
 static void* fend_blindscan_thread(void *arg);
-static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
+/*static*/ BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
 static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz);
@@ -350,6 +372,11 @@ void STB_TuneInitialise(U8BIT paths)
         {
             memset(tuner_status, 0, sizeof(S_TUNER_STATUS) * num_paths);
 
+            if (HW_ISDB_SYSTEM == STB_HWGetDtvSystem())
+            {
+                stb_tune_fsm_init(num_paths);
+            }
+
             /* Check the status of each tuner */
             for (i = 0; i != num_paths; i++)
             {
@@ -373,12 +400,28 @@ void STB_TuneInitialise(U8BIT paths)
                 tuner_status[i].search_mode = FALSE;
                 pthread_mutex_init(&tuner_status[i].lock, NULL);
 
+                #if 0
                 if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
-                                     TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
+                                         TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
                 {
                     TUN_ERR("Failed to create task for tuner %u", i);
                     CERT_Log_StartingUp("Failed to create task for tuner %u", i);
                 }
+                #else
+                if (HW_ISDB_SYSTEM != STB_HWGetDtvSystem())
+                {
+                    if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
+                                         TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
+                    {
+                        TUN_ERR("Failed to create task for tuner %u", i);
+                        CERT_Log_StartingUp("Failed to create task for tuner %u", i);
+                    }
+                }
+                else
+                {
+                    stb_tune_fsm_create(i, &tuner_status[i], STATE_TUNER_IDLE);
+                }
+                #endif
             }
         }
     }
@@ -644,7 +687,7 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
     FUNCTION_FINISH(STB_TuneSetSignalType);
 }
 
-static BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
+/*static*/ BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
 {
     int fe_mode = SYS_UNDEFINED;
 
@@ -803,6 +846,16 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
     if (path < num_paths)
     {
+        if (HW_ISDB_SYSTEM == STB_HWGetDtvSystem())
+        {
+            stb_tune_start_tuner(&tuner_status[path],
+                                freq, srate, fec,
+                                freq_off, tmode, tbwidth,
+                                cmode, anlg_vtype);
+
+            goto EXIT;
+        }
+
         STB_OSSemaphoreWait(tune_interface_sem);
         tstatus = &tuner_status[path];
 
@@ -976,6 +1029,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
         STB_OSSemaphoreSignal(tune_interface_sem);
     }
 
+EXIT:
     TUN_ERR("%s out",__FUNCTION__);
 
     FUNCTION_FINISH(STB_TuneStartTuner);
@@ -996,6 +1050,11 @@ void STB_TuneStopTuner(U8BIT path)
 
     if (path < num_paths)
     {
+        if (HW_ISDB_SYSTEM == STB_HWGetDtvSystem())
+        {
+            stb_tune_stop_tuner(&tuner_status[path]);
+        }
+
         STB_OSSemaphoreWait(tune_interface_sem);
         tstatus = &tuner_status[path];
 
@@ -3048,7 +3107,7 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
     }
 }
 
-static BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
+/*static*/ BOOLEAN StartTune(S_TUNER_STATUS *tstatus)
 {
     BOOLEAN retval;
     struct dvb_frontend_parameters fe_params;
@@ -3719,7 +3778,7 @@ static void ClearTuner(S_TUNER_STATUS *tstatus)
     }
 }
 
-static U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type)
+/*static*/ U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type)
 {
     U8BIT *string;
 
@@ -3798,7 +3857,7 @@ static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus)
     return is_diff;
 }
 
-static E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd)
+/*static*/ E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd)
 {
     struct dvb_frontend_event fe_event;
     E_TUNER_EVENT tune_event = TUNER_STATE_UNKNOW;

@@ -32,18 +32,23 @@ SRCS = stbhwplatform.c \
 	stbhwupg.c \
 	stbhwosd.c \
 	stbhwnet.c \
-     stbhwvbi.c \
-     stbhwcfg.c \
-     stbhwresm.c \
-     linuxdvbdmx_wrapper.c \
-     stbhwav_amlmp.c \
-     stbpvrpr_amlmp.c \
-     ca_glue_amlmp.c \
-     emu_tuner.c \
-     emu_dmx.c \
-     emu_config.c \
-     stbhwci.c \
-     stbhwdemux_usb.c
+    stbhwvbi.c \
+    stbhwcfg.c \
+    stbhwresm.c \
+    linuxdvbdmx_wrapper.c \
+    stbhwav_amlmp.c \
+    stbpvrpr_amlmp.c \
+    ca_glue_amlmp.c \
+    emu_tuner.c \
+    emu_dmx.c \
+    emu_config.c \
+    stbhwci.c \
+    stbhwdemux_usb.c \
+    stbhwtun_ex.c \
+    fsm_base.c
+
+#SRCS = $(notdir $(wildcard ./src/*.c))
+$(warning "SRCS",  $(SRCS))
 
 
 

@@ -47,18 +47,32 @@ extern "C"  int SC_setVideoColor(int color)
     int s32Ret = -1;
     const sp<SystemControlClient> &sws = getSystemControlService();
     if (sws != nullptr) {
+/*
+   window£º 0: reserved;   1: main_window;    2: sub_window.
 
-        if(color == VIDEO_LAYER_COLOR_MAX)
+       Color:    0: Black;  1: Blue.
+
+frequency:  4: only show once,will recovery when receive new frame.
+
+                    5: always show the solid color frame, until receive disable cmd or surface disconnect
+
+                    6. disable color frame.
+*/
+        if (color == VIDEO_LAYER_COLOR_MAX)
+        {
             SCDBG("@@@@@@@@@@@@@ UNMUTE");
+        }
         else
+        {
             SCDBG("@@@@@@@@@@@@@ MUTE [%d]", color);
-
-        s32Ret = sws->setVideoScreenColor(color);
+            s32Ret = sws->setVideoScreenColorByVT(1,color,4);
+        }
         return s32Ret;
     }
 #endif
 
 #if (ANDROID_PLATFORM_SDK_VERSION <= 28)
+/*used by shine only*/
     if (color == VIDEO_LAYER_COLOR_MAX)
     {
         SCDBG("@@@@@@@@@@@@@ UNMUTE");
@@ -72,7 +86,6 @@ extern "C"  int SC_setVideoColor(int color)
         }
     }
 #endif
-
     return -1;
 }
 

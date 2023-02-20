@@ -621,9 +621,12 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
       VID_DBG("Video blank locked, can not change");
       return;
    }
+   /*bluescreen feature open as common flow*/
+   #if 0
    property_get("vendor.tv.dtv.enable.bluescreen", buf1, "false");
    VID_DBG(" vendor.tv.dtv.enable.bluescreen[%s]", buf1);
    if (!strncmp(buf1, "true", 5))
+   #endif
    {
       int color = VIDEO_LAYER_COLOR_MAX;
       VID_DBG("===========>blank=%u force_black_color %d", blank, is_black_color);

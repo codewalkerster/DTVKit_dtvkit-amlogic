@@ -227,6 +227,13 @@ typedef struct {
 
    U32BIT rec_start;//ms
    U32BIT limit;//ms
+
+#ifdef RDK_COMPILE
+   U16BIT win_x;
+   U16BIT win_y;
+   U16BIT win_w;
+   U16BIT win_h;
+#endif
 } S_RECPLAY_STATUS;
 
 typedef struct
@@ -3078,6 +3085,16 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
                PLAY_DBG("[AFD] [%d:%d] enable afd failed when dvr player created.", play_index, decoder_id);
          }
 
+#ifdef RDK_COMPILE
+         // set video window
+         const int32_t x = s_recplay_status[play_index].win_x;
+         const int32_t y = s_recplay_status[play_index].win_y;
+         const int32_t w = s_recplay_status[play_index].win_w;
+         const int32_t h = s_recplay_status[play_index].win_h;
+         Aml_MP_DVRPlayer_SetVideoWindow(s_recplay_status[play_index].player, x, y, w, h);
+#endif
+
+         // set use tif
          bool useTif = true;
          Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
 
@@ -3486,3 +3503,32 @@ BOOLEAN STB_PVRStoreLibdvrExtParam1InPortingLayer(U8BIT rec_index, U8BIT val)
    }
    return FALSE;
 }
+
+#ifdef RDK_COMPILE
+/**
+ * @brief   Store PVR video rectangle for future reference.
+ *          At the moment Player.setRectangle is called, TsPlayer instance for PVR playback
+ *          has not been created, so the rectangle need to be stored somewhere for future
+ *          Player.play reference.
+ * @param   video_decoder   decoder index
+ * @param   x   rectangle left
+ * @param   y   rectangle top
+ * @param   w   rectangle width
+ * @param   h   rectangle height
+ * @return  TRUE if operation succeeds, FALSE if invalid video_decoder is given.
+ */
+BOOLEAN STB_PVRStoreVideoWindow(U8BIT video_decoder, U16BIT x, U16BIT y, U16BIT w, U16BIT h)
+{
+   U8BIT play_index = getPlayIndex(INVALID_RES_ID, video_decoder);
+   if (play_index == INVALID_RES_ID)
+   {
+      return FALSE;
+   }
+   s_recplay_status[play_index].win_x = x;
+   s_recplay_status[play_index].win_y = y;
+   s_recplay_status[play_index].win_w = w;
+   s_recplay_status[play_index].win_h = h;
+   return TRUE;
+}
+#endif
+

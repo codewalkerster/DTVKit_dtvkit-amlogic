@@ -1323,9 +1323,9 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
  * @return  the data integrity as percentage of maximum possible (0-100)
  * @todo     Confirm DVB API BER units
  */
-U8BIT STB_TuneGetDataIntegrity(U8BIT path)
+U32BIT STB_TuneGetDataIntegrity(U8BIT path)
 {
-    U8BIT retval;
+    U32BIT retval;
     __u32 ber;
 
     FUNCTION_START(STB_TuneGetDataIntegrity);
@@ -1334,12 +1334,12 @@ U8BIT STB_TuneGetDataIntegrity(U8BIT path)
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {
-        if (IsTunerLocked(&tuner_status[path]))
+        //if (IsTunerLocked(&tuner_status[path]))
         {
             if (ioctl(tuner_status[path].frontend_fd, FE_READ_BER, &ber) >= 0)
             {
-                retval = (U8BIT)ber;
-                TUN_DBG("%u: BER=%u%%", path, retval);
+                retval = (U32BIT)ber;
+                TUN_DBG("%u: BER=%u(e-10)", path, retval);
             }
             else
             {

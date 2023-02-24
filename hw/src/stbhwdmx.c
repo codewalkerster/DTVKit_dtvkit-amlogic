@@ -2328,15 +2328,16 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
 void STB_DMXResetDemuxSource(U8BIT path)
 {
    E_STB_DMX_DEMUX_SOURCE source;
-   U8BIT param;
+   U8BIT param, tuner_index;
    U8BIT recording_ref = 0;
    DVB_DemuxSource_t dmx_src_cfg, dmx_src_cur;
-   int tuner_index, i, ret;
+   int i, ret;
 
    tuner_index = aml_hw_cfg.tuner_num - 1;
-   source = demux_status[path].source;
-   param = demux_status[path].source_param;
    demux_status[path].recording = FALSE;
+
+   STB_DMXGetDemuxSource(path, &source, &param);
+   tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num - 1 : param;
 
    if (dmx_model_sc2)
    {
@@ -2359,7 +2360,7 @@ void STB_DMXResetDemuxSource(U8BIT path)
             if (demux_status[i].source_param == param)
             {
                DvbGetDemuxSource(i, &dmx_src_cur);
-               DMX_DBG("%u: source: %d->%d", i, dmx_src_cur, dmx_src_cfg);
+               DMX_DBG("%u: tuner: %d source: %d->%d", i, tuner_index, dmx_src_cur, dmx_src_cfg);
                if (dmx_src_cur != dmx_src_cfg)
                {
                   ret = DvbSetDemuxSource(i, dmx_src_cfg);

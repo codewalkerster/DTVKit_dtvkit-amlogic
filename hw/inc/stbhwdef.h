@@ -59,7 +59,7 @@
 #define MHEG_TASK_PRIORITY       6
 
 // PATH SPECIFIC CONFIGURATION
-#define NUM_TUNER_PATHS          (aml_hw_cfg.tuner_num)
+#define NUM_TUNER_NUMS          (aml_hw_cfg.tuner_num)
 #define NUM_DEMUX_PATHS          (aml_hw_cfg.demux_num)
 #define NUM_RECORDERS            (aml_hw_cfg.recorder_num)
 #define NUM_VIDEO_DECODE_PATHS   (aml_hw_cfg.vdec_num)

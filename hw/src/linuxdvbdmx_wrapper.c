@@ -26,6 +26,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "linuxdvbdmx_wrapper.h"
 #include "stbhwcfg.h"
@@ -647,3 +649,17 @@ BOOLEAN DMX_FileEcho(const char *name, const char *cmd)
     close(fd);
     return TRUE;
 }
+ BOOLEAN DMX_IsNewHW(void)
+{
+    char node[32];
+    struct stat st;
+    int r;
+    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
+    r = stat(node, &st);
+    if (r == -1)
+    {
+        return TRUE;
+    }
+    return FALSE;
+}
+

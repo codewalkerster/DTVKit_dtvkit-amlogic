@@ -3729,7 +3729,7 @@ static int DvbEnableCIPlus(int enable)
 
     ciplus_enable = enable;
 
-    if (CheckIfDmxIsNew())
+    if (DMX_IsNewHW())
         return 0;
 
     if (enable)
@@ -3755,22 +3755,6 @@ static int DvbEnableCIPlus(int enable)
     snprintf(buf, sizeof(buf), "%d", out);
     STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
 
-    return 0;
-}
-
-static int CheckIfDmxIsNew(void)
-{
-    char node[32];
-    struct stat st;
-    int r;
-
-    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
-
-    r = stat(node, &st);
-    if (r == -1)
-    {
-        return 1;
-    }
     return 0;
 }
 

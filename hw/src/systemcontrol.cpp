@@ -9,6 +9,7 @@ extern "C" {
 // Ocean Blue Software header files
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "linuxdvbdmx_wrapper.h"
 #include "systemcontrol.h"
 
 #ifdef __cplusplus
@@ -61,11 +62,26 @@ frequency:  4: only show once,will recovery when receive new frame.
         if (color == VIDEO_LAYER_COLOR_MAX)
         {
             SCDBG("@@@@@@@@@@@@@ UNMUTE");
+            if (DMX_IsNewHW())
+            {
+                //no need
+            }
+            else
+            {
+                s32Ret = sws->setVideoScreenColor(color);
+            }
         }
         else
         {
             SCDBG("@@@@@@@@@@@@@ MUTE [%d]", color);
-            s32Ret = sws->setVideoScreenColorByVT(1,color,4);
+            if (DMX_IsNewHW())
+            {
+                s32Ret = sws->setVideoScreenColorByVT(1,color,4);
+            }
+            else
+            {
+                s32Ret = sws->setVideoScreenColor(color);
+            }
         }
         return s32Ret;
     }

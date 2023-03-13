@@ -47,7 +47,7 @@ BOOLEAN DMX_StopFilter(int dev_no, int fhandle);
 BOOLEAN DMX_SetCallback(int dev_no, int fhandle, AML_DMX_DataCb cb, void *user_data);
 BOOLEAN DMX_SetSource(int dev_no, AML_DMX_Source_t src);
 BOOLEAN DMX_FileEcho(const char *name, const char *cmd);
-
+BOOLEAN DMX_IsNewHW(void);
 
 #ifdef __cplusplus
 }

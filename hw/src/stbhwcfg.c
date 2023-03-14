@@ -19,6 +19,7 @@
 #include "stbhwdmx.h"
 #include "app_cfg.h"
 #include "cert_log.h"
+#include "stbheap.h"
 #include "stb_utils.h"
 #include "stbhwcfg.h"
 
@@ -102,7 +103,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .srate_auto = 0,
     .srate_auto_value = 0,
     },
-.service_without_sdt = 0,
+.service_unsupport_type = 0,
 .capture_adc = {
     .analog_enabled = FALSE,
     .dvbs_enabled = FALSE,
@@ -112,6 +113,14 @@ stb_hardware_cfg aml_hw_cfg = {
     .file_path = {0},
 },
 .mem_level_num = 0,
+.dmc_mem={
+    {
+        .level  = 0,
+        .size  = 0
+    }
+},
+.unsupport_descriptor_tag_num = 0,
+.unsupport_descriptor_tag_list=NULL
 };
 
 stb_custom_config aml_custom_config = {
@@ -130,173 +139,181 @@ static void DVR_Set_Prop(const char *name, const char *value);
 static void
 elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 {
-	stb_hardware_cfg  *cfg = &aml_hw_cfg;
-	const XML_Char   **att, *an, *av;
-	//CFG_DBG("name [%s] ", name);
-	if (!strcmp(name, "tuner")) {
-		stb_tuner_cfg *tun;
+    stb_hardware_cfg  *cfg = &aml_hw_cfg;
+    const XML_Char   **att, *an, *av;
+    //CFG_DBG("name [%s] ", name);
+    if (!strcmp(name, "tuner")) {
+        stb_tuner_cfg *tun;
 
-		if (cfg->tuner_num >= AML_MAX_TUNER_NUM)
-			return;
+        if (cfg->tuner_num >= AML_MAX_TUNER_NUM)
+            return;
 
-		tun = &cfg->tuners[cfg->tuner_num ++];
+        tun = &cfg->tuners[cfg->tuner_num ++];
 
-		tun->ts_input_idx  = 0;
-		tun->frontend_idx  = 0;
-		tun->signal_types  = 0;
-		tun->support_dvbt2 = 0;
-		tun->support_dvbs2 = 0;
+        tun->ts_input_idx  = 0;
+        tun->frontend_idx  = 0;
+        tun->signal_types  = 0;
+        tun->support_dvbt2 = 0;
+        tun->support_dvbs2 = 0;
 
-		att = atts;
-		while (*att) {
-			an = att[0];
-			av = att[1];
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
 
-			if (!strcmp(an, "ts_input")) {
-				long int i;
+            if (!strcmp(an, "ts_input")) {
+                long int i;
 
-				i = strtol(av, NULL, 0);
-				if ((i != LONG_MIN) && (i != LONG_MAX))
-					tun->ts_input_idx = i;
-			} else if (!strcmp(an, "frontend")) {
-				long int i;
-				i = strtol(av, NULL, 0);
-				if ((i != LONG_MIN) && (i != LONG_MAX)) {
-					STB_SPDebugWrite("find cfg, frontend:%d", i);
-					tun->frontend_idx = i;
-				}
-			}else if (!strcmp(an, "dvbt") && !strcmp(av, "yes")) {
-				tun->signal_types  |= TUNE_SIGNAL_COFDM;
-			} else if (!strcmp(an, "dvbt2") && !strcmp(av, "yes")) {
-				tun->signal_types  |= TUNE_SIGNAL_COFDM;
-				tun->support_dvbt2  = 1;
-			} else if (!strcmp(an, "dvbs") && !strcmp(av, "yes")) {
-				tun->signal_types  |= TUNE_SIGNAL_QPSK;
-			} else if (!strcmp(an, "dvbs2") && !strcmp(av, "yes")) {
-				tun->signal_types  |= TUNE_SIGNAL_QPSK;
-				tun->support_dvbs2  = 1;
-			} else if (!strcmp(an, "dvbc") && !strcmp(av, "yes")) {
-				tun->signal_types  |= TUNE_SIGNAL_QAM;
-			}
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    tun->ts_input_idx = i;
+            } else if (!strcmp(an, "frontend")) {
+                long int i;
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX)) {
+                    STB_SPDebugWrite("find cfg, frontend:%d", i);
+                    tun->frontend_idx = i;
+                }
+            }else if (!strcmp(an, "dvbt") && !strcmp(av, "yes")) {
+                tun->signal_types  |= TUNE_SIGNAL_COFDM;
+            } else if (!strcmp(an, "dvbt2") && !strcmp(av, "yes")) {
+                tun->signal_types  |= TUNE_SIGNAL_COFDM;
+                tun->support_dvbt2  = 1;
+            } else if (!strcmp(an, "dvbs") && !strcmp(av, "yes")) {
+                tun->signal_types  |= TUNE_SIGNAL_QPSK;
+            } else if (!strcmp(an, "dvbs2") && !strcmp(av, "yes")) {
+                tun->signal_types  |= TUNE_SIGNAL_QPSK;
+                tun->support_dvbs2  = 1;
+            } else if (!strcmp(an, "dvbc") && !strcmp(av, "yes")) {
+                tun->signal_types  |= TUNE_SIGNAL_QAM;
+            }
 
-			att += 2;
-		}
+            att += 2;
+        }
 
-	} else if (!strcmp(name, "demux")) {
+    } else if (!strcmp(name, "demux")) {
 
-		att = atts;
-		while (*att) {
-			an = att[0];
-			av = att[1];
-			if (!strcmp(an, "rec") && !strcmp(av, "yes")) {
-				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_RECORDING;
-			} else if (!strcmp(an, "live") && !strcmp(av, "yes")) {
-				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_LIVE;
-			} else if (!strcmp(an, "pip") && !strcmp(av, "yes")) {
-				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_PIP;
-			} else if (!strcmp(an, "playback") && !strcmp(av, "yes")) {
-				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_PLAYBACK;
-			} else if (!strcmp(an, "si") && !strcmp(av, "yes")) {
-				cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_MONITOR_SI;
-			}
-			att += 2;
-		}
-		cfg->demux_num ++;
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "rec") && !strcmp(av, "yes")) {
+                cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_RECORDING;
+            } else if (!strcmp(an, "live") && !strcmp(av, "yes")) {
+                cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_LIVE;
+            } else if (!strcmp(an, "pip") && !strcmp(av, "yes")) {
+                cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_PIP;
+            } else if (!strcmp(an, "playback") && !strcmp(av, "yes")) {
+                cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_PLAYBACK;
+            } else if (!strcmp(an, "si") && !strcmp(av, "yes")) {
+                cfg->dmx_cap[cfg->demux_num]  |= DMX_CAPS_MONITOR_SI;
+            }
+            att += 2;
+        }
+        cfg->demux_num ++;
 
-	} else if (!strcmp(name, "recorder")) {
-		cfg->recorder_num ++;
-	} else if (!strcmp(name, "ci_slot")) {
-		cfg->ci_slot_num ++;
-	} else if (!strcmp(name, "vdec")) {
-		cfg->vdec_num ++;
-	} else if (!strcmp(name, "adec")) {
-		cfg->adec_num ++;
-	} else if (!strcmp(name, "av")) {
-		att = atts;
-		an = att[0];
-		av = att[1];
-		if (!strcmp(an, "demux")) {
-			long int i;
-			i = strtol(av, NULL, 0);
-			if ((i != LONG_MIN) && (i != LONG_MAX))
-				cfg->demux = i;
+    } else if (!strcmp(name, "recorder")) {
+        cfg->recorder_num ++;
+    } else if (!strcmp(name, "ci_slot")) {
+        cfg->ci_slot_num ++;
+    } else if (!strcmp(name, "vdec")) {
+        cfg->vdec_num ++;
+    } else if (!strcmp(name, "adec")) {
+        cfg->adec_num ++;
+    } else if (!strcmp(name, "av")) {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "demux")) {
+                long int i;
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                cfg->demux = i;
 
-		}
-	}else if (!strcmp(name, "ci_source")) {
-		stb_cam_cfg *cam;
+            } else if (!strcmp(an, "support_4k") && !strcmp(av, "no")) {
+                cfg->service_unsupport_type |= E_STB_CFG_SERVICE_UPSOPPORT_TYPE_4K;
+            }
+             else if (!strcmp(an, "support_8k") && !strcmp(av, "no")) {
+                cfg->service_unsupport_type |= E_STB_CFG_SERVICE_UPSOPPORT_TYPE_8K;
+            }
+            att += 2;
+        }
+    }else if (!strcmp(name, "ci_source")) {
+        stb_cam_cfg *cam;
 
-		if (cfg->cam_num >= AML_MAX_CAM_NUM)
-			return;
+        if (cfg->cam_num >= AML_MAX_CAM_NUM)
+            return;
 
-		cam = &cfg->cam[cfg->cam_num ++];
+        cam = &cfg->cam[cfg->cam_num ++];
 
-		cam->is_set_tsout  = 0;
-		cam->tsout_source  = 0;
-		cam->is_set_tssource = 0;
-		cam->camPlug_tssource = 0;
-		cam->camUnplug_tssource = 0;
-		cam->dev_id = -1;
+        cam->is_set_tsout  = 0;
+        cam->tsout_source  = 0;
+        cam->is_set_tssource = 0;
+        cam->camPlug_tssource = 0;
+        cam->camUnplug_tssource = 0;
+        cam->dev_id = -1;
 
-		att = atts;
-		while (*att) {
-			an = att[0];
-			av = att[1];
-			CFG_DBG("an [%s] av[%s]", an, av);
-			if (!strcmp(an, "is_set_tsout")) {
-				cam->is_set_tsout = atoi(av);
-				//CFG_DBG("cam->is_set_tsout[%d]", cam->is_set_tsout);
-			} else if (!strcmp(an, "tsout_source")) {
-				cam->tsout_source = atoi(av);
-				//CFG_DBG("cam->tsout_source[%d]", cam->tsout_source);
-			} else if (!strcmp(an, "is_set_tssource")) {
-				cam->is_set_tssource = atoi(av);
-				//CFG_DBG("cam->is_set_tssource[%d]", cam->is_set_tssource);
-			} else if (!strcmp(an, "camPlug_tssource")) {
-				cam->camPlug_tssource = atoi(av);
-				//CFG_DBG("cam->camPlug_tssource[%d]", cam->camPlug_tssource);
-			} else if (!strcmp(an, "camUnPlug_tssource")) {
-				cam->camUnplug_tssource = atoi(av);
-				//CFG_DBG("cam->camUnplug_tssource[%d]", cam->camUnplug_tssource);
-			} else if (!strcmp(an, "is_changeTo_utf8")) {
-				cam->is_changeTo_utf8 = atoi(av);
-				//CFG_DBG("cam->is_changeTo_utf8[%d]", cam->is_changeTo_utf8);
-			} else if (!strcmp(an, "encodec_source")) {
-                            if(strlen(av) <= sizeof(cam->encodec_source))
-                            {
-                                memcpy(cam->encodec_source, av, strlen(av));
-                            }
-                            else
-                            {
-                                CFG_DBG("str av is too long");
-                            }
-                            CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);
-			} else if (!strcmp(an, "use_ciplus_mode")){
-				cam->is_ciplus_mode = atoi(av);
-				STB_SPDebugWrite("cam->is_ciplus_mode %d", cam->is_ciplus_mode);
-			} else if (!strcmp(an, "dev_id")){
-				cam->dev_id = atoi(av);
-				STB_SPDebugWrite("cam->dev_id %d", cam->dev_id);
-			} else if (!strcmp(an, "host_mode")){
-				if(!strcmp(av, "user_mode"))
-				{
-					cam->host_mode = 2;
-				}
-				CFG_DBG("cam->host_mode(%s)  %d",av, cam->host_mode);
-			}
-			att += 2;
-		}
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            CFG_DBG("an [%s] av[%s]", an, av);
+            if (!strcmp(an, "is_set_tsout")) {
+                cam->is_set_tsout = atoi(av);
+                //CFG_DBG("cam->is_set_tsout[%d]", cam->is_set_tsout);
+            } else if (!strcmp(an, "tsout_source")) {
+                cam->tsout_source = atoi(av);
+                //CFG_DBG("cam->tsout_source[%d]", cam->tsout_source);
+            } else if (!strcmp(an, "is_set_tssource")) {
+                cam->is_set_tssource = atoi(av);
+                //CFG_DBG("cam->is_set_tssource[%d]", cam->is_set_tssource);
+            } else if (!strcmp(an, "camPlug_tssource")) {
+                cam->camPlug_tssource = atoi(av);
+                //CFG_DBG("cam->camPlug_tssource[%d]", cam->camPlug_tssource);
+            } else if (!strcmp(an, "camUnPlug_tssource")) {
+                cam->camUnplug_tssource = atoi(av);
+                //CFG_DBG("cam->camUnplug_tssource[%d]", cam->camUnplug_tssource);
+            } else if (!strcmp(an, "is_changeTo_utf8")) {
+                cam->is_changeTo_utf8 = atoi(av);
+                //CFG_DBG("cam->is_changeTo_utf8[%d]", cam->is_changeTo_utf8);
+            } else if (!strcmp(an, "encodec_source")) {
+                if (strlen(av) <= sizeof(cam->encodec_source))
+                {
+                    memcpy(cam->encodec_source, av, strlen(av));
+                }
+                else
+                {
+                    CFG_DBG("str av is too long");
+                }
+                CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);
+            } else if (!strcmp(an, "use_ciplus_mode")){
+                cam->is_ciplus_mode = atoi(av);
+                STB_SPDebugWrite("cam->is_ciplus_mode %d", cam->is_ciplus_mode);
+            } else if (!strcmp(an, "dev_id")){
+                cam->dev_id = atoi(av);
+                STB_SPDebugWrite("cam->dev_id %d", cam->dev_id);
+            } else if (!strcmp(an, "host_mode")){
+                if (!strcmp(av, "user_mode"))
+                {
+                    cam->host_mode = 2;
+                }
+                CFG_DBG("cam->host_mode(%s)  %d",av, cam->host_mode);
+            }
+            att += 2;
+        }
 
-	} else if (!strcmp(name, "pvr")) {
-		att = atts;
-		an = att[0];
-		av = att[1];
-		if (!strcmp(an, "encrypt")) {
-			long int i;
-			i = strtol(av, NULL, 0);
-			if ((i != LONG_MIN) && (i != LONG_MAX))
-				cfg->pvr.encrypt = i;
-		}
-	} else if (!strcmp(name, "dmc_mem")) {
+    } else if (!strcmp(name, "pvr")) {
+        att = atts;
+        an = att[0];
+        av = att[1];
+        if (!strcmp(an, "encrypt")) {
+            long int i;
+            i = strtol(av, NULL, 0);
+            if ((i != LONG_MIN) && (i != LONG_MAX))
+                cfg->pvr.encrypt = i;
+        }
+    } else if (!strcmp(name, "dmc_mem")) {
         long int i;
         att = atts;
         while (*att) {
@@ -317,12 +334,12 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
     }
     else if (!strcmp(name, "country")) {
         att = atts;
-		an = att[0];
-		av = att[1];
-		if (!strcmp(an, "code") && strlen(av) == 3) {
-			STB_SPDebugWrite("cfg country_code:%c%c%c", av[0], av[1], av[2]);
-			memcpy(cfg->country_code, av, strlen(av));
-		}
+        an = att[0];
+        av = att[1];
+        if (!strcmp(an, "code") && strlen(av) == 3) {
+            STB_SPDebugWrite("cfg country_code:%c%c%c", av[0], av[1], av[2]);
+            memcpy(cfg->country_code, av, strlen(av));
+        }
     }else if (!strcmp(name, "network")) {
         long int i;
         cfg->network.net_id_max = 0xffff;
@@ -403,16 +420,6 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                 i = strtol(av, NULL, 0);
                 if ((i != LONG_MIN) && (i != LONG_MAX))
                     cfg->sipsi.eit_timeout = i;
-            }
-            att += 2;
-        }
-    }else if (!strcmp(name, "service_list")) {
-        att = atts;
-        while (*att) {
-            an = att[0];
-            av = att[1];
-            if (!strcmp(an, "service_without_sdt") && !strcmp(av, "yes")) {
-                cfg->service_without_sdt = 1;
             }
             att += 2;
         }
@@ -614,6 +621,32 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             att += 2;
         }
         CFG_DBG("monitor_function, disable_automatic_update is set to %d", aml_custom_config.disable_automatic_update);
+    }
+    else if (!strcmp(name,"unsupport_descriptor_tag"))
+    {
+        att = atts;
+        while (*att) {
+            cfg->unsupport_descriptor_tag_num++;
+            att += 2;
+        }
+        if (cfg->unsupport_descriptor_tag_num > 0)
+        {
+            cfg->unsupport_descriptor_tag_list=(U8BIT*)STB_GetMemory(cfg->unsupport_descriptor_tag_num);
+            if (NULL != cfg->unsupport_descriptor_tag_list)
+            {
+                int index = 0;
+                att = atts;
+                while (*att) {
+                    an = att[0];
+                    av = att[1];
+                    cfg->unsupport_descriptor_tag_list[index] = (U8BIT)strtol(av, NULL, 0);
+                    //CFG_DBG("cfg->unsupport_descriptor_tag_list[%d]=%x", index, cfg->unsupport_descriptor_tag_list[index]);
+                    att += 2;
+                    index++;
+                }
+            }
+        }
+        CFG_DBG("unsupport_descriptor_tag_num %d", cfg->unsupport_descriptor_tag_num);
     }
 }
 
@@ -938,15 +971,6 @@ int STB_Get_SI_PSI_Timeout(E_SI_PSI_TYPE sipsi_type)
 }
 
 /**
- * @brief   get config of whether need to add service without sdt to service list
- * @return  1 if support, 0 otherwise
- */
-int STB_Get_Service_WithoutSDT()
-{
-   return aml_hw_cfg.service_without_sdt == 1 ? 1 : 0;
-}
-
-/**
  * @brief   get dynamic prop
  *          prority1: android property
  *          prority2: config.xml
@@ -1154,6 +1178,38 @@ BOOLEAN STB_GetCustomCFGForDisableAutomaticUpdate(void)
 {
     return aml_custom_config.disable_automatic_update;
 }
+
+/**
+ * @brief   get unsupport service type,such as 4k or 8k and so on
+ * @return  E_STB_CFG_SERVICE_UPSOPPORT_TYPE
+ */
+int STB_CFG_GetServiceUnsupportType(void)
+{
+   return aml_hw_cfg.service_unsupport_type;
+}
+
+/**
+ * @brief   check DescriptorTag is unsupport
+ * @return  TRUE: this tag is unsupport
+ */
+BOOLEAN STB_CFG_IsUnsupportDescriptorTag(U8BIT descriptor_tag)
+{
+    BOOLEAN ret_val = FALSE;
+    int idx = 0;
+    if (aml_hw_cfg.unsupport_descriptor_tag_num > 0 && NULL != aml_hw_cfg.unsupport_descriptor_tag_list)
+    {
+        for (idx = 0;idx < aml_hw_cfg.unsupport_descriptor_tag_num;idx++)
+        {
+            if (descriptor_tag == aml_hw_cfg.unsupport_descriptor_tag_list[idx])
+            {
+                ret_val = TRUE;
+                break;
+            }
+        }
+    }
+   return ret_val;
+}
+
 
 static void DVR_Get_Prop(const char *name, char *buf, int len)
 {

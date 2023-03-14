@@ -203,10 +203,6 @@ typedef struct
 
    E_STB_DMX_DEMUX_SOURCE source;
    U8BIT source_param;
-   U8BIT dmx_caps;
-
-   // For sc2
-   BOOLEAN recording;
 
    U16BIT pids[DMX_PID_COUNT];
 
@@ -1194,7 +1190,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                   {
                       demux_status[i].source = DMX_TUNER;
                       demux_status[i].source_param = 0;
-                      demux_status[i].recording = FALSE;
                   } else {
                       demux_status[i].source = DMX_MEMORY;
                       demux_status[i].source_param = 255;
@@ -2126,11 +2121,9 @@ static U8BIT inline _GetDmxDMASourceById(int id)
 void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
 {
    int tuner_index;
-   int ret, i;
+   int ret;
    BOOLEAN am_result;
    DVB_DemuxSource_t dmx_src_cfg, dmx_src_cur;
-   // For sc2 demux only
-   BOOLEAN recording_in_tspath = FALSE;
 
    FUNCTION_START(STB_DMXSetDemuxSource);
 
@@ -2142,7 +2135,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
    tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
 
    dmx_src_cfg = GetDemuxSourceByCfg(aml_hw_cfg.tuners[tuner_index].ts_input_idx);
-   DMX_DBG("path %d, source %d, param %d, demux_cap %d", path, source, param, demux_cap);
+
    if (dmx_model_sc2)
    {
       if (STB_CIUsbModuleInserted() && source == DMX_TUNER)
@@ -2152,14 +2145,12 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
       }
       else if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
       {
-         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
+         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
          DMX_DBG("DMX_CAPS_LIVE dmx_src_cfg=%d", dmx_src_cfg);
-         demux_status[path].recording = FALSE;
       }
       else if (demux_cap == DMX_CAPS_RECORDING && source == DMX_TUNER)
       {
-         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-         demux_status[path].recording = TRUE;
+         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
          DMX_DBG("DMX_CAPS_Recording dmx_src_cfg=%d", dmx_src_cfg);
       }
    }
@@ -2189,39 +2180,6 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
             if (ret == -1)
             {
                 DMX_ERR("Failed to set demux %u source to %u ", path, param);
-            }
-         }
-      }
-   }
-
-   // Check if recording is processing in demuxes with same tuner_index
-   if (dmx_model_sc2)
-   {
-      for (i = 0; i<num_paths; i++)
-      {
-         // have same ts source, and one recording is processing
-         if (demux_status[i].source_param == param && demux_status[i].recording == TRUE)
-         {
-            recording_in_tspath = TRUE;
-            dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-            break;
-         }
-      }
-      if (recording_in_tspath)
-      {
-         for (i = 0; i<num_paths; i++)
-         {
-            if (demux_status[i].source_param == param && demux_status[i].source == DMX_TUNER)
-            {
-               DvbGetDemuxSource(i, &dmx_src_cur);
-               if (dmx_src_cur != dmx_src_cfg)
-               {
-                  ret = DvbSetDemuxSource(i, dmx_src_cfg);
-                  if (ret == -1)
-                  {
-                     DMX_ERR("Failed to re-set demux %u source to %u, error %d", i, param, ret);
-                  }
-               }
             }
          }
       }
@@ -2327,56 +2285,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
  */
 void STB_DMXResetDemuxSource(U8BIT path)
 {
-   E_STB_DMX_DEMUX_SOURCE source;
-   U8BIT param, tuner_index;
-   U8BIT recording_ref = 0;
-   DVB_DemuxSource_t dmx_src_cfg, dmx_src_cur;
-   int i, ret;
-
-   tuner_index = aml_hw_cfg.tuner_num - 1;
-   demux_status[path].recording = FALSE;
-
-   STB_DMXGetDemuxSource(path, &source, &param);
-   tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num - 1 : param;
-
-   if (dmx_model_sc2)
-   {
-      // re-set all demux source working on same ts-in(sid)
-      if (demux_status[path].source == DMX_TUNER)
-      {
-         for (i = 0; i < num_paths; i++)
-         {
-            if (demux_status[i].source_param == param && demux_status[i].recording)
-               recording_ref++;
-         }
-         // More than one recording is processing
-         if (recording_ref > 1)
-            dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-         else
-            dmx_src_cfg = DVB_DEMUX_SOURCE_TS0 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-
-         for (i = 0; i < num_paths; i++)
-         {
-            if (demux_status[i].source_param == param)
-            {
-               DvbGetDemuxSource(i, &dmx_src_cur);
-               DMX_DBG("%u: tuner: %d source: %d->%d", i, tuner_index, dmx_src_cur, dmx_src_cfg);
-               if (dmx_src_cur != dmx_src_cfg)
-               {
-                  ret = DvbSetDemuxSource(i, dmx_src_cfg);
-                  if (ret == -1)
-                  {
-                     DMX_ERR("Failed to re-set demux %u source to %u, error %d", i, param, ret);
-                  }
-               }
-            }
-         }
-      }
-      // reset demux status
-      demux_status[path].source = DMX_TUNER;
-      demux_status[path].source_param = tuner_index;
-      demux_status[path].recording = FALSE;
-   } // end mx_model_sc2
+    STB_DMXSetDemuxSource(path, DMX_TUNER, 0, 0);
 }
 
 #define TUNER_PATH 0

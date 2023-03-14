@@ -99,11 +99,11 @@ U8BIT* STB_HWGetOUI(void)
  * @brief   Returns the number of front end (Tuner) paths on the platform
  * @return  The number of tuner paths
  */
-U8BIT  STB_HWGetTunerPaths(void)
+U8BIT  STB_HWGetTunerNums(void)
 {
-   FUNCTION_START(STB_HWGetTunerPaths);
-   FUNCTION_FINISH(STB_HWGetTunerPaths);
-   return NUM_TUNER_PATHS;
+   FUNCTION_START(STB_HWGetTunerNums);
+   FUNCTION_FINISH(STB_HWGetTunerNums);
+   return NUM_TUNER_NUMS;
 }
 
 /**

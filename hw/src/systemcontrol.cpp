@@ -88,15 +88,19 @@ frequency:  4: only show once,will recovery when receive new frame.
 #endif
 
 #if (ANDROID_PLATFORM_SDK_VERSION <= 28)
-/*used by shine only*/
+    /*used by shine only*/
     if (color == VIDEO_LAYER_COLOR_MAX)
     {
         SCDBG("@@@@@@@@@@@@@ UNMUTE");
+        if (0 != system("echo 0 > /sys/class/video/disable_video"))
+        {
+            SCDBG("[%s]: %d disable_video error!\n", __FUNCTION__, __LINE__);
+        }
     }
     else
     {
         SCDBG("@@@@@@@@@@@@@ MUTE [%d]", color);
-        if (0 != system("echo 2 > /sys/class/video/disable_video"))
+        if (0 != system("echo 1 > /sys/class/video/disable_video"))
         {
             SCDBG("[%s]: %d disable_video error!\n", __FUNCTION__, __LINE__);
         }
@@ -107,16 +111,20 @@ frequency:  4: only show once,will recovery when receive new frame.
 
 extern "C"  int SC_getScreenColorSetting()
 {
-#if ANDROID_PLATFORM_SDK_VERSION >= 30
     int s32Ret = -1;
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
     const sp<SystemControlClient> &sws = getSystemControlService();
     if (sws != nullptr) {
         s32Ret = sws->getScreenColorForSignalChange();
         //s32Ret = VIDEO_LAYER_COLOR_BLUE;
-        return s32Ret;
     }
 #endif
-    return -1;
+
+#if (ANDROID_PLATFORM_SDK_VERSION <= 28)
+    s32Ret = VIDEO_LAYER_COLOR_BLACK;//Default black screen
+#endif
+
+    return s32Ret;
 }
 
 #endif

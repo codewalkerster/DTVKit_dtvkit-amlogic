@@ -958,7 +958,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
                 tstatus->tuning_params_changed = FALSE;
 
-                if (tstatus->delivery_system == SYS_DVBT2)
+                if (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2)
                 {
                     SetTunerT2PLP(tstatus->frontend_fd, tstatus->plp_id);
                 }

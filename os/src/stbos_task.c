@@ -82,13 +82,24 @@ void* STB_OSCreateTask(void *(*function)(void *), void *param, U32BIT stack, U8B
       //pthread_attr_setstacksize(&attr, stack);
    }
 
-   // Ensure thread is detached so resources are freed on exit
+   // The pthread_attr_set* operations below will result in realtime level
+   // DTVKit thread priorities. Considering priority inversion scenarios, it
+   // will also affect associated threads like libdvr and lead to unexpected
+   // results as discussed in TV-74714. Realtime prorities seem not
+   // necessary for most DTVKit tasks. Along this line, I would like to
+   // disable priority adjustment as the first step. As a result, related
+   // DTVKit threads will turn to run in default priority. If you find any
+   // priority issue with this change, you are encouraged to create a new
+   // function called STB_OSCreateRealtimeTask, recover disabled codes to that
+   // function and call it instead to create the specific task.
+#if 0
    err = pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
    if (err == 0)
    {
       parm.sched_priority = MapToOSPriority(priority);
       pthread_attr_setschedparam(&attr, &parm);
    }
+#endif
 
    // Create the task
    err = pthread_create(&handle, &attr, function, param);

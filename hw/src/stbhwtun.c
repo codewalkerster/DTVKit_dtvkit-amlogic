@@ -2944,24 +2944,34 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type)
 {
     BOOLEAN retval;
+    BOOLEAN sig_sys_mismatch;
+    BOOLEAN tuned_sys_mismatch;
     char fe_name[24];
     int mode;
     memset(fe_name, 0, sizeof(fe_name));
     retval = FALSE;
+    sig_sys_mismatch = FALSE;
+    tuned_sys_mismatch = (tstatus->tuned_sys_type != tstatus->sys_type);
 
     if (tstatus->frontend_fd != INVALID_FD)
     {
         switch (sig_type)
         {
             case TUNE_SIGNAL_QPSK:
-                if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS2)
-                    tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBS;
+                sig_sys_mismatch = (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBS2);
+                if (sig_sys_mismatch || tuned_sys_mismatch)
+                {
+                    tstatus->tuned_sys_type = (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) ? TUNE_SYSTEM_TYPE_DVBS2 : TUNE_SYSTEM_TYPE_DVBS;
+                }
 
                 break;
 
             case TUNE_SIGNAL_COFDM:
-                if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT2)
-                    tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_DVBT;
+                sig_sys_mismatch = (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT && tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_DVBT2);
+                if (sig_sys_mismatch || tuned_sys_mismatch)
+                {
+                    tstatus->tuned_sys_type = (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) ? TUNE_SYSTEM_TYPE_DVBT2 : TUNE_SYSTEM_TYPE_DVBT;
+                }
 
                 break;
 

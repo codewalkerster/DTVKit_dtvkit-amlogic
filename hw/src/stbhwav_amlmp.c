@@ -1838,13 +1838,13 @@ BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
 BOOLEAN STB_AVStoreVideoWindow(U8BIT path, U16BIT x, U16BIT y, U16BIT w, U16BIT h)
 {
    BOOLEAN success = TRUE;
-   FUNCTION_START(STB_AVSetVideoWindow);
+   FUNCTION_START(STB_AVStoreVideoWindow);
    window_rect_array[path].x=x;
    window_rect_array[path].y=y;
    window_rect_array[path].w=w;
    window_rect_array[path].h=h;
    VID_DBG("store rect:(%d,%d,%d,%d) for path:%d",x,y,w,h,path);
-   FUNCTION_FINISH(STB_AVSetVideoWindow);
+   FUNCTION_FINISH(STB_AVStoreVideoWindow);
 
    return success;
 }
@@ -1878,7 +1878,6 @@ void * STB_AVGetSurface(U8BIT path)
  *
  * @return TRUE if video window set correctly
  */
-//TODO: this function is set video crop actually, need change its name to STB_AVSetVideoCrop
 BOOLEAN STB_AVSetVideoWindow(U8BIT path, int x, int y, int width, int height)
 {
     int ret;
@@ -1893,7 +1892,6 @@ BOOLEAN STB_AVSetVideoWindow(U8BIT path, int x, int y, int width, int height)
     }
 
     VID_DBG("[%d,%d,%d,%d]", x, y, width, height);
-    Aml_MP_Rect videoCrop = {x, y, width, height};
 
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
@@ -1909,7 +1907,7 @@ BOOLEAN STB_AVSetVideoWindow(U8BIT path, int x, int y, int width, int height)
         return FALSE;
     }
 
-    ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_VIDEO_CROP, &videoCrop);
+    ret = Aml_MP_Player_SetVideoWindow(player_handle, x, y, width, height);
 
     if (ret < 0) {
         VID_DBG("SetVideoWindow failed, err:%d", ret);
@@ -3489,7 +3487,7 @@ BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_
     AML_MP_PLAYER player_handle;
     Aml_MP_AudioLanguage audioLang;
 
-    FUNCTION_START(STB_AVSetVideoWindow);
+    FUNCTION_START(STB_AVSetAudioLanguage);
 
     VID_DBG("STB_AVSetAudioLanguage, pri_language_code:0x%x, sec_language_code:0x%x", pri_language_code, sec_language_code);
     U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
@@ -3522,7 +3520,7 @@ BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_
         VID_DBG("STB_AVSetAudioLanguage failed, err:%d", ret);
     }
 
-    FUNCTION_FINISH(STB_AVSetVideoWindow);
+    FUNCTION_FINISH(STB_AVSetAudioLanguage);
     return TRUE;
 }
 

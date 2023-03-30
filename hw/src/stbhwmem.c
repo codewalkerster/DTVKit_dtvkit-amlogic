@@ -100,7 +100,7 @@ void  STB_MEMInitialiseRAM(void)
  * @param   bytes Size of required block in bytes
  * @return  A pointer to the allocated block of memory, or NULL on failure
  */
-void* STB_MEMGetSysRAM(U32BIT bytes)
+static inline void* _STB_MEMGetSysRAM(U32BIT bytes)
 {
    void *retval;
 
@@ -128,7 +128,7 @@ void* STB_MEMGetSysRAM(U32BIT bytes)
  * @param   new_num_bytes size of the memory block to be returned
  * @return  Address of new block of memory
  */
-void* STB_MEMResizeSysRAM(void *ptr, U32BIT new_num_bytes)
+static inline void* _STB_MEMResizeSysRAM(void *ptr, U32BIT new_num_bytes)
 {
    void *new_ptr;
 
@@ -154,7 +154,7 @@ void* STB_MEMResizeSysRAM(void *ptr, U32BIT new_num_bytes)
  * @brief   Releases a previously allocated block of system memory
  * @param   block_ptr address of block to be released
  */
-void STB_MEMFreeSysRAM(void *block_ptr)
+static inline void _STB_MEMFreeSysRAM(void *block_ptr)
 {
    FUNCTION_START(STB_MEMFreeSysRAM);
 
@@ -170,7 +170,7 @@ void STB_MEMFreeSysRAM(void *block_ptr)
  * @brief   Returns the amount of available system memory consumed
  * @return  Memory used as a percentage of available
  */
-U8BIT STB_MEMSysRAMUsed(void)
+static inline U8BIT _STB_MEMSysRAMUsed(void)
 {
    U8BIT used_result = 0;
 
@@ -187,7 +187,7 @@ U8BIT STB_MEMSysRAMUsed(void)
  * @return  A pointer to the allocated block of memory
  * @return  NULL allocation failed
  */
-void* STB_MEMGetAppRAM(U32BIT bytes)
+static inline void* _STB_MEMGetAppRAM(U32BIT bytes)
 {
    void *retval;
 
@@ -215,7 +215,7 @@ void* STB_MEMGetAppRAM(U32BIT bytes)
  * @param   new_num_bytes size of the memory block to be returned
  * @return  Address of new block of memory
  */
-void* STB_MEMResizeAppRAM(void *ptr, U32BIT new_num_bytes)
+static inline void* _STB_MEMResizeAppRAM(void *ptr, U32BIT new_num_bytes)
 {
    void *new_ptr;
 
@@ -241,7 +241,7 @@ void* STB_MEMResizeAppRAM(void *ptr, U32BIT new_num_bytes)
  * @brief   Releases a previously allocated block of system memory
  * @param   block_ptr address of block to be released
  */
-void STB_MEMFreeAppRAM(void *block_ptr)
+static inline void _STB_MEMFreeAppRAM(void *block_ptr)
 {
    FUNCTION_START(STB_MEMFreeAppRAM);
 
@@ -258,7 +258,7 @@ void STB_MEMFreeAppRAM(void *block_ptr)
  * @return  Memory used as a percentage of available
  * @todo     Add STB810 code
  */
-U8BIT STB_MEMAppRAMUsed(void)
+static inline U8BIT _STB_MEMAppRAMUsed(void)
 {
    U8BIT used_result;
 
@@ -746,3 +746,154 @@ static BOOLEAN CreateDirectories(U8BIT* path)
    return success;
 
 }
+
+
+#ifdef HEAP_DEBUG
+extern void LB_HEAP_DBG_PRINT(const char *format, ... );
+
+void* STB_MEMGetSysRAM_DBG(U32BIT bytes, const char *filename, int linenum)
+{
+    void *buffer = _STB_MEMGetSysRAM(bytes);
+
+    if (NULL != buffer)
+    {
+        LB_HEAP_DBG_PRINT("[PGW] allocate (%d) bytes at [%s:%d] [%p, %p] \n", bytes,
+                        filename, linenum, buffer, buffer);
+    }
+    else
+    {
+        LB_HEAP_DBG_PRINT("[PGW] Cannot allocate %d bytes at %s:%d\n", bytes,
+                        filename, linenum);
+    }
+
+    return buffer;
+}
+
+void* STB_MEMResizeSysRAM_DBG(void *ptr, U32BIT new_num_bytes, const char *filename, int linenum)
+{
+    void *buffer = NULL;
+
+    LB_HEAP_DBG_PRINT("[PGW] [Resize] free (%d) bytes at [%s:%d] [%p, %p] \n", 0,
+                        filename, linenum, ptr, ptr);
+
+    buffer = _STB_MEMResizeSysRAM(ptr, new_num_bytes);
+
+    LB_HEAP_DBG_PRINT("[PGW] [Resize] allocate (%d) bytes at [%s:%d] [%p, %p] \n", new_num_bytes,
+                        filename, linenum, buffer, buffer);
+
+    return buffer;
+}
+
+void STB_MEMFreeSysRAM_DBG(void *block, const char *filename, int linenum)
+{
+    LB_HEAP_DBG_PRINT("[PGW] free (%d) bytes at [%s:%d] [%p, %p] \n", 0,
+                    filename, linenum, block, block);
+
+    _STB_MEMFreeSysRAM(block);
+}
+
+U8BIT STB_MEMSysRAMUsed_DBG(const char *filename, int linenum)
+{
+    return _STB_MEMSysRAMUsed();
+}
+
+
+
+void* STB_MEMGetAppRAM_DBG(U32BIT bytes, const char *filename, int linenum)
+{
+    void *buffer = _STB_MEMGetAppRAM(bytes);
+
+    if (NULL != buffer)
+    {
+        LB_HEAP_DBG_PRINT("[PGW] allocate (%d) bytes at [%s:%d] [%p, %p] \n", bytes,
+                        filename, linenum, buffer, buffer);
+    }
+    else
+    {
+        LB_HEAP_DBG_PRINT("[PGW] Cannot allocate %d bytes at %s:%d\n", bytes,
+                        filename, linenum);
+    }
+
+    return buffer;
+}
+
+void* STB_MEMResizeAppRAM_DBG(void *ptr, U32BIT new_num_bytes, const char *filename, int linenum)
+{
+    void *buffer = NULL;
+
+    LB_HEAP_DBG_PRINT("[PGW] [Resize] free (%d) bytes at [%s:%d] [%p, %p] \n", 0,
+                        filename, linenum, ptr, ptr);
+
+    buffer = _STB_MEMResizeAppRAM(ptr, new_num_bytes);
+
+    LB_HEAP_DBG_PRINT("[PGW] [Resize] allocate (%d) bytes at [%s:%d] [%p, %p] \n", new_num_bytes,
+                        filename, linenum, buffer, buffer);
+
+    return buffer;
+}
+
+
+void STB_MEMFreeAppRAM_DBG(void *block, const char *filename, int linenum)
+{
+    LB_HEAP_DBG_PRINT("[PGW] free (%d) bytes at [%s:%d] [%p, %p] \n", 0,
+                    filename, linenum, block, block);
+
+    _STB_MEMFreeAppRAM(block);
+}
+
+
+U8BIT STB_MEMAppRAMUsed_DBG(const char *filename, int linenum)
+{
+    return _STB_MEMAppRAMUsed();
+}
+
+
+#else
+
+void* STB_MEMGetSysRAM(U32BIT bytes)
+{
+    return _STB_MEMGetSysRAM(bytes);
+}
+
+void* STB_MEMResizeSysRAM(void *ptr, U32BIT new_num_bytes)
+{
+    return _STB_MEMResizeSysRAM(ptr, new_num_bytes);
+}
+
+void STB_MEMFreeSysRAM(void *block)
+{
+    _STB_MEMFreeSysRAM(block);
+}
+
+U8BIT STB_MEMSysRAMUsed()
+{
+    return _STB_MEMSysRAMUsed();
+}
+
+
+
+void* STB_MEMGetAppRAM(U32BIT bytes)
+{
+    return _STB_MEMGetAppRAM(bytes);
+}
+
+void* STB_MEMResizeAppRAM(void *ptr, U32BIT new_num_bytes)
+{
+    void *buffer = NULL;
+
+    return _STB_MEMResizeAppRAM(ptr, new_num_bytes);
+
+}
+
+void STB_MEMFreeAppRAM(void *block)
+{
+    _STB_MEMFreeAppRAM(block);
+}
+
+U8BIT STB_MEMAppRAMUsed()
+{
+    return _STB_MEMAppRAMUsed();
+}
+#endif
+
+

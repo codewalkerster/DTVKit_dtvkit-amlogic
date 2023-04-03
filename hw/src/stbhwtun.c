@@ -948,7 +948,6 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
             if (start_tuning || tstatus->tuning_params_changed || GetTunerLockStatus(tstatus->frontend_fd) != TUNER_STATE_LOCKED)
             {
-                tstatus->lock_flags |= FEND_FL_LOCK;
                 TUN_DBG("start_tuning: %d tuning_params_changed:%d", start_tuning,tstatus->tuning_params_changed);
 
                 if (state != TUNER_IDLE && state != TUNER_EXITED)
@@ -997,6 +996,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                 }
                 else if (state == TUNER_IDLE)
                 {
+                    tstatus->lock_flags |= FEND_FL_LOCK;
                     STB_OSSemaphoreSignal(tstatus->tune_sem);
                     TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
                     if (0 == STB_GetFccPipCfgStatus())
@@ -3440,18 +3440,18 @@ static void* TunerTask(void *param)
             if (sem_ret)
             {
                 tune_idle_timer = 0;
-                if (0 == (tstatus->lock_flags & FEND_FL_LOCK))
+                if (FEND_FL_LOCK == (tstatus->lock_flags & FEND_FL_LOCK))
                 {
                     STB_OSMutexLock(tstatus->mutex);
                     tstatus->state = TUNER_LOCKED;
                     state = tstatus->state;
                     STB_OSMutexUnlock(tstatus->mutex);
+                    tstatus->lock_flags &= ~FEND_FL_LOCK;
                     TUN_INFO("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
                     if (0 == STB_GetFccPipCfgStatus())
                     {
                         STB_OSSemaphoreSignal(tstatus->tune_sem_lock);
                     }
-                    TUN_INFO("path:%u: already sem_signal:%p  tune_status:%d", tstatus->path, tstatus->tune_sem_lock, tstatus->state);
                     STB_TimeConsumeDebug("Tune lock end");
                     goto Already_Tuned;
                 }
@@ -3576,7 +3576,6 @@ static void* TunerTask(void *param)
                                         sizeof(U8BIT));
                     }
 
-                    tstatus->lock_flags &= ~FEND_FL_LOCK;
                     if (0 == STB_GetFccPipCfgStatus())
                     {
                         STB_OSSemaphoreSignal(tstatus->tune_sem_lock);

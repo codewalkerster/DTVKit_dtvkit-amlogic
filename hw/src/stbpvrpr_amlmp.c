@@ -2719,7 +2719,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
          }
       }
 
-      if (s_recplay_status[play_index].video_pid != video_pid)
+      if (s_recplay_status[play_index].video_pid != video_pid && video_pid != 0)
       {
          U16BIT fake_pid = getFakePid();
 

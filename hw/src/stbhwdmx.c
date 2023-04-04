@@ -77,6 +77,7 @@
 #define MAX_PID_FILTERS             24
 #define MAX_SECTION_FILTERS         16
 #define MAX_FILTERS_PER_PID         8
+#define MAX_TEMI_FILTERS            2
 
 #define DEMUX_FILTER_NOT_ALLOCATED  0xFFFF
 #define DEMUX_PID_NOT_USED          0xFFFF
@@ -168,6 +169,17 @@ typedef struct s_section_filter_info
    BOOLEAN empty_mask;
 } S_SECTION_FILTER_INFO;
 
+#ifdef TEMI_TIMELINES
+typedef struct s_temi_filter
+{
+   U16BIT pid;
+   TEMI_FILTER_CALLBACK func_ptr;
+   void *context;
+   void *sema;
+   U64BIT pts;
+} S_TEMI_FILTER;
+#endif
+
 typedef struct s_pid_filter_info
 {
    U8BIT index;
@@ -196,6 +208,7 @@ typedef struct s_des_track_info
 
 typedef struct
 {
+   void*  filter_mtx;
    U8BIT path;
    U16BIT caps;
 
@@ -203,6 +216,9 @@ typedef struct
 
    E_STB_DMX_DEMUX_SOURCE source;
    U8BIT source_param;
+#ifdef TEMI_TIMELINES
+   S_TEMI_FILTER temi_filters[MAX_TEMI_FILTERS];
+#endif
 
    U16BIT pids[DMX_PID_COUNT];
 
@@ -1519,6 +1535,90 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
 
    FUNCTION_FINISH(STB_DMXChangeTextPID);
 }
+
+#ifdef TEMI_TIMELINES
+/**
+ * @brief   Start specified TEMI filter collecting data.
+ * @param   path Required decode path number.
+ * @param   pid Required PID to demux.
+ * @param   func Function to report any TEMI related AF descriptor
+ * @param   context Parameter to be used as context in callbacks from this filter
+ * @return  New TEMI filter identifier or invalid id.
+ */
+U16BIT STB_DMXStartTemiFilter(U8BIT path, U16BIT pid, TEMI_FILTER_CALLBACK func, void *context)
+{
+   S_DMX_STATUS *ds;
+   U16BIT filt_id;
+   U16BIT filter_index;
+   S_TEMI_FILTER *filter_ptr;
+
+   FUNCTION_START(STB_DMXStartTemiFilter);
+
+   filt_id = STB_DMX_PID_FILTER_INVALID;
+   if (path < num_paths)
+   {
+      ds = demux_status + path;
+      STB_OSMutexLock(ds->filter_mtx);
+
+      /* Find an unused TEMI filter */
+      for (filter_index = 0, filter_ptr = &ds->temi_filters[filter_index];
+           (filter_ptr->pid != DEMUX_PID_NOT_USED) && (filter_index < MAX_TEMI_FILTERS); filter_ptr++, filter_index++)
+         ;
+
+      if (filter_index < MAX_TEMI_FILTERS)
+      {
+         /* This PID isn't being collected and a free PID filter has been found */
+         filter_ptr->sema = STB_OSCreateSemaphore();
+         filter_ptr->pid = pid;
+         filter_ptr->func_ptr = func;
+         filter_ptr->context = context;
+         filter_ptr->pts = 0;
+         filt_id = filter_index;
+      }
+      else
+      {
+         DMX_ERR("(%u): No TEMI filters available to collect PID %u", path, pid);
+      }
+
+      STB_OSMutexUnlock(ds->filter_mtx);
+   }
+
+   FUNCTION_FINISH(STB_DMXStartTemiFilter);
+
+   return filt_id;
+}
+
+/**
+ * @brief   Stop specified TEMI filter.
+ * @param   path Required Decode Path Number.
+ * @param   filter_id Required TEMI filter identifier.
+ */
+void STB_DMXStopTemiFilter(U8BIT path, U16BIT filt_id)
+{
+   S_DMX_STATUS *ds;
+   S_TEMI_FILTER *filter_ptr;
+
+   FUNCTION_START(STB_DMXStopTemiFilter);
+
+   if ((path < num_paths) && (filt_id < MAX_TEMI_FILTERS))
+   {
+      ds = demux_status + path;
+      filter_ptr = ds->temi_filters + filt_id;
+
+      STB_OSMutexLock(ds->filter_mtx);
+
+      if (filter_ptr->pid != DEMUX_PID_NOT_USED)
+      {
+         STB_OSDeleteSemaphore(filter_ptr->sema);
+         filter_ptr->pid = DEMUX_PID_NOT_USED;
+      }
+
+      STB_OSMutexUnlock(ds->filter_mtx);
+   }
+
+   FUNCTION_FINISH(STB_DMXStopTemiFilter);
+}
+#endif
 
 /**
  * @brief   Get a New PID Filter & Setup Associated Buffer and Callback

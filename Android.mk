@@ -3,6 +3,10 @@ include $(CLEAR_VARS)
 
 include $(LOCAL_PATH)/Config.mk
 
+ifeq ($(DTVKIT_INCLUDE_TEMI),1)
+LOCAL_CFLAGS += -DTEMI_TIMELINES
+endif
+
 #LOCAL_SANITIZE := address
 ifeq ($(DTVKIT_AMLOGIC_SANITIZE), true)
     LOCAL_SANITIZE := address

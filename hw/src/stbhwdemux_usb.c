@@ -38,8 +38,8 @@
 #include <Aml_MP/Aml_MP.h>
 
 /*---constant definitions for this file--------------------------------------*/
-//#define INJECT_FROM_FILE
-//#define DEMUX_USB_MODULE_DEBUG
+// #define INJECT_FROM_FILE
+// #define DEMUX_USB_MODULE_DEBUG
 #define CIPLUS_USB_INDEX 1
 #define DEMUX_USB_DEBUG 1
 #ifdef DEMUX_USB_DEBUG
@@ -657,10 +657,13 @@ S32BIT STB_CIUsbWrite(U8BIT *buffer, U32BIT len)
     memcpy(g_pCmdWriteBuf, buffer, len);
     ret = cimodule_cmd_intf_write(g_pCmdFd, g_pCmdWriteBuf, len, &dwActualSendLen, -1);
     // DMX_USB_DBG("todo buffer len %d, write len %d, must equal", len, dwActualSendLen);
-    for (i = 0; i < dwActualSendLen; i++)
-        sprintf(buf + 3 * i, "%02x ", g_pCmdWriteBuf[i]);
 #ifdef DEMUX_USB_MODULE_DEBUG
-    DMX_USB_DBG("Write %d =========> %s", dwActualSendLen, buf);
+    if (dwActualSendLen < 256)
+    {
+        for (i = 0; i < dwActualSendLen; i++)
+            sprintf(buf + 3 * i, "%02x ", g_pCmdWriteBuf[i]);
+        DMX_USB_DBG("Write %d =========> %s", dwActualSendLen, buf);
+    }
 #endif
     return dwActualSendLen;
 }
@@ -677,7 +680,7 @@ S32BIT STB_CIUsbRead(U8BIT *buffer, U32BIT len)
     int ret;
     unsigned int dwActualRecvLen = 0;
 #ifdef DEMUX_USB_MODULE_DEBUG
-    char buf[1024];
+    char buf[2048];
 #endif
     int i;
     int read_len = 0;
@@ -702,7 +705,7 @@ S32BIT STB_CIUsbRead(U8BIT *buffer, U32BIT len)
     pthread_mutex_unlock(&cmd_read_mutex);
 
 #ifdef DEMUX_USB_MODULE_DEBUG
-    if (read_len > 0)
+    if (read_len > 0 && read_len <= 256)
     {
         for (i = 0; i < read_len; i++)
             sprintf(buf + 3 * i, "%02x ", buffer[i]);

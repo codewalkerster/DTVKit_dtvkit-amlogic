@@ -4444,61 +4444,65 @@ static BOOLEAN GetRealParamFromDriver(U8BIT path)
     E_STB_TUNE_CMODE cmode = TUNE_MODE_QAM_UNDEFINED;
     struct dtv_property cmd;
     struct dtv_properties props;
+    U_STB_DEMO_CAPABILITY uCap;
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD)
                            && IsTunerLocked(&tuner_status[path]))
     {
-        memset(&cmd, 0, sizeof(struct dtv_property));
-
-        cmd.cmd = DTV_DELIVERY_SYSTEM;
-        props.num = 1;
-        props.props = &cmd;
-
-        if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+        if ((TRUE == STB_GetDemoCapabilityByType(TUNE_SIGNAL_QAM, &uCap)) && (1 ==uCap.dvbc.symbol_rate_auto))
         {
-            if (SYMBOL_RATE_AUTO == cmd.reserved[1])
+            memset(&cmd, 0, sizeof(struct dtv_property));
+
+            cmd.cmd = DTV_DELIVERY_SYSTEM;
+            props.num = 1;
+            props.props = &cmd;
+
+            if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
             {
-                return FALSE;
+                if (SYMBOL_RATE_AUTO == cmd.reserved[1])
+                {
+                    return FALSE;
+                }
+                else
+                {
+                    switch (cmd.reserved[0])
+                    {
+                        case QAM_16:
+                            cmode = TUNE_MODE_QAM_16;
+                            break;
+                        case QAM_32:
+                            cmode = TUNE_MODE_QAM_32;
+                            break;
+                        case QAM_64:
+                            cmode = TUNE_MODE_QAM_64;
+                            break;
+                        case QAM_128:
+                            cmode = TUNE_MODE_QAM_128;
+                            break;
+                        case QAM_256:
+                            cmode = TUNE_MODE_QAM_256;
+                            break;
+                        default:
+                            cmode = TUNE_MODE_QAM_UNDEFINED;
+                            break;
+                    }
+                    srate = cmd.reserved[1];
+                    TUN_DBG("%u: from driver:", path);
+                    TUN_DBG("%u: symbol rate = %lu", path, srate);
+                    if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM)
+                    {
+                        TUN_DBG("%u: cable mode = %lu", path, cmd.reserved[0]);
+                    }
+                }
+                real_srate = srate;
+                real_cmode = cmode;
+                return TRUE;
             }
             else
             {
-                switch (cmd.reserved[0])
-                {
-                    case QAM_16:
-                        cmode = TUNE_MODE_QAM_16;
-                        break;
-                    case QAM_32:
-                        cmode = TUNE_MODE_QAM_32;
-                        break;
-                    case QAM_64:
-                        cmode = TUNE_MODE_QAM_64;
-                        break;
-                    case QAM_128:
-                        cmode = TUNE_MODE_QAM_128;
-                        break;
-                    case QAM_256:
-                        cmode = TUNE_MODE_QAM_256;
-                        break;
-                    default:
-                        cmode = TUNE_MODE_QAM_UNDEFINED;
-                        break;
-                }
-                srate = cmd.reserved[1];
-                TUN_DBG("%u: from driver:", path);
-                TUN_DBG("%u: symbol rate = %lu", path, srate);
-                if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM)
-                {
-                    TUN_DBG("%u: cable mode = %lu", path, cmd.reserved[0]);
-                }
+                TUN_ERR("%u: Failed to get real param from driver, errno %d", path, errno);
+                return FALSE;
             }
-            real_srate = srate;
-            real_cmode = cmode;
-            return TRUE;
-        }
-        else
-        {
-            TUN_ERR("%u: Failed to get real param from driver, errno %d", path, errno);
-            return FALSE;
         }
     }
     return FALSE;

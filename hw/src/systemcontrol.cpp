@@ -11,6 +11,8 @@ extern "C" {
 #include "dbgfuncs.h"
 #include "linuxdvbdmx_wrapper.h"
 #include "systemcontrol.h"
+#include "ap_cfg.h"
+
 
 #ifdef __cplusplus
 }
@@ -62,7 +64,7 @@ frequency:  4: only show once,will recovery when receive new frame.
         if (color == VIDEO_LAYER_COLOR_MAX)
         {
             SCDBG("@@@@@@@@@@@@@ UNMUTE");
-            if (DMX_IsNewHW())
+            if (DMX_IsNewHW() && ACFG_GetCustomBlueScreenCfg() != 1)
             {
                 //no need
             }
@@ -74,7 +76,7 @@ frequency:  4: only show once,will recovery when receive new frame.
         else
         {
             SCDBG("@@@@@@@@@@@@@ MUTE [%d]", color);
-            if (DMX_IsNewHW())
+            if (DMX_IsNewHW() && ACFG_GetCustomBlueScreenCfg() != 1)
             {
                 s32Ret = sws->setVideoScreenColorByVT(1,color,4);
             }

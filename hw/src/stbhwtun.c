@@ -1780,62 +1780,40 @@ E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
 
 /**
  * @brief   Returns the heirarchy of the current terrestrial signal
- * @param   path the tuner path to query
+ * @param   tuner_id, the tuner index to query
  * @return  the heirarchy
  */
-E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
+E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
 {
-    U8BIT retval;
+    U8BIT retval = TUNE_THIERARCHY_NONE;
     struct dtv_property cmd;
     struct dtv_properties props;
     uint8_t plp_ids[256];
 
     FUNCTION_START(STB_TuneGetActualTerrHierarchy);
 
-    retval = TUNE_THIERARCHY_NONE;
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    if (tuner_status[tuner_id].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
     {
-        if (GetTunerLockStatus(tuner_status[path].frontend_fd) == TUNER_STATE_LOCKED)
+        retval = STB_TuneGetMPLPIDList(tuner_id,plp_ids,MAX_PLP_NUMBER);
+        if (retval != 0)
         {
-            memset(&cmd, 0, sizeof(struct dtv_property));
-
-            if (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
-            {
-                cmd.cmd = DTV_DVBT2_PLP_ID;
-                cmd.u.buffer.reserved1[1] = (~0U);
-                cmd.u.buffer.reserved2 = plp_ids;
-
-                props.num = 1;
-                props.props = &cmd;
-
-                if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
-                {
-                    retval = cmd.u.buffer.reserved1[0];
-
-                    if (retval != 0)
-                    {
-                        /* Return the value of the max PLP id */
-                        retval--;
-                    }
-
-                    TUN_DBG("%u: Num PLPs=%u", path, retval);
-                }
-                else
-                {
-                    TUN_ERR("%u: Failed to get number of PLPs, errno %d", path, errno);
-                    retval = TUNE_THIERARCHY_NONE;
-                }
-            }
-            else
+            retval--;
+        }
+    }
+    else
+    {
+        if (tuner_id < num_paths && tuner_status[tuner_id].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
+        {
+            if (tuner_status[tuner_id].frontend_fd != INVALID_FD &&
+                GetTunerLockStatus(tuner_status[tuner_id].frontend_fd) == TUNER_STATE_LOCKED)
             {
                 cmd.cmd = DTV_HIERARCHY;
                 props.num = 1;
                 props.props = &cmd;
 
-                if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+                if (ioctl(tuner_status[tuner_id].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
                 {
-                    TUN_DBG("%u: hierarchy=%lu", path, cmd.u.data);
+                    TUN_DBG("%u: hierarchy=%lu", tuner_id, cmd.u.data);
 
                     switch (cmd.u.data)
                     {
@@ -1862,7 +1840,7 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
                 }
                 else
                 {
-                    TUN_ERR("%u: Failed to get hierarchy, errno %d", path, errno);
+                    TUN_ERR("%u: Failed to get hierarchy, errno %d", tuner_id, errno);
                 }
             }
         }
@@ -1876,70 +1854,78 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT path)
 
 /**
  * @brief   Returns the heirarchy of the current terrestrial signal.
- * @param   path the tuner path to query
+ * @param   tuner_id, in  param,the tuner index to query
  * @param   plp_list, out param, to store all the pip id in the current freq
  * @param   listlen,  in  param, the max numbers of pipid that can be stored in the list
- * @return  the pip number of the current frequency.
+ * @return  the max pip number of the current frequency.
  */
-S32BIT STB_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
+S32BIT STB_TuneGetMPLPIDList(U8BIT tuner_id, U8BIT *plp_list, U16BIT listlen)
 {
     S32BIT retval = 0;
     struct dtv_property cmd;
     struct dtv_properties props;
     uint8_t plp_ids[MAX_PLP_NUMBER];
+    U32BIT start_time;
+    static const U32BIT timeout_dvbt2 = 5000;
 
-    FUNCTION_START(STB_TuneGetActualTerrHierarchy);
+    FUNCTION_START(STB_TuneGetMPLPIDList);
 
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    if (tuner_id < num_paths && tuner_status[tuner_id].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
     {
-        if (GetTunerLockStatus(tuner_status[path].frontend_fd) == TUNER_STATE_LOCKED)
+        if (tuner_status[tuner_id].frontend_fd != INVALID_FD)
         {
-            memset(&cmd, 0, sizeof(struct dtv_property));
-
-            if (tuner_status[path].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
+            start_time = STB_OSGetClockMilliseconds();
+            while (STB_OSGetClockDiff(start_time) <= timeout_dvbt2)
             {
-                cmd.cmd = DTV_DVBT2_PLP_ID;
-                cmd.u.buffer.reserved1[1] = MAX_PLP_NUMBER;
-                cmd.u.buffer.reserved2 = plp_ids;
-
-                props.num = 1;
-                props.props = &cmd;
-
-                if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+                if (GetTunerLockStatus(tuner_status[tuner_id].frontend_fd) == TUNER_STATE_LOCKED)
                 {
-                    retval = cmd.u.buffer.reserved1[0];
+                    memset(&cmd, 0, sizeof(struct dtv_property));
+                    cmd.cmd = DTV_DVBT2_PLP_ID;
+                    cmd.u.buffer.reserved1[1] = MAX_PLP_NUMBER;
+                    cmd.u.buffer.reserved2 = plp_ids;
 
-                    if (retval != 0)
+                    props.num = 1;
+                    props.props = &cmd;
+
+                    if (ioctl(tuner_status[tuner_id].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
                     {
-                        if (listlen >= retval)
-                        {
-                            memcpy(plp_list, plp_ids, retval);
-                        }
-                        else
-                        {
-                            memcpy(plp_list, plp_ids, listlen);
-                            TUN_ERR("%u: listlen:%d not enough, retval:%d ", path, listlen, retval);
-                        }
-                    }
+                        retval = cmd.u.buffer.reserved1[0];
 
-                    TUN_DBG("%u: Num PLPs=%u", path, retval);
+                        if (retval != 0)
+                        {
+                            if (listlen >= retval)
+                            {
+                                memcpy(plp_list, plp_ids, retval);
+                            }
+                            else
+                            {
+                                memcpy(plp_list, plp_ids, listlen);
+                                TUN_ERR("%u: listlen:%d not enough, retval:%d ", tuner_id, listlen, retval);
+                            }
+                        }
+
+                        TUN_DBG("%u: Num PLPs=%u", tuner_id, retval);
+                    }
+                    else
+                    {
+                        TUN_ERR("%u: Failed to get number of PLPs, errno %d", tuner_id, errno);
+                        retval = 0;
+                    }
+                    break;
                 }
                 else
                 {
-                    TUN_ERR("%u: Failed to get number of PLPs, errno %d", path, errno);
-
-                    retval = 0;
+                    STB_OSTaskDelay(100);
                 }
-            }
-            else
-            {
-                TUN_ERR("%u: Not MPLP , errno %d", path, errno);
             }
         }
     }
+    else
+    {
+        TUN_ERR("%u: Not MPLP , errno %d", tuner_id, errno);
+    }
 
-    FUNCTION_FINISH(STB_TuneGetActualTerrHierarchy);
+    FUNCTION_FINISH(STB_TuneGetMPLPIDList);
 
     return retval;
 }

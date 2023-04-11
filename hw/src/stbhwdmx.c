@@ -296,6 +296,7 @@ typedef struct s_sc2_dsc_dev_info
       int iv_odd_key_id;
       int one_key_id;
       int iv_one_key_id;
+      int dev_id;
    } dsc_pid_channel[SC2_DSC_CH_NUM];
 } S_SC2_DSC_DEV_INFO;
 
@@ -331,7 +332,7 @@ static void *sc2_find_dsc_channel_by_channel(E_STB_TS_SOURCE src, int chan_id)
    return NULL;
 }
 
-static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC_CA_TYPE dsc_type)
+static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC_CA_TYPE dsc_type, int dev_id)
 {
    int i;
    struct s_sc2_dsc_channel *dsc_channel = NULL;
@@ -348,7 +349,8 @@ static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC
       if (dsc_channel->ref > 0 &&
           dsc_channel->src == src &&
           dsc_channel->pid == pid &&
-          dsc_channel->dsc_type == dsc_type)
+          dsc_channel->dsc_type == dsc_type &&
+          dsc_channel->dev_id == dev_id)
       {
          DMX_DBG("found channel");
          return dsc_channel;
@@ -617,7 +619,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       }
       //Find if pid exists
       ts_src = STB_GetDmxTsSource(dev_id);
-      dsc_channel = sc2_find_dsc_channel_by_pid(ts_src, pid, dsc_type);
+      dsc_channel = sc2_find_dsc_channel_by_pid(ts_src, pid, dsc_type, dev_id);
 
       if (dsc_channel)
       {
@@ -703,6 +705,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
          dsc_channel->iv_odd_key_id = -1;
          dsc_channel->one_key_id = -1;
          dsc_channel->iv_one_key_id = -1;
+         dsc_channel->dev_id = dev_id;
          dsc->dsc_ref[dev_id]++;
       }
       STB_OSMutexUnlock(dsc->mutex);
@@ -862,6 +865,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
                dsc_channel->pid = -1;
                dsc_channel->chan_id = -1;
                dsc_channel->ref = 0;
+               dsc_channel->dev_id = -1;
 
                dsc->dsc_ref[dev_id]--;
             }
@@ -1289,6 +1293,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
             sc2_dsc_dev_info->dsc_pid_channel[i].pid = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].chan_id = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].dsc_type = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].dev_id = -1;
          }
       }
       else

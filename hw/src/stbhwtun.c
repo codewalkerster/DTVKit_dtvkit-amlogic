@@ -3949,7 +3949,7 @@ static BOOLEAN dvbsx_blindscan_setsinglecable(U8BIT fd, struct dvbsx_singlecable
     struct dtv_property *property = NULL;
     int num = 6;
 
-    property = malloc(num * sizeof(struct dtv_property));
+    property = STB_MEMGetSysRAM(num * sizeof(struct dtv_property));
     if (NULL == property)
         return FALSE;
 
@@ -3984,7 +3984,7 @@ static BOOLEAN dvbsx_blindscan_setsinglecable(U8BIT fd, struct dvbsx_singlecable
 
     if (property != NULL)
     {
-        free(property);
+        STB_MEMFreeSysRAM(property);
         property = NULL;
     }
 
@@ -4008,7 +4008,7 @@ static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspar
     struct dtv_property *property = NULL;
     int num = 8;
 
-    property = malloc(num * sizeof(struct dtv_property));
+    property = STB_MEMGetSysRAM(num * sizeof(struct dtv_property));
     if(NULL == property)
         return FALSE;
 
@@ -4055,7 +4055,7 @@ static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspar
 
     if (property != NULL)
     {
-        free(property);
+        STB_MEMFreeSysRAM(property);
         property = NULL;
     }
 

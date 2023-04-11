@@ -757,7 +757,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
                goto retry;
             }
             if (free_flag == 1 && p_segment_ids) {
-               free(p_segment_ids);
+               STB_MEMFreeSysRAM(p_segment_ids);
             }
          }
       }

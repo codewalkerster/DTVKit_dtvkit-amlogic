@@ -32,6 +32,7 @@
 #include "linuxdvbdmx_wrapper.h"
 #include "stbhwcfg.h"
 #include "stbhwc.h"
+#include "stbhwmem.h"
 
 #define DMX_COUNT (6)
 #define DMX_FILTER_COUNT (32*DMX_COUNT)
@@ -91,7 +92,7 @@ static void* dmx_data_thread(void *arg)
     void *filter_data = NULL;
     dvb_dmx_t *dmx = (dvb_dmx_t *)arg;
 
-    sec_buf = (uint8_t *)malloc(SEC_BUF_SIZE);
+    sec_buf = (uint8_t *)STB_MEMGetSysRAM(SEC_BUF_SIZE);
     prctl(PR_SET_NAME, "dmx_data_thread");
     while (dmx->running)
     {
@@ -177,7 +178,7 @@ static void* dmx_data_thread(void *arg)
 
     if (sec_buf)
     {
-        free(sec_buf);
+        STB_MEMFreeSysRAM(sec_buf);
     }
 
     return NULL;

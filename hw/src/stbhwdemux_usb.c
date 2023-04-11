@@ -25,6 +25,7 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 
+#include "stbhwmem.h"
 #include "stbhwcfg.h"
 #include "internal.h"
 #include "stbhwdef.h"
@@ -318,7 +319,7 @@ static void* cimodule_media_write_task(void *args)
     unsigned char arDummyTsHdr[10] = {0x00, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
     DMX_USB_DBG("entry");
-    buffer = malloc(REC_BUFF_SIZE);
+    buffer = STB_MEMGetSysRAM(REC_BUFF_SIZE);
     write_len = 0;
     fdMedia = ci_ts_write_open();
     // Aml_MP_SetDemuxSource(0, DVB_DEMUX_SOURCE_DMA0 + inj_dev_id);
@@ -446,7 +447,7 @@ static void *cimodule_cmd_read_task(void *args)
         else
         {
             pthread_mutex_lock(&cmd_read_mutex);
-            DataBlock *db = (DataBlock *)malloc(sizeof(DataBlock));
+            DataBlock *db = (DataBlock *)STB_MEMGetSysRAM(sizeof(DataBlock));
             db->next = NULL;
             memcpy(db->data, g_pCmdReadBuf, len);
             db->left = len;
@@ -698,7 +699,7 @@ S32BIT STB_CIUsbRead(U8BIT *buffer, U32BIT len)
         if (data_block_head->left == 0)
         {
             DataBlock *head = data_block_head->next;
-            free(data_block_head);
+            STB_MEMFreeSysRAM(data_block_head);
             data_block_head = head;
         }
     }

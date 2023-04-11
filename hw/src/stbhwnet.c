@@ -459,7 +459,7 @@ U16BIT STB_NWLookupAddress(U8BIT *name, S_NW_ADDR_INFO **nw_addrs)
    for (pptr = hptr->h_addr_list; *pptr != NULL; pptr++)
       nw_addr_count++;
 
-   *nw_addrs = (S_NW_ADDR_INFO *)malloc(sizeof(S_NW_ADDR_INFO) * nw_addr_count);
+   *nw_addrs = (S_NW_ADDR_INFO *)STB_MEMGetSysRAM(sizeof(S_NW_ADDR_INFO) * nw_addr_count);
    if (NULL == *nw_addrs)
       return 0;
 
@@ -501,7 +501,7 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    int s_protocol;
    int s_type = 0;
    int sock;
-   S_SOCKET_CTX *ctx = (S_SOCKET_CTX *)malloc(sizeof(S_SOCKET_CTX));
+   S_SOCKET_CTX *ctx = (S_SOCKET_CTX *)STB_MEMGetSysRAM(sizeof(S_SOCKET_CTX));
 
    USE_UNWANTED_PARAM(protocol); /* used in windows socket implementation */
    FUNCTION_START(STB_NWOpenSocket);
@@ -525,7 +525,7 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    STB_SPDebugWrite("sock %d type %d protocol %d", sock, type, protocol);
    if (sock < 0)
    {
-      free(ctx);
+      STB_MEMFreeSysRAM(ctx);
       return NULL;
    }
 
@@ -772,7 +772,7 @@ void *STB_NWAccept(void *socket, U8BIT *address, U32BIT *port)
       return NULL;
 
    FUNCTION_FINISH(STB_NWAccept);
-   new_client = (S_SOCKET_CTX *)malloc(sizeof(S_SOCKET_CTX));
+   new_client = (S_SOCKET_CTX *)STB_MEMGetSysRAM(sizeof(S_SOCKET_CTX));
    new_client->sock = connfd;
    return new_client;
 }

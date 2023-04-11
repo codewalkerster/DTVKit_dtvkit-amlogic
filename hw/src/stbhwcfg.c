@@ -22,6 +22,7 @@
 #include "stbheap.h"
 #include "stb_utils.h"
 #include "stbhwcfg.h"
+#include "stbhwmem.h"
 
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>
@@ -458,10 +459,10 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                 }
             } else {
                 if (e.key!=NULL) {
-                    free(e.key);
+                    STB_MEMFreeSysRAM(e.key);
                 }
                 if (e.data!=NULL) {
-                    free(e.data);
+                    STB_MEMFreeSysRAM(e.data);
                 }
                 CFG_ERR("Hash table, failed to duplicate strings %s,%s due to insufficient memory"
                         ,pname,pvalue);
@@ -631,7 +632,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         }
         if (cfg->unsupport_descriptor_tag_num > 0)
         {
-            cfg->unsupport_descriptor_tag_list=(U8BIT*)STB_GetMemory(cfg->unsupport_descriptor_tag_num);
+            cfg->unsupport_descriptor_tag_list=(U8BIT*)STB_MEMGetSysRAM(cfg->unsupport_descriptor_tag_num);
             if (NULL != cfg->unsupport_descriptor_tag_list)
             {
                 int index = 0;
@@ -1060,7 +1061,7 @@ void STB_Set_Prop(const char *name, const char *value)
     e.key = (char *)name;
     hret = hsearch_r(e,FIND,&ep,&(cfg->prop_htab));
     if (hret!=0) {
-        free(ep->data);
+        STB_MEMFreeSysRAM(ep->data);
         ep->data=strdup(value);
         CFG_DBG("Hash table key:%s, value:%s",ep->key,ep->data);
     } else {

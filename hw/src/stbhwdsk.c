@@ -1923,8 +1923,7 @@ BOOLEAN STB_DSKGetDiskInfo(U16BIT disk_id, U8BIT* dev_name, U8BIT name_len,
    }
    strcpy(mount_path,disk->mount_path);
 
-   //*used_in_kb = STB_DSKGetUsed(disk_id);
-   *used_in_kb = 0;
+   *used_in_kb = STB_DSKGetUsed(disk_id);
    *size_in_kb = disk->disk_size;
    *is_removeable = disk->is_removeable;
 

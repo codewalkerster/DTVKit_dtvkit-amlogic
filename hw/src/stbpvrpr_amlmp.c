@@ -1554,6 +1554,10 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       /*dvbcore ring buf size for ts date, need set buf size set to 20*188*1024 for 4k*/
       /*dvbcore ring buf size for ts date, need set buf size set to 100*188*1024 for low speed usb device*/
       rec_basic_params.ringbufSize = 100 * 188 * 1024;
+      int cfgRingbufSize = STB_Get_PVR_RecRingBufSize();
+      if (cfgRingbufSize != 0) {
+         rec_basic_params.ringbufSize = cfgRingbufSize;
+      }
 
       Aml_MP_DVRRecorderCreateParams recorderCreateParams;
       memset(&recorderCreateParams, 0, sizeof(recorderCreateParams));

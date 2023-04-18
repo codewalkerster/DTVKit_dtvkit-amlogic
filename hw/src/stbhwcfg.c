@@ -82,6 +82,7 @@ stb_hardware_cfg aml_hw_cfg = {
 .oui = 0x15a,
 .pvr = {
     .encrypt = 0,
+    .rec_ringbuf_size = 0,
     },
 .country_code = {'d', 'e', 'u'},
 .network = {
@@ -306,14 +307,21 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         }
 
     } else if (!strcmp(name, "pvr")) {
+        long int i;
         att = atts;
-        an = att[0];
-        av = att[1];
-        if (!strcmp(an, "encrypt")) {
-            long int i;
-            i = strtol(av, NULL, 0);
-            if ((i != LONG_MIN) && (i != LONG_MAX))
-                cfg->pvr.encrypt = i;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "encrypt")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->pvr.encrypt = i;
+            } else if (!strcmp(an, "rec_ringbuf_size")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->pvr.rec_ringbuf_size = i;
+            }
+            att += 2;
         }
     } else if (!strcmp(name, "oad")) {
             att = atts;
@@ -1136,6 +1144,15 @@ S_CAPTURE_ADC_CFG STB_GetCaptureADCCfg()
 BOOLEAN STB_Get_PVR_Encrypt()
 {
    return aml_hw_cfg.pvr.encrypt == 1 ? 1 : 0;
+}
+
+/**
+ * @brief   get pvr record ring buffer size
+ * @return  ring buffer size;
+ */
+int STB_Get_PVR_RecRingBufSize()
+{
+    return aml_hw_cfg.pvr.rec_ringbuf_size;
 }
 
 /**

@@ -644,6 +644,24 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
    #endif
 }
 
+
+/**
+ * @brief   Get Static Frame Enable or not
+ */
+BOOLEAN STB_AVGetStaticFrameEnable()
+{
+   BOOLEAN ret = FALSE;
+   FUNCTION_START(STB_AVGetStaticFrameEnable);
+
+#ifdef COMMON_INTERFACE
+   ret = SC_getStaticFrameEnable();
+#endif
+
+   FUNCTION_FINISH(STB_AVGetStaticFrameEnable);
+
+   return ret;
+}
+
 /**
  * @brief   Gets the Transition Color config
  * @return  TRUE transition color is black, FALSE otherwise

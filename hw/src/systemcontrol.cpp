@@ -51,42 +51,73 @@ extern "C"  int SC_setVideoColor(int color)
     const sp<SystemControlClient> &sws = getSystemControlService();
     if (sws != nullptr) {
 /*
-   window£º 0: reserved;   1: main_window;    2: sub_window.
+   windowï¿½ï¿½ 0: reserved;   1: main_window;    2: sub_window.
 
        Color:    0: Black;  1: Blue.
 
 frequency:  4: only show once,will recovery when receive new frame.
 
-                    5: always show the solid color frame, until receive disable cmd or surface disconnect
+                    5: MUTE: always show the solid color frame, until receive disable cmd or surface disconnect
 
-                    6. disable color frame.
+                    6: UNMUTE: disable color frame.
 */
-        if (color == VIDEO_LAYER_COLOR_MAX)
-        {
-            SCDBG("@@@@@@@@@@@@@ UNMUTE");
-            if (DMX_IsNewHW() && ACFG_GetCustomBlueScreenCfg() != 1)
+
+            if (color == VIDEO_LAYER_COLOR_MAX)
             {
-                //no need
+                SCDBG("@@@@@@@@@@@@@ UNMUTE");
+                if (DMX_IsNewHW())
+                {
+                    //no need
+                }
+                else
+                {
+                    s32Ret = sws->setVideoScreenColor(color);
+                }
             }
             else
             {
-                s32Ret = sws->setVideoScreenColor(color);
+                if (color)
+                {
+                    SCDBG("@@@@@@@@@@@@@ MUTE blue [%d]", color);
+                }
+                else
+                {
+                    SCDBG("@@@@@@@@@@@@@ MUTE black [%d]", color);
+                }
+
+                if (DMX_IsNewHW())
+                {
+                    s32Ret = sws->setVideoScreenColorByVT(1,color,5);
+                }
+                else
+                {
+                    s32Ret = sws->setVideoScreenColor(color);
+                }
             }
+            return s32Ret;
         }
-        else
-        {
-            SCDBG("@@@@@@@@@@@@@ MUTE [%d]", color);
-            if (DMX_IsNewHW() && ACFG_GetCustomBlueScreenCfg() != 1)
+#endif
+#if 0
+
+            if (color == VIDEO_LAYER_COLOR_MAX)
             {
-                s32Ret = sws->setVideoScreenColorByVT(1,color,4);
+                SCDBG("@@@@@@@@@@@@@ UNMUTE");
+                s32Ret = sws->setVideoScreenColor(color);
             }
             else
             {
+                if (color)
+                {
+                    SCDBG("@@@@@@@@@@@@@ MUTE blue [%d]", color);
+                }
+                else
+                {
+                    SCDBG("@@@@@@@@@@@@@ MUTE black [%d]", color);
+                }
                 s32Ret = sws->setVideoScreenColor(color);
             }
+            return s32Ret;
         }
-        return s32Ret;
-    }
 #endif
 
 #if (ANDROID_PLATFORM_SDK_VERSION <= 28)
@@ -124,6 +155,24 @@ extern "C"  int SC_getScreenColorSetting()
 
 #if (ANDROID_PLATFORM_SDK_VERSION <= 28)
     s32Ret = VIDEO_LAYER_COLOR_BLACK;//Default black screen
+#endif
+
+    return s32Ret;
+}
+
+extern "C"  int SC_getStaticFrameEnable()
+{
+    int s32Ret = -1;
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
+    const sp<SystemControlClient> &sws = getSystemControlService();
+    if (sws != nullptr) {
+        s32Ret = sws->getStaticFrameEnable();
+        SCDBG("[%s]: %d s32Ret %d!\n", __FUNCTION__, __LINE__, s32Ret);
+    }
+#endif
+
+#if (ANDROID_PLATFORM_SDK_VERSION <= 28)
+    s32Ret = 0;//Default black screen
 #endif
 
     return s32Ret;

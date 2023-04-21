@@ -665,13 +665,6 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
                     }
                 }
 
-                if (tstatus->signal_type == TUNE_SIGNAL_QPSK)
-                {
-                    TUN_DBG("STB_TuneSetSignalType: Tuner %d Power and 22khz off", path);
-                    STB_TuneSetLNBVoltage(path, LNB_VOLTAGE_OFF, FALSE);
-                    STB_TuneSet22kState(path, FALSE, FALSE);
-                }
-
                 tstatus->signal_type = TUNE_SIGNAL_NONE;
             }
 
@@ -2802,13 +2795,6 @@ void STB_TuneAllStop()
             {
                 STB_TuneStopTuner(i);
             }
-
-            if (tuner_status[i].signal_type == TUNE_SIGNAL_QPSK)
-            {
-                TUN_DBG("STB_TuneAllStop(%d): Tuner Power and 22khz off", i);
-                STB_TuneSetLNBVoltage(i, LNB_VOLTAGE_OFF, FALSE);
-                STB_TuneSet22kState(i, FALSE, FALSE);
-            }
         }
 
         TUN_DBG("tune path[%d] close FE:%d, usage:%d", i, tuner_status[i].frontend_fd, tuner_status[i].frontend_usage);
@@ -3111,6 +3097,14 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
     if ((NULL != tstatus) && (tstatus->frontend_fd != INVALID_FD))
     {
         TUN_DBG("path %u: close tuner frontend_fd:%d", tstatus->path,tstatus->frontend_fd);
+
+        if (tstatus->signal_type == TUNE_SIGNAL_QPSK)
+        {
+            TUN_DBG("path %u: lnb power and 22khz off frontend_fd:%d", tstatus->path,tstatus->frontend_fd);
+            STB_TuneSetLNBVoltage(tstatus->path, LNB_VOLTAGE_OFF, FALSE);
+            STB_TuneSet22kState(tstatus->path, FALSE, FALSE);
+        }
+
         SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
         tstatus->signal_type = TUNE_SIGNAL_NONE;
         close(tstatus->frontend_fd);

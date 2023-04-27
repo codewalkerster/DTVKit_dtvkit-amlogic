@@ -101,7 +101,7 @@ stb_hardware_cfg aml_hw_cfg = {
     .eit_timeout = 3000,
 },
 .demo_cap = {
-    .srate_auto = 0,
+    .srate_auto = 1,
     .srate_auto_value = 0,
     },
 .service_unsupport_type = 0,
@@ -475,8 +475,8 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         while (*att) {
             an = att[0];
             av = att[1];
-            if (!strcmp(an, "symbol_rate_auto") && !strcmp(av, "yes")) {
-                cfg->demo_cap.srate_auto = 1;
+            if (!strcmp(an, "symbol_rate_auto") && !strcmp(av, "no")) {
+                cfg->demo_cap.srate_auto = 0;
             }
             att += 2;
         }

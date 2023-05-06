@@ -14,7 +14,8 @@ SRCS = stbos_event.c      \
        stbos_semaphore.c  \
        stbos_task.c       \
        stbos_utils.c      \
-       stbos_timer.c
+       stbos_timer.c      \
+       dtv_log.c
 
 #SRCS = $(notdir $(wildcard ./src/*.c))
 $(warning "SRCS",  $(SRCS))

@@ -672,14 +672,14 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
 
          DMX_DBG("type %d algo %d dsc_type %d", type, algo, dsc_type);
          r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
-         if (r == -1)
+         if (r < 0)
          {
             if (dsc_type == CA_DSC_TSD_TYPE)
             {
                DMX_DBG("CA_SC2_SET_DESCR_EX alloc channel failed, fd %d, try TSN", dsc->dsc_fd[dev_id]);
                desc.params.alloc_params.dsc_type = CA_DSC_COMMON_TYPE;
                r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
-               if (r == -1)
+               if (r < 0)
                {
                   DMX_DBG("CA_SC2_SET_DESCR_EX alloc channel failed, fd %d, byebye", dsc->dsc_fd[dev_id]);
                   STB_OSMutexUnlock(dsc->mutex);
@@ -740,7 +740,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
             params.index = id;
 
             r = ioctl(dsc->fd, CA_SET_PID, &params);
-            if (r == -1)
+            if (r < 0)
             {
                DMX_DBG("CA_SET_PID alloc channel failed");
                return -1;
@@ -837,7 +837,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
                desc.params.free_params.ca_index = chan_id;
 
                r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
-               if (r == -1)
+               if (r < 0)
                   DMX_DBG("CA_SC2_SET_DESCR_EX free channel failed");
                
                if (dsc_channel->even_key_id != -1)
@@ -894,7 +894,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       params.index = chan_id;
 
       r = ioctl(dsc->fd, CA_SET_PID, &params);
-      if (r == -1)
+      if (r < 0)
          DMX_DBG("CA_SET_PID free channel failed");
 
       dsc->pid[chan_id] = -1;
@@ -1098,7 +1098,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
          memcpy(desc.cw, data+16, 16);
 
          r = ioctl(dsc->fd, CA_SET_DESCR_EX, &desc);
-         if (r == -1)
+         if (r < 0)
             DMX_DBG("CA_SET_DESCR_EX set iv key failed");
          else
             DMX_DBG("CA_SET_DESCR_EX set iv key success");
@@ -1112,7 +1112,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
       memcpy(desc.cw, data, 16);
 
       r = ioctl(dsc->fd, CA_SET_DESCR_EX, &desc);
-      if (r == -1)
+      if (r < 0)
          DMX_DBG("CA_SET_DESCR_EX set key failed");
       else
          DMX_DBG("CA_SET_DESCR_EX set key success");
@@ -3496,7 +3496,7 @@ static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
                return -1;
             }
 
-            if (ioctl(fd2, DMX_SET_INPUT, input) == -1)
+            if (ioctl(fd2, DMX_SET_INPUT, input) < 0)
             {
                  DMX_DBG("DvbSetDemuxSource ioctl DMX_SET_INPUT:%d error:%d", input, errno);
                  r = -1;
@@ -3506,7 +3506,7 @@ static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
                  DMX_DBG("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_INPUT:%d dmx_idx:%d", src, input, dmx_idx);
                  r = 0;
             }
-            if (ioctl(fd2, DMX_SET_HW_SOURCE, source) == -1)
+            if (ioctl(fd2, DMX_SET_HW_SOURCE, source) < 0)
             {
                 DMX_DBG("DvbSetDemuxSource ioctl DMX_SET_HW_SOURCE:%d error:%d", source, errno);
                 r = -1;
@@ -3604,7 +3604,7 @@ static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src)
         int fd2 = open(node2, O_RDONLY);
         if (fd2 != -1)
         {
-            if (ioctl(fd2, DMX_GET_HW_SOURCE, &source) != -1)
+            if (ioctl(fd2, DMX_GET_HW_SOURCE, &source) >= 0)
             {
                 switch (source)
                 {

@@ -142,13 +142,13 @@ static BOOLEAN set_usbcam_recording_demux(int source)
     params.pes_type = DMX_PES_OTHER;
 
     ret = ioctl(rec_dmx_fd, DMX_SET_PES_FILTER, &params);
-    if (ret == -1)
+    if (ret < 0)
     {
         DMX_USB_DBG("DMX_SET_PES_FILTER failed");
         return FALSE;
     }
     ret = ioctl(rec_dmx_fd, DMX_START, 0);
-    if (ret == -1)
+    if (ret < 0)
     {
         DMX_USB_DBG("DMX_START failed");
         return FALSE;

@@ -464,7 +464,7 @@ BOOLEAN stb_tune_isdiff_systype(S_TUNER_STATUS *tstatus)
     struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
     struct dtv_properties props = {.num = 1, .props = &p};
 
-    if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) != -1)
+    if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) >= 0)
     {
         if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data == SYS_DVBT)) ||
              ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data == SYS_DVBT2)) ||

@@ -314,11 +314,24 @@ BOOLEAN stb_tune_fsm_create(U8BIT path, S_TUNER_STATUS *tstatus, U32BIT state)
         {
             U8BIT taskname[16];
 
-            sprintf(taskname, "tune%u", path);
-            sg_tune_task_ptr_array[path] = STB_OSCreateTask(tune_fsm_task, (void *)&path, TUNE_FSM_TASK_STACK_SIZE, TUNE_FSM_TASK_PRIORITY, taskname);
-            if (NULL == sg_tune_task_ptr_array[path])
+            U8BIT *pU8 = STB_GetMemory(sizeof(U8BIT));
+            if (NULL != pU8)
             {
-                CERT_LOG_ERROR(TAG, "[%s] Create Task Err!", __FUNCTION__);
+                sprintf(taskname, "tune-%u", path);
+                *pU8 = path;
+                sg_tune_task_ptr_array[path] = STB_OSCreateTask(tune_fsm_task, (void *)pU8, TUNE_FSM_TASK_STACK_SIZE, TUNE_FSM_TASK_PRIORITY, taskname);
+                if (NULL == sg_tune_task_ptr_array[path])
+                {
+                    CERT_LOG_ERROR(TAG, "[%s] Create Task Err 1!", __FUNCTION__);
+
+                    STB_FreeMemory(pU8);
+                    ret = FALSE;
+                    break;
+                }
+            }
+            else
+            {
+                CERT_LOG_ERROR(TAG, "[%s] Create Task Err 2!", __FUNCTION__);
 
                 ret = FALSE;
                 break;
@@ -635,6 +648,8 @@ static void* tune_fsm_task(void *param)
     BOOLEAN msg_ready = TRUE;
 
     STRU_FSM_TASK_MSG msg;
+
+    STB_FreeMemory(param);
 
     CERT_LOG_INFO(TAG, "START tune fsm task [%d]", path);
 

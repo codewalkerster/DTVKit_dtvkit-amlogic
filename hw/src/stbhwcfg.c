@@ -79,6 +79,7 @@ stb_hardware_cfg aml_hw_cfg = {
 .adec_num     = 2,
 .demux        = 0,
 .cam_num      = 0,
+.oui = 0x15a,
 .pvr = {
     .encrypt = 0,
     },
@@ -314,6 +315,16 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             if ((i != LONG_MIN) && (i != LONG_MAX))
                 cfg->pvr.encrypt = i;
         }
+    } else if (!strcmp(name, "oad")) {
+            att = atts;
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "oui")) {
+                int i;
+                i = strtol(av, NULL, 0);
+                cfg->oui = i;
+
+            }
     } else if (!strcmp(name, "dmc_mem")) {
         long int i;
         att = atts;
@@ -1256,3 +1267,11 @@ BOOLEAN STB_Is_FCC_Enabled()
    return FALSE;
 }
 
+BOOLEAN STB_GetPlatformOui(int *oui)
+{
+    if (oui == NULL) {
+        return FALSE;
+    }
+    *oui = aml_hw_cfg.oui;
+    return TRUE;
+}

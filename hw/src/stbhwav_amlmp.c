@@ -3795,22 +3795,6 @@ int AV_CreateTsPlayer_l(U8BIT path,
       parm.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED;
    }
    AV_DBG("parm.drmMode = %d", parm.drmMode);
-
-   if ((parm.drmMode != AML_MP_INPUT_STREAM_NORMAL) && (STB_CAGetCASType() != CAS_TYPE_NAGRA))
-   {
-      Aml_MP_CASDVRReplayParams param;
-      param.dmxDev = (Aml_MP_DemuxId)dmx_dev_id;
-      STB_CAPVRPlayStart(&param, false);
-      AML_MP_CASSESSION section_handle;
-      STB_CAPVRGetPlaySection(&section_handle);
-      AV_DBG("section_handle get playback [%p].", section_handle);
-      av_paths_status[path].secmem_handle =
-          Aml_MP_CAS_CreateSecmem(section_handle, AML_MP_CAS_SERVICE_LIVE_PLAY, NULL, NULL);
-      if (!av_paths_status[path].secmem_handle)
-      {
-         AV_DBG("Create live secmem failed.");
-      }
-   }
 #endif
    ret = Aml_MP_Player_Create(&parm, &player_handle);
    if (ret == 0)
@@ -3906,15 +3890,6 @@ int AV_ReleaseTsPlayer_l(U8BIT path)
          AV_DBG("Destroy Aml MP player, player_handle[%d]:0x%p", path, av_paths_status[path].player_handle);
          av_paths_status[path].player_handle = AML_MP_INVALID_HANDLE;
       }
-#ifdef SUPPORT_CAS
-      if (av_paths_status[path].secmem_handle)
-      {
-         AML_MP_CASSESSION section_handle;
-         STB_CAPVRGetPlaySection(&section_handle);
-         Aml_MP_CAS_DestroySecmem(section_handle, av_paths_status[path].secmem_handle);
-         av_paths_status[path].secmem_handle = NULL;
-      }
-#endif
    }
 
    return ret;

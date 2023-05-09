@@ -235,8 +235,8 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             } else if (!strcmp(an, "support_4k") && !strcmp(av, "no")) {
                 cfg->service_unsupport_type |= E_STB_CFG_SERVICE_UPSOPPORT_TYPE_4K;
             }
-             else if (!strcmp(an, "support_8k") && !strcmp(av, "no")) {
-                cfg->service_unsupport_type |= E_STB_CFG_SERVICE_UPSOPPORT_TYPE_8K;
+             else if (!strcmp(an, "support_hdr_hlg") && !strcmp(av, "no")) {
+                cfg->service_unsupport_type |= E_STB_CFG_SERVICE_UPSOPPORT_TYPE_HDR_HLG;
             }
             att += 2;
         }

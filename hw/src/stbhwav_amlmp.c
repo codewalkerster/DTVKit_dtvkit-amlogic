@@ -644,6 +644,27 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
 }
 
 /**
+ * @brief   Gets the Transition Color config
+ * @return  TRUE transition color is black, FALSE otherwise
+ */
+BOOLEAN STB_AVGetIsBlackTransitionColor(void)
+{
+   static char buf[PROPERTY_VALUE_MAX] = {0};
+
+   property_get("vendor.isblack.transition.color", buf, "true");
+
+   VID_DBG("transition_color[%s]", buf);
+
+   if (!strncmp(buf, "false", 5))
+   {
+      return false;
+   }
+
+   return true;
+}
+
+
+/**
  * @brief   Blanks or unblanks the video display
  * @param   path the video path to be configured
  * @param   blank TRUE to blank, FALSE to unblank

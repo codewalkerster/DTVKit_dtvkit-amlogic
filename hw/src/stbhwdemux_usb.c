@@ -304,7 +304,7 @@ static void *cimodule_media_read_task(void *args)
                         usbdata_len -= inj_len;
                         memmove(usbdata_buf, usbdata_buf + inj_len, usbdata_len);
                     }
-                    DMX_USB_DBG("read %d, inject %d", read_len, inj_len);
+                    // DMX_USB_DBG("read %d, inject %d", read_len, inj_len);
 #ifdef DMX_USB_TEST
                     if (save_fd < 0)
                         save_fd = open("/data/w.ts", O_RDWR);
@@ -451,6 +451,10 @@ static void *cimodule_cmd_read_task(void *args)
     unsigned int len = 0;
     DMX_USB_DBG("command thread begin running");
     int ret;
+#ifdef DEMUX_USB_MODULE_DEBUG
+    int i;
+    char buffer[512];
+#endif
 
     while (thread_running)
     {
@@ -460,6 +464,12 @@ static void *cimodule_cmd_read_task(void *args)
             continue;
         }
         ret = cimodule_cmd_intf_read(g_pCmdFd, g_pCmdReadBuf, USB_CIMODULE_COMMAND_MAX_SIZE, &len, -1);
+#ifdef DEMUX_USB_MODULE_DEBUG
+        for (i=0;i<16;i++)
+            sprintf(buffer+3*i, "%2x ", g_pCmdReadBuf[i]);
+        DMX_USB_DBG("====> %s", buffer);
+#endif
+
         if (ret != 0)
         {
             DMX_USB_DBG("cimodule_cmd_intf_read failed %d", ret);
@@ -475,10 +485,15 @@ static void *cimodule_cmd_read_task(void *args)
             memcpy(db->data, g_pCmdReadBuf, len);
             db->left = len;
             db->start = 0;
-            if (data_block_head)
-                data_block_head->next = db;
-            else
+            if (data_block_head == NULL)
                 data_block_head = db;
+            else
+            {
+                DataBlock *t = data_block_head;
+                while (t->next != NULL)
+                    t = t->next;
+                t->next = db;
+            }
             pthread_mutex_unlock(&cmd_read_mutex);
         }
     }

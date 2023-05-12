@@ -49,15 +49,15 @@
 #define DMX_USB_DBG(x, ...)
 #endif
 
-#define REC_BUFF_SIZE (USB_CIMODULE_MEDIA_MAX_SIZE*20)
+#define REC_BUFF_SIZE (USB_CIMODULE_MEDIA_MAX_SIZE * 20)
 
 #define MEDIA_INPUT_ENABLE 1
 #define MEDIA_OUTPUT_ENABLE 1
 
 // #define DMX_USB_TEST
 
-static int rec_dev_id = 4;
-static int inj_dev_id = 5;
+static int rec_dev_id;
+static int inj_dev_id;
 static int rec_dvr_fd = -1;
 static int rec_dmx_fd = -1;
 static int inj_dvr_fd = -1;
@@ -212,16 +212,22 @@ static int ci_ts_write_close(int fd, unsigned char *data)
     return 0;
 }
 
-static void* cimodule_media_read_task(void *args)
+static void *cimodule_media_read_task(void *args)
 {
-    int ret, inj_len;
+    int ret, read_len, inj_len, usbdata_len = 0;
     int fdMedia = -1;
-    unsigned char *pbMediaReadBuf = NULL;
-    struct usb_cimodule_info tUsbCiModuleInfo;
-    unsigned char bMediaOutputCtrl;
-    int read_len;
-    int count = 0;
     int save_fd = -1;
+    unsigned char *pbMediaReadBuf = NULL;
+    struct usb_cimodule_info tUsbCiModuleInfo = {0};
+    unsigned char bMediaOutputCtrl = 0;
+    char *usbdata_buf;
+
+    usbdata_buf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE * 2);
+    if (!usbdata_buf)
+    {
+        DMX_USB_DBG("no mem to alloc usbdata_buf");
+        return NULL;
+    }
 
     DMX_USB_DBG("entry");
     fdMedia = ci_ts_read_open();
@@ -276,15 +282,29 @@ static void* cimodule_media_read_task(void *args)
             ret = cimodule_media_intf_read(fdMedia, pbMediaReadBuf, USB_CIMODULE_MEDIA_MAX_SIZE, &read_len, -1);
             if (read_len > 0)
             {
+                // Dummy data
                 if (read_len == 10)
                 {
                     continue;
                 }
                 else
                 {
-                    count++;
-                    inj_len = inject_usbcam_source_demux(pbMediaReadBuf, read_len);
-                    DMX_USB_DBG("read count %d, inject %d", count, inj_len);
+                    // TODO: How to determine precise short packet length
+                    if (read_len < 1024 * 5)
+                    {
+                        // available data + short packet, so if short packet comes first, drop it.
+                        if (usbdata_len == 0)
+                            continue;
+                    }
+                    memcpy(usbdata_buf + usbdata_len, pbMediaReadBuf, read_len);
+                    usbdata_len += read_len;
+                    if (usbdata_len >= USB_CIMODULE_MEDIA_MAX_SIZE)
+                    {
+                        inj_len = inject_usbcam_source_demux(usbdata_buf, USB_CIMODULE_MEDIA_MAX_SIZE);
+                        usbdata_len -= inj_len;
+                        memmove(usbdata_buf, usbdata_buf + inj_len, usbdata_len);
+                    }
+                    DMX_USB_DBG("read %d, inject %d", read_len, inj_len);
 #ifdef DMX_USB_TEST
                     if (save_fd < 0)
                         save_fd = open("/data/w.ts", O_RDWR);
@@ -294,17 +314,20 @@ static void* cimodule_media_read_task(void *args)
             }
             else
             {
-                DMX_USB_DBG("read len %d ret %d", read_len, ret);
+                // DMX_USB_DBG("read len %d ret %d", read_len, ret);
+                // sleep(1);
             }
         }
 
         ci_ts_read_close(fdMedia, pbMediaReadBuf);
         fdMedia = -1;
     }
+    if (usbdata_buf)
+        free(usbdata_buf);
     return NULL;
 }
 
-static void* cimodule_media_write_task(void *args)
+static void *cimodule_media_write_task(void *args)
 {
     int ret;
     int fdMedia = -1;
@@ -475,7 +498,7 @@ static void prepare_working_demuxes()
     ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_LOCAL);
     snprintf(rec_dvr_path, sizeof(rec_dvr_path), "/dev/dvb0.dvr%d", rec_dev_id);
     if (rec_dvr_fd < 0)
-    rec_dvr_fd = open(rec_dvr_path, O_RDONLY);
+        rec_dvr_fd = open(rec_dvr_path, O_RDONLY);
 
     fcntl(rec_dvr_fd, F_SETFL, fcntl(rec_dvr_fd, F_GETFL, 0) | O_NONBLOCK, 0);
     ioctl(rec_dvr_fd, DMX_SET_BUFFER_SIZE, REC_BUFF_SIZE);
@@ -490,7 +513,7 @@ static void dev_close()
     close(rec_dvr_fd);
 }
 
-static int record_from_tsin(void* buff, int buff_len)
+static int record_from_tsin(void *buff, int buff_len)
 {
     int ret, read_len;
     struct pollfd fds[2];
@@ -519,7 +542,7 @@ static int record_from_tsin(void* buff, int buff_len)
     return ret;
 }
 
-static int inject_usbcam_source_demux(void* data, int data_len)
+static int inject_usbcam_source_demux(void *data, int data_len)
 {
     return write(inj_dvr_fd, data, data_len);
 }
@@ -532,10 +555,13 @@ static int inject_usbcam_source_demux(void* data, int data_len)
  */
 int STB_CIUsbOpen()
 {
-	unsigned int dwDriverVersion = 0;
-	struct usb_cimodule_info tUsbCiModuleInfo;
+    unsigned int dwDriverVersion = 0;
+    struct usb_cimodule_info tUsbCiModuleInfo;
 
     init_mutex();
+
+    inj_dev_id = 4;
+    rec_dev_id = 5;
 
     const char *pbFileName = "/dev/cimodule_command0";
     if (g_pCmdFd > 0)
@@ -604,15 +630,15 @@ int STB_CIUsbClose()
 
     if (pthread_join(tMediaReadTaskId, &status) != 0)
     {
-        DMX_USB_DBG("media read task join failed =======");
+        DMX_USB_DBG("media read task join failed");
     }
     if (pthread_join(tMediaWriteTaskId, &status) != 0)
     {
-        DMX_USB_DBG("media write task join failed ======");
+        DMX_USB_DBG("media write task join failed");
     }
     if (pthread_join(tCmdReadTaskId, &status) != 0)
     {
-        DMX_USB_DBG("cmd read task join failed  =========");
+        DMX_USB_DBG("cmd read task join failed");
     }
 
     if (g_pCmdReadBuf)
@@ -647,7 +673,9 @@ S32BIT STB_CIUsbWrite(U8BIT *buffer, U32BIT len)
 {
     int ret;
     unsigned int dwActualSendLen = 0;
+#ifdef DEMUX_USB_MODULE_DEBUG
     char buf[2048];
+#endif
     unsigned int i;
 
     if (len > USB_CIMODULE_COMMAND_MAX_SIZE)
@@ -751,7 +779,7 @@ BOOLEAN STB_DMXUsbIsEnable()
 U8BIT STB_CIUsbGetDmxSource(BOOLEAN live)
 {
     if (live)
-        return AML_MP_DEMUX_SOURCE_DMA0_1 + inj_dev_id;
+        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
     else
         return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
 }

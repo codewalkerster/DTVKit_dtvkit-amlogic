@@ -31,6 +31,7 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwdef.h"
+U8BIT oui_string[3] = {0x00,0x01,0x5a};
 
 /*---macro definitions for this file-----------------------------------------*/
 #ifdef  PLATFORM_DEBUG
@@ -90,9 +91,16 @@ U16BIT  STB_HWGetCustomerId(void)
  */
 U8BIT* STB_HWGetOUI(void)
 {
-   FUNCTION_START(STB_HWGetOUI);
-   FUNCTION_FINISH(STB_HWGetOUI);
-   return(NULL);
+    int cfg_oui = 0;
+    STB_GetPlatformOui(&cfg_oui);
+    PLAT_DBG("STB_Get_Oui = 0x%x",cfg_oui);
+    for (int i = 2; i >= 0; i--)
+    {
+        oui_string[i] = (cfg_oui%256)&0xFF;
+        cfg_oui /= 256;
+    }
+    PLAT_DBG(" OUI=0x%02x%02x%02x",oui_string[0],oui_string[1], oui_string[2]);
+    return(oui_string);
 }
 
 /**

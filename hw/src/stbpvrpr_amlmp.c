@@ -2987,6 +2987,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
          if (STB_CAIsTSEMode())
              play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED; /* if tse mode not need create secmem */
+         else if(!STB_GetTvpEnable())
+             play_params.drmMode = AML_MP_INPUT_STREAM_NORMAL;
          else
              play_params.drmMode = AML_MP_INPUT_STREAM_SECURE_MEMORY;
 

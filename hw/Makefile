@@ -1,6 +1,8 @@
 #**************************************************************************
 #  Makefile for platform hardware layer
 #**************************************************************************
+include $(CURDIR)/../../android-rpcservice/FuncCfg.mk
+
 include ../Config.mk
 INCLUDES = ./inc \
           $(DTVKIT_DVBCORE_ROOT)/inc \
@@ -39,13 +41,18 @@ SRCS = stbhwplatform.c \
     stbhwav_amlmp.c \
     stbpvrpr_amlmp.c \
     ca_glue_amlmp.c \
-    emu_tuner.c \
-    emu_dmx.c \
-    emu_config.c \
     stbhwci.c \
     stbhwdemux_usb.c \
     stbhwtun_ex.c \
     fsm_base.c
+
+ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
+SRCS +=  emu_tuner.c \
+		emu_dmx.c \
+		emu_config.c
+
+LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
+endif
 
 #SRCS = $(notdir $(wildcard ./src/*.c))
 $(warning "SRCS",  $(SRCS))

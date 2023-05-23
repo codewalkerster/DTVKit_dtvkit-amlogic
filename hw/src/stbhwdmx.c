@@ -72,6 +72,9 @@
 #define DMX_TASK_STACK_SIZE         4096
 
 #define MAX_SECTION_SIZE            4096
+#define MAX_DDB_SECTION_SIZE        (4096*8)
+#define OAD_DSI_DDB_MATCH    0x38
+#define OAD_DDB_PID         0x280
 #define DEMUX_SECTION_FILTER_LENGTH 8
 
 #define MAX_PID_FILTERS             24
@@ -330,6 +333,27 @@ static void *sc2_find_dsc_channel_by_channel(E_STB_TS_SOURCE src, int chan_id)
       }
    }
    return NULL;
+}
+static BOOLEAN Is_DDB_Filter(S_PID_FILTER_INFO * pidfilter)
+{
+    BOOLEAN result = FALSE;
+    S_SECTION_FILTER_INFO *sect_filter = NULL;
+    if (pidfilter && pidfilter->pid == OAD_DDB_PID)
+    {
+        for (int i = 0; i < MAX_SECTION_FILTERS; i++)
+        {
+           sect_filter = &pidfilter->section_filters[i];
+           if (sect_filter && sect_filter->setup)
+           {
+              if (sect_filter->match[0]== OAD_DSI_DDB_MATCH)
+              {
+                    result = TRUE;
+                    break;
+              }
+           }
+        }
+    }
+    return result;
 }
 
 static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC_CA_TYPE dsc_type, int dev_id)
@@ -1968,8 +1992,16 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
             am_result = DMX_AllocateFilter(path, &pid_filter->fhandle);
             if (am_result)
             {
-               am_result = DMX_SetBufferSize(path, pid_filter->fhandle,
+               if (Is_DDB_Filter(pid_filter))
+               {
+                   am_result = DMX_SetBufferSize(path, pid_filter->fhandle,
+                   8 * MAX_DDB_SECTION_SIZE);
+               }
+               else
+               {
+                   am_result = DMX_SetBufferSize(path, pid_filter->fhandle,
                   8 * MAX_SECTION_SIZE);
+               }
                if (!am_result)
                {
                   DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", path,
@@ -3332,7 +3364,14 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
          am_result = DMX_AllocateFilter(path, &pid_filter->fhandle);
          if (am_result)
          {
-            am_result = DMX_SetBufferSize(path, pid_filter->fhandle, 8 * MAX_SECTION_SIZE);
+            if (Is_DDB_Filter(pid_filter))
+            {
+                am_result = DMX_SetBufferSize(path, pid_filter->fhandle,8 * MAX_DDB_SECTION_SIZE);
+            }
+            else
+            {
+                am_result = DMX_SetBufferSize(path, pid_filter->fhandle, 8 * MAX_SECTION_SIZE);
+            }
             if (!am_result)
             {
                DMX_ERR("%u: Failed to set buffer size for section filter %u, error %d", path,

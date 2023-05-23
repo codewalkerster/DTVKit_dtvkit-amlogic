@@ -962,12 +962,14 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                     SetTunerT2PLP(tstatus->frontend_fd, tstatus->plp_id);
                 }
 
+                #ifdef EMUTUNNER_ENABLE
                 if (EmuTunerStart(path, freq, tstatus->signal_type))
                 {
                     ClearTuner(tstatus);
                     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
                 }
                 else
+                #endif
                 {
                     if (StartTune(tstatus))
                     {
@@ -990,11 +992,15 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             {
                 /* Already tuned to the required transport */
                 TUN_DBG("%u: Already tuned", tstatus->path);
+                #if EMUTUNNER_ENABLE
                 if (EmuTunerGetState(path))
                 {
                     EmuTunerReset(path);
                 }
                 else if (state == TUNER_IDLE)
+                #else
+                if (state == TUNER_IDLE)
+                #endif
                 {
                     tstatus->lock_flags |= FEND_FL_LOCK;
                     STB_OSSemaphoreSignal(tstatus->tune_sem);
@@ -1058,9 +1064,12 @@ void STB_TuneStopTuner(U8BIT path)
         STB_OSSemaphoreWait(tune_interface_sem);
         tstatus = &tuner_status[path];
 
+        #ifdef EMUTUNNER_ENABLE
         STB_OSMutexLock(tstatus->mutex);
         EmuTunerStop(path);
         STB_OSMutexUnlock(tstatus->mutex);
+        #endif
+
         TuneStopTuner(tstatus);
         STB_OSSemaphoreSignal(tune_interface_sem);
     }
@@ -1287,12 +1296,13 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalStrength);
 
+    #ifdef EMUTUNNER_ENABLE
     retval = EmuTunerGetSignalStrength(path);
     if (retval > 0)
     {
         return retval;
     }
-
+    #endif
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {
@@ -1519,16 +1529,18 @@ static U8BIT SNR10ToSQI(U8BIT path, S16BIT snr)
  */
 U8BIT STB_TuneGetSignalQuality(U8BIT path)
 {
-    U8BIT retval;
+    U8BIT retval = 0;
     S16BIT quality;
 
     FUNCTION_START(STB_TuneGetSignalQuality);
 
+    #ifdef EMUTUNNER_ENABLE
     retval = EmuTunerGetSignalQuality(path);
     if (retval > 0)
     {
         return retval;
     }
+    #endif
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {
@@ -3104,7 +3116,9 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
         close(tstatus->frontend_fd);
         tstatus->frontend_fd = INVALID_FD;
         tstatus->freq = 0;
+        #ifdef EMUTUNNER_ENABLE
         EmuTunerStop(tstatus->path);
+        #endif
     }
 
     if (STB_TuneIsTvPlatform() && resm_adc_requested && STB_Resman_Support())

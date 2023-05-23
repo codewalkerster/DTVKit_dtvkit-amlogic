@@ -15,6 +15,7 @@ else
     $(warning "DTVKIT_AMLOGIC_SANITIZE Closed")
 endif
 
+
 ifeq ($(TARGET_ARCH),"arm")
     DTVKIT_USE_STDINT = 0
 else
@@ -139,8 +140,8 @@ LOCAL_CFLAGS += \
     -Werror=pointer-to-int-cast \
     -Werror=incompatible-pointer-types \
     -Werror
-    
-    
+
+
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux
     LOCAL_C_INCLUDES += $(SWDMX_PATH)/
@@ -180,9 +181,6 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/systemcontrol.cpp \
     hw/src/stbhwtun_ex.c \
     hw/src/fsm_base.c \
-    hw/src/emu_tuner.c \
-    hw/src/emu_dmx.c \
-    hw/src/emu_config.c \
     os/src/stbos_timer.c \
     os/src/stbos_event.c      \
     os/src/stbos_mutex.c      \
@@ -192,6 +190,14 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     os/src/stbos_task.c       \
     os/src/stbos_utils.c      \
     os/src/dtv_log.c
+
+ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
+LOCAL_SRC_FILES += hw/src/emu_tuner.c \
+                   hw/src/emu_dmx.c \
+                   hw/src/emu_config.c
+
+LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
+endif
 
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS
@@ -233,7 +239,7 @@ ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
 endif
 
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
-LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0  
-LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1 
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
 
 include $(BUILD_STATIC_LIBRARY)

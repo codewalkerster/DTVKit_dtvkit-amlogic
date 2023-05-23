@@ -91,7 +91,8 @@
 #undef  AV_AUDIO_CODEC_AC4
 
 #include <Aml_MP/Dvr.h>
-
+//SC2 enc module can not satisfy usbcam tf&pvr. so use software encryption
+#define SC2_USBCAM_ENABLE 0
 //---constant definitions for this file----------------------------------------
 #undef INVALID_RES_ID
 #define INVALID_RES_ID           255
@@ -763,13 +764,14 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       }
       {
          PLAY_DBG("ready to start play..........");
-         if ((STB_DMXGetModel() == STB_DMX_MODEL_SC2) &&
-                (s_recplay_status[play_index].clearkey.enabled == TRUE))
+#if SC2_USBCAM_ENABLE 
+         if ((STB_DMXGetModel() == STB_DMX_MODEL_SC2) && (s_recplay_status[play_index].clearkey.enabled == TRUE))
          {
             sc2_playback_setkey(play_index, PLAYBACK_AUDIO_CHANNEL);
             sc2_playback_setkey(play_index, PLAYBACK_VIDEO_CHANNEL);
             sc2_playback_setkey(play_index, PLAYBACK_AD_CHANNEL);
          }
+#endif
          play_started = updatePlayback(play_index, 0);
       }
    }
@@ -971,12 +973,14 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          s_recplay_status[play_index].limit = 0;
          memset(&s_recplay_status[play_index].clearkey, 0, sizeof(S_CLEAR_KEY));
 
+#if SC2_USBCAM_ENABLE
          if (STB_DMXGetModel() == STB_DMX_MODEL_SC2)
          {
             sc2_playback_freekey(play_index, PLAYBACK_AUDIO_CHANNEL);
             sc2_playback_freekey(play_index, PLAYBACK_VIDEO_CHANNEL);
             sc2_playback_freekey(play_index, PLAYBACK_AD_CHANNEL);
          }
+#endif
       }
       else
       {
@@ -1407,6 +1411,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       }
       else if (s_rec_status[rec_index].clearkey.enabled)
       {
+#if SC2_USBCAM_ENABLE
          if (STB_DMXGetModel() == STB_DMX_MODEL_SC2)
          {
             //demux allocation need pid, so this step move to end of this func.
@@ -1416,6 +1421,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
             memcpy(dmx_aes_key + 16, s_rec_status[rec_index].clearkey.iv, 16);
          }
          else
+#endif
          {
             rec_encrypt_params.clearKey = &s_rec_status[rec_index].clearkey.key[0];
             rec_encrypt_params.clearIV = &s_rec_status[rec_index].clearkey.iv[0];
@@ -1485,11 +1491,13 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                vpid = s_rec_status[rec_index].pids_info.streams[cnt].pid;
                cnt++;
                REC_DBG("  VIDEO %u", pid_array[i].pid);
+#if SC2_USBCAM_ENABLE
                if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_rec_status[rec_index].clearkey.enabled)
                {
                   s_rec_status[rec_index].rec_v_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, vpid, DESC_TYPE_AES, DSC_TSE_TYPE);
                   STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_v_chanid, DESC_TYPE_AES, DSC_TSE_TYPE, KEY_PARITY_NONE, dmx_aes_key);
                }
+#endif
             }
             else if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
             {
@@ -1500,12 +1508,14 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                apid = s_rec_status[rec_index].pids_info.streams[cnt].pid;
                cnt++;
                REC_DBG("  AUDIO %u", pid_array[i].pid);
+#if SC2_USBCAM_ENABLE
                if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_rec_status[rec_index].clearkey.enabled)
                {
                   s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids] = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, apid, DESC_TYPE_AES, DSC_TSE_TYPE);
                   STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids], DESC_TYPE_AES, DSC_TSE_TYPE, KEY_PARITY_NONE, dmx_aes_key);
                   s_rec_status[rec_index].rec_aids++;
                }
+#endif
             }
             else if (pid_array[i].type == PVR_PID_TYPE_SUBTITLES)
             {
@@ -1556,7 +1566,9 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
       if (s_rec_status[rec_index].cas_status.is_smp || s_rec_status[rec_index].clearkey.enabled)
       {
+#if SC2_USBCAM_ENABLE
          if (STB_DMXGetModel() != STB_DMX_MODEL_SC2)
+#endif
             recorderCreateParams.encryptParams = rec_encrypt_params;
          if (s_rec_status[rec_index].cas_status.is_smp &&
              (s_rec_status[rec_index].clearkey.enabled == 0))
@@ -2697,12 +2709,13 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
          PLAY_DBG("audio pid changed.");
          audio_changed = 1;
+#if SC2_USBCAM_ENABLE
          if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_recplay_status[play_index].clearkey.enabled)
          {
             sc2_playback_freekey(play_index, PLAYBACK_AUDIO_CHANNEL);
             sc2_playback_setkey(play_index, PLAYBACK_AUDIO_CHANNEL);
-
          }
+#endif
       }
       if (s_recplay_status[play_index].ad_pid != ad_pid)
       {
@@ -2711,12 +2724,13 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
          PLAY_DBG("ad pid changed.");
          ad_changed = 1;
+#if SC2_USBCAM_ENABLE
          if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_recplay_status[play_index].clearkey.enabled)
          {
             sc2_playback_freekey(play_index, PLAYBACK_AD_CHANNEL);
             sc2_playback_setkey(play_index, PLAYBACK_AD_CHANNEL);
-
          }
+#endif
       }
 
       if (s_recplay_status[play_index].video_pid != video_pid && video_pid != 0)
@@ -2743,12 +2757,13 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
          PLAY_DBG("video pid changed.");
          video_changed = 1;
+#if SC2_USBCAM_ENABLE
          if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_recplay_status[play_index].clearkey.enabled)
          {
             sc2_playback_freekey(play_index, PLAYBACK_VIDEO_CHANNEL);
             sc2_playback_setkey(play_index, PLAYBACK_VIDEO_CHANNEL);
-
          }
+#endif
       }
       s_recplay_status[play_index].pcr_pid = pcr_pid;
 
@@ -2977,7 +2992,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       }
       else if (s_recplay_status[play_index].clearkey.enabled)
       {
+#if SC2_USBCAM_ENABLE
          if (STB_DMXGetModel() != STB_DMX_MODEL_SC2)
+#endif
          {
             decrypt_params.clearKey = &s_recplay_status[play_index].clearkey.key[0];
             decrypt_params.clearIV = &s_recplay_status[play_index].clearkey.iv[0];

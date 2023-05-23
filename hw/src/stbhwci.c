@@ -47,6 +47,7 @@
 #include "stbhwnvm.h"
 #include "stbcios.h" /*for STB_CIDebugPrintf()*/
 #include "stbhwdmx.h"
+#include "dtv_log.h"
 
 #ifdef INCLUDE_TEST_KEYS
 #include "ciptestkeys.h"
@@ -417,7 +418,8 @@ void STB_CIDebugPrintf(const char *format, ... )
    vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
    va_end(vparams);
 
-   STB_SPDebugWrite("%s", debug_msg_buff);
+   //STB_SPDebugWrite("%s", debug_msg_buff);
+   DTV_LOG(ANDROID_LOG_INFO, "CI-Plus", debug_msg_buff);
    //fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugNoCnWrite);

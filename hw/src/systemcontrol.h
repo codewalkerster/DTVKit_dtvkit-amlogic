@@ -17,6 +17,7 @@ enum {
 #ifndef RDK_COMPILE
 int SC_setVideoColor(int color) ;
 int SC_getScreenColorSetting() ;
+int SC_getStaticFrameEnable() ;
 #endif
 
 #ifdef __cplusplus

@@ -1016,56 +1016,70 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
             break;
       }
 
-      if (type == DESC_TYPE_AES)
+      switch (type)
       {
-         E_CA_KEY_TYPE_SC2 key_type;
-         E_CA_KEY_TYPE_SC2 iv_key_type;
-         int *key_id;
-         int *iv_key_id;
+         case DESC_TYPE_AES:
+            key_algo = KEY_ALGO_AES;
+            break;
+         case DESC_TYPE_DVB:
+            key_algo = KEY_ALGO_CSA2;
+            break;
+         case DESC_TYPE_DES:
+            key_algo = KEY_ALGO_DES;
+            break;
+         case DESC_TYPE_TDES:
+            key_algo = KEY_ALGO_TDES;
+            break;
+         default:
+            DMX_DBG("key type invalid");
+            break;
+      };
+      E_CA_KEY_TYPE_SC2 key_type;
+      E_CA_KEY_TYPE_SC2 iv_key_type;
+      int *key_id;
+      int *iv_key_id;
 
-         key_algo = KEY_ALGO_AES;
-         switch (parity)
-         {
-            case KEY_PARITY_EVEN:
-               key_type = CA_KEY_EVEN_TYPE;
-               iv_key_type = CA_KEY_EVEN_IV_TYPE;
-               key_id = &dsc_channel->even_key_id;
-               iv_key_id = &dsc_channel->iv_even_key_id;
-               break;
-            case KEY_PARITY_ODD:
-               key_type = CA_KEY_ODD_TYPE;
-               iv_key_type = CA_KEY_ODD_IV_TYPE;
-               key_id = &dsc_channel->odd_key_id;
-               iv_key_id = &dsc_channel->iv_odd_key_id;
-               break;
-            case KEY_PARITY_NONE:
-               key_type = CA_KEY_00_TYPE;
-               iv_key_type = CA_KEY_00_IV_TYPE;
-               key_id = &dsc_channel->one_key_id;
-               iv_key_id = &dsc_channel->iv_one_key_id;
-               break;
-         }
+      switch (parity)
+      {
+      case KEY_PARITY_EVEN:
+            key_type = CA_KEY_EVEN_TYPE;
+            iv_key_type = CA_KEY_EVEN_IV_TYPE;
+            key_id = &dsc_channel->even_key_id;
+            iv_key_id = &dsc_channel->iv_even_key_id;
+            break;
+      case KEY_PARITY_ODD:
+            key_type = CA_KEY_ODD_TYPE;
+            iv_key_type = CA_KEY_ODD_IV_TYPE;
+            key_id = &dsc_channel->odd_key_id;
+            iv_key_id = &dsc_channel->iv_odd_key_id;
+            break;
+      case KEY_PARITY_NONE:
+            key_type = CA_KEY_00_TYPE;
+            iv_key_type = CA_KEY_00_IV_TYPE;
+            key_id = &dsc_channel->one_key_id;
+            iv_key_id = &dsc_channel->iv_one_key_id;
+            break;
+      }
 
-         if (*key_id == -1)
-         {
+      if (*key_id == -1)
+      {
             *key_id = key_alloc(dsc->key_fd, FALSE);
             key_config(dsc->key_fd, *key_id, key_userid, key_algo, 0);
-         }
-         if (*iv_key_id == -1)
-         {
+      }
+      if (*iv_key_id == -1)
+      {
             *iv_key_id = key_alloc(dsc->key_fd, TRUE);
             key_config(dsc->key_fd, *iv_key_id, key_userid, key_algo, 0);
-         }
-         /* set TSE scb */
-         // if (dsc_type == CA_DSC_TSE_TYPE)
-            // ca_set_scb(dev_id, chan_id, 2);
-         /* set key */
-         key_set(dsc->key_fd, *key_id, data, 16);
-         ca_set_key(dev_id, chan_id, key_type, *key_id);
-         /* set iv */
-         key_set(dsc->key_fd, *iv_key_id, data + 16, 16);
-         ca_set_key(dev_id, chan_id, iv_key_type, *iv_key_id);
       }
+      /* set TSE scb */
+      // if (dsc_type == CA_DSC_TSE_TYPE)
+      // ca_set_scb(dev_id, chan_id, 2);
+      /* set key */
+      key_set(dsc->key_fd, *key_id, data, 16);
+      ca_set_key(dev_id, chan_id, key_type, *key_id);
+      /* set iv */
+      key_set(dsc->key_fd, *iv_key_id, data + 16, 16);
+      ca_set_key(dev_id, chan_id, iv_key_type, *iv_key_id);
       STB_OSMutexUnlock(dsc->mutex);
    }
    else

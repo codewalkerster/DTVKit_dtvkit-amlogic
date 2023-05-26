@@ -132,6 +132,44 @@ void STB_OSMutexLock(void *mutex_var)
    FUNCTION_FINISH(STB_OSMutexLock);
 }
 
+//timeout ms
+S32BIT STB_OSMutexLockTimeout(void *mutex_var,U32BIT timeout)
+{
+    mutex_t *mutex_handle;
+    int MutexRet = 1;
+    struct timespec tsp;
+
+    FUNCTION_START(STB_OSMutexLockTimeout);
+
+    if (mutex_var != NULL)
+    {
+        long long timestampNs = 0;
+        mutex_handle = (mutex_t *)mutex_var;
+
+        clock_gettime(CLOCK_REALTIME, &tsp);
+        timestampNs = ((long long)timeout*1000*1000+(long long)tsp.tv_nsec);
+        tsp.tv_sec += timestampNs / (long long)(1000*1000*1000);
+        tsp.tv_nsec = timestampNs % (long long)(1000*1000*1000);
+        MutexRet = (S32BIT)pthread_mutex_timedlock((pthread_mutex_t *) &mutex_handle->lock,&tsp);
+        if (0 == MutexRet)
+        {
+            mutex_handle->thread_id = pthread_self();
+            mutex_handle->lock_count = 1;
+        }
+        else
+        {
+            STB_SPDebugWrite("%s:%d MutexRet=%d",__FUNCTION__,__LINE__,MutexRet);
+        }
+    }
+    else
+    {
+        MUTEX_DBG("NULL mutex");
+    }
+
+    FUNCTION_FINISH(STB_OSMutexLockTimeout);
+    return MutexRet;
+}
+
 /**
  * @brief   Unlock a mutex (a.k.a. 'leave', 'signal' or 'release')
  * @param   mutex_var The mutex to unlock.

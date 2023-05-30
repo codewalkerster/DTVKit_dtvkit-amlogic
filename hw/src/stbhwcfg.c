@@ -129,7 +129,7 @@ stb_custom_config aml_custom_config = {
     .auto_time_enable = FALSE,
     .fos_ad_enable = FALSE,
     .shine_dmx_enable = FALSE,
-    .ms12_ac4_enable = FALSE,
+    .ms12_ac4_enable = TRUE,
     .deu_sort_lcn_after_last = FALSE,
     .deu_use_invisible_flag = TRUE,
     .disable_automatic_update = FALSE,
@@ -603,6 +603,9 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             av = att[1];
             if (!strcmp(an, "ms12_ac4_enable") && !strcmp(av, "yes")) {
                 aml_custom_config.ms12_ac4_enable = TRUE;
+            }
+            else if (!strcmp(an, "ms12_ac4_enable") && !strcmp(av, "no")) {
+                aml_custom_config.ms12_ac4_enable = FALSE;
             }
             att += 2;
         }

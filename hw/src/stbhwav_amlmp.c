@@ -745,6 +745,43 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
 
    FUNCTION_FINISH(STB_AVBlankVideo);
 }
+/**
+ * @brief   clearlastframe or unclearlastframe the video display
+ * @param   path video path
+ * @param   clearlastframe TRUE to blank, FALSE to unblank
+*/
+void STB_AVClearLastFrame(U8BIT path,BOOLEAN clearlastframe)
+{
+    int ret;
+    AML_MP_PLAYER player_handle;
+
+    FUNCTION_START(STB_AVClearLastFrame);
+
+    VID_DBG("path[%u], clearlastframe[%d]", path, clearlastframe);
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        VID_DBG("Can't get lock, video decoder[%d]", path);
+        return;
+    }
+
+    pthread_rwlock_rdlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(path, INVALID_RES_ID, &player_handle, FALSE);
+    if (ret < 0) {
+        VID_DBG("Cannot get player handle video[%d]", path);
+        pthread_rwlock_unlock(_l);
+        return ;
+    }
+
+    ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_BLACK_OUT, &clearlastframe);
+    if (ret < 0)
+    {
+        AUD_DBG("SetParameter clearlastframe failed, err:%d", ret);
+    }
+    pthread_rwlock_unlock(_l);
+
+    FUNCTION_FINISH(STB_AVClearLastFrame);
+}
 
 /**
  * @brief   Routes a specified AV source to a specified AV output

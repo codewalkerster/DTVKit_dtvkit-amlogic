@@ -32,6 +32,7 @@ ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
     LOCAL_LDFLAGS := $(LOCAL_PATH)/../releaseDTVKit/libsmit_usbcam.a
 endif
 
+SUPPORT_CAS := true
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS
 endif
@@ -226,6 +227,7 @@ endif
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
+SUPPORT_DTVKIT_IN_VENDOR := true
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
 LOCAL_SHARED_LIBRARIES+=libmediahal_resman
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
@@ -233,6 +235,7 @@ ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
 else
     LOCAL_SHARED_LIBRARIES+=liblog
 endif
+
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_VENDOR_MODULE := true
     LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION

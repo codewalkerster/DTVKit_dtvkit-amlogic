@@ -4530,3 +4530,21 @@ E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path)
     return tuner_event;
 }
 
+int STB_TuneGetEwbsFlag(U8BIT path)
+{
+    int retval = 0;
+    struct dtv_property cmd;
+    struct dtv_properties props;
+    memset(&cmd, 0, sizeof(struct dtv_property));
+    cmd.cmd = DTV_ISDBT_PARTIAL_RECEPTION;
+    props.num = 1;
+    props.props = &cmd;
+    if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+    {
+        retval = (int)cmd.u.buffer.reserved1[0];
+        TUN_DBG("path,sysid=%d", path, retval);
+        retval = (int)cmd.u.buffer.reserved1[1];
+        TUN_DBG("path=%d,ewbsflag=%d)", path, retval);
+    }
+    return(retval);
+}

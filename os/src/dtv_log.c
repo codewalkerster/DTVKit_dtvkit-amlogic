@@ -178,6 +178,7 @@ static char msg[2*BUFFSIZE];
 void DTV_LOG(U32BIT loglevel, const char* module, const char* format, ...)
 {
     va_list vparams;
+    char tag[64];
     pthread_t tid = pthread_self();
 
     ASSERT(module != NULL);
@@ -192,6 +193,7 @@ void DTV_LOG(U32BIT loglevel, const char* module, const char* format, ...)
 
     if (loglevel >= DTV_GetLogFilterLevel())
     {
+        sprintf(tag,"DTV_LOG-%s",module);
         va_start(vparams, format);
         vsnprintf(dtv_log_buff, sizeof(dtv_log_buff), format, vparams);
         va_end(vparams);
@@ -201,7 +203,7 @@ void DTV_LOG(U32BIT loglevel, const char* module, const char* format, ...)
         sprintf(msg, "[%2d-%2d-%2d:%3d] <tid:%u>\tDTV_LOG: <%s> %s",
                         localSysTime.wHour, localSysTime.wMinute,
                         localSysTime.wSecond, localSysTime.wMilliseconds,
-                        pthread_getw32threadid_np(tid), module, dtv_log_buff);
+                        pthread_getw32threadid_np(tid), tag, dtv_log_buff);
         printf("%s\n", msg);
     }
     STB_OSMutexUnlock(sg_dtv_log_mutex);
@@ -218,7 +220,12 @@ void DTV_LOG(U32BIT loglevel, const char *module, const char *format, ...)
 
     if (loglevel >= DTV_GetLogFilterLevel())
     {
-        sprintf(tag,"DTV_LOG: <%s>",module);
+        if (loglevel < ANDROID_LOG_INFO)
+        {
+            /* For Amazon shine, The lowest log level that can be output is ANDROID LOG INFO. */
+            loglevel = ANDROID_LOG_INFO;
+        }
+        sprintf(tag,"DTV_LOG-%s",module);
 
         va_start(vparams, format);
         vsnprintf(dtv_log_buff, sizeof(dtv_log_buff), format, vparams);

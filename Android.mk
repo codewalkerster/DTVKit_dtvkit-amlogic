@@ -176,6 +176,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwnet.c \
     hw/src/stbhwvbi.c \
     hw/src/stbhwcfg.c \
+    hw/src/stbswcfg.c \
     hw/src/stbhwresm.c \
     hw/src/stbhwdemux_usb.c \
     hw/src/linuxdvbdmx_wrapper.c \

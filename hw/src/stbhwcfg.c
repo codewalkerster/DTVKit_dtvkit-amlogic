@@ -115,6 +115,10 @@ stb_hardware_cfg aml_hw_cfg = {
     .isdbt_enabled = FALSE,
     .file_path = {0},
 },
+.secure_cfg = {
+    .tvp_enable = TRUE,
+    .secmem_enable = TRUE,
+},
 .mem_level_num = 0,
 .dmc_mem={
     {
@@ -560,6 +564,21 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             } else if (!strcmp(an, "eit_search_enabled")) {
                cfg->epg_cfg.eit_search_enabled = (!strcmp(av, "yes")) ? 1 : 0;
                CFG_DBG("cfg->epg_cfg.eit_search_enabled[%d]", cfg->epg_cfg.eit_search_enabled);
+            }
+            att += 2;
+        }
+    }
+    else if (!strcmp(name,"secure")) {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "tvp_enable") && !strcmp(av, "false")) {
+                cfg->secure_cfg.tvp_enable = FALSE;
+                CFG_DBG("secure config, tvp_enable [%d]", cfg->secure_cfg.tvp_enable);
+            } else if (!strcmp(an, "secmem_enable") && !strcmp(av, "false")) {
+               cfg->secure_cfg.secmem_enable = FALSE;
+               CFG_DBG("secure config, secmem_enable [%d]", cfg->secure_cfg.secmem_enable);
             }
             att += 2;
         }
@@ -1186,6 +1205,16 @@ int STB_GetPlatformGroupId(void)
         group |= GRP_BIT(1);
 
     return group;
+}
+
+BOOLEAN STB_GetTvpEnable(void)
+{
+    return aml_hw_cfg.secure_cfg.tvp_enable;
+}
+
+BOOLEAN STB_GetSecMemEnable(void)
+{
+    return aml_hw_cfg.secure_cfg.secmem_enable;
 }
 
 BOOLEAN STB_GetCustomCFGForAutoTime(void)

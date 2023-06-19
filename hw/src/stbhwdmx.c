@@ -260,7 +260,7 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
 static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track);
-static void STB_SetTsoutSource(void);
+static void STB_SetTsoutSource(BOOLEAN is_cam_plugin);
 static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx);
 static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src);
 static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src);
@@ -1185,7 +1185,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
    FUNCTION_START(STB_DMXInitialise);
 
    DMX_DBG("%u demuxes--, %s PES colection", paths, inc_pes_collection ? "with" : "no");
-   STB_SetTsoutSource();
    num_paths = paths;
 
    if (num_paths != 0)
@@ -2390,6 +2389,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       {
          // cam card is unplug.used camUnplug_tssource to
          // set ts_input_idx for dmx source
+         STB_SetTsoutSource(FALSE);
          aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camUnplug_tssource;
          DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.cam[slot].camUnplug_tssource);
       }
@@ -2397,6 +2397,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       {
          // cam card is plug.used camPlug_tssource to
          // set ts_input_idx for dmx source
+         STB_SetTsoutSource(TRUE);
          aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
          DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
       }
@@ -2633,35 +2634,39 @@ E_STB_TS_SOURCE STB_GetDmxTsSource(int dmx_id)
  * @brief   set the tsout source when ts route is "tsin->tsout->tsin"
  * get ts out source from cfg
  */
-static void STB_SetTsoutSource(void)
+static void STB_SetTsoutSource(BOOLEAN is_cam_plugin)
 {
    FUNCTION_START(STB_SetTsoutSource);
-   DMX_DBG("set demux source is set %d src %d", aml_hw_cfg.cam[0].is_set_tsout, aml_hw_cfg.cam[0].tsout_source);
    if (aml_hw_cfg.cam[0].is_set_tsout)
    {
       char buf[32];
       char *cmd;
       int src = aml_hw_cfg.cam[0].tsout_source;
       sprintf(buf, STB_TSO_SOURCE);
-
-      switch (src)
+      if (is_cam_plugin)
       {
+         switch (src)
+         {
          case STB_TS_SOURCE0:
             cmd = "ts0";
-         break;
+            break;
          case STB_TS_SOURCE1:
             cmd = "ts1";
-         break;
+            break;
          case STB_TS_SOURCE2:
             cmd = "ts2";
-         break;
+            break;
          case STB_TS_SOURCE3:
             cmd = "ts3";
-         break;
+            break;
          default:
             DMX_DBG("do not support demux source %d", src);
-         return;
+            return;
+         }
       }
+      else
+         cmd = "close";
+      DMX_DBG("set tsout: %s", cmd);
       STB_File_Echo(buf, cmd);
       return;
    }

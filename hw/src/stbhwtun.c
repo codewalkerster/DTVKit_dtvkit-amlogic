@@ -1284,7 +1284,7 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
  */
 U8BIT STB_TuneGetSignalStrength(U8BIT path)
 {
-    U8BIT retval;
+    U8BIT retval = 0;
     S16BIT strength;
 
     FUNCTION_START(STB_TuneGetSignalStrength);
@@ -3356,7 +3356,7 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
             }
             else
             {
-                TUN_ERR("%u: Unable to set tuning parameters, errno %d", tstatus->path, errno);
+                TUN_ERR("%u: Unable to set tuning parameters, errno %d (%s)", tstatus->path, errno, strerror(errno));
             }
 
             break;

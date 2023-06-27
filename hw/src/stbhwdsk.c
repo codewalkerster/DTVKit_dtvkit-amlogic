@@ -1484,9 +1484,9 @@ static void* DiskMonitorTask(void *param)
          STB_OSTaskDelay(delay_refresh_disk);
          delay_refresh_disk = 0;
       }
-      DISK_DBG("refresh disk start");
+      //DISK_DBG("refresh disk start");
       RefreshDiskList(TRUE);
-      DISK_DBG("check disk start");
+      //DISK_DBG("check disk start");
       /*check for the free space of the disk which has recording running*/
       STB_PVRCheckDiskSpace();
    }

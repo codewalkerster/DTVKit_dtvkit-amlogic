@@ -27,6 +27,7 @@
 #define _DVBFRONTEND_H_
 
 #define CONFIG_AMLOGIC_DVB_COMPAT
+
 #include <linux/types.h>
 #ifdef CONFIG_AMLOGIC_DVB_COMPAT
 #include <linux/videodev2.h>
@@ -743,7 +744,7 @@ struct dvb_frontend_parameters
         struct dvb_qam_parameters  qam;		/* DVB-C */
         struct dvb_ofdm_parameters ofdm;	/* DVB-T */
         struct dvb_vsb_parameters vsb;		/* ATSC */
-#if 0 && defined(CONFIG_AMLOGIC_DVB_COMPAT)
+#ifdef CONFIG_AMLOGIC_DVB_COMPAT
         struct dvb_analog_parameters analog;
 #endif
     } u;

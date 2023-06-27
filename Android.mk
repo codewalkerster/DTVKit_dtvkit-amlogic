@@ -182,6 +182,9 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/systemcontrol.cpp \
     hw/src/stbhwtun_ex.c \
     hw/src/fsm_base.c \
+	hw/atv/linux_v4l2.c \
+	hw/atv/atv_vlfend.c \
+	hw/atv/atv_vlfend_test.c \
     os/src/stbos_timer.c \
     os/src/stbos_event.c      \
     os/src/stbos_mutex.c      \

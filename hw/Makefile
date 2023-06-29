@@ -36,6 +36,7 @@ SRCS = stbhwplatform.c \
 	stbhwnet.c \
     stbhwvbi.c \
     stbhwcfg.c \
+    stbswcfg.c \
     stbhwresm.c \
     linuxdvbdmx_wrapper.c \
     stbhwav_amlmp.c \

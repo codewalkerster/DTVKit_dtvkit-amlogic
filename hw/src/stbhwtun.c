@@ -66,163 +66,6 @@
 #define TUN_ERR(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #define TUN_INFO(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
-#if 0 // move to stbhwtun_inner.h
-
-/*---constant definitions for this file--------------------------------------*/
-
-#define TUNE_TASK_PRIORITY       11
-#define TUNE_TASK_STACK_SIZE     8192
-
-#define WAIT_LOCK_TIMEOUT        6000               /*keep align with Driver*/
-#define TUNER_MIN_SRATE          900
-#define TUNER_MAX_SRATE          45100
-#define M_BS_START_FREQ          (950)				/*The start RF frequency, 950MHz*/
-#define M_BS_STOP_FREQ           (2150)				/*The stop RF frequency, 2150MHz*/
-#define M_BS_MAX_SYMB            (45)
-#define M_BS_MIN_SYMB            (2)
-#define FEND_WAIT_TIMEOUT        (500)
-#define FEND_BS_MAX_CHANNEL      (512)
-#define TUNER_USELESS_TIMEOUT    (10)               /*second*/
-#define FEND_FL_LOCK             (1)
-#define TUNER_POLLING_TIMEOUT    (50)               /*ms*/
-#define TUNER_LOST_LOCK_TIMES    (400)              /*check times in search mode*/
-
-#define BLINDSCAN_UPDATERESULT_OTHERS (0x000)/* blind scan update result others  */
-
-/*---local typedef structs for this file-------------------------------------*/
-typedef enum
-{
-    TUNER_IDLE,
-    TUNER_TUNING,
-    TUNER_LOCKED,
-    TUNER_RELOCKING,
-    TUNER_EXITED
-} E_TUNER_STATE;
-
-#if 0
-typedef enum
-{
-    TUNER_STATE_LOCKED,
-    TUNER_STATE_TIMEOUT,
-    TUNER_STATE_UNKNOW
-} E_TUNER_EVENT;
-#endif
-
-typedef struct
-{
-    E_STB_TUNE_TMODE tmode;
-    E_STB_TUNE_TBWIDTH tbwidth;
-} S_TERR_STATUS;
-
-typedef struct
-{
-    E_STB_TUNE_TBWIDTH tbwidth;
-} S_ISDBT_STATUS;
-
-typedef struct
-{
-    U32BIT srate;
-    E_STB_TUNE_CMODE cmode;
-} S_CABLE_STATUS;
-
-typedef struct
-{
-    U32BIT srate;
-    E_STB_TUNE_FEC fec;
-    U16BIT lo_freq;
-    E_STB_TUNE_LNB_VOLTAGE lnb_voltage;
-    E_STB_TUNE_MODULATION modulation;
-    BOOLEAN use_22khz;
-} S_SAT_STATUS;
-
-/**\brief Stores the blind scan configuration parameters.*/
-struct DVBSx_BlindScanAPI_Setting
-{
-    unsigned short  m_uiChannelCount;								/**< The number of channels detected thus far by the blind scan operation.*/
-    struct dvb_frontend_parameters channels[FEND_BS_MAX_CHANNEL];	/**< Stores the channel information that all scan out results.*/
-    struct dvbsx_blindscanevent bsEvent;							/**< Stores the information that scan out results by the blind scan procedure.*/
-    struct dvbsx_blindscanpara	bsPara;								/**< Stores the blind scan parameters each blind scan procedure.*/
-    struct dvbsx_singlecable_parameters singlecablePara;            /**< Stores singlecable parameters each blind scan procedure.*/
-};
-
-/**\brief Defines the status of blind scan process.*/
-enum DVBSx_BlindScanAPI_Status
-{
-    DVBSx_BS_Status_Init = 0,							/**< = 0 Indicates that the blind scan process is initializing the parameters.*/
-    DVBSx_BS_Status_Start = 1,							/**< = 1 Indicates that the blind scan process is starting to scan.*/
-    DVBSx_BS_Status_Wait = 2,							/**< = 2 Indicates that the blind scan process is waiting for the completion of scanning.*/
-    DVBSx_BS_Status_User_Process = 3,					/**< = 3 Indicates that the blind scan process is in custom code. Customer can add the callback function in this stage such as adding TP information to TP list or lock the TP for parsing PSI.*/
-    DVBSx_BS_Status_Cancel = 4,							/**< = 4 Indicates that the blind scan process is cancelled or the blind scan have completed.*/
-    DVBSx_BS_Status_Exit = 5,							/**< = 5 Indicates that the blind scan process have ended.*/
-    DVBSx_BS_Status_WaitExit = 6						/**< = 6 Indicates that the blind scan process wait user exit.*/
-};
-
-typedef struct
-{
-    U8BIT path;
-
-    char fe_name[24];
-    int frontend_fd;
-
-    E_TUNER_STATE state;
-    U8BIT lock_flags;
-
-
-
-    // B: Mutex & Semaphore
-    pthread_mutex_t    lock;
-
-    void *mutex;
-    void *tune_sem;
-    void *tune_sem_lock;
-    void *tunertask_sem;
-    // E: Mutex & Semaphore
-
-
-
-    // B: Control Flag
-    BOOLEAN search_mode;
-    BOOLEAN stop;
-    BOOLEAN auto_relock;
-    BOOLEAN tuning_params_changed;
-
-    U8BIT frontend_usage;
-    // E: Control Flag
-
-
-
-    // B: tuner parameters
-    U16BIT tuner_types;                     // configured supported tuner type (using bit map)
-    E_STB_TUNE_SIGNAL_TYPE signal_type;
-    E_STB_TUNE_SYSTEM_TYPE sys_type;
-    E_STB_TUNE_SYSTEM_TYPE tuned_sys_type;
-
-    struct dvb_frontend_info fe_info;
-    fe_delivery_system_t delivery_system;
-
-    U32BIT freq;
-    U8BIT plp_id;
-    union
-    {
-        S_TERR_STATUS terr;
-        S_CABLE_STATUS cab;
-        S_SAT_STATUS sat;
-        S_ISDBT_STATUS isdbt;
-    } u;
-    // E: tuner parameters
-
-
-
-    // B: Blind Scan
-    BOOLEAN    enable_blindscan_thread;
-    pthread_t  blindscan_thread;
-    STB_Tnue_BlindCallback_t blindscan_cb;
-    void       *blindscan_cb_user_data;
-    struct DVBSx_BlindScanAPI_Setting bs_setting;
-    // E: Blind Scan
-} S_TUNER_STATUS;
-#endif
-
 /*---local (static) variable declarations for this file----------------------*/
 static S_TUNER_STATUS *tuner_status = NULL;
 static U8BIT num_paths;
@@ -231,6 +74,8 @@ static BOOLEAN isTvPlatform = FALSE;
 static U32BIT real_srate = SYMBOL_RATE_AUTO;
 static E_STB_TUNE_CMODE real_cmode = TUNE_MODE_QAM_UNDEFINED;
 void *tune_interface_sem = NULL;
+static E_STB_TUNE_SYSTEM_TYPE blindscan_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
+
 
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
@@ -248,14 +93,16 @@ static void SetTunerT2PLP(U32BIT frontend_fd, U8BIT plp_id);
 static BOOLEAN dvb_set_prop (U32BIT fd, const struct dtv_properties *prop);
 static BOOLEAN dvb_wait_event (U32BIT fd, struct dvb_frontend_event *evt, int timeout);
 static BOOLEAN dvbsx_blindscan_setsinglecable(U8BIT fd, struct dvbsx_singlecable_parameters *psinglecablePara);
-static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara);
-static BOOLEAN dvbsx_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindscanevent *pbsevent);
-static BOOLEAN dvbsx_blindscan_cancel(U8BIT path);
+static BOOLEAN dvb_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara);
+static BOOLEAN dvb_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindscanevent *pbsevent);
+static BOOLEAN dvb_blindscan_cancel(U8BIT path);
 static BOOLEAN  AM_FEND_IBlindScanAPI_Start(U8BIT path);
 static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blindscanevent *pbsevent);
 static BOOLEAN  AM_FEND_IBlindScanAPI_Exit(U8BIT path);
 static BOOLEAN AM_FEND_BlindDump(U8BIT path);
 static void* fend_blindscan_thread(void *arg);
+static int SysTypeToFeMode(E_STB_TUNE_SYSTEM_TYPE sys_type);
+static BOOLEAN SetBlindScanFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 /*static*/ BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type);
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
@@ -680,14 +527,10 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
     FUNCTION_FINISH(STB_TuneSetSignalType);
 }
 
-/*static*/ BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
+static int SysTypeToFeMode(E_STB_TUNE_SYSTEM_TYPE sys_type)
 {
     int fe_mode = SYS_UNDEFINED;
-
-    if (fe_fd == INVALID_FD)
-        return FALSE;
-
-    switch (tuned_sys_type)
+    switch (sys_type)
     {
         case TUNE_SYSTEM_TYPE_DVBT:
             fe_mode = SYS_DVBT;
@@ -718,25 +561,98 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
             break;
 
         default:
-            TUN_ERR("not support type:%d", tuned_sys_type);
-            return FALSE;
+            TUN_ERR("not support type:%d", sys_type);
+            break;
     }
 
-    struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = fe_mode};
+    return fe_mode;
+}
 
-    struct dtv_properties props = {.num = 1, .props = &p};
-
-    if (ioctl(fe_fd, FE_SET_PROPERTY, &props) < 0)
-    {
-        TUN_ERR("Failed to FE_SET_PROPERTY, errno %d", errno);
+static BOOLEAN SetBlindScanFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
+{
+    if (fe_fd == INVALID_FD)
         return FALSE;
+
+    int fe_mode = SysTypeToFeMode(tuned_sys_type);
+    if (fe_mode == SYS_UNDEFINED)
+        return FALSE;
+
+    struct dtv_property *property = STB_MEMGetSysRAM(sizeof(struct dtv_property));
+    if (NULL == property)
+        return FALSE;
+
+    memset(property, 0, sizeof(struct dtv_property));
+
+    property->cmd = DTV_DELIVERY_SYSTEM;
+    if (fe_mode == SYS_DVBC_ANNEX_A)
+    {
+        property->u.buffer.data[0] = fe_mode;
+        property->u.buffer.data[1] = 1;  // set dvbc_blind_scan mode: 1-new mode 0-legacy mode
+        TUN_DBG("set blind fe prop cmd[%d] buf.data[%d %d]",
+                property->cmd, property->u.buffer.data[0], property->u.buffer.data[1]);
     }
     else
     {
-        TUN_DBG("FE_SET_PROPERTY, fe_mode:%d", fe_mode);
+        property->u.data = fe_mode;
+        TUN_DBG("set blind fe prop cmd[%d] data[%d]", property->cmd, property->u.data);
     }
 
-    return TRUE;
+    struct dtv_properties prop;
+    prop.num = 1;
+    prop.props = property;
+
+    BOOLEAN ret = dvb_set_prop(fe_fd, &prop);
+    if (!ret)
+    {
+        TUN_DBG( "set blind fe prop cmd error");
+    }
+
+    if (property != NULL)
+    {
+        STB_MEMFreeSysRAM(property);
+        property = NULL;
+    }
+
+    return ret;
+}
+
+/*static*/ BOOLEAN SetFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sys_type)
+{
+    if (fe_fd == INVALID_FD)
+        return FALSE;
+
+    int fe_mode = SysTypeToFeMode(tuned_sys_type);
+    if (fe_mode == SYS_UNDEFINED)
+        return FALSE;
+
+    struct dtv_property *property = STB_MEMGetSysRAM(sizeof(struct dtv_property));
+    if (NULL == property)
+        return FALSE;
+
+    memset(property, 0, sizeof(struct dtv_property));
+
+    property->cmd = DTV_DELIVERY_SYSTEM;
+    property->u.data = fe_mode;
+
+    struct dtv_properties prop;
+    prop.num = 1;
+    prop.props = property;
+    TUN_DBG("set fe prop cmd[%d] data[%d]", property->cmd, property->u.data);
+
+    BOOLEAN ret = dvb_set_prop(fe_fd, &prop);
+    if (!ret)
+    {
+        TUN_DBG( "set fe prop cmd error");
+    }
+
+    if (property != NULL)
+    {
+        STB_MEMFreeSysRAM(property);
+        property = NULL;
+    }
+
+    return ret;
+
 }
 
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation)
@@ -2866,37 +2782,49 @@ static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz)
     return ret;
 }
 
-BOOLEAN STB_Tune_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_data, unsigned int start_freq, unsigned int stop_freq,
-                           E_STB_TUNE_BlindUnicable_t unicable)
+BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue_BlindCallback_t cb, void *user_data,
+                                 unsigned int start_freq, unsigned int stop_freq, E_STB_TUNE_BlindUnicable_t unicable)
 {
-    BOOLEAN ret = TRUE;
-    int rc;
-
     if (start_freq == stop_freq)
     {
         TUN_DBG( "AM_FEND_BlindScan start_freq equal stop_freq\n");
         return FALSE;
     }
 
+    blindscan_sys_type = sys_type;
+    if (sys_type == TUNE_SYSTEM_TYPE_DVBC)
+    {
+        //exit dvb mode firstly for DVBC blind scan
+        SetFeProperty(tuner_status[path].frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
+    }
+
     /*this function set the parameters blind scan process needed.*/
-    SetFeProperty(tuner_status[path].frontend_fd, TUNE_SYSTEM_TYPE_DVBS);
+    SetBlindScanFeProperty(tuner_status[path].frontend_fd, sys_type);
 
-    memset(&(tuner_status[path].bs_setting), 0, sizeof(struct DVBSx_BlindScanAPI_Setting));
+    memset(&(tuner_status[path].bs_setting), 0, sizeof(struct DVB_BlindScanAPI_Setting));
 
-    tuner_status[path].bs_setting.bsPara.minfrequency = M_BS_START_FREQ * 1000;		    /*Default Set Blind scan start frequency*/
-    tuner_status[path].bs_setting.bsPara.maxfrequency = M_BS_STOP_FREQ * 1000;		    /*Default Set Blind scan stop frequency*/
-    tuner_status[path].bs_setting.bsPara.maxSymbolRate = M_BS_MAX_SYMB * 1000 * 1000;   /*Set MAX symbol rate*/
-    tuner_status[path].bs_setting.bsPara.minSymbolRate = M_BS_MIN_SYMB * 1000 * 1000;   /*Set MIN symbol rate*/
-    tuner_status[path].bs_setting.bsPara.timeout = FEND_WAIT_TIMEOUT;
-    tuner_status[path].bs_setting.bsPara.minfrequency = start_freq/1000;		        /*Change default start frequency*/
-    tuner_status[path].bs_setting.bsPara.maxfrequency = stop_freq/1000;			        /*Change default end frequency*/
+    if (sys_type == TUNE_SYSTEM_TYPE_DVBS)
+    {
+        tuner_status[path].bs_setting.bsPara.minfrequency = M_BS_START_FREQ * 1000;		    /*Default Set Blind scan start frequency*/
+        tuner_status[path].bs_setting.bsPara.maxfrequency = M_BS_STOP_FREQ * 1000;		    /*Default Set Blind scan stop frequency*/
+        tuner_status[path].bs_setting.bsPara.maxSymbolRate = M_BS_MAX_SYMB * 1000 * 1000;   /*Set MAX symbol rate*/
+        tuner_status[path].bs_setting.bsPara.minSymbolRate = M_BS_MIN_SYMB * 1000 * 1000;   /*Set MIN symbol rate*/
+        tuner_status[path].bs_setting.bsPara.timeout = FEND_WAIT_TIMEOUT;
+        tuner_status[path].bs_setting.bsPara.minfrequency = start_freq/1000;		        /*Change default start frequency*/
+        tuner_status[path].bs_setting.bsPara.maxfrequency = stop_freq/1000;			        /*Change default end frequency*/
 
-    tuner_status[path].bs_setting.singlecablePara.version = unicable.unicable;
-    tuner_status[path].bs_setting.singlecablePara.userband = unicable.channel;
-    tuner_status[path].bs_setting.singlecablePara.frequency = unicable.frequency;
-    tuner_status[path].bs_setting.singlecablePara.bank = unicable.bank;
-    tuner_status[path].bs_setting.singlecablePara.uncommitted = unicable.uncommitted;
-    tuner_status[path].bs_setting.singlecablePara.committed = unicable.committed;
+        tuner_status[path].bs_setting.singlecablePara.version = unicable.unicable;
+        tuner_status[path].bs_setting.singlecablePara.userband = unicable.channel;
+        tuner_status[path].bs_setting.singlecablePara.frequency = unicable.frequency;
+        tuner_status[path].bs_setting.singlecablePara.bank = unicable.bank;
+        tuner_status[path].bs_setting.singlecablePara.uncommitted = unicable.uncommitted;
+        tuner_status[path].bs_setting.singlecablePara.committed = unicable.committed;
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_DVBC)
+    {
+        tuner_status[path].bs_setting.bsPara.minfrequency = start_freq;         /*Default Set Blind scan start frequency*/
+        tuner_status[path].bs_setting.bsPara.maxfrequency = stop_freq;          /*Default Set Blind scan stop frequency*/
+    }
 
     /*blindscan handle thread*/
     if (cb != tuner_status[path].blindscan_cb || user_data != tuner_status[path].blindscan_cb_user_data)
@@ -2907,15 +2835,15 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, STB_Tnue_BlindCallback_t cb, void *user_d
 
     tuner_status[path].enable_blindscan_thread = TRUE;
 
-    rc = pthread_create(&tuner_status[path].blindscan_thread, NULL, fend_blindscan_thread, (void *)(long)path);
-
-    if(rc)
+    tuner_status[path].blindscan_thread = STB_OSCreateTask(fend_blindscan_thread,
+                                                           (void *)(long)path, 0/*stack*/, 0/*priority*/,
+                                                           (U8BIT *)"TunerBlindScanTask");
+    if (tuner_status[path].blindscan_thread == NULL)
     {
-        TUN_DBG( "%s", strerror(rc));
-        ret = FALSE;
+        return FALSE;
     }
 
-    return ret;
+    return TRUE;
 }
 
 BOOLEAN STB_Tune_BlindExit(U8BIT path)
@@ -2924,7 +2852,7 @@ BOOLEAN STB_Tune_BlindExit(U8BIT path)
 
     /*Stop the thread*/
     tuner_status[path].enable_blindscan_thread = FALSE;
-    pthread_join(tuner_status[path].blindscan_thread, NULL);
+    STB_OSDestroyTask(tuner_status[path].blindscan_thread);
 
     return ret;
 }
@@ -4044,14 +3972,14 @@ static BOOLEAN dvbsx_blindscan_setsinglecable(U8BIT fd, struct dvbsx_singlecable
     return ret;
 }
 
-static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara)
+static BOOLEAN dvb_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara)
 {
     int ret = TRUE;
 #if 0
 
     if (ioctl(tuner_status[path].frontend_fd, FE_SET_BLINDSCAN, pbspara) < 0)
     {
-        TUN_DBG( "ioctl dvbsx_blindscan_scan failed, error:%s", strerror(errno));
+        TUN_DBG( "ioctl dvb_blindscan_scan failed, error:%s", strerror(errno));
         return FALSE;
     }
 
@@ -4064,6 +3992,8 @@ static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspar
     property = STB_MEMGetSysRAM(num * sizeof(struct dtv_property));
     if(NULL == property)
         return FALSE;
+
+    memset(property, 0, num * sizeof(struct dtv_property));
 
     prop.num = num;
     prop.props = property;
@@ -4116,7 +4046,7 @@ static BOOLEAN dvbsx_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspar
     return ret;
 }
 
-static BOOLEAN dvbsx_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindscanevent *pbsevent)
+static BOOLEAN dvb_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindscanevent *pbsevent)
 {
     BOOLEAN ret = TRUE;
 #if 0
@@ -4160,7 +4090,7 @@ static BOOLEAN dvbsx_blindscan_getscanevent(int frontend_fd, struct dvbsx_blinds
     return ret;
 }
 
-static BOOLEAN dvbsx_blindscan_cancel(U8BIT path)
+static BOOLEAN dvb_blindscan_cancel(U8BIT path)
 {
     BOOLEAN ret = TRUE;
 #if 0
@@ -4215,7 +4145,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_Start(U8BIT path)
 
     struct dvbsx_blindscanpara * pbsPara = &(tuner_status[path].bs_setting.bsPara);
     /*driver need to set in blindscan mode*/
-    ret = dvbsx_blindscan_scan(tuner_status[path].frontend_fd, pbsPara);
+    ret = dvb_blindscan_scan(tuner_status[path].frontend_fd, pbsPara);
 
     pthread_mutex_unlock(&tuner_status[path].lock);
     return ret;
@@ -4230,7 +4160,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
     struct dvbsx_blindscanevent * pbsEvent = &(tuner_status[path].bs_setting.bsEvent);
 
     /*Query the internal blind scan procedure information.*/
-    ret = dvbsx_blindscan_getscanevent(tuner_status[path].frontend_fd, pbsEvent);
+    ret = dvb_blindscan_getscanevent(tuner_status[path].frontend_fd, pbsEvent);
 
     if(!ret)
     {
@@ -4276,15 +4206,21 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
 }
 
 /**\brief Stops blind scan process.*/
-static BOOLEAN  AM_FEND_IBlindScanAPI_Exit(U8BIT path)
+static BOOLEAN AM_FEND_IBlindScanAPI_Exit(U8BIT path)
 {
     BOOLEAN ret = TRUE;
 
     pthread_mutex_lock(&tuner_status[path].lock);
     /*driver need to set in demod mode*/
-    ret = dvbsx_blindscan_cancel(path);
+    ret = dvb_blindscan_cancel(path);
 
     usleep(10 * 1000);
+
+    if (blindscan_sys_type == TUNE_SYSTEM_TYPE_DVBC)
+    {
+        // exit dvb type
+        SetFeProperty(tuner_status[path].frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
+    }
 
     pthread_mutex_unlock(&tuner_status[path].lock);
     return ret;
@@ -4316,34 +4252,34 @@ static void* fend_blindscan_thread(void *arg)
     E_STB_TUNE_BlindEvent_t evt;
     BOOLEAN ret = FALSE;
     unsigned short index = 0;
-    enum DVBSx_BlindScanAPI_Status BS_Status = DVBSx_BS_Status_Init;
+    enum DVB_BlindScanAPI_Status BS_Status = DVB_BS_Status_Init;
     U8BIT wait_reports = 0;
     memset(&evt, 0, sizeof(E_STB_TUNE_BlindEvent_t));
     memset(&cur_bsevent, 0, sizeof(cur_bsevent));
-    while(BS_Status != DVBSx_BS_Status_Exit)
+    while (BS_Status != DVB_BS_Status_Exit)
     {
-        if(!tuner_status[path].enable_blindscan_thread)
+        if (!tuner_status[path].enable_blindscan_thread)
         {
-            BS_Status = DVBSx_BS_Status_Cancel;
+            BS_Status = DVB_BS_Status_Cancel;
         }
 
         switch(BS_Status)
         {
-            case DVBSx_BS_Status_Init:
+            case DVB_BS_Status_Init:
             {
-                BS_Status = DVBSx_BS_Status_Start;
-                TUN_DBG( "fend_blindscan_thread %d", DVBSx_BS_Status_Init);
+                BS_Status = DVB_BS_Status_Start;
+                TUN_DBG( "fend_blindscan_thread %d", DVB_BS_Status_Init);
                 break;
             }
 
-            case DVBSx_BS_Status_Start:
+            case DVB_BS_Status_Start:
             {
                 ret = AM_FEND_IBlindScanAPI_Start(path);
                 TUN_DBG( "fend_blindscan_thread AM_FEND_IBlindScanAPI_Start %d", ret);
 
                 if(!ret)
                 {
-                    BS_Status = DVBSx_BS_Status_Exit;
+                    BS_Status = DVB_BS_Status_Exit;
                     if(tuner_status[path].blindscan_cb)
                     {
                         evt.status = AM_FEND_BLIND_START_FAILED;
@@ -4352,24 +4288,24 @@ static void* fend_blindscan_thread(void *arg)
                 }
                 else
                 {
-                    BS_Status = DVBSx_BS_Status_Wait;
+                    BS_Status = DVB_BS_Status_Wait;
                 }
 
                 break;
             }
 
-            case DVBSx_BS_Status_Wait:
+            case DVB_BS_Status_Wait:
             {
                 ret = AM_FEND_IBlindScanAPI_GetScanEvent(path, &cur_bsevent);
                 TUN_DBG( "fend_blindscan_thread AM_FEND_IBlindScanAPI_GetScanEvent %d", ret);
 
                 if(ret)
                 {
-                    BS_Status = DVBSx_BS_Status_User_Process;
+                    BS_Status = DVB_BS_Status_User_Process;
                 }
                 else
                 {
-                    BS_Status = DVBSx_BS_Status_Wait;
+                    BS_Status = DVB_BS_Status_Wait;
 
                     wait_reports++;
                     // to avoid wait event reporting frequently
@@ -4384,7 +4320,7 @@ static void* fend_blindscan_thread(void *arg)
                 break;
             }
 
-            case DVBSx_BS_Status_User_Process:
+            case DVB_BS_Status_User_Process:
             {
                 /*
                 ------------Custom code start-------------------
@@ -4423,35 +4359,35 @@ static void* fend_blindscan_thread(void *arg)
                 /*------------Custom code end -------------------*/
                 if(cur_bsevent.status == BLINDSCAN_UPDATESTARTFREQ)
                 {
-                    BS_Status = DVBSx_BS_Status_Wait;
+                    BS_Status = DVB_BS_Status_Wait;
                 }
                 else if(cur_bsevent.status == BLINDSCAN_UPDATEPROCESS)
                 {
-                    if ( (evt.process < 100))
-                        BS_Status = DVBSx_BS_Status_Wait;
+                    if (evt.process < 100)
+                        BS_Status = DVB_BS_Status_Wait;
                     else
-                        BS_Status = DVBSx_BS_Status_WaitExit;
+                        BS_Status = DVB_BS_Status_WaitExit;
                 }
                 else if(cur_bsevent.status == BLINDSCAN_UPDATERESULTFREQ)
                 {
-                    BS_Status = DVBSx_BS_Status_Wait;
+                    BS_Status = DVB_BS_Status_Wait;
                 }
                 else if(cur_bsevent.status == BLINDSCAN_UPDATERESULT_OTHERS)
                 {
                     TUN_DBG( "adp result event ERROR\n");
-                    BS_Status = DVBSx_BS_Status_Wait;
+                    BS_Status = DVB_BS_Status_Wait;
                 }
 
                 break;
             }
 
-            case DVBSx_BS_Status_WaitExit:
+            case DVB_BS_Status_WaitExit:
             {
                 usleep(50*1000);
                 break;
             }
 
-            case DVBSx_BS_Status_Cancel:
+            case DVB_BS_Status_Cancel:
             {
                 AM_FEND_BlindDump(path);
 
@@ -4460,7 +4396,7 @@ static void* fend_blindscan_thread(void *arg)
                 {
                     TUN_DBG( "AM_FEND_IBlindScanAPI_Exit error");
                 }
-                BS_Status = DVBSx_BS_Status_Exit;
+                BS_Status = DVB_BS_Status_Exit;
 
                 TUN_DBG( "AM_FEND_IBlindScanAPI_Exit");
                 break;
@@ -4468,7 +4404,7 @@ static void* fend_blindscan_thread(void *arg)
 
             default:
             {
-                BS_Status = DVBSx_BS_Status_Cancel;
+                BS_Status = DVB_BS_Status_Cancel;
                 break;
             }
         }

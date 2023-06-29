@@ -76,7 +76,7 @@ typedef struct
 } S_SAT_STATUS;
 
 /**\brief Stores the blind scan configuration parameters.*/
-struct DVBSx_BlindScanAPI_Setting
+struct DVB_BlindScanAPI_Setting
 {
     unsigned short  m_uiChannelCount;								/**< The number of channels detected thus far by the blind scan operation.*/
     struct dvb_frontend_parameters channels[FEND_BS_MAX_CHANNEL];	/**< Stores the channel information that all scan out results.*/
@@ -86,15 +86,15 @@ struct DVBSx_BlindScanAPI_Setting
 };
 
 /**\brief Defines the status of blind scan process.*/
-enum DVBSx_BlindScanAPI_Status
+enum DVB_BlindScanAPI_Status
 {
-    DVBSx_BS_Status_Init = 0,							/**< = 0 Indicates that the blind scan process is initializing the parameters.*/
-    DVBSx_BS_Status_Start = 1,							/**< = 1 Indicates that the blind scan process is starting to scan.*/
-    DVBSx_BS_Status_Wait = 2,							/**< = 2 Indicates that the blind scan process is waiting for the completion of scanning.*/
-    DVBSx_BS_Status_User_Process = 3,					/**< = 3 Indicates that the blind scan process is in custom code. Customer can add the callback function in this stage such as adding TP information to TP list or lock the TP for parsing PSI.*/
-    DVBSx_BS_Status_Cancel = 4,							/**< = 4 Indicates that the blind scan process is cancelled or the blind scan have completed.*/
-    DVBSx_BS_Status_Exit = 5,							/**< = 5 Indicates that the blind scan process have ended.*/
-    DVBSx_BS_Status_WaitExit = 6						/**< = 6 Indicates that the blind scan process wait user exit.*/
+    DVB_BS_Status_Init = 0,							/**< = 0 Indicates that the blind scan process is initializing the parameters.*/
+    DVB_BS_Status_Start = 1,							/**< = 1 Indicates that the blind scan process is starting to scan.*/
+    DVB_BS_Status_Wait = 2,							/**< = 2 Indicates that the blind scan process is waiting for the completion of scanning.*/
+    DVB_BS_Status_User_Process = 3,					/**< = 3 Indicates that the blind scan process is in custom code. Customer can add the callback function in this stage such as adding TP information to TP list or lock the TP for parsing PSI.*/
+    DVB_BS_Status_Cancel = 4,							/**< = 4 Indicates that the blind scan process is cancelled or the blind scan have completed.*/
+    DVB_BS_Status_Exit = 5,							/**< = 5 Indicates that the blind scan process have ended.*/
+    DVB_BS_Status_WaitExit = 6						/**< = 6 Indicates that the blind scan process wait user exit.*/
 };
 
 
@@ -156,10 +156,10 @@ typedef struct
 
     // B: Blind Scan
     BOOLEAN    enable_blindscan_thread;
-    pthread_t  blindscan_thread;
+    void *blindscan_thread;
     STB_Tnue_BlindCallback_t blindscan_cb;
     void       *blindscan_cb_user_data;
-    struct DVBSx_BlindScanAPI_Setting bs_setting;
+    struct DVB_BlindScanAPI_Setting bs_setting;
     // E: Blind Scan
 } S_TUNER_STATUS;
 

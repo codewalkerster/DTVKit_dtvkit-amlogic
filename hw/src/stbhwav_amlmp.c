@@ -1080,6 +1080,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
 {
    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
    U8BIT preselection_id;
+   BOOLEAN audio_mute = FALSE;
    int ret;
    AML_MP_PLAYER player_handle;
    Aml_MP_CodecID audio_format;
@@ -1112,6 +1113,17 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
       DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
       audio_format = av_paths_status[av_path].audio_format;
+
+      if (av_paths_status[av_path].audio_out_control) {
+          AUD_DBG("-->mute audio");
+          audio_mute = TRUE;
+          ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_MUTE, &audio_mute);
+          if (ret < 0) {
+                AUD_DBG("mute audio failed, err:%d", ret);
+          }
+      } else {
+          AUD_DBG("-->umute audio");
+      }
 
       if (audio_pid != 0 && audio_pid != INVALID_PID)
       {
@@ -1285,6 +1297,16 @@ void STB_AVStartVideoDecoding(U8BIT path)
             VID_DBG("Cannot set surface to AML MP, surface is NULL. video path: (%d, %d)",
                 av_path, av_paths_status[av_path].video_decoder);
          }
+
+        if (av_paths_status[path].video_out_control) {
+            VID_DBG("-->hide video");
+            ret = Aml_MP_Player_HideVideo(player_handle);
+            if (ret < 0) {
+                VID_DBG("Hide video failed, err:%d", ret);
+            }
+        } else {
+                VID_DBG("-->Show video");
+        }
 
         Aml_MP_PlayerWorkMode work_mode =
               IS_CACHED(av_paths_status[av_path].decoding_mode) ? AML_MP_PLAYER_MODE_CACHING_ONLY : AML_MP_PLAYER_MODE_NORMAL;
@@ -4223,7 +4245,8 @@ static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT av_path, E_AV_OUT_CONTROL_FLAG f
     BOOLEAN audio_mute = FALSE;
 
     if (av_path == INVALID_RES_ID) {
-        return TRUE;
+        /*force save audio mute flag before av path create*/
+        av_path = 0;
     }
 
     if (mute) {

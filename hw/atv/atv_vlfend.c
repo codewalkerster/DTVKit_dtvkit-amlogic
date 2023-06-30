@@ -142,9 +142,12 @@ static AM_INLINE AM_ErrorCode_t vlfend_get_opened_dev(int dev_no, AM_FEND_Device
 /**\brief The atv frontend device monitors threads */
 static void* vlfend_thread(void *arg)
 {
-    AM_FEND_Device_t *dev = (AM_FEND_Device_t*) arg;
+    AM_FEND_Device_t *dev   = (AM_FEND_Device_t*) arg;
+    AM_ErrorCode_t ret      = AM_FAILURE;
+
     struct dvb_frontend_event evt;
-    AM_ErrorCode_t ret = AM_FAILURE;
+
+    U8BIT try_count = 0;
 
     while (dev->enable_thread)
     {
@@ -169,6 +172,8 @@ static void* vlfend_thread(void *arg)
 
             if (ret == AM_SUCCESS)
             {
+                try_count = 0;
+
                 dev->status = evt.status;
 
                 DTV_LOGI(TAG, "vlfend_thread wait evt: %x\n", evt.status);
@@ -187,26 +192,31 @@ static void* vlfend_thread(void *arg)
             }
             else
             {
-                fe_status_t status;
-
-                ret = dev->drv->get_status(dev, &status);
-                if (AM_SUCCESS == ret)
+                if (try_count >= 4)
                 {
-                    if (dev->status != status)
+                    fe_status_t status;
+
+                    try_count = 0;
+
+                    ret = dev->drv->get_status(dev, &status);
+                    if (AM_SUCCESS == ret)
                     {
-                        ret = dev->drv->get_para(dev, &evt.parameters);
-                        if (AM_SUCCESS != ret)
+                        if (dev->status != status)
                         {
-                            DTV_LOGE(TAG, "get_para err:%d", ret);
-                        }
-                        evt.status = status;
-                        dev->status = status;
+                            ret = dev->drv->get_para(dev, &evt.parameters);
+                            if (AM_SUCCESS != ret)
+                            {
+                                DTV_LOGE(TAG, "get_para err:%d", ret);
+                            }
+                            evt.status = status;
+                            dev->status = status;
 
-                        DTV_LOGI(TAG, "vlfend_thread get status: %x\n", evt.status);
+                            DTV_LOGI(TAG, "vlfend_thread get status: %x\n", evt.status);
 
-                        if (dev->cb && dev->enable_cb)
-                        {
-                            dev->cb(dev->dev_no, &evt, dev->user_data);
+                            if (dev->cb && dev->enable_cb)
+                            {
+                                dev->cb(dev->dev_no, &evt, dev->user_data);
+                            }
                         }
                     }
                 }

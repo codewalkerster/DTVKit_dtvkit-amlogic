@@ -332,9 +332,15 @@ static AM_ErrorCode_t v4l2_wait_event(AM_FEND_Device_t *dev, struct dvb_frontend
 
     ret = poll(&pfd, 1, timeout);
 
-    if (ret != 1)
+    if (ret == 0)
     {
         return AM_FEND_ERR_TIMEOUT;
+    }
+    else if (-1 == ret)
+    {
+        DTV_LOGI(TAG, "poll, error:%s", strerror(errno));
+
+        return AM_FAILURE;
     }
 
     if (ioctl(fd, V4L2_GET_EVENT, &v4l2_evt) == -1)

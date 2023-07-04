@@ -30,6 +30,10 @@ extern "C"
 {
 #endif
 
+#define VLFEND_TASK_STACK_SIZE            4096
+#define VLFEND_TASK_PRIORITY              11      // 1 lower than UI
+
+
 #define VLFEND_FL_RUN_CB        (1)
 #define VLFEND_FL_LOCK          (2)
 
@@ -278,6 +282,8 @@ extern AM_ErrorCode_t AM_VLFEND_GetAtvStatus(int dev_no, atv_status_t *atv_statu
 extern AM_ErrorCode_t AM_VLFEND_DetectStandard(int dev_no);
 
 extern int AM_VLFEND_FormatFrequency(int freq);
+
+extern AM_ErrorCode_t AM_VLFEND_UpdateCallbackData(int dev_no, void *user_data, int user_data_len);
 
 #ifdef __cplusplus
 }

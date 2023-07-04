@@ -614,34 +614,35 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 */
 void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color)
 {
-   //this function is only supported for CVTE/CTV bluescreen fearure
-   #ifndef RDK_COMPILE
-   static char buf1[PROPERTY_VALUE_MAX] = {0};
-   if (video_blank_lock)
-   {
-      VID_DBG("Video blank locked, can not change");
-      return;
-   }
-   /*bluescreen feature open as common flow*/
-   #if 0
-   property_get("vendor.tv.dtv.enable.bluescreen", buf1, "false");
-   VID_DBG(" vendor.tv.dtv.enable.bluescreen[%s]", buf1);
-   if (!strncmp(buf1, "true", 5))
-   #endif
-   {
-      int color = VIDEO_LAYER_COLOR_MAX;
-      VID_DBG("===========>blank=%u force_black_color %d", blank, is_black_color);
-      if (blank == TRUE)
-      {
-         color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
-         SC_setVideoColor(color);
-      }
-      else
-      {
-         SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
-      }
-   }
-   #endif
+    //this function is only supported for CVTE/CTV bluescreen feature
+#ifndef RDK_COMPILE
+    static char buf1[PROPERTY_VALUE_MAX] = {0};
+    if (video_blank_lock)
+    {
+        VID_DBG("Video blank locked, can not change");
+        return;
+    }
+    /*bluescreen feature open as common flow*/
+    if (STB_Is_FCC_Enabled() ||STB_Is_PIP_Enabled())
+    {
+        VID_DBG("This function is not supported for fcc or pip mode.");
+        return;
+    }
+    else
+    {
+        int color = VIDEO_LAYER_COLOR_MAX;
+        VID_DBG("===========>blank=%u force_black_color %d", blank, is_black_color);
+        if (blank == TRUE)
+        {
+            color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
+            SC_setVideoColor(color);
+        }
+        else
+        {
+            SC_setVideoColor(VIDEO_LAYER_COLOR_MAX);
+        }
+    }
+#endif
 }
 
 

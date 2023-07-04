@@ -25,6 +25,7 @@
 #include <pthread.h>
 
 #include "stbhwmem.h"
+#include "stbhwos.h"
 
 #include "atv_vlfend.h"
 #include "atv_fend_internal.h"
@@ -149,20 +150,18 @@ static void* vlfend_thread(void *arg)
 
     U8BIT try_count = 0;
 
+    DTV_LOGI(TAG, "[%s] start", __FUNCTION__);
+
     while (dev->enable_thread)
     {
-        /*when blind scan is start, we need stop fend thread read event*/
-        /*
-                if (dev->enable_blindscan_thread)
-                {
-                    usleep(100 * 1000);
-                    continue;
-                }
-        */
+        ret = AM_FAILURE;
+
         if (dev->drv->wait_event)
         {
             ret = dev->drv->wait_event(dev, &evt, FEND_WAIT_TIMEOUT);
         }
+
+        DTV_LOGD(TAG, "vlfend_thread wait_event ret: %d, active_thread:%d \n", ret, dev->active_thread);
 
         if (dev->active_thread)
         {
@@ -192,6 +191,8 @@ static void* vlfend_thread(void *arg)
             }
             else
             {
+                try_count++;
+
                 if (try_count >= 4)
                 {
                     fe_status_t status;
@@ -218,7 +219,19 @@ static void* vlfend_thread(void *arg)
                                 dev->cb(dev->dev_no, &evt, dev->user_data);
                             }
                         }
+                        else
+                        {
+                            DTV_LOGD(TAG, "vlfend_thread get status(0x%x), dev->status(0x%x) ", status, dev->status);
+                        }
                     }
+                    else
+                    {
+                        DTV_LOGD(TAG, "vlfend_thread get status err ret: %d ", ret);
+                    }
+                }
+                else
+                {
+                    DTV_LOGD(TAG, "vlfend_thread try_count: %u ", try_count);;
                 }
             }
 
@@ -228,6 +241,8 @@ static void* vlfend_thread(void *arg)
             pthread_cond_broadcast(&dev->cond);
         }
     }
+
+    DTV_LOGI(TAG, "[%s] EXIT", __FUNCTION__);
 
     return NULL;
 }
@@ -257,9 +272,11 @@ AM_ErrorCode_t AM_VLFEND_Open(int dev_no, const AM_FEND_OpenPara_t *para)
 
     if (dev->open_count > 0)
     {
-        DTV_LOGI(TAG, "vlfrontend device %d has already been opened", dev_no);
         dev->open_count++;
         ret = AM_SUCCESS;
+
+        DTV_LOGI(TAG, "vlfrontend device %d has already been opened (%d)", dev_no, dev->open_count);
+
         goto final;
     }
 
@@ -279,11 +296,11 @@ AM_ErrorCode_t AM_VLFEND_Open(int dev_no, const AM_FEND_OpenPara_t *para)
     dev->enable_cb = AM_TRUE;
     dev->curr_mode = para->mode;
 
-    rc = pthread_create(&dev->thread, NULL, vlfend_thread, dev);
+    //rc = pthread_create(&dev->thread, NULL, vlfend_thread, dev);
+    dev->thread = STB_OSCreateTask(vlfend_thread, (void *)dev, VLFEND_TASK_STACK_SIZE, VLFEND_TASK_PRIORITY, "vlfend");
 
-    if (rc)
+    if (NULL == dev->thread)
     {
-        DTV_LOGE(TAG, "%s", strerror(rc));
 
         if (dev->drv->close)
         {
@@ -337,12 +354,12 @@ AM_ErrorCode_t AM_VLFEND_CloseEx(int dev_no, AM_Bool_t reset)
         dev->enable_cb = AM_FALSE;
         /*Stop the thread*/
         dev->enable_thread = AM_FALSE;
-        err = pthread_kill(dev->thread, SIGALRM);
+        err = pthread_kill((pthread_t)(dev->thread), SIGALRM);
 
         if (err != 0)
             DTV_LOGE(TAG, "kill fail, err:%d", err);
 
-        pthread_join(dev->thread, NULL);
+        STB_OSDestroyTask(dev->thread);
 
         /*Release the device*/
         if (dev->drv->close)
@@ -713,7 +730,7 @@ AM_ErrorCode_t AM_VLFEND_SetCallback(int dev_no, AM_FEND_Callback_t cb, void *us
 
     if (cb != dev->cb || user_data != dev->user_data || user_data_len != dev->user_data_len)
     {
-        if (dev->enable_thread && (dev->thread != pthread_self()))
+        if (dev->enable_thread && (dev->thread != STB_OSGetCurrentTask()))
         {
             /* Wait for the callback function to finish executing */
             while (dev->flags & VLFEND_FL_RUN_CB)
@@ -728,6 +745,44 @@ AM_ErrorCode_t AM_VLFEND_SetCallback(int dev_no, AM_FEND_Callback_t cb, void *us
         }
 
         dev->cb = cb;
+        dev->user_data = STB_MEMGetSysRAM(user_data_len);
+
+        if (NULL != dev->user_data)
+        {
+            memcpy(dev->user_data, user_data, user_data_len);
+            dev->user_data_len = user_data_len;
+        }
+        else
+        {
+            dev->user_data_len = 0;
+        }
+    }
+
+    pthread_mutex_unlock(&dev->lock);
+
+    return ret;
+}
+
+AM_ErrorCode_t AM_VLFEND_UpdateCallbackData(int dev_no, void *user_data, int user_data_len)
+{
+    AM_FEND_Device_t *dev;
+    AM_ErrorCode_t ret = AM_SUCCESS;
+
+    AM_TRY(vlfend_get_opened_dev(dev_no, &dev));
+
+    pthread_mutex_lock(&dev->lock);
+
+    if (user_data_len <= dev->user_data_len)
+    {
+        memcpy(dev->user_data, user_data, user_data_len);
+    }
+    else
+    {
+        if (NULL != dev->user_data)
+        {
+            STB_MEMFreeSysRAM(dev->user_data);
+        }
+
         dev->user_data = STB_MEMGetSysRAM(user_data_len);
 
         if (NULL != dev->user_data)
@@ -842,7 +897,7 @@ AM_ErrorCode_t AM_VLFEND_Lock(int dev_no, const struct dvb_frontend_parameters *
         return AM_FEND_ERR_NOT_SUPPORTED;
     }
 
-    if (dev->thread == pthread_self())
+    if (dev->thread == STB_OSGetCurrentTask())
     {
         DTV_LOGE(TAG, "cannot invoke AM_VLFEND_Lock in callback");
 

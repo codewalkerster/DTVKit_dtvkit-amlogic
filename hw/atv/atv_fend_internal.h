@@ -117,22 +117,22 @@ typedef struct
 /**\brief 前端设备*/
 struct AM_FEND_Device
 {
-    int                dev_no;        /**< 设备号*/
-    const AM_FEND_Driver_t  *drv;     /**< 设备驱动*/
-    void              *drv_data;      /**< 驱动私有数据*/
-    int                open_count;    /**< 设备打开次数计数*/
-    AM_Bool_t          enable_thread; /**< 状态监控线程是否运行*/
-    AM_Bool_t          active_thread; /**< 状态监控线程是否运行*/
-    pthread_t          thread;        /**< 状态监控线程*/
-    pthread_mutex_t    lock;          /**< 设备数据保护互斥体*/
-    pthread_cond_t     cond;          /**< 状态监控线程控制条件变量*/
-    int                flags;         /**< 状态监控线程标志*/
-    AM_FEND_Callback_t cb;            /**< 状态监控回调函数*/
-    int                curr_mode;     /**< 当前解调模式*/
-    void              *user_data;     /**< 回调函数参数*/
-    int                user_data_len; /**< 回调函数参数长度*/
-    AM_Bool_t          enable_cb;     /**< 允许或者禁止状态监控回调函数*/
-    fe_status_t        status;        /**< device status*/
+    int                         dev_no;         /**< 设备号*/
+    const AM_FEND_Driver_t      *drv;           /**< 设备驱动*/
+    void                        *drv_data;      /**< 驱动私有数据*/
+    int                         open_count;     /**< 设备打开次数计数*/
+    AM_Bool_t                   enable_thread;  /**< 状态监控线程是否运行*/
+    AM_Bool_t                   active_thread;  /**< 状态监控线程是否运行*/
+    void                        *thread;        /**< 状态监控线程*/
+    pthread_mutex_t             lock;           /**< 设备数据保护互斥体*/
+    pthread_cond_t              cond;           /**< 状态监控线程控制条件变量*/
+    int                         flags;          /**< 状态监控线程标志*/
+    AM_FEND_Callback_t          cb;             /**< 状态监控回调函数*/
+    int                         curr_mode;      /**< 当前解调模式*/
+    void                        *user_data;     /**< 回调函数参数*/
+    int                         user_data_len;  /**< 回调函数参数长度*/
+    AM_Bool_t                   enable_cb;      /**< 允许或者禁止状态监控回调函数*/
+    fe_status_t                 status;         /**< device status*/
 };
 
 

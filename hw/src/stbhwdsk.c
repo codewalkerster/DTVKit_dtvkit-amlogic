@@ -599,7 +599,7 @@ void STB_DSKCloseFile(void *file)
    {
       fp = (FILE *)file;
       fflush(fp);
-      //fsync(fileno(fp));
+      fsync(fileno(fp));
 
       fclose(fp);
 

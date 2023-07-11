@@ -40,6 +40,7 @@ extern "C"
 #define V4L2_COLOR_STD_PAL      (0x04000000)
 #define V4L2_COLOR_STD_NTSC     (0x08000000)
 #define V4L2_COLOR_STD_SECAM    (0x10000000)
+#define V4L2_COLOR_STD_AUTO     (0x02000000)
 
 #if 0 // already defined in "bionic/libc/kernel/uapi/linux/videodev2.h"
 #define V4L2_STD_PAL_B          (0x00000001)

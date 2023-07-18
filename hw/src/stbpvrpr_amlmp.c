@@ -1559,6 +1559,16 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          rec_basic_params.ringbufSize = cfgRingbufSize;
       }
 
+      int cfgHwbufSize = STB_Get_PVR_RecHwBufSize();
+      if (cfgHwbufSize != 0) {
+         char buf[32];
+         snprintf(buf, sizeof(buf), "%d", cfgHwbufSize);
+         BOOLEAN ret = STB_File_Echo("/sys/module/amlogic_dvb_demux/parameters/dvr_buf_size", buf);
+         STB_SPDebugWrite("%s:%d set rec hw buf size(%s) == %s", __FUNCTION__, __LINE__,
+                           buf,
+                           (ret == TRUE)? "ok" : "fail");
+      }
+
       Aml_MP_DVRRecorderCreateParams recorderCreateParams;
       memset(&recorderCreateParams, 0, sizeof(recorderCreateParams));
       recorderCreateParams.basicParams = rec_basic_params;

@@ -156,15 +156,15 @@ static void* vlfend_thread(void *arg)
     {
         ret = AM_FAILURE;
 
-        if (dev->drv->wait_event)
-        {
-            ret = dev->drv->wait_event(dev, &evt, FEND_WAIT_TIMEOUT);
-        }
-
-        DTV_LOGD(TAG, "vlfend_thread wait_event ret: %d, active_thread:%d \n", ret, dev->active_thread);
-
         if (dev->active_thread)
         {
+            if (dev->drv->wait_event)
+            {
+                ret = dev->drv->wait_event(dev, &evt, FEND_WAIT_TIMEOUT);
+            }
+
+            DTV_LOGD(TAG, "vlfend_thread wait_event ret: %d, active_thread:%d \n", ret, dev->active_thread);
+
             pthread_mutex_lock(&dev->lock);
             dev->flags |= VLFEND_FL_RUN_CB;
             pthread_mutex_unlock(&dev->lock);

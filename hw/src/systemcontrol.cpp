@@ -44,7 +44,7 @@ static const sp<SystemControlClient> &getSystemControlService()
 
 #ifndef RDK_COMPILE
 
-extern "C"  int SC_setVideoColor(int color)
+extern "C"  int SC_setVideoColor(int window, int color)
 {
 #if ANDROID_PLATFORM_SDK_VERSION >= 30
     int s32Ret = -1;
@@ -87,7 +87,7 @@ frequency:  4: only show once,will recovery when receive new frame.
 
                 if (DMX_IsNewHW())
                 {
-                    s32Ret = sws->setVideoScreenColorByVT(1,color,5);
+                    s32Ret = sws->setVideoScreenColorByVT(window,color,5);
                 }
                 else
                 {

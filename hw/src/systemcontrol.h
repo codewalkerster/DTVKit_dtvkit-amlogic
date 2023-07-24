@@ -15,7 +15,7 @@ enum {
     VIDEO_LAYER_COLOR_MAX,
 };
 #ifndef RDK_COMPILE
-int SC_setVideoColor(int color) ;
+int SC_setVideoColor(int window, int color) ;
 int SC_getScreenColorSetting() ;
 int SC_getStaticFrameEnable() ;
 #endif

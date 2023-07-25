@@ -1269,6 +1269,25 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
                 ssi = 100;
             break;
 
+        case TUNE_SIGNAL_ISDBT:
+
+            if (strength <= -95)
+                ssi = 0;
+            else if (strength <= -85)
+                ssi = 7 * (95 + strength) / 10;
+            else if (strength <= -75)
+                ssi = 7 + 23 * (85 + strength) / 10;
+            else if (strength <= -65)
+                ssi = 30 + 40 * (75 + strength) / 10;
+            else if (strength <= -55)
+                ssi = 70 + 23 * (65 + strength) / 10;
+            else if (strength <= -45)
+                ssi = 93 + 7 * (55 + strength) / 10;
+            else
+                ssi = 100;
+
+            break;
+
         default:
             break;
     }
@@ -1497,6 +1516,28 @@ static U8BIT SNR10ToSQI(U8BIT path, S16BIT snr)
                     sqi = 100;
             }
             break;
+
+        case TUNE_SIGNAL_ISDBT:
+
+            if (snr <= 160)
+                sqi = 0;
+            else if (snr <= 170)
+                sqi = 31 * (snr - 160) / 10;
+            else if (snr <= 180)
+                sqi = 31 + 18 * (snr - 170) / 10;
+            else if (snr <= 190)
+                sqi = 49 + 16 * (snr - 180) / 10;
+            else if (snr <= 200)
+                sqi = 65 + 15 * (snr - 190) / 10;
+            else if (snr <= 210)
+                sqi = 80 + 12 * (snr - 200) / 10;
+            else if (snr <= 220)
+                sqi = 92 + 8 * (snr - 210) / 10;
+            else
+                sqi = 100;
+
+            break;
+
         default:
             break;
     }

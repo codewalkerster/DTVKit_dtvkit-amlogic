@@ -43,9 +43,11 @@ extern int set_tvafe(int videoStd, int audioStd, int vfmt);
 extern int set_atv_path();
 extern int getCurrentSignalInfo(int *fmt, int *transFmt, int *status, int *frameRate);
 extern void initCurrentSignalInfo();
+extern int set_atv_snow_status(int enable);
+extern void setAtvSearchstatus(int searched);
 
-
-
+static void SysEventCallback(int color);
+static int mlistener;
 
 #ifdef __cplusplus
 }

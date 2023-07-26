@@ -29,6 +29,7 @@
 #include "atv_vlfend.h"
 #include "atv_fend_internal.h"
 #include "atv_vdin_tvafe.h"
+#include "../src/systemcontrol.h"
 
 #include "dtv_log.h"
 
@@ -49,9 +50,12 @@ typedef unsigned char bool;
 #define TVIN_IOC_CLOSE              _IO(TVIN_IOC_MAGIC, 0x04)
 #define TVIN_IOC_G_SIG_INFO         _IOR(TVIN_IOC_MAGIC, 0x07, struct tvin_info_s)
 #define TVIN_IOC_S_AFE_CVBS_STD     _IOW(TVIN_IOC_MAGIC, 0x1b, enum tvin_sig_fmt_e)
+#define TVIN_IOC_S_AFE_SONWON       _IO(TVIN_IOC_MAGIC, 0x22)
+#define TVIN_IOC_S_AFE_SONWOFF      _IO(TVIN_IOC_MAGIC, 0x23)
+#define TVIN_IOC_SNOWON             _IO(TVIN_IOC_MAGIC, 0x47)
+#define TVIN_IOC_SNOWOFF            _IO(TVIN_IOC_MAGIC, 0x48)
 
 #define SYS_VFM_MAP_PATH            "/sys/class/vfm/map"
-
 
 /****************************************************************************
  * Structure definitions
@@ -185,9 +189,8 @@ pthread_cond_t      cond;
 AM_VDIN_STATUS_Callback_t call_back = NULL;
 static tvin_info_t m_cur_sig_info;
 
-
-
-
+static int mSnowStatusEnable = 0;
+static int mSearchStatus = 0;
 
 static char *str_vstd[] =
 {
@@ -220,7 +223,7 @@ static char *str_cvbs[] =
     "UNKNOWN",
 };
 
-
+struct SysClientWrapper_t * pSysClientWrapper;
 /****************************************************************************
  * Static functions
  ***************************************************************************/
@@ -274,12 +277,21 @@ int open_vdin_port_tvafe()
             }
     }
 
+    if (!mlistener) {
+        pSysClientWrapper = SC_getInstance();
+        SC_setSysClientCallback(SysEventCallback);
+        mlistener = 1;
+    }
     return ret;
 }
 
 int close_vdin_port_tvafe()
 {
     int ret = 0;
+    if (mlistener) {
+        mlistener = 0;
+        SC_releaseInstance(&pSysClientWrapper);
+    }
     if (fd_vdin > 0)
     {
         ret = ioctl(fd_vdin, TVIN_IOC_STOP_DEC);
@@ -357,20 +369,29 @@ int vdin_signal_handle()
         m_cur_sig_info.status = TVIN_SIG_STATUS_NULL;
         return ret;
     }
-
     DTV_LOGE(TAG, "trans_fmt is %d,fmt is %d, status is %d\n", m_cur_sig_info.trans_fmt, m_cur_sig_info.fmt, m_cur_sig_info.status);
 
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE ) {
+        SC_setATVVideoColor(0, 0, 5);
+        set_atv_snow_status(0);
         ret = start_vdin_dec(m_cur_sig_info);
+        SC_setATVVideoColor(0, 0, 6);
         if (call_back) {
             call_back(m_cur_sig_info.status);
         }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_UNSTABLE ) {
+        SC_setATVVideoColor(1, 0, 5);
         ret = stop_vdin_dec();
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOTSUP ) {
-
-    } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
+        SC_setATVVideoColor(1, 0, 5);
         ret = stop_vdin_dec();
+    } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
+        SC_setATVVideoColor(0, 0, 5);
+        set_atv_snow_status(1);
+        ret = start_vdin_dec(m_cur_sig_info);
+        if (SC_getScreenColorSetting() != VIDEO_LAYER_COLOR_BLUE && !mSearchStatus) {
+            SC_setATVVideoColor(0, 0, 6);
+        }
         if (call_back) {
             call_back(m_cur_sig_info.status);
         }
@@ -683,3 +704,56 @@ void initCurrentSignalInfo()
     m_cur_sig_info.input_colorimetry = 0;
 
 }
+
+int set_atv_snow_status(int enable)
+{
+    int ret = 0;
+    DTV_LOGE(TAG, "%s: enable is %d\n", __FUNCTION__, enable);
+
+    if ( enable ) {
+        ioctl(fd_tvafe, TVIN_IOC_S_AFE_SONWON);
+        ioctl(fd_vdin, TVIN_IOC_SNOWON);
+
+        mSnowStatusEnable = 1;
+    } else {
+        ioctl(fd_tvafe, TVIN_IOC_S_AFE_SONWOFF );
+        ioctl(fd_vdin, TVIN_IOC_SNOWOFF );
+
+        mSnowStatusEnable = 0;
+    }
+
+    return ret;
+}
+
+void setAtvSearchstatus(int searched)
+{
+    DTV_LOGE(TAG, "%s:searched: %d\n", __FUNCTION__, searched);
+    mSearchStatus = searched;
+}
+
+static void SysEventCallback(int color)
+{
+    struct tvin_info_s Info;
+    int ret = vdin_get_signal_info ( &Info );
+        if (ret < 0) {
+            DTV_LOGE(TAG, "%s:can't get vdio info\n", __FUNCTION__);
+            return;
+        }
+    if (Info.status != TVIN_SIG_STATUS_STABLE && Info.status != TVIN_SIG_STATUS_UNSTABLE) {
+        DTV_LOGE(TAG, "%s:TVIN_SIG_STATUS_NOSIG, mSnowStatusEnable = %d, mSearchStatus=%d\n", __FUNCTION__, mSnowStatusEnable, mSearchStatus);
+        if (color && !mSearchStatus) {
+            SC_setATVVideoColor(0, 0, 5);
+            if (mSnowStatusEnable) {
+                set_atv_snow_status(0);
+            }
+        } else {
+            SC_setATVVideoColor(0, 0, 6);
+            if (!mSnowStatusEnable) {
+                set_atv_snow_status(1);
+            }
+        }
+    } else {
+        DTV_LOGE(TAG, "%s:TVIN_SIG_STATUS_STABLE, need't operation\n", __FUNCTION__);
+    }
+}
+

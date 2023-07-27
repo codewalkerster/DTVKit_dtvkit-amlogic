@@ -21,6 +21,7 @@
 #include <math.h>
 #include <errno.h>
 #include <sys/epoll.h>
+#include <stdlib.h>
 
 
 #include <pthread.h>
@@ -109,7 +110,7 @@ enum tvin_color_fmt_e {
     COLOR_FMT_MAX,
 };
 
-struct tvin_info_s {
+typedef struct tvin_info_s {
     enum tvin_trans_fmt trans_fmt;
     enum tvin_sig_fmt_e fmt;
     enum tvin_sig_status_e status;
@@ -119,9 +120,9 @@ struct tvin_info_s {
     unsigned int signal_type;
     unsigned int input_colorimetry;
     enum tvin_aspect_ratio_e aspect_ratio;
-    __u8 dolby_vision;
+    __u8 amdolby_vision;
     __u8 low_latency;
-};
+}tvin_info_t;
 
 
 struct tvin_parm_s
@@ -182,6 +183,8 @@ pthread_t           thread;
 pthread_cond_t      cond;
 
 AM_VDIN_STATUS_Callback_t call_back = NULL;
+static tvin_info_t m_cur_sig_info;
+
 
 
 
@@ -330,31 +333,34 @@ int start_vdin_dec(struct tvin_info_s signal_info)
 
 int vdin_signal_handle()
 {
-    struct tvin_info_s Info;
-    int ret = vdin_get_signal_info ( &Info );
-        if (ret < 0) {
-            return ret;
-        }
+    //struct tvin_info_s Info;
+    int ret = vdin_get_signal_info ( &m_cur_sig_info );
+    if (ret < 0) {
+        m_cur_sig_info.status = TVIN_SIG_STATUS_NULL;
+        return ret;
+    }
 
-    DTV_LOGE(TAG, "status is %d\n", Info.status);
-    if (Info.status == TVIN_SIG_STATUS_STABLE ) {
-        ret = start_vdin_dec(Info);
+    DTV_LOGE(TAG, "trans_fmt is %d,fmt is %d, status is %d\n", m_cur_sig_info.trans_fmt, m_cur_sig_info.fmt, m_cur_sig_info.status);
+
+    if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE ) {
+        ret = start_vdin_dec(m_cur_sig_info);
         if (call_back) {
-            call_back(Info.status);
+            call_back(m_cur_sig_info.status);
         }
-    } else if (Info.status == TVIN_SIG_STATUS_UNSTABLE ) {
+    } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_UNSTABLE ) {
         ret = stop_vdin_dec();
         if (call_back) {
-            call_back(Info.status);
+            call_back(m_cur_sig_info.status);
         }
-    } else if (Info.status == TVIN_SIG_STATUS_NOTSUP ) {
+    } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOTSUP ) {
 
-    } else if (Info.status == TVIN_SIG_STATUS_NOSIG ) {
+    } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
         ret = stop_vdin_dec();
         if (call_back) {
-            call_back(Info.status);
+            call_back(m_cur_sig_info.status);
         }
     } else {
+        initCurrentSignalInfo();
     }
 
     return ret;
@@ -606,5 +612,39 @@ int set_atv_path()
                  strlen("add  tvpath  vdin0 amlvideo2.0 deinterlace videoqueue.0 > /sys/class/vfm/map"));
     close(fd);
     return len;
+
+}
+
+int getCurrentSignalInfo(int *fmt, int *transFmt, int *status, int *frameRate)
+{
+
+    int ConstRate[5] = {24, 25, 30, 50, 60};
+    float ConstRateDiffHz[5] = {0.5, 0.5, 0.5, 2, 2};
+    int fps = m_cur_sig_info.fps;
+    for (int i = 0; i < 5; i++) {
+        if (abs(ConstRate[i] - fps) < ConstRateDiffHz[i])
+            fps = ConstRate[i];
+    }
+    *fmt = m_cur_sig_info.fmt;
+    *transFmt = m_cur_sig_info.trans_fmt;
+    *status = m_cur_sig_info.status;
+    *frameRate = fps;
+    DTV_LOGE(TAG, "trans_fmt is %d,fmt is %d, status is %d, frameRate is %d\n", *transFmt, *fmt, *status, *frameRate);
+
+    return 0;
+}
+void initCurrentSignalInfo()
+{
+    m_cur_sig_info.fps = 0;
+    m_cur_sig_info.is_dvi = 0;
+    m_cur_sig_info.trans_fmt      = TVIN_TFMT_2D;
+    m_cur_sig_info.fmt            = TVIN_SIG_FMT_NULL;
+    m_cur_sig_info.status         = TVIN_SIG_STATUS_NULL;
+    m_cur_sig_info.cfmt           = COLOR_FMT_MAX;
+    m_cur_sig_info.aspect_ratio   = TVIN_ASPECT_NULL;
+    m_cur_sig_info.amdolby_vision = 0;
+    m_cur_sig_info.low_latency    = 0;
+    m_cur_sig_info.signal_type    = 0;
+    m_cur_sig_info.input_colorimetry = 0;
 
 }

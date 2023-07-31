@@ -38,6 +38,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <cutils/properties.h>
+#include "dtv_log.h"
+#define TAG  "STBHWNET"
 
 /* third party header files */
 
@@ -58,13 +60,13 @@
 #define DEFAULT_NET_IF "eth0"
 
 #ifdef NETWORK_ERROR
-#define NET_ERR(x, ...) STB_SPDebugWrite("======NET======>%s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define NET_ERR(x, ...) DTV_LOG(ANDROID_LOG_INFO, TAG, "======NET======>%s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #define NET_ERR(x, ...)
 #endif
 
 #ifdef NETWORK_DEBUG
-#define NET_DBG(x, ...) STB_SPDebugWrite("%s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define NET_DBG(x, ...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #define NET_DBG(x, ...)
 #endif

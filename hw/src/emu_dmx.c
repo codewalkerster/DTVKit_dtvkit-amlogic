@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <poll.h>
+#include "dtv_log.h"
+#define TAG  "EMU_DMX"
 
 #include "stbhwdmx.h"
 #include "stbdpc.h"
@@ -35,7 +37,7 @@ int EmuFileEcho(const char *name, const char *cmd)
   fd = open(name, O_WRONLY);
   if (fd == -1)
   {
-    EMU_DBG("cannot open file \"%s\"", name);
+    DTV_LOGI(TAG, "cannot open file \"%s\"", name);
     return -1;
   }
 
@@ -43,7 +45,7 @@ int EmuFileEcho(const char *name, const char *cmd)
   ret = write(fd, cmd, len);
   if (ret != len)
   {
-    EMU_DBG("write failed file:\"%s\" cmd:\"%s\" error:\"%s\"", name, cmd, strerror(errno));
+    DTV_LOGI(TAG, "write failed file:\"%s\" cmd:\"%s\" error:\"%s\"", name, cmd, strerror(errno));
     close(fd);
     return -1;
   }
@@ -59,21 +61,21 @@ int EmuFileRead(const char *name, char *buf, int len)
   char *ret;
 
   if (name == NULL || buf == NULL) {
-    EMU_DBG("read error param is NULL");
+    DTV_LOGI(TAG, "read error param is NULL");
     return -1;
   }
 
   fp = fopen(name, "r");
   if (!fp)
   {
-    EMU_DBG("cannot open file \"%s\"", name);
+    DTV_LOGI(TAG, "cannot open file \"%s\"", name);
     return -1;
   }
 
   ret = fgets(buf, len, fp);
   if (!ret)
   {
-    EMU_DBG("read the file:\"%s\" error:\"%s\" failed", name, strerror(errno));
+    DTV_LOGI(TAG, "read the file:\"%s\" error:\"%s\" failed", name, strerror(errno));
   }
 
   fclose(fp);
@@ -122,7 +124,7 @@ static int X2DmxOpen(int dmx_no, int search)
     fd = open("/dev/amstream_mpts_sched", O_WRONLY);
     if (fd == -1)
     {
-        EMU_DBG("cannot open amstream_mpts_sched (%s)", strerror(errno));
+        DTV_LOGI(TAG, "cannot open amstream_mpts_sched (%s)", strerror(errno));
         return -1;
     }
 
@@ -159,7 +161,7 @@ static int X4DmxGetInput(int dmx_no)
     FILE* fd = fopen("/sys/class/dmx/dmx_source", "r");
     if (fd == NULL)
     {
-        //EMU_DBG("open input failed");
+        //DTV_LOGI(TAG, "open input failed");
         return input;
     }
 
@@ -197,7 +199,7 @@ static int X4DmxSetInput(int dmx_no, int input)
     fd = open(dev_name, O_RDWR);
     if(fd == -1)
     {
-        EMU_DBG("cannot open for set input \"%s\" (%s)", dev_name, strerror(errno));
+        DTV_LOGI(TAG, "cannot open for set input \"%s\" (%s)", dev_name, strerror(errno));
         return -1;
     }
 
@@ -224,7 +226,7 @@ static int X4DmxOpen(int dmx_no)
     fd = open(dev_name, O_WRONLY);
     if (fd == -1)
     {
-        EMU_DBG("cannot open \"%s\" (%s)", dev_name, strerror(errno));
+        DTV_LOGI(TAG, "cannot open \"%s\" (%s)", dev_name, strerror(errno));
         return -1;
     }
 
@@ -277,7 +279,7 @@ static int X4DmxInjectData(int handle, unsigned char *buf, int size, unsigned in
         {
             if (errno != EINTR)
             {
-                EMU_DBG("Write data failed: %s", strerror(errno));
+                DTV_LOGI(TAG, "Write data failed: %s", strerror(errno));
                 break;
             }
             ret = 0;
@@ -291,7 +293,7 @@ static int X4DmxInjectData(int handle, unsigned char *buf, int size, unsigned in
         unsigned int diff = DiffTimeval(&begin_tv, &now_tv);
         if (diff > timeout)
         {
-            EMU_DBG("Write dmx timeout");
+            DTV_LOGI(TAG, "Write dmx timeout");
             break;
         }
 
@@ -318,7 +320,7 @@ static int DMXCheckVersion()
 int EmuDmxInit()
 {
     dmx_driver_ver = DMXCheckVersion();
-    EMU_DBG("dmx ver:%d" , dmx_driver_ver);
+    DTV_LOGI(TAG, "dmx ver:%d" , dmx_driver_ver);
     return 0;
 }
 

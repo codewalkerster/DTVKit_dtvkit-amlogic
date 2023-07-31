@@ -24,6 +24,8 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwos.h"
+#include "dtv_log.h"
+#define TAG  "STBOS_EVENT"
 
 /*!- Local MACRO Definitions */
 
@@ -31,7 +33,7 @@
 /*#define  EVENT_DEBUG*/
 
 #ifdef  EVENT_DEBUG
-#define  EVT_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  EVT_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  EVT_DBG(x,...)
 #endif

@@ -26,6 +26,8 @@
 /* compiler library header files */
 #include <pthread.h>
 #include <unistd.h>
+#include "dtv_log.h"
+#define TAG  "STBOS_MUTEX"
 
 
 /* third party header files */
@@ -39,7 +41,7 @@
 /*#define  MUTEX_DEBUG*/
 
 #ifdef  MUTEX_DEBUG
-#define  MUTEX_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  MUTEX_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  MUTEX_DBG(x,...)
 #endif

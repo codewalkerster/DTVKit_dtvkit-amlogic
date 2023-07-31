@@ -31,10 +31,12 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwfp.h"
+#include "dtv_log.h"
+#define TAG  "STBHWFP"
 
 /*---macro definitions for this file-----------------------------------------*/
 #ifdef  PANEL_DEBUG
-#define  PANEL_DBG(x,...)     STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  PANEL_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  PANEL_DBG(x,...)
 #endif

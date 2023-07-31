@@ -35,6 +35,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include "dtv_log.h"
+#define TAG  "STBHWMEM"
 
 
 /* third party header files */
@@ -49,19 +51,19 @@
 
 /*---macro definitions for this file-----------------------------------------*/
 #ifdef  HEAP_DEBUG
-#define  HEAP_DBG(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  HEAP_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  HEAP_DBG(x,...)
 #endif
 
 #ifdef  NVM_DEBUG
-#define  NVM_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  NVM_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  NVM_DBG(x,...)
 #endif
 
 #ifdef  SECURE_DEBUG
-#define  SEC_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  SEC_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  SEC_DBG(x,...)
 #endif

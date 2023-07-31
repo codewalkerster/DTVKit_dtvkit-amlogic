@@ -26,6 +26,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include "dtv_log.h"
+#define TAG  "STBOS_QUEUE"
 
 /* STB Header Files */
 #include "techtype.h"
@@ -39,7 +41,7 @@
 /*#define   QUEUE_DEBUG*/
 
 #ifdef  QUEUE_DEBUG
-#define  QUEUE_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  QUEUE_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  QUEUE_DBG(x,...)
 #endif

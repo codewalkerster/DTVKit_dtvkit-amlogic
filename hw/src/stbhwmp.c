@@ -32,10 +32,12 @@
 #include "dbgfuncs.h"
 #include "stbhwav.h"
 #include "stbhwmediaplayer.h"
+#include "dtv_log.h"
+#define TAG  "STBHWMP"
 
 /*---macro definitions for this file-----------------------------------------*/
 #ifdef MEDIA_DEBUG
-#define MEDIA_DBG(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define MEDIA_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define MEDIA_DBG(X)
 #endif

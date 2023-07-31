@@ -36,6 +36,8 @@
 #include <unistd.h>
 #include <cutils/properties.h>
 #include <pthread.h>
+#include "dtv_log.h"
+#define TAG  "STBHWTUN"
 
 #include "frontend.h"
 /* STB header files */
@@ -58,13 +60,13 @@
 
 /*---Macro Definitions for this file-----------------------------------------*/
 #ifdef TUNER_DEBUG
-#define TUN_DBG(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define TUN_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define TUN_DBG(x,...)
 #endif
 
-#define TUN_ERR(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
-#define TUN_INFO(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define TUN_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define TUN_INFO(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 /*---local (static) variable declarations for this file----------------------*/
 static S_TUNER_STATUS *tuner_status = NULL;

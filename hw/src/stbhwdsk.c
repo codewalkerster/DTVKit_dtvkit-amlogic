@@ -34,6 +34,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <cutils/properties.h>
+#include "dtv_log.h"
+#define TAG  "STBHWDSK"
 
 /* third party header files */
 /* STB Header Files */
@@ -49,7 +51,7 @@
 /*---macro definitions for this file-----------------------------------------*/
 #define DISK_DEBUG_LOOP 1
 #ifdef  DISK_DEBUG_LOOP
-   #define  DISK_DBGLOOP(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define  DISK_DBGLOOP(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define  DISK_DBGLOOP(x,...)
 #endif
@@ -57,12 +59,12 @@
 
 #define DISK_DEBUG 1
 #ifdef  DISK_DEBUG
-   #define  DISK_DBG(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define  DISK_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define  DISK_DBG(x,...)
 #endif
 
-#define  DISK_ERR(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  DISK_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 #if 0
 #define STB_OSMutexLock(_m)\

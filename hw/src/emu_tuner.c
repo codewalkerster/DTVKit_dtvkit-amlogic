@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include "dtv_log.h"
+#define TAG  "EMU_TUNER"
 
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>
@@ -45,10 +47,10 @@ static int OpenTsFile(char *name)
     fd = open(name, O_RDONLY);
     if (fd == -1)
     {
-        EMU_DBG("cannot open \"%s\" (%s)\n", name, strerror(errno));
+        DTV_LOGI(TAG, "cannot open \"%s\" (%s)\n", name, strerror(errno));
         return -1;
     }
-    EMU_DBG("open %s success\n", name);
+    DTV_LOGI(TAG, "open %s success\n", name);
 
     return fd;
 }
@@ -81,7 +83,7 @@ static int ReadTsFile(int infd, char *buf, int size)
         }
         else
         {
-            EMU_DBG("read file failed [%d] ret=%d\n", errno, ret);
+            DTV_LOGI(TAG, "read file failed [%d] ret=%d\n", errno, ret);
             ret = -1;
         }
     }
@@ -119,7 +121,7 @@ static void TunerLockEvent(unsigned char path, int lock)
     {
         event = HW_EV_TYPE_NOTLOCKED;
     }
-    //EMU_DBG("TunerLockEvent:%d", lock);
+    //DTV_LOGI(TAG, "TunerLockEvent:%d", lock);
     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, event, &path, sizeof(path));
 }
 
@@ -140,7 +142,7 @@ static int TunerDataUpdate(S_EMU_TUNER_DATA *tuner)
             lock_change = 1;
         }
         pConfig->bitrate   = config.bitrate;
-        //EMU_DBG("TunerUpdate:%s %s", config.name, pConfig->name);
+        //DTV_LOGI(TAG, "TunerUpdate:%s %s", config.name, pConfig->name);
         if (strcmp(config.name, pConfig->name) || tuner->ifd < 0)
         {
             if (tuner->ifd >= 0)
@@ -212,7 +214,7 @@ static void ResetDmxInput(int dmx, unsigned int difftime)
         int input = EmuDmxGetInput(dmx);
         if (input != DMX_MEMORY)
         {
-            EMU_DBG("reset input:%d" , input);
+            DTV_LOGI(TAG, "reset input:%d" , input);
             EmuDmxSetInput(dmx, DMX_MEMORY);
         }
         begin_tv = now_tv;
@@ -232,7 +234,7 @@ static void* EmuTunerThread(void* arg)
     long diff_time;
     long BURST_US = (1000000 / (tuner->config.bitrate / (REGION_BUFFER_SIZE * 8)));
 
-    EMU_DBG("emu thread start\n");
+    DTV_LOGI(TAG, "emu thread start\n");
     usleep(300*1000); //wait for av init
     EmuDmxSetInput(tuner->dmx, DMX_MEMORY);
     gettimeofday(&start_tv, NULL);
@@ -254,14 +256,14 @@ static void* EmuTunerThread(void* arg)
             send = EmuDmxInjectData(fd, buf, ret, 200);
             if (send != ret)
             {
-                EMU_DBG("dmx inject error:%d %d", send, ret);
+                DTV_LOGI(TAG, "dmx inject error:%d %d", send, ret);
                 ResetDmxInput(tuner->dmx, 0);
                 send = EmuDmxInjectData(fd, buf, ret, 200);
             }
         }
         else if(ret < 0)
         {
-            EMU_DBG("ReadTsFile failed\n");
+            DTV_LOGI(TAG, "ReadTsFile failed\n");
             break;
         }
 
@@ -275,7 +277,7 @@ static void* EmuTunerThread(void* arg)
         gettimeofday(&start_tv, NULL);
     }
 
-    EMU_DBG("emu thread end\n");
+    DTV_LOGI(TAG, "emu thread end\n");
     tuner->running = EMU_THREAD_STOPPING;
     return NULL;
 }
@@ -308,18 +310,18 @@ int EmuTunerStart(unsigned char path, unsigned int freq, unsigned int modulation
     }
     EmuTunerStop(path);
 
-    EMU_DBG("EmuTunerStart:support %d path %d " , emu_support_soft_tuner, path);
+    DTV_LOGI(TAG, "EmuTunerStart:support %d path %d " , emu_support_soft_tuner, path);
     memset(&tuner_data[path].config, 0, sizeof(S_EMU_CONFIG));
     if (EmuCfgGetConfig(path, freq, modulation, &tuner_data[path].config) < 0)
     {
-        EMU_DBG("no freq config");
+        DTV_LOGI(TAG, "no freq config");
         return 0;
     }
 
     fd = OpenTsFile(tuner_data[path].config.name);
     if (fd < 0)
     {
-        EMU_DBG("open ts failed:%s" , tuner_data[path].config.name);
+        DTV_LOGI(TAG, "open ts failed:%s" , tuner_data[path].config.name);
         return 0;
     }
     tuner_data[path].ifd = fd;
@@ -328,7 +330,7 @@ int EmuTunerStart(unsigned char path, unsigned int freq, unsigned int modulation
     fd = EmuDmxOpen(path);
     if (fd < 0)
     {
-        EMU_DBG("open demux failed");
+        DTV_LOGI(TAG, "open demux failed");
         CloseTsFile(tuner_data[path].ifd);
         return 0;
     }
@@ -351,7 +353,7 @@ int EmuTunerStop(unsigned char path)
         return 0;
     }
 
-    EMU_DBG("EmuTunerStop:%d", tuner_data[path].running);
+    DTV_LOGI(TAG, "EmuTunerStop:%d", tuner_data[path].running);
 
     if (tuner_data[path].running == EMU_THREAD_STOP)
     {
@@ -370,7 +372,7 @@ int EmuTunerStop(unsigned char path)
 
     CloseTsFile(tuner_data[path].ifd);
     EmuDmxClose(tuner_data[path].ofd);
-    EMU_DBG("EmuTunerStop end");
+    DTV_LOGI(TAG, "EmuTunerStop end");
 
     return 0;
 }

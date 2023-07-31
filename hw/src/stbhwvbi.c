@@ -31,11 +31,13 @@
 /* STB Header Files */
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "dtv_log.h"
+#define TAG  "STBHWVBI"
 
 /*---macro definitions for this file-----------------------------------------*/
 
 #ifdef VBI_DEBUG
-#define VBI_DBG(x,...)     STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define VBI_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define VBI_DBG(x,...)
 #endif

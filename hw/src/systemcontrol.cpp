@@ -2,6 +2,7 @@
 #include <utils/threads.h>
 #include <SystemControlClient.h>
 #include <android/log.h>
+#include "dtv_log.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,13 +19,13 @@ extern "C" {
 }
 #endif
 
-#define SCDBG(x,...)	STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 using namespace android;
 /*-----------------------------------------------------------------------------*/
 /* Local Constant Definitions                                                  */
 /*-----------------------------------------------------------------------------*/
 #define LOG_TAG "tvserver"
+#define SCDBG(x,...) DTV_LOG(ANDROID_LOG_INFO, LOG_TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 static Mutex amLock;
 static sp<SystemControlClient> sysctrlClient = nullptr;

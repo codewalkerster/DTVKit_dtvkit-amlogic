@@ -12,6 +12,8 @@
 #include <string.h>
 #include <limits.h>
 #include <unistd.h>
+#include "dtv_log.h"
+#define TAG  "STBHWCFG"
 
 #include "techtype.h"
 #include "dbgfuncs.h"
@@ -38,12 +40,12 @@
 #define CFG_PARSER_BUF_SIZE 512
 #define CFG_DEBUG 1
 #ifdef CFG_DEBUG
-   #define CFG_DBG(x,...)   STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define CFG_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define CFG_DBG(x,...)   ((void)0)
 #endif
 
-#define CFG_ERR(x,...)     STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define CFG_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 stb_hardware_cfg aml_hw_cfg = {
 .tuners = {

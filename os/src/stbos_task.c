@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include "dtv_log.h"
+#define TAG  "STBOS_TASK"
 
 /* STB Header Files */
 #include "techtype.h"
@@ -37,7 +39,7 @@
 /*#define TASK_DEBUG*/
 
 #ifdef  TASK_DEBUG
-#define  TASK_DBG(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  TASK_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  TASK_DBG(x,...)
 #endif

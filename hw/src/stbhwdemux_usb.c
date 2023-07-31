@@ -19,6 +19,8 @@
 #include <sys/ioctl.h>
 #include <sys/eventfd.h>
 #include <pthread.h>
+#include "dtv_log.h"
+#define TAG  "STBHWDEMUX_USB"
 
 /* third party header files */
 #include <dmx.h>
@@ -44,7 +46,7 @@
 #define CIPLUS_USB_INDEX 1
 #define DEMUX_USB_DEBUG
 #ifdef DEMUX_USB_DEBUG
-#define DMX_USB_DBG(x, ...) STB_SPDebugWrite("CIP_USB %s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define DMX_USB_DBG(x, ...) DTV_LOG(ANDROID_LOG_INFO, TAG, "CIP_USB %s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #define DMX_USB_DBG(x, ...)
 #endif

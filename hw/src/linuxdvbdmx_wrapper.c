@@ -17,6 +17,8 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/prctl.h>
+#include "dtv_log.h"
+#define TAG  "LINUXDVBDMX_WRAPPER"
 
 #include <poll.h>
 #include <fcntl.h>
@@ -40,7 +42,7 @@
 #define DMX_POLL_TIMEOUT (200)
 
 /*#define DEBUG_DEMUX_DATA*/
-#define DMX_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 typedef struct
 {

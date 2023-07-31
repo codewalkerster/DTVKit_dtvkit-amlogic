@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <cutils/properties.h>
+#include "dtv_log.h"
+#define TAG  "STBHWAV_AMLMP"
 #define loff_t off_t
 
 /* STB header files */
@@ -98,24 +100,24 @@
 
 
 #ifdef AV_DEBUG
-   #define AV_DBG(x,...)   STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define AV_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define AV_DBG(x,...)
 #endif
 
 #ifdef VIDEO_DEBUG
-   #define VID_DBG(x,...)  STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define VID_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define VID_DBG(x,...)
 #endif
 
 #ifdef AUDIO_DEBUG
-   #define AUD_DBG(x,...)  STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define AUD_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define AUD_DBG(x,...)
 #endif
 
-#define ERR_DBG(x,...)     STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define ERR_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 #define RET_DBG(_fun_, _ret_)
 

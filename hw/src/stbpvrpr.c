@@ -28,6 +28,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
+#include "dtv_log.h"
+#define TAG  "STBPVRPR"
 
 // third party header files
 #include "am_mw/am_rec.h"
@@ -58,13 +60,13 @@
 
 
 #ifdef PLAY_DEBUG
-   #define PLAY_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define PLAY_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define PLAY_DBG(x,...)
 #endif
 
 #ifdef RECORD_DEBUG
-   #define REC_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define REC_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define REC_DBG(x,...)
 #endif

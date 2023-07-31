@@ -31,11 +31,13 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwdef.h"
+#include "dtv_log.h"
+#define TAG  "STBHWPLATFORM"
 U8BIT oui_string[3] = {0x00,0x01,0x5a};
 
 /*---macro definitions for this file-----------------------------------------*/
 #ifdef  PLATFORM_DEBUG
-#define  PLAT_DBG(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  PLAT_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  PLAT_DBG(x,...)
 #endif

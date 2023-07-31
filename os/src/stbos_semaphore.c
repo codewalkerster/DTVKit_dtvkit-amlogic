@@ -31,6 +31,8 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <unistd.h>
+#include "dtv_log.h"
+#define TAG  "STBOS_SEMAPHORE"
 
 
 /* STB Header Files */
@@ -44,7 +46,7 @@
 /*#define  SEM_DEBUG*/
 
 #ifdef  SEM_DEBUG
-#define  SEM_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  SEM_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  SEM_DBG(x,...)
 #endif

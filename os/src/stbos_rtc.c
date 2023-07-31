@@ -24,6 +24,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <stdio.h>
+#include "dtv_log.h"
+#define TAG  "STBOS_RTC"
 
 /* STB Header Files */
 #include "techtype.h"
@@ -43,7 +45,7 @@
 /*#define  RTC_DEBUG*/
 
 #ifdef  RTC_DEBUG
-#define  RTC_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  RTC_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  RTC_DBG(x,...)
 #endif

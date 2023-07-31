@@ -29,6 +29,8 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "dtv_log.h"
+#define TAG  "STBHWRESM"
 
 /* STB header files */
 #include "dbgfuncs.h"
@@ -37,12 +39,12 @@
 
 /*---Macro Definitions for this file-----------------------------------------*/
 #ifdef RESM_DEBUG
-   #define RESM_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define RESM_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define RESM_DBG(x,...)
 #endif
 
-#define RESM_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define RESM_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 /*---constant definitions for this file--------------------------------------*/
 static int resm_fd = -1;

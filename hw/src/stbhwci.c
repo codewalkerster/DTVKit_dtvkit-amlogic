@@ -48,6 +48,7 @@
 #include "stbcios.h" /*for STB_CIDebugPrintf()*/
 #include "stbhwdmx.h"
 #include "dtv_log.h"
+#define TAG  "STBHWCI"
 
 #ifdef INCLUDE_TEST_KEYS
 #include "ciptestkeys.h"
@@ -56,13 +57,13 @@
 /*---macro definitions for this file-----------------------------------------*/
 
 #ifdef CI_DEBUG
-#define CI_DBG(x,...)      STB_CIDebugPrintf("%s:%d " x "\n",__FUNCTION__,__LINE__, ##__VA_ARGS__);
+#define CI_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x "\n",__FUNCTION__,__LINE__, ##__VA_ARGS__);
 #else
 #define CI_DBG(x,...)
 #endif
 
 #ifdef CI_ERROR
-#define CI_ERR(x,...)      STB_CIDebugPrintf("%s:%d ERROR " x "\n",__FUNCTION__,__LINE__, ##__VA_ARGS__);
+#define CI_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d ERROR " x "\n",__FUNCTION__,__LINE__, ##__VA_ARGS__);
 #else
 #define CI_ERR(x,...)
 #endif

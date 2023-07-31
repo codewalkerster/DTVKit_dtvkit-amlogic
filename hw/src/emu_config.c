@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "dtv_log.h"
+#define TAG  "EMU_CONFIG"
 
 #include <expat.h>
 
@@ -52,7 +54,7 @@ static long GetStreamBitrate(FILE* fd)
        rate = atoi(buf);
     }
 
-    EMU_DBG("\nbitrate:%sM\n",buf);
+    DTV_LOGI(TAG, "\nbitrate:%sM\n",buf);
     return CalcBitrate(rate);
 }
 
@@ -145,7 +147,7 @@ static void ElemStartHandler (void *userData, const XML_Char *name, const XML_Ch
             }
             att += 2;
         }
-        //EMU_DBG("read config:%d %d %d %d %s %d" , pConfig->tunerid,
+        //DTV_LOGI(TAG, "read config:%d %d %d %d %s %d" , pConfig->tunerid,
         //            pConfig->modulation, pConfig->lockstate,
         //            pConfig->freq, pConfig->name,pConfig->bitrate);
     }
@@ -163,7 +165,7 @@ static int LoadConfigV2(FILE* fp)
 
     parser = XML_ParserCreate(NULL);
     if (!parser) {
-        EMU_DBG("XML_ParserCreate failed");
+        DTV_LOGI(TAG, "XML_ParserCreate failed");
         return -1;
     }
 
@@ -204,7 +206,7 @@ int EmuCfgLoad()
     fd = fopen(EMU_TUNER_CONFIG_V2, "rb");
     if (fd != NULL)
     {
-        EMU_DBG("LoadConfigV2");
+        DTV_LOGI(TAG, "LoadConfigV2");
         LoadConfigV2(fd);
         emu_tuner_config_ver = EMU_CFG_V2;
         soft_tuner = 1;
@@ -215,7 +217,7 @@ int EmuCfgLoad()
         fd = fopen(EMU_TUNER_CONFIG_V1, "r");
         if (fd != NULL)
         {
-            EMU_DBG("LoadConfigV1");
+            DTV_LOGI(TAG, "LoadConfigV1");
             LoadConfigV1(fd);
             emu_tuner_config_ver = EMU_CFG_V1;
             soft_tuner = 1;

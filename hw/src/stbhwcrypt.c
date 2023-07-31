@@ -30,11 +30,13 @@
 /* DVBCore header files */
 #include <techtype.h>
 #include <dbgfuncs.h>
+#include "dtv_log.h"
+#define TAG  "STBHWCRYPT"
 
 /*---constant definitions for this file--------------------------------------*/
 #undef DBG
 #ifdef CRYPT_DEBUG
-   #define DBG(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define DBG(x,...)
 #endif

@@ -16,6 +16,8 @@
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "app_cfg.h"
+#include "dtv_log.h"
+#define TAG  "STBSWCFG"
 
 #define TV_JSONFILE "TVDatebase.json"
 #define CONFIG_JSONFILE "config.json"
@@ -29,7 +31,7 @@ typedef struct
 
 #define SW_CFG_DEBUG 1
 #ifdef SW_CFG_DEBUG
-   #define CFG_DBG(x,...)   STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define CFG_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define CFG_DBG(x,...)   ((void)0)
 #endif

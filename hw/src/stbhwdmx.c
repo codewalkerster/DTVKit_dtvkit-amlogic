@@ -35,6 +35,8 @@
 #include <sys/ioctl.h>
 #include <sys/eventfd.h>
 #include <pthread.h>
+#include "dtv_log.h"
+#define TAG  "STBHWDMX"
 
 /* third party header files */
 #include <dmx.h>
@@ -61,11 +63,11 @@
 #define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
 #ifdef DEMUX_DEBUG
-#define DMX_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define DMX_DBG(x,...)
 #endif
-#define DMX_ERR(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 
 #define DMX_TASK_PRIORITY           12

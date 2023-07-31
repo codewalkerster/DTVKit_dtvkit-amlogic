@@ -31,6 +31,8 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <cutils/properties.h>
+#include "dtv_log.h"
+#define TAG  "STBPVRPR_AMLMP"
 
 // Ocean Blue header files
 #include "techtype.h"
@@ -103,13 +105,13 @@
 #define INVALID_PLAYER_HDLE -1
 
 #ifdef PLAY_DEBUG
-   #define PLAY_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define PLAY_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define PLAY_DBG(x,...)
 #endif
 
 #ifdef RECORD_DEBUG
-   #define REC_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define REC_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define REC_DBG(x,...)
 #endif

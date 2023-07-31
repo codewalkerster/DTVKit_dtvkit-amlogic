@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "dtv_log.h"
+#define TAG  "STBOS_UTILS"
 
 /* third party header files */
 /* DVBCore header files*/
@@ -30,7 +32,7 @@
 /*#define  UTILS_DEBUG*/
 
 #ifdef  UTILS_DEBUG
-#define  UTL_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define  UTL_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define  UTL_DBG(x,...)
 #endif

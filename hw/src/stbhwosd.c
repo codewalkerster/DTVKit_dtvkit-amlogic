@@ -27,6 +27,8 @@
 /*---includes for this file--------------------------------------------------*/
 #include <string.h>
 #include <math.h>
+#include "dtv_log.h"
+#define TAG  "STBHWOSD"
 
 #include "techtype.h"
 #include "dbgfuncs.h"
@@ -50,19 +52,19 @@
 
 /*---macro definitions for this file-----------------------------------------*/
 #ifdef OSD_DEBUG
-   #define OSD_DBG(x,...)        STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define OSD_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define OSD_DBG(x,...)
 #endif
 
 #ifdef SUBT_DEBUG
-   #define SUBT_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define SUBT_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define SUBT_DBG(x,...)
 #endif
 
 #ifdef MHEG_DEBUG
-   #define MHEG_DBG(x,...)       STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+   #define MHEG_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
    #define MHEG_DBG(x,...)
 #endif

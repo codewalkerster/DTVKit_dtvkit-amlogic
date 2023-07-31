@@ -30,6 +30,8 @@
 /* compiler library header files */
 #include <unistd.h>
 #include <string.h>
+#include "dtv_log.h"
+#define TAG  "CA_GLUE_AMLMP"
 #ifdef ANDROID
 #include <cutils/properties.h>
 #endif
@@ -55,7 +57,7 @@
 /*---constant definitions for this file----------------------------------------*/
 
 #ifdef CA_GLUE_DEBUG
-#define CA_DBG(X)    STB_SPDebugWrite X
+#define CA_DBG(X,...)    DTV_LOGI(TAG, X, ##__VA_ARGS__)
 #else
 #define CA_DBG(X)
 #endif
@@ -169,8 +171,8 @@ static U16BIT parser_cat_table(U8BIT *data)
 
     while ( sec_len > 9 )
     {
-        CA_DBG(("%s, cat data: %#x, %#x, %#x, %#x, %#x, %#x ", __FUNCTION__,
-                p[0], p[1], p[2], p[3], p[4], p[5]));
+        CA_DBG("%s, cat data: %#x, %#x, %#x, %#x, %#x, %#x ", __FUNCTION__,
+                p[0], p[1], p[2], p[3], p[4], p[5]);
         desc_tag = p[0];
         desc_len = p[1];
         ca_system_id = ((p[2] << 8) | p[3]);
@@ -180,7 +182,7 @@ static U16BIT parser_cat_table(U8BIT *data)
 
         if (Aml_MP_CAS_IsSystemIdSupported(ca_system_id))
         {
-            CA_DBG(("%s found supported ca pid[%#x] in cat", __FUNCTION__, ca_pid));
+            CA_DBG("%s found supported ca pid[%#x] in cat", __FUNCTION__, ca_pid);
             return ca_pid;
         }
     }
@@ -350,7 +352,7 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
     cJSON* data = cJSON_Parse(json);
     if (!data)
     {
-        CA_DBG(("%s:not a valid event- %s", __func__, json));
+        CA_DBG("%s:not a valid event- %s", __func__, json);
         return 0;
     }
 
@@ -364,14 +366,14 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
                 && (((STB_CA_Glue_t *)ca_handle)->session_info->cas_session == session))
             {
                 cas_path = path;
-                CA_DBG(("%s:found match path %u for cas session", __func__, cas_path));
+                CA_DBG("%s:found match path %u for cas session", __func__, cas_path);
                 break;
             }
         }
     }
     if (g_pvrplay_session && (session == g_pvrplay_session))
     {
-        CA_DBG(("%s:event for dvr playback session", __func__));
+        CA_DBG("%s:event for dvr playback session", __func__);
         isPlaybackPath = TRUE;
     }
 
@@ -387,7 +389,7 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         if (!strcmp(type->valuestring, ITEM_CHECK_PIN))
         {
             g_checkpin_status = PIN_NEED_CHECK;
-            CA_DBG(("%s: pin need check\n", __func__));
+            CA_DBG("%s: pin need check\n", __func__);
         }
         else if (!strcmp(type->valuestring, ITEM_PIN_STATE))
         {
@@ -397,12 +399,12 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
                 if (state->valuedouble)
                 {
                     g_checkpin_status = PIN_CHECK_SUCCESS;
-                    CA_DBG(("%s: pin check success\n", __func__));
+                    CA_DBG("%s: pin check success\n", __func__);
                 }
                 else
                 {
                     g_checkpin_status = PIN_CHECK_FAILED;
-                    CA_DBG(("%s: pin check failed\n", __func__));
+                    CA_DBG("%s: pin check failed\n", __func__);
                 }
             }
         }
@@ -419,12 +421,12 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         cas_event_data.pathType = CAS_SESSION_PATH_PLAYBACK;
     else if (cas_path == INVALID_RES_ID)
     {
-        CA_DBG(("%s:cannot found none playback path, maybe a global cas event.", __func__));
+        CA_DBG("%s:cannot found none playback path, maybe a global cas event.", __func__);
         cas_event_data.pathType = CAS_SESSION_PATH_ANY;
     }
 
     cas_event_data.path = cas_path;
-    CA_DBG(("%s:%s", __func__, cas_event_data.data_str));
+    CA_DBG("%s:%s", __func__, cas_event_data.data_str);
     STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, HW_EV_TYPE_CAS_MSG, &cas_event_data, sizeof(cas_event_data));
 
     return 0;
@@ -457,12 +459,12 @@ static void get_cas_mode(AML_MP_CASSESSION session)
 
     if (strncmp(item->valuestring, "r2r", 3) == 0) {
         g_cas_mode = CAS_MODE_R2R;
-        CA_DBG(("%s:g_cas_mode is CAS_MODE_R2R", __func__));
+        CA_DBG("%s:g_cas_mode is CAS_MODE_R2R", __func__);
     } else if (strncmp(item->valuestring, "tse", 3) == 0) {
         g_cas_mode = CAS_MODE_TSE;
-        CA_DBG(("%s:g_cas_mode is CAS_MODE_TSE", __func__));
+        CA_DBG("%s:g_cas_mode is CAS_MODE_TSE", __func__);
     } else {
-        CA_DBG(("%s:g_cas_mode is CAS_MODE_NONE", __func__));
+        CA_DBG("%s:g_cas_mode is CAS_MODE_NONE", __func__);
     }
 
     cJSON_Delete(input);
@@ -482,7 +484,7 @@ BOOLEAN STB_CAInitialise(void)
 
     FUNCTION_START(STB_CAInitialise);
 
-    CA_DBG(("call %s", __FUNCTION__));
+    CA_DBG("call %s", __FUNCTION__);
 
     if (!inited)
     {
@@ -491,7 +493,7 @@ BOOLEAN STB_CAInitialise(void)
 
         if (ret)
         {
-            CA_DBG(("am cas init failed [%d]", ret));
+            CA_DBG("am cas init failed [%d]", ret);
         }
         else
         {
@@ -504,7 +506,7 @@ BOOLEAN STB_CAInitialise(void)
 
         if (ret)
         {
-            CA_DBG(("CAS RegisterEventCallback failed [%d]", ret));
+            CA_DBG("CAS RegisterEventCallback failed [%d]", ret);
         }
 
         char castype[32] = { 0 };
@@ -512,7 +514,7 @@ BOOLEAN STB_CAInitialise(void)
         if (!strncmp(castype, "nagra", 5)) {
             g_cas_type = CAS_TYPE_NAGRA;
         }
-        CA_DBG(("am cas init g_cas_type=%d", g_cas_type));
+        CA_DBG("am cas init g_cas_type=%d", g_cas_type);
     }
 
     FUNCTION_FINISH(STB_CAInitialise);
@@ -528,11 +530,11 @@ E_CAS_TYPE STB_CAGetCASType()
 {
     char castype[32] = { 0 };
     STB_Get_Prop("vendor.cas.type", castype, 32);
-    CA_DBG(("STB_CAGetCASType g_cas_type=%d, castype=%s", g_cas_type, castype));
+    CA_DBG("STB_CAGetCASType g_cas_type=%d, castype=%s", g_cas_type, castype);
     if (!strncmp(castype, "nagra", 5)) {
         g_cas_type = CAS_TYPE_NAGRA;
     }
-    CA_DBG(("STB_CAGetCASType exit g_cas_type=%d", g_cas_type));
+    CA_DBG("STB_CAGetCASType exit g_cas_type=%d", g_cas_type);
     return g_cas_type;
 }
 
@@ -573,12 +575,12 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
     FUNCTION_START(STB_CAAcquireDescrambler);
     ASSERT(handle);
 
-    CA_DBG(("%s(path=%u, serv_id=%u, ca_ids=%p, num_ca_ids=%u)",
-            __FUNCTION__, path, serv_id, ca_ids, num_ca_ids));
+    CA_DBG("%s(path=%u, serv_id=%u, ca_ids=%p, num_ca_ids=%u)",
+            __FUNCTION__, path, serv_id, ca_ids, num_ca_ids);
 
     if (num_ca_ids == 0)
     {
-        CA_DBG(("Free channel, no need descrambler"));
+        CA_DBG("Free channel, no need descrambler");
         return FALSE;
     }
 
@@ -588,14 +590,14 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
     {
         if (Aml_MP_CAS_IsSystemIdSupported(ca_ids[i]))
         {
-            CA_DBG(("Found supported CA Id[%#x]", ca_ids[i]));
+            CA_DBG("Found supported CA Id[%#x]", ca_ids[i]);
             break;
         }
     }
 
     if (i >= num_ca_ids)
     {
-        CA_DBG(("Not found supported CA Id"));
+        CA_DBG("Not found supported CA Id");
         STB_OSMutexUnlock(g_ca_mutex);
         return FALSE;
     }
@@ -606,7 +608,7 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
     ((STB_CA_Glue_t *)(*handle))->path = path;
     ((STB_CA_Glue_t *)(*handle))->service_id = serv_id;
 
-    CA_DBG(("%s handle[%#x]", __FUNCTION__, *handle));
+    CA_DBG("%s handle[%#x]", __FUNCTION__, *handle);
     FUNCTION_FINISH(STB_CAAcquireDescrambler);
 
     STB_OSMutexUnlock(g_ca_mutex);
@@ -628,7 +630,7 @@ BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
 
     ASSERT(handle);
 
-    CA_DBG(("%s(0x%lx)", __FUNCTION__, handle));
+    CA_DBG("%s(0x%lx)", __FUNCTION__, handle);
 
     STB_OSMutexLock(g_ca_mutex);
 
@@ -668,7 +670,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
 
     FUNCTION_START(STB_CADescrambleServiceStart);
 
-    CA_DBG(("%s(0x%lx)", __FUNCTION__, handle));
+    CA_DBG("%s(0x%lx)", __FUNCTION__, handle);
 
     ASSERT(handle);
 
@@ -681,14 +683,14 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
     if (((STB_CA_Glue_t *)handle)->pmt_info.has_global_ca == FALSE &&
         ((STB_CA_Glue_t *)handle)->pmt_info.has_component_ca == FALSE)
     {
-        CA_DBG(("%s Warning: DO*NOT have ca descriptor", __FUNCTION__));
+        CA_DBG("%s Warning: DO*NOT have ca descriptor", __FUNCTION__);
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
 
     if (((STB_CA_Glue_t *)handle)->is_descrambling == TRUE)
     {
-        CA_DBG(("%s CA glue service has started.", __FUNCTION__));
+        CA_DBG("%s CA glue service has started.", __FUNCTION__);
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
@@ -697,7 +699,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
 
     if (ret)
     {
-        CA_DBG(("AM_CA_OpenSession failed [%d]", ret));
+        CA_DBG("AM_CA_OpenSession failed [%d]", ret);
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
@@ -706,7 +708,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
 
     if (ret)
     {
-        CA_DBG(("CAS RegisterEventCallback failed [%d]", ret));
+        CA_DBG("CAS RegisterEventCallback failed [%d]", ret);
         Aml_MP_CAS_CloseSession(cas_session);
         STB_OSMutexUnlock(g_ca_mutex);
         return;
@@ -729,7 +731,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
     /* pass scramble algorithm to cas hal */
     ca_serv_info.ca_private_data_len = MAX_DATA_LEN;
     ca_serv_info.ca_private_data[2] =  ((STB_CA_Glue_t *)handle)->pmt_info.scramble_algo;
-    CA_DBG(("%s algo ca_private_data[2]=%x", __func__, ca_serv_info.ca_private_data[2]));
+    CA_DBG("%s algo ca_private_data[2]=%x", __func__, ca_serv_info.ca_private_data[2]);
 
     while (pid_entry != NULL)
     {
@@ -737,14 +739,14 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
         //{
         pid_entry->running = TRUE;
         ca_serv_info.stream_pids[ca_serv_info.stream_num++] = pid_entry->es_pid;
-        CA_DBG(("Descrambling es pid [%#x]", pid_entry->es_pid));
+        CA_DBG("Descrambling es pid [%#x]", pid_entry->es_pid);
         //}
         pid_entry = pid_entry->next;
     }
 
     if (ca_serv_info.stream_num <= 0)
     {
-        CA_DBG(("%s Not found scrambled es", __FUNCTION__));
+        CA_DBG("%s Not found scrambled es", __FUNCTION__);
         Aml_MP_CAS_CloseSession(cas_session);
         STB_OSMutexUnlock(g_ca_mutex);
         return;
@@ -754,7 +756,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
 
     if (ret)
     {
-        CA_DBG(("CAS start descrambling failed. handle[%#x], ret = %d\r\n", handle, ret));
+        CA_DBG("CAS start descrambling failed. handle[%#x], ret = %d\r\n", handle, ret);
         Aml_MP_CAS_CloseSession(cas_session);
         STB_OSMutexUnlock(g_ca_mutex);
         return;
@@ -770,7 +772,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
     FUNCTION_FINISH(STB_CADescrambleServiceStart);
     STB_OSMutexUnlock(g_ca_mutex);
 
-    CA_DBG(("%s cas_session: %p", __FUNCTION__, cas_session));
+    CA_DBG("%s cas_session: %p", __FUNCTION__, cas_session);
 #endif
 }
 
@@ -785,27 +787,27 @@ void STB_CADescrambleServiceStop(UINTPTR handle)
 
     ASSERT(handle);
 
-    CA_DBG(("%s(0x%lx)", __FUNCTION__, handle));
+    CA_DBG("%s(0x%lx)", __FUNCTION__, handle);
 
     STB_OSMutexLock(g_ca_mutex);
 
     if (((STB_CA_Glue_t *)handle)->is_descrambling == FALSE)
     {
-        CA_DBG(("CA glue service not started."));
+        CA_DBG("CA glue service not started.");
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
 
     if (Aml_MP_CAS_StopDescrambling(((STB_CA_Glue_t *)handle)->session_info->cas_session))
     {
-        CA_DBG(("CA stop descrambling failed."));
+        CA_DBG("CA stop descrambling failed.");
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
 
     if (Aml_MP_CAS_CloseSession(((STB_CA_Glue_t *)handle)->session_info->cas_session))
     {
-        CA_DBG(("CA close session failed."));
+        CA_DBG("CA close session failed.");
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
@@ -831,12 +833,12 @@ void STB_CADescrambleIoctl(UINTPTR handle, const char* inJson, char* outJson, U3
 
     ASSERT(handle);
 
-    CA_DBG(("%s(0x%lx) [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, handle, inJson, outJson, outLen));
+    CA_DBG("%s(0x%lx) [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, handle, inJson, outJson, outLen);
 
     STB_OSMutexLock(g_ca_mutex);
     if (Aml_MP_CAS_Ioctl(((STB_CA_Glue_t *)handle)->session_info->cas_session, inJson, outJson, outLen))
     {
-        CA_DBG(("CA  descrambling Ioctl failed."));
+        CA_DBG("CA  descrambling Ioctl failed.");
     }
     FUNCTION_FINISH(STB_CADescrambleIoctl);
 
@@ -855,12 +857,12 @@ void STB_CADescrambleSessionIoctl(UINTPTR session, const char* inJson, char* out
 
     ASSERT(session);
 
-    CA_DBG(("%s(0x%lx) [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, session, inJson, outJson, outLen));
+    CA_DBG("%s(0x%lx) [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, session, inJson, outJson, outLen);
 
     STB_OSMutexLock(g_ca_mutex);
     if (Aml_MP_CAS_Ioctl((AML_MP_CASSESSION)(session), inJson, outJson, outLen))
     {
-        CA_DBG(("CA  descrambling Ioctl failed."));
+        CA_DBG("CA  descrambling Ioctl failed.");
     }
     FUNCTION_FINISH(STB_CADescrambleSessionIoctl);
 
@@ -928,7 +930,7 @@ static void collect_pmt_streams_ca_info(UINTPTR handle, PMT_INFO *pmt_info, SI_P
                 pmt_info->last_pid_entry = ca_pid_info;
 
                 pmt_info->has_component_ca = TRUE;
-                CA_DBG(("%s supported component CA desc found", __FUNCTION__));
+                CA_DBG("%s supported component CA desc found", __FUNCTION__);
                 break;
             }
         }
@@ -953,7 +955,7 @@ void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
     U16BIT section_size;
     U16BIT global_ecm_pid = 0x1fff;
 
-    CA_DBG(("%s(handle=0x%lx, pmt_data=%p, data_len=%u)", __FUNCTION__, handle, pmt_data, data_len));
+    CA_DBG("%s(handle=0x%lx, pmt_data=%p, data_len=%u)", __FUNCTION__, handle, pmt_data, data_len);
 
     /*if PMT update when playback, we need re-start descrambling with
     **the new es pid.but now we try to handle that in Video/Audio decoding
@@ -983,7 +985,7 @@ void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
     memset(&table_rec, 0x0, sizeof(SI_TABLE_RECORD));
     section_size = ((pmt_data[1] & 0xf) << 8) + pmt_data[2] + 3;
 
-    CA_DBG(("%s %d, section_size=%u)", __FUNCTION__, __LINE__, section_size));
+    CA_DBG("%s %d, section_size=%u)", __FUNCTION__, __LINE__, section_size);
     if(section_size<=data_len)
     {
         sect = (SI_SECTION_RECORD *)STB_GetMemory(sizeof(SI_SECTION_RECORD) + section_size);
@@ -1008,9 +1010,8 @@ void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
 
         if(NULL != pmt_table)
         {
-            CA_DBG(("%s svc_id[%#x], num_ca_entries[%d], num_streams[%d]",
-                    __FUNCTION__, pmt_table->serv_id, pmt_table->num_ca_entries,
-                    pmt_table->num_streams));
+            CA_DBG("%s svc_id[%#x], num_ca_entries[%d], num_streams[%d]",
+                    __FUNCTION__, pmt_table->serv_id, pmt_table->num_ca_entries, pmt_table->num_streams);
 
             memset(&pmt_info, 0, sizeof(PMT_INFO));
 
@@ -1027,12 +1028,12 @@ void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
 
             if (i >= pmt_table->num_ca_entries)
             {
-                CA_DBG(("%s not found supported global CA desc", __FUNCTION__));
+                CA_DBG("%s not found supported global CA desc", __FUNCTION__);
             }
 
             if (((STB_CA_Glue_t *)handle)->pmt_info.ca_pid_list)
             {
-                CA_DBG(("%s free previous pmt pid list", __FUNCTION__));
+                CA_DBG("%s free previous pmt pid list", __FUNCTION__);
                 free_pid_list(handle);
             }
 
@@ -1065,7 +1066,7 @@ void STB_CAReportCAT(U8BIT path, U8BIT *cat_data, U16BIT data_len)
     U16BIT ca_pid;
     FUNCTION_START(STB_CAReportCAT);
 
-    CA_DBG(("%s(handle=0x%lx, cat_data=%p, data_len=%u)", __FUNCTION__, path, cat_data, data_len));
+    CA_DBG("%s(handle=0x%lx, cat_data=%p, data_len=%u)", __FUNCTION__, path, cat_data, data_len);
 
     STB_OSMutexLock(g_ca_mutex);
 
@@ -1085,7 +1086,7 @@ void STB_CAReportCAT(U8BIT path, U8BIT *cat_data, U16BIT data_len)
 
     if (ca_pid == DVB_INVALID_ID)
     {
-        CA_DBG(("%s no match ca pid", __FUNCTION__));
+        CA_DBG("%s no match ca pid", __FUNCTION__);
         STB_OSMutexUnlock(g_ca_mutex);
         return;
     }
@@ -1111,7 +1112,7 @@ void STB_CAReportBAT(UINTPTR handle, U8BIT *bat_data, U16BIT data_len)
 {
     FUNCTION_START(STB_CAReportBAT);
 
-    CA_DBG(("%s(handle=0x%lx, bat_data=%p, data_len=%u)", __FUNCTION__, handle, bat_data, data_len));
+    CA_DBG("%s(handle=0x%lx, bat_data=%p, data_len=%u)", __FUNCTION__, handle, bat_data, data_len);
 
     USE_UNWANTED_PARAM(handle);
     USE_UNWANTED_PARAM(bat_data);
@@ -1132,7 +1133,7 @@ void STB_CAReportNIT(UINTPTR handle, U8BIT *nit_data, U16BIT data_len)
 {
     FUNCTION_START(STB_CAReportNIT);
 
-    CA_DBG(("%s(handle=0x%lx, nit_data=%p, data_len=%u)", __FUNCTION__, handle, nit_data, data_len));
+    CA_DBG("%s(handle=0x%lx, nit_data=%p, data_len=%u)", __FUNCTION__, handle, nit_data, data_len);
 
     USE_UNWANTED_PARAM(handle);
     USE_UNWANTED_PARAM(nit_data);
@@ -1151,7 +1152,7 @@ void STB_CADecodeVideoStatus(U32BIT handle, E_CA_DECODE_STATUS decode_status)
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADecodeVideoStatus);
 
-    CA_DBG(("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, decode_status));
+    CA_DBG("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, decode_status);
 
     if (decode_status != CA_DECODE_STATUS_STARTED)
     {
@@ -1174,7 +1175,7 @@ void STB_CADecodeAudioStatus(U32BIT handle, E_CA_DECODE_STATUS decode_status)
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADecodeAudioStatus);
 
-    CA_DBG(("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, decode_status));
+    CA_DBG("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, decode_status);
 
     if (decode_status != CA_DECODE_STATUS_STARTED)
     {
@@ -1197,7 +1198,7 @@ void STB_CADecodeADStatus(U32BIT handle, E_CA_DECODE_STATUS decode_status)
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADecodeADStatus);
 
-    CA_DBG(("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, decode_status));
+    CA_DBG("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, decode_status);
 
     if (decode_status != CA_DECODE_STATUS_STARTED)
     {
@@ -1221,7 +1222,7 @@ void STB_CANotifyRunningStatus(UINTPTR handle, U8BIT status)
 {
     FUNCTION_START(STB_CANotifyRunningStatus);
 
-    CA_DBG(("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, status));
+    CA_DBG("%s(handle=0x%lx, status=%u)", __FUNCTION__, handle, status);
 
     USE_UNWANTED_PARAM(handle);
     USE_UNWANTED_PARAM(status);
@@ -1244,7 +1245,7 @@ BOOLEAN STB_CADescramblerRequired(U16BIT *ca_ids, U16BIT num_ca_ids)
 
     FUNCTION_START(STB_CADescramblerRequired);
 
-    CA_DBG(("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids));
+    CA_DBG("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids);
     for (i = 0; i < num_ca_ids; i++)
     {
         if (Aml_MP_CAS_IsSystemIdSupported(ca_ids[i]))
@@ -1276,7 +1277,7 @@ BOOLEAN STB_CADescramblerRequiredForPlayback(U16BIT *ca_ids, U16BIT num_ca_ids)
 
     FUNCTION_START(STB_CADescramblerRequiredForPlayback);
 
-    CA_DBG(("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids));
+    CA_DBG("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids);
 
     /* STB_CADescramblerRequiredForPlayback always return FALSE */
 //  ret = STB_CADescramblerRequired(ca_ids, num_ca_ids);
@@ -1299,7 +1300,7 @@ BOOLEAN STB_CADescramblerRequiredForRecording(U16BIT *ca_ids, U16BIT num_ca_ids)
 
     FUNCTION_START(STB_CADescramblerRequiredForRecording);
 
-    CA_DBG(("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids));
+    CA_DBG("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids);
     ret = STB_CADescramblerRequired(ca_ids, num_ca_ids);
 
     FUNCTION_FINISH(STB_CADescramblerRequiredForRecording);
@@ -1327,7 +1328,7 @@ U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
     USE_UNWANTED_PARAM(pmt_data);
     USE_UNWANTED_PARAM(pid_array);
 
-    CA_DBG(("%s(pmt_data=%p, pid_array=%p): %u", __FUNCTION__, pmt_data, pid_array, num_pids));
+    CA_DBG("%s(pmt_data=%p, pid_array=%p): %u", __FUNCTION__, pmt_data, pid_array, num_pids);
 
     FUNCTION_FINISH(STB_CAGetRecordingPids);
 
@@ -1348,7 +1349,7 @@ void STB_CAPVRRecodingEncrypt(void *handle, void *param)
     ASSERT(cryptoPara);
 
 #if 0
-    CA_DBG(("%s handle(%#x), session(%#x), (%#x, %#x, %#x)", __FUNCTION__,
+    CA_DBG("%s handle(%#x), session(%#x), (%#x, %#x, %#x)", __FUNCTION__,
             handle,
             ((STB_CA_Glue_t *)handle)->session_info->cas_session,
             cryptoPara->buf_in, cryptoPara->buf_out, cryptoPara->buf_len);
@@ -1356,7 +1357,7 @@ void STB_CAPVRRecodingEncrypt(void *handle, void *param)
 
            if (!(((STB_CA_Glue_t *)handle)->session_info))
 {
-    CA_DBG(("CA glue PVR recoding encrypt session_info is null"));
+    CA_DBG("CA glue PVR recoding encrypt session_info is null");
         return;
     }
 
@@ -1369,7 +1370,7 @@ void STB_CAPVRRecodingEncrypt(void *handle, void *param)
 
         if (ret)
         {
-            CA_DBG(("AM_CA_OpenSession failed [%d]", ret));
+            CA_DBG("AM_CA_OpenSession failed [%d]", ret);
             return;
         }
 
@@ -1403,7 +1404,7 @@ void STB_CAPVRRecodingEncrypt(void *handle, void *param)
 
         if (ret)
         {
-            CA_DBG(("CAS start DVR failed. ret = %d\r\n", ret));
+            CA_DBG("CAS start DVR failed. ret = %d\r\n", ret);
             return;
         }
     }
@@ -1429,7 +1430,7 @@ void STB_CAPVRPlayDecrypt(void *handle, void *param)
     //For now, it will be zero set by STB_PVRStartPlaying
     if (handle != 0)
     {
-        CA_DBG(("CAS Decrypt, wrong param"));
+        CA_DBG("CAS Decrypt, wrong param");
         return;
     }
 
@@ -1459,7 +1460,7 @@ void STB_CAPVRPlayDecrypt(void *handle, void *param)
         else if (g_checkpin_status == PIN_CHECK_SUCCESS)
         {
             ret = Aml_MP_CAS_DVRReplay(g_pvrplay_session, param);
-            CA_DBG(("PIN checked. CAS start Replay. ret = %d\r\n", ret));
+            CA_DBG("PIN checked. CAS start Replay. ret = %d\r\n", ret);
             g_checkpin_status = PIN_MAX;
         }
     }
@@ -1470,7 +1471,7 @@ void STB_CAPVRPlayDecrypt(void *handle, void *param)
         cryptoPara->outputSize = 0;
     }
 
-    CA_DBG(("CAS DEC ####"));
+    CA_DBG("CAS DEC ####");
 #endif
 }
 
@@ -1479,7 +1480,7 @@ void STB_CAPVRPlayDecrypt(void *handle, void *param)
 int STB_CAPVRGetPlaySection(AML_MP_CASSESSION *sec)
 {
     *sec = g_pvrplay_session;
-    CA_DBG(("STB_CAPVRGetPlaySection [%p]", *sec));
+    CA_DBG("STB_CAPVRGetPlaySection [%p]", *sec);
     return 0;
 }
 
@@ -1488,7 +1489,7 @@ int STB_CAPVRGetDvrSection(UINTPTR handle, AML_MP_CASSESSION *sec)
     if (handle && ((STB_CA_Glue_t *)handle)->session_info)
     {
         *sec = ((STB_CA_Glue_t *)handle)->session_info->cas_session;
-        CA_DBG(("STB_CAPVRGetDvrSection [%p]", *sec));
+        CA_DBG("STB_CAPVRGetDvrSection [%p]", *sec);
     }
     else
     {
@@ -1512,22 +1513,22 @@ void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeS
 
         if (ret)
         {
-            CA_DBG(("CAS open session failed. ret = %d\r\n", ret));
+            CA_DBG("CAS open session failed. ret = %d\r\n", ret);
             return;
         }
 
         ret = Aml_MP_CAS_RegisterEventCallback(g_pvrplay_session, cas_event_cb, NULL);
         if (ret)
         {
-            CA_DBG(("CAS(PVR replay) RegisterEventCallback failed [%d]", ret));
+            CA_DBG("CAS(PVR replay) RegisterEventCallback failed [%d]", ret);
         }
 
         get_cas_mode(g_pvrplay_session);
 
-        CA_DBG(("PVRPlay CAS open session = %p", g_pvrplay_session));
+        CA_DBG("PVRPlay CAS open session = %p", g_pvrplay_session);
         if (Aml_MP_CAS_StartDVRReplay(g_pvrplay_session, param))
         {
-            CA_DBG(("Start DVR Replay failed\n"));
+            CA_DBG("Start DVR Replay failed\n");
         }
     }
 }
@@ -1536,7 +1537,7 @@ void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeS
 void STB_CAPVRPlayStop(void)
 {
 #ifdef SUPPORT_CAS
-    CA_DBG(("%s(session=%p)", __FUNCTION__, g_pvrplay_session));
+    CA_DBG("%s(session=%p)", __FUNCTION__, g_pvrplay_session);
 
     if (g_pvrplay_session)
     {
@@ -1554,7 +1555,7 @@ void STB_CAPVRPlayStop(void)
 void STB_CADscReset(void)
 {
 #ifdef SUPPORT_CAS
-    CA_DBG(("%s reserve", __FUNCTION__));
+    CA_DBG("%s reserve", __FUNCTION__);
 #endif
 }
 
@@ -1567,7 +1568,7 @@ void STB_CAReleaseRecordingPids(U16BIT *pid_array, U16BIT num_pids)
 {
     FUNCTION_START(STB_CAReleaseRecordingPids);
 
-    CA_DBG(("%s(pid_array=%p, num_pids=%u)", __FUNCTION__, pid_array, num_pids));
+    CA_DBG("%s(pid_array=%p, num_pids=%u)", __FUNCTION__, pid_array, num_pids);
 
     USE_UNWANTED_PARAM(pid_array);
     USE_UNWANTED_PARAM(num_pids);
@@ -1594,7 +1595,7 @@ int STB_CAPVRRecordStart(UINTPTR handle)
 
     if (!(((STB_CA_Glue_t *)handle)->session_info))
     {
-        CA_DBG(("CA glue PVR recoding encrypt session_info is null"));
+        CA_DBG("CA glue PVR recoding encrypt session_info is null");
         return -1;
     }
 
@@ -1606,20 +1607,20 @@ int STB_CAPVRRecordStart(UINTPTR handle)
             ret = Aml_MP_CAS_OpenSession(&cas_session, AML_MP_CAS_SERVICE_PVR_RECORDING);
         if (ret)
         {
-            CA_DBG(("AM_CA_OpenSession failed [%d]", ret));
+            CA_DBG("AM_CA_OpenSession failed [%d]", ret);
             return -1;
         }
 
         ret = Aml_MP_CAS_RegisterEventCallback(cas_session, cas_event_cb, NULL);
         if (ret)
         {
-            CA_DBG(("CAS(PVR record) RegisterEventCallback failed [%d]", ret));
+            CA_DBG("CAS(PVR record) RegisterEventCallback failed [%d]", ret);
         }
 
         get_cas_mode(cas_session);
 
-        CA_DBG(("AM_CA_OpenSession rec start cas_session [%p] is_timeshift=%d", cas_session,
-            ((STB_CA_Glue_t *)handle)->is_timeshift));
+        CA_DBG("AM_CA_OpenSession rec start cas_session [%p] is_timeshift=%d", cas_session,
+            ((STB_CA_Glue_t *)handle)->is_timeshift);
         ((STB_CA_Glue_t *)handle)->session_info->cas_session = cas_session;
 
         memset(&ca_serv_info, 0, sizeof(Aml_MP_CASServiceInfo));
@@ -1641,7 +1642,7 @@ int STB_CAPVRRecordStart(UINTPTR handle)
         /* if cas type is nagra, we need get emi and scramble algo then set to cas hal */
         ca_serv_info.ca_private_data_len = MAX_DATA_LEN;
         ca_serv_info.ca_private_data[2] =  ((STB_CA_Glue_t *)handle)->pmt_info.scramble_algo;
-        CA_DBG(("rec start cas_session [%p] ca_private_data[2]=%x", cas_session, ca_serv_info.ca_private_data[2]));
+        CA_DBG("rec start cas_session [%p] ca_private_data[2]=%x", cas_session, ca_serv_info.ca_private_data[2]);
 
         while (pid_entry != NULL)
         {
@@ -1656,7 +1657,7 @@ int STB_CAPVRRecordStart(UINTPTR handle)
 
         if (ret)
         {
-            CA_DBG(("CAS start DVR failed. ret = %d\r\n", ret));
+            CA_DBG("CAS start DVR failed. ret = %d\r\n", ret);
             return -1;
         }
     }
@@ -1677,17 +1678,17 @@ void STB_CAPVRRecordStop(UINTPTR handle)
 
     FUNCTION_START(STB_CAPVRRecordStop);
 
-    CA_DBG(("%s(%#x)", __FUNCTION__, handle));
+    CA_DBG("%s(%#x)", __FUNCTION__, handle);
 
     ASSERT(handle);
 
     if (TRUE)
     {
-        CA_DBG(("%s(%#x): Stop recording", __FUNCTION__, handle));
+        CA_DBG("%s(%#x): Stop recording", __FUNCTION__, handle);
 
         if (!(((STB_CA_Glue_t *)handle)->session_info))
         {
-            CA_DBG(("CA glue stop recording status session_info is null"));
+            CA_DBG("CA glue stop recording status session_info is null");
             return;
         }
 
@@ -1696,7 +1697,7 @@ void STB_CAPVRRecordStop(UINTPTR handle)
         return;
     }
 
-    CA_DBG(("%s(%#x): Started recording", __FUNCTION__, handle));
+    CA_DBG("%s(%#x): Started recording", __FUNCTION__, handle);
 
     FUNCTION_FINISH(STB_CAPVRRecordStop);
 #endif
@@ -1712,7 +1713,7 @@ void STB_CASetTimeShiftOn(UINTPTR handle, BOOLEAN On)
     ASSERT(handle);
     ((STB_CA_Glue_t *)handle)->is_timeshift = On;
 
-    CA_DBG(("%s(%#x): ON=%d", __func__, handle, On));
+    CA_DBG("%s(%#x): ON=%d", __func__, handle, On);
 }
 
 /*!**************************************************************************
@@ -1727,17 +1728,17 @@ void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status)
 
     FUNCTION_START(STB_CANotifyRecordingStatus);
 
-    CA_DBG(("%s(%#x): %u", __FUNCTION__, handle, status));
+    CA_DBG("%s(%#x): %u", __FUNCTION__, handle, status);
 
     ASSERT(handle);
 
     if (!status)
     {
-        CA_DBG(("%s(%#x): Stop recording", __FUNCTION__, handle));
+        CA_DBG("%s(%#x): Stop recording", __FUNCTION__, handle);
 
         if (!(((STB_CA_Glue_t *)handle)->session_info))
         {
-            CA_DBG(("CA glue notify recording status session_info is null"));
+            CA_DBG("CA glue notify recording status session_info is null");
             return;
         }
         if(((STB_CA_Glue_t *)handle)->session_info->cas_session !=NULL)
@@ -1751,7 +1752,7 @@ void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status)
         return;
     }
 
-    CA_DBG(("%s(%#x): Started recording", __FUNCTION__, handle));
+    CA_DBG("%s(%#x): Started recording", __FUNCTION__, handle);
 
     FUNCTION_FINISH(STB_CANotifyRecordingStatus);
 #endif

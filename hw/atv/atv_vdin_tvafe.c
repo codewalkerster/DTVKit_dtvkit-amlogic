@@ -229,37 +229,41 @@ int open_vdin_port_tvafe()
     int ret = 0;
     struct tvin_parm_s vdinParam;
 
-    fd_tvafe = open("/dev/tvafe0", O_RDWR);
-
-    if (fd_tvafe < 0)
-    {
-        DTV_LOGE(TAG, "!!! Open tvafe module, error (%s).\n", strerror(errno));
-        return -1;
-    }
-    DTV_LOGE(TAG, "!!! Waring: Tvafe device is also required for ATV.\n");
-
-    fd_vdin = open("/dev/vdin0", O_RDWR);
-    if (fd_vdin < 0)
-    {
-        DTV_LOGE(TAG, "!!! Open vdin module, error (%s).\n", strerror(errno));
-        return -1;
+    if (fd_tvafe < 0) {
+        fd_tvafe = open("/dev/tvafe0", O_RDWR);
+        if (fd_tvafe < 0)
+        {
+            DTV_LOGE(TAG, "!!! Open tvafe module, error (%s).\n", strerror(errno));
+            return -1;
+        }
+        DTV_LOGE(TAG, "!!! Waring: Tvafe device is also required for ATV.\n");
     }
 
-    vdinParam.port = TVIN_PORT_CVBS3;
-    vdinParam.index = 0;
 
-    ret = ioctl(fd_vdin, TVIN_IOC_STOP_DEC);
-    if (ret < 0)
-    {
+    if (fd_vdin < 0) {
+        fd_vdin = open("/dev/vdin0", O_RDWR);
+        if (fd_vdin < 0)
+        {
+            DTV_LOGE(TAG, "!!! Open vdin module, error (%s).\n", strerror(errno));
+            return -1;
+        }
+
+        vdinParam.port = TVIN_PORT_CVBS3;
+        vdinParam.index = 0;
+
+        ret = ioctl(fd_vdin, TVIN_IOC_STOP_DEC);
+        if (ret < 0)
+        {
         DTV_LOGE(TAG, "!!! ioctl TVIN_IOC_STOP_DEC, error (%s).\n", strerror(errno));
-    }
+        }
 
-    ret = ioctl(fd_vdin, TVIN_IOC_OPEN, &vdinParam);
-    if (ret < 0)
-    {
-        DTV_LOGE(TAG, "!!! ioctl TVIN_IOC_OPEN, error (%s).\n", strerror(errno));
-        return ret;
-    }
+        ret = ioctl(fd_vdin, TVIN_IOC_OPEN, &vdinParam);
+        if (ret < 0)
+        {
+            DTV_LOGE(TAG, "!!! ioctl TVIN_IOC_OPEN, error (%s).\n", strerror(errno));
+            return ret;
+        }
+   }
 
     return ret;
 }
@@ -450,7 +454,9 @@ int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
 int stop_vdin_signal_detect()
 {
     call_back = NULL;
-    stop_vdin_dec();
+    if (fd_vdin >0) {
+        stop_vdin_dec();
+    }
     if (Epoll_isvalid()) {
         enable_thread = 0;
         pthread_join(thread, NULL);

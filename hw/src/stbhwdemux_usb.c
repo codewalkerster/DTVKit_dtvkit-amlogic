@@ -41,63 +41,53 @@
 #include <Aml_MP/Aml_MP.h>
 
 /*---constant definitions for this file--------------------------------------*/
-//#define INJECT_FROM_FILE
-#define DEMUX_USB_MODULE_DEBUG
+// #define INJECT_FROM_FILE
+// #define DEMUX_USB_MODULE_DEBUG
 #define CIPLUS_USB_INDEX 1
-#define DEMUX_USB_DEBUG
+#define DEMUX_USB_DEBUG 1
 #ifdef DEMUX_USB_DEBUG
 #define DMX_USB_DBG(x, ...) DTV_LOG(ANDROID_LOG_INFO, TAG, "CIP_USB %s:%d " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #define DMX_USB_DBG(x, ...)
 #endif
 
-#define USBCAM_UNPLUG (-71)
-#define USBCAM_NODEVICE (-19)
-
 #define REC_BUFF_SIZE (USB_CIMODULE_MEDIA_MAX_SIZE * 20)
 
 #define MEDIA_INPUT_ENABLE 1
 #define MEDIA_OUTPUT_ENABLE 1
-
+#define USBCAM_UNPLUG (-71)
 // #define DMX_USB_TEST
-// #define SMITTEST
+
 static int rec_dev_id;
 static int inj_dev_id;
 static int rec_dvr_fd = -1;
 static int rec_dmx_fd = -1;
 static int inj_dvr_fd = -1;
-static int g_pCmdFd = -1;
-static int fdMedia = -1;
-static int media_read_fd = -1;
-static int media_write_fd = -1;
 static int ev_fd;
 static BOOLEAN thread_running = FALSE;
+static int cmd_rw_fd = -1;
+static int media_read_fd = -1;
+static int media_write_fd = -1;
 static pthread_mutex_t gs_tMediaReadCondMut;
-static pthread_cond_t gs_tMediaReadCond;
 static pthread_mutex_t gs_tMediaWriteCondMut;
-static pthread_cond_t gs_tMediaWriteCond;
 static unsigned char *g_pCmdWriteBuf = NULL;
 static unsigned char *g_pCmdReadBuf = NULL;
-static unsigned char *pbMediaWriteBuf = NULL;
-static unsigned char *pbMediaReadBuf = NULL;
-
-
+static unsigned char *g_pbMediaReadBuf = NULL;
+static unsigned char *g_pbMediaWriteBuf = NULL;
 pthread_mutex_t cmd_read_mutex;
 pthread_mutex_t resource_mutex;
 static char ci_cmd_buffer[1024];
 static int ci_cmd_len;
-
 static BOOLEAN module_inserted = FALSE;
-static BOOLEAN mutex_init = FALSE;
-
 static BOOLEAN module_init = FALSE;
+static BOOLEAN mutex_init = FALSE;
 
 static DataBlock *data_block_head = NULL;
 
 static pthread_t tMediaReadTaskId;
 static pthread_t tMediaWriteTaskId;
 static pthread_t tCmdReadTaskId;
-
+#ifndef RDK_COMPILE
 static void prepare_working_demuxes();
 static void *cimodule_media_read_task(void *args);
 static void *cimodule_media_write_task(void *args);
@@ -106,7 +96,6 @@ static int record_from_tsin(void *buff, int buff_len);
 static int inject_usbcam_source_demux(void *data, int data_len);
 static BOOLEAN set_usbcam_recording_demux(int source);
 
-int devices_status;
 //---local function prototypes for this file-----------------------------------
 static void init_mutex()
 {
@@ -115,10 +104,133 @@ static void init_mutex()
         pthread_mutex_init(&cmd_read_mutex, NULL);
         pthread_mutex_init(&resource_mutex, NULL);
         pthread_mutex_init(&gs_tMediaWriteCondMut, NULL);
-        // pthread_cond_init(&gs_tMediaWriteCond, NULL);
         pthread_mutex_init(&gs_tMediaReadCondMut, NULL);
-        // pthread_cond_init(&gs_tMediaReadCond, NULL);
         mutex_init = TRUE;
+    }
+}
+
+static int ci_media_read_open()
+{
+    int fd = -1;
+    const char *read_node = "/dev/cimodule_media0";
+
+    if (0 == access(read_node, F_OK))
+    {
+        fd = cimodule_media_intf_open(read_node, O_RDONLY);
+        if (fd < 0)
+            DMX_USB_DBG("open %s failed", read_node);
+    }
+    return fd;
+}
+
+static int ci_media_read_close(int fd)
+{
+    int ret;
+    if (fd < 0)
+    {
+        DMX_USB_DBG("media interface close failed, fd = %d", fd);
+        return -1;
+    }
+
+    ret = cimodule_media_intf_close(fd);
+    DMX_USB_DBG("media interface close, fd = %d, ret = %d", fd, ret);
+
+    return 0;
+}
+
+static int ci_media_write_open()
+{
+    int fd = -1;
+    const char *write_node = "/dev/cimodule_media0";
+
+    if (0 == access(write_node, F_OK))
+    {
+        fd = cimodule_media_intf_open(write_node, O_RDWR);
+        if (fd < 0)
+            DMX_USB_DBG("open %s failed", write_node);
+    }
+    return fd;
+}
+
+static int ci_media_write_close(int fd)
+{
+    int ret;
+    if (fd < 0)
+    {
+        DMX_USB_DBG("media interface close failed, fd = %d", fd);
+        return -1;
+    }
+
+    ret = cimodule_media_intf_close(fd);
+    DMX_USB_DBG("media interface close, fd = %d", fd, ret);
+
+    return 0;
+}
+
+static void reset_resource()
+{
+    DMX_USB_DBG("enter");
+    if (cmd_rw_fd > 0)
+    {
+        DMX_USB_DBG("close cmd_rw_fd");
+        cimodule_cmd_intf_close(cmd_rw_fd);
+        cmd_rw_fd = -1;
+    }
+    if (g_pCmdReadBuf)
+    {
+        DMX_USB_DBG("close cmdReadBuf");
+        cimodule_cmd_intf_munmap_readbuf(g_pCmdReadBuf);
+        g_pCmdReadBuf = NULL;
+    }
+    if (g_pCmdWriteBuf)
+    {
+        DMX_USB_DBG("close cmdWriteBuf");
+        cimodule_cmd_intf_munmap_writebuf(g_pCmdWriteBuf);
+        g_pCmdWriteBuf = NULL;
+    }
+    if (g_pbMediaReadBuf)
+    {
+        DMX_USB_DBG("close g_pbMediaReadBuf");
+        cimodule_media_intf_munmap_readbuf(g_pbMediaReadBuf);
+        g_pbMediaReadBuf = NULL;
+    }
+    if (g_pbMediaWriteBuf)
+    {
+        DMX_USB_DBG("close g_pbMediaWriteBuf");
+        cimodule_media_intf_munmap_writebuf(g_pbMediaWriteBuf);
+        g_pbMediaWriteBuf = NULL;
+    }
+    if (media_read_fd > 0)
+    {
+        DMX_USB_DBG("close media_read_fd");
+        ci_media_read_close(media_read_fd);
+        media_read_fd = -1;
+    }
+    if (media_write_fd > 0)
+    {
+        DMX_USB_DBG("close media_write_fd");
+        ci_media_write_close(media_write_fd);
+        media_write_fd = -1;
+    }
+    if (rec_dmx_fd > 0)
+    {
+        DMX_USB_DBG("close rec_dmx_fd");
+        ioctl(rec_dmx_fd, DMX_STOP, 0);
+        close(rec_dmx_fd);
+        rec_dmx_fd = -1;
+    }
+    if (rec_dvr_fd > 0)
+    {
+        DMX_USB_DBG("close rec_dvr_fd");
+        close(rec_dvr_fd);
+        rec_dvr_fd = -1;
+    }
+    if (inj_dvr_fd > 0)
+    {
+        DMX_USB_DBG("close inj_dvr_fd");
+        ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_DEMOD);
+        close(inj_dvr_fd);
+        inj_dvr_fd = -1;
     }
 }
 
@@ -147,165 +259,18 @@ static BOOLEAN set_usbcam_recording_demux(int source)
     params.pes_type = DMX_PES_OTHER;
 
     ret = ioctl(rec_dmx_fd, DMX_SET_PES_FILTER, &params);
-    if (ret == -1)
+    if (ret < 0)
     {
         DMX_USB_DBG("DMX_SET_PES_FILTER failed");
         return FALSE;
     }
     ret = ioctl(rec_dmx_fd, DMX_START, 0);
-    if (ret == -1)
+    if (ret < 0)
     {
         DMX_USB_DBG("DMX_START failed");
         return FALSE;
     }
     return TRUE;
-}
-
-static int ci_media_read_open()
-{
-    int fd = -1;
-    const char *read_node = "/dev/cimodule_media0";
-
-    if (0 == access(read_node, F_OK))
-    {
-        fd = open(read_node, O_RDONLY);
-        if (fd < 0)
-            DMX_USB_DBG("open %s failed", read_node);
-    }
-    return fd;
-}
-
-static int ci_media_write_open()
-{
-    int fd = -1;
-    const char *write_node = "/dev/cimodule_media0";
-
-    if (0 == access(write_node, F_OK))
-    {
-        fd = open(write_node, O_WRONLY);
-        if (fd < 0)
-            DMX_USB_DBG("open %s failed", write_node);
-    }
-    return fd;
-}
-
-int cimodule_intf_read(int fd, unsigned char *buf, unsigned int len, unsigned int* actual_len)
-{
-    int ret;
-
-    if (fd <= 0)
-    {
-        DMX_USB_DBG("invalid fd");
-        return ERROR_INVALID_HANDLE;
-    }
-
-    if (!buf)
-    {
-        DMX_USB_DBG("parameter is error,the buf is NULL");
-        return ERROR_USB_PARAM;
-    }
-
-    ret = read(fd, buf, len);
-    if (ret < 0)
-    {
-        DMX_USB_DBG("read media error: ret = %d, [%d]%s", ret, -errno, strerror(errno));
-        return -errno;
-    }
-    *actual_len = ret;
-    return 0;
-}
-
-int cimodule_intf_write(int fd, unsigned char *buf, unsigned int len, unsigned int* actual_len)
-{
-    int ret;
-
-    if (fd <= 0)
-    {
-        DMX_USB_DBG("invalid fd");
-        return ERROR_INVALID_HANDLE;
-    }
-
-    if (!buf)
-    {
-        DMX_USB_DBG("parameter is error,the buf is NULL");
-        return ERROR_USB_PARAM;
-    }
-
-    ret = write(fd, buf, len);
-    if (ret < 0)
-    {
-        DMX_USB_DBG("write media error: ret = %d, [%d]%s", ret, -errno, strerror(errno));
-        return -errno;
-    }
-    *actual_len = ret;
-    return 0;
-}
-
-static void reset_resource()
-{
-    DMX_USB_DBG("enter");
-    if (g_pCmdFd > 0)
-    {
-        DMX_USB_DBG("close g_pCmdFd");
-        close(g_pCmdFd);
-        g_pCmdFd = -1;
-    }
-    if (g_pCmdWriteBuf)
-    {
-        DMX_USB_DBG("free cmdWruteBuf");
-        STB_MEMFreeSysRAM(g_pCmdWriteBuf);
-        g_pCmdWriteBuf = NULL;
-    }
-    if (g_pCmdReadBuf)
-    {
-        DMX_USB_DBG("free cmdReadBuf");
-        STB_MEMFreeSysRAM(g_pCmdReadBuf);
-        g_pCmdReadBuf = NULL;
-    }
-    if (pbMediaReadBuf)
-    {
-        DMX_USB_DBG("free pbMediaReadBuf");
-        STB_MEMFreeSysRAM(pbMediaReadBuf);
-        pbMediaReadBuf = NULL;
-    }
-    if (pbMediaWriteBuf)
-    {
-        DMX_USB_DBG("free pbMediaWriteBuf");
-        STB_MEMFreeSysRAM(pbMediaWriteBuf);
-        pbMediaWriteBuf = NULL;
-    }
-    if (media_read_fd > 0)
-    {
-        DMX_USB_DBG("close media_read_fd");
-        close(media_read_fd);
-        media_read_fd = -1;
-    }
-    if (media_write_fd > 0)
-    {
-        DMX_USB_DBG("close media_write_fd");
-        close(media_write_fd);
-        media_write_fd = -1;
-    }
-    if (rec_dmx_fd > 0)
-    {
-        DMX_USB_DBG("close rec_dmx_fd");
-        ioctl(rec_dmx_fd, DMX_STOP, 0);
-        close(rec_dmx_fd);
-        rec_dmx_fd = -1;
-    }
-    if (rec_dvr_fd > 0)
-    {
-        DMX_USB_DBG("close rec_dvr_fd");
-        close(rec_dvr_fd);
-        rec_dvr_fd = -1;
-    }
-    if (inj_dvr_fd > 0)
-    {
-        DMX_USB_DBG("close inj_dvr_fd");
-        ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_DEMOD);
-        close(inj_dvr_fd);
-        inj_dvr_fd = -1;
-    }
 }
 
 static void *cimodule_media_read_task(void *args)
@@ -315,7 +280,7 @@ static void *cimodule_media_read_task(void *args)
     struct usb_cimodule_info tUsbCiModuleInfo = {0};
     unsigned char bMediaOutputCtrl = 0;
     char *usbdata_buf;
-    int count = 0;
+
     usbdata_buf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE * 2);
     if (!usbdata_buf)
     {
@@ -324,19 +289,18 @@ static void *cimodule_media_read_task(void *args)
     }
 
     DMX_USB_DBG("entry");
-    ret = ioctl(media_read_fd, AML_USBCAM_IOC_GET_INFO, &tUsbCiModuleInfo);
+
+    ret = cimodule_get_usb_cimodule_info(media_read_fd, &tUsbCiModuleInfo);
     if (ret < 0)
     {
         DMX_USB_DBG("(handle: %d),get device info error,error code:%d", media_read_fd, ret);
         return NULL;
     }
-    DMX_USB_DBG("tUsbCiModuleInfo.m_bIsCI20Detected %d",tUsbCiModuleInfo.m_bIsCI20Detected);
-    DMX_USB_DBG("tUsbCiModuleInfo.m_dwCiCompatibility 0x%x",tUsbCiModuleInfo.m_dwCiCompatibility);
-    if (!tUsbCiModuleInfo.m_bIsCI20Detected)
+
+    if (!tUsbCiModuleInfo.m_bIsCI20Deteced)
     {
         // refer to CI_OVER_USB_1.0 SPEC
         bMediaOutputCtrl = (unsigned char)((tUsbCiModuleInfo.m_dwCiCompatibility >> 7) & 0x01);
-        DMX_USB_DBG("bMediaOutputCtrl %d",bMediaOutputCtrl);
         if (MEDIA_OUTPUT_ENABLE != bMediaOutputCtrl)
         {
             DMX_USB_DBG("can not read media from usb ci module in this mode");
@@ -346,13 +310,12 @@ static void *cimodule_media_read_task(void *args)
 
     while (thread_running)
     {
-
-        ret = cimodule_intf_read(media_read_fd, pbMediaReadBuf, USB_CIMODULE_MEDIA_MAX_SIZE, &read_len);
-        if (ret == USBCAM_UNPLUG || ret == USBCAM_NODEVICE)
+        ret = cimodule_media_intf_read(media_read_fd, g_pbMediaReadBuf, USB_CIMODULE_MEDIA_MAX_SIZE, &read_len, -1);
+        if (ret == USBCAM_UNPLUG)
         {
             goto EXIT;
         }
-
+        // DMX_USB_DBG("read ret %d", ret);
         if (read_len > 0)
         {
             // Dummy data
@@ -362,8 +325,6 @@ static void *cimodule_media_read_task(void *args)
             }
             else
             {
-                count++;
-                DMX_USB_DBG("read ret %d read_len %d count %d pbMediaReadBuf[0]", ret, read_len, count,pbMediaReadBuf[0]);
                 // TODO: How to determine precise short packet length
                 if (read_len < 1024 * 5)
                 {
@@ -371,7 +332,7 @@ static void *cimodule_media_read_task(void *args)
                     if (usbdata_len == 0)
                         continue;
                 }
-                memcpy(usbdata_buf + usbdata_len, pbMediaReadBuf, read_len);
+                memcpy(usbdata_buf + usbdata_len, g_pbMediaReadBuf, read_len);
                 usbdata_len += read_len;
                 if (usbdata_len >= USB_CIMODULE_MEDIA_MAX_SIZE)
                 {
@@ -382,8 +343,8 @@ static void *cimodule_media_read_task(void *args)
                 // DMX_USB_DBG("read %d, inject %d", read_len, inj_len);
 #ifdef DMX_USB_TEST
                 if (save_fd < 0)
-                    save_fd = open("/data/w.ts", O_RDWR | O_CREAT, S_IRWXU | S_IRGRP | S_IROTH);
-                write(save_fd, pbMediaReadBuf, read_len);
+                    save_fd = open("/data/w.ts", O_RDWR);
+                write(save_fd, g_pbMediaReadBuf, read_len);
 #endif
             }
         }
@@ -397,52 +358,39 @@ static void *cimodule_media_read_task(void *args)
 EXIT:
     DMX_USB_DBG("usbcam unplug, media read task exit.");
     module_inserted = FALSE;
-    // reset_resource();
-    close(media_read_fd);
-    media_read_fd = -1;
     if (usbdata_buf)
         free(usbdata_buf);
     return NULL;
 }
 
-/****************************************/
 static void *cimodule_media_write_task(void *args)
 {
-    int ret,inj_len,usbdata_len = 0;
-
+    int ret;
+    int fdMedia = -1;
     struct usb_cimodule_info tUsbCiModuleInfo;
     unsigned int dwCiCompatibility;
     unsigned char bMediaInputCtrl;
     unsigned char *buffer;
     int write_len, rec_len, threshold;
-    unsigned char bMediaOutputCtrl = 0;
     static int fd = -1;
-    int count = 0;
-    usbci_module_capabilities_t  usbci_module_capabilities;
     unsigned char arDummyTsHdr[10] = {0x00, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-    int wsave_fd = -1;
-
-    int read_len,save_len;
-    int i;
     DMX_USB_DBG("entry");
     buffer = STB_MEMGetSysRAM(REC_BUFF_SIZE);
     write_len = 0;
-
+    // Aml_MP_SetDemuxSource(0, DVB_DEMUX_SOURCE_DMA0 + inj_dev_id);
     threshold = 0;
+    DMX_USB_DBG("open usb cimodlue media interface succeessfully,write handle:%d", media_write_fd);
 
-    DMX_USB_DBG("open usb cimodlue media interface successfully,handle:%d", media_write_fd);
-
-    ret = ioctl(media_write_fd, AML_USBCAM_IOC_GET_INFO, &tUsbCiModuleInfo);
+    ret = cimodule_get_usb_cimodule_info(media_write_fd, &tUsbCiModuleInfo);
     if (ret < 0)
     {
         DMX_USB_DBG("(handle: %d),get device info error,error code:%d", media_write_fd, ret);
         return NULL;
     }
+    DMX_USB_DBG("get cimodule info ok");
 
-    DMX_USB_DBG("tUsbCiModuleInfo.m_bIsCI20Detected %d",tUsbCiModuleInfo.m_bIsCI20Detected);
-    DMX_USB_DBG("tUsbCiModuleInfo.m_dwCiCompatibility 0x%x",tUsbCiModuleInfo.m_dwCiCompatibility);
-    if (!tUsbCiModuleInfo.m_bIsCI20Detected)
+    if (!tUsbCiModuleInfo.m_bIsCI20Deteced)
     {
         // refer to CI_OVER_USB_1.0 SPEC
         bMediaInputCtrl = (unsigned char)((tUsbCiModuleInfo.m_dwCiCompatibility >> 6) & 0x01);
@@ -454,65 +402,56 @@ static void *cimodule_media_write_task(void *args)
     }
     DMX_USB_DBG("ci20 detected ok");
 
-    // DMX_USB_DBG("ready to inject ts, buf %p", pbMediaWriteBuf);
-
-    // DMX_USB_DBG("ready to inject ts,Write buf %p read buf%p", pbMediaWriteBuf,pbMediaReadBuf);
+    DMX_USB_DBG("ready to inject ts, buf %p", g_pbMediaWriteBuf);
 
     while (thread_running)
-        {
+    {
 #ifndef INJECT_FROM_FILE
-            rec_len = record_from_tsin(buffer + threshold, USB_CIMODULE_MEDIA_MAX_SIZE);
+        rec_len = record_from_tsin(buffer + threshold, USB_CIMODULE_MEDIA_MAX_SIZE);
 #else
-            if (fd <= 0)
-                fd = open("/data/test.ts", O_RDONLY);
-            rec_len = read(fd, buffer, USB_CIMODULE_MEDIA_MAX_SIZE);
+        if (fd <= 0)
+            fd = open("/data/test.ts", O_RDONLY);
+        rec_len = read(fd, buffer, USB_CIMODULE_MEDIA_MAX_SIZE);
 #endif
-            if (rec_len > 0)
-                threshold += rec_len;
-            while ((threshold >= USB_CIMODULE_MEDIA_MAX_SIZE) && thread_running)
+        if (rec_len > 0)
+            threshold += rec_len;
+
+        while ((threshold >= USB_CIMODULE_MEDIA_MAX_SIZE) && thread_running)
+        {
+            // DMX_USB_DBG("write dummy first");
+            memcpy(g_pbMediaWriteBuf, arDummyTsHdr, 10);
+            ret = cimodule_media_intf_write(media_write_fd, g_pbMediaWriteBuf, 10, &write_len, -1);
+#ifdef DEMUX_USB_MODULE_DEBUG
+            DMX_USB_DBG("write dummy len %d ret %d", write_len, ret);
+#endif
+            memcpy(g_pbMediaWriteBuf, buffer, USB_CIMODULE_MEDIA_MAX_SIZE);
+            if (ret == 0)
             {
-                count++;
-
-                memcpy(pbMediaWriteBuf, arDummyTsHdr, 10);
-                ret = cimodule_intf_write(media_write_fd, pbMediaWriteBuf, 10, &write_len);
-#ifdef DEMUX_USB_MODULE_DEBUG
-                DMX_USB_DBG("write dummy len %d ret %d", write_len, ret);
-#endif
-                memcpy(pbMediaWriteBuf, buffer, USB_CIMODULE_MEDIA_MAX_SIZE);
-
-                if (ret == 0)
+                ret = cimodule_media_intf_write(media_write_fd, g_pbMediaWriteBuf, USB_CIMODULE_MEDIA_MAX_SIZE, &write_len, -1);
+                if (ret != 0)
                 {
-                    ret = cimodule_intf_write(media_write_fd, pbMediaWriteBuf, USB_CIMODULE_MEDIA_MAX_SIZE, &write_len);
-                    if (ret != 0) {
-                        DMX_USB_DBG("write usb cam failed!!!! %d", ret);
-                        goto EXIT;
-                    }
-
-#ifdef DEMUX_USB_MODULE_DEBUG
-                    DMX_USB_DBG("write ts len %d ret %d count %d", write_len, ret, count);
-#endif
-                    memmove(buffer, buffer + write_len, threshold - write_len);
-                    threshold -= write_len;
-                }
-#ifdef DEMUX_USB_MODULE_DEBUG
-                else if (ret == USBCAM_UNPLUG || ret == USBCAM_NODEVICE)
-                {
+                    DMX_USB_DBG("write usb cam failed!!!! %d", ret);
                     goto EXIT;
                 }
+#ifdef DEMUX_USB_MODULE_DEBUG
+                DMX_USB_DBG("write ts len %d ret %d", write_len, ret);
+                DMX_USB_DBG("write count %d", count);
 #endif
+                memmove(buffer, buffer + write_len, threshold - write_len);
+                threshold -= write_len;
+            }
+            else if (ret == USBCAM_UNPLUG)
+            {
+                goto EXIT;
             }
         }
-
+    }
 EXIT:
     DMX_USB_DBG("usbcam unplug, media write task exit.");
     module_inserted = FALSE;
-    // reset_resource();
-    close(media_write_fd);
-    media_write_fd = -1;
 
     return NULL;
 }
-
 
 static void *cimodule_cmd_read_task(void *args)
 {
@@ -526,21 +465,20 @@ static void *cimodule_cmd_read_task(void *args)
 
     while (thread_running)
     {
-
-        ret = cimodule_intf_read(g_pCmdFd, g_pCmdReadBuf, USB_CIMODULE_COMMAND_MAX_SIZE, &len);
+        ret = cimodule_cmd_intf_read(cmd_rw_fd, g_pCmdReadBuf, USB_CIMODULE_COMMAND_MAX_SIZE, &len, -1);
 #ifdef DEMUX_USB_MODULE_DEBUG
         for (i=0;i<16;i++)
             sprintf(buffer+3*i, "%2x ", g_pCmdReadBuf[i]);
         DMX_USB_DBG("====> %s", buffer);
 #endif
+
         if (ret != 0)
         {
+            // if (ret == USBCAM_UNPLUG)
             if (ret < 0)
             {
                 DMX_USB_DBG("cmd_read: usbcam unplug detect, exit");
                 module_inserted = FALSE;
-                close(g_pCmdFd);
-                g_pCmdFd = -1;
                 break;
             }
         }
@@ -624,30 +562,6 @@ static int inject_usbcam_source_demux(void *data, int data_len)
 }
 
 /**
- * \brief   When ts data route using usbcam, play/record etc demux
- *          need set source to usbcam demux.
- *          This function will return usbcam demux number.
- * \param live if requirement is called by live path.
- * \return  demux source in code.
- */
-U8BIT STB_CIUsbGetDmxSource(BOOLEAN live)
-{
-    if (live)
-        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
-    else
-        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
-}
-
-/**
- * \brief   Check if usbcam is plugged.
- * \return  TRUE if cam is inserted.
- */
-BOOLEAN STB_CIUsbModuleInserted()
-{
-    return module_inserted;
-}
-
-/**
  * \brief STB_CIUsbOpen
  *        called by usbt, usb monitor thread will call this function
  *          to see if usb cam is plug in/unplug.
@@ -655,10 +569,9 @@ BOOLEAN STB_CIUsbModuleInserted()
  */
 int STB_CIUsbOpen()
 {
+    int ret = 0;
     unsigned int dwDriverVersion = 0;
     struct usb_cimodule_info tUsbCiModuleInfo;
-    usbci_module_capabilities_t  usbci_module_capabilities;
-    int ret = 0;
     const char *pbFileName = "/dev/cimodule_command0";
 
     init_mutex();
@@ -674,51 +587,33 @@ int STB_CIUsbOpen()
         return TRUE;
     }
 
-    // if (0 == access(pbFileName, F_OK))
-    // {
-    //     g_pCmdFd = open(pbFileName, O_RDWR);
+    if (0 == access(pbFileName, F_OK))
+    {
+        cmd_rw_fd = cimodule_cmd_intf_open(pbFileName, O_RDWR);
 
-    //     if (g_pCmdFd < 0)
-    //     {
-    //         DMX_USB_DBG("cimodule cmd interface open failed");
-    //         goto ERR;
-    //     }
-    // }
-    // else
-    // {
-    //     DMX_USB_DBG("access %s failed", pbFileName);
-    //     goto ERR;
-    // }
-    if (0 == access(pbFileName, F_OK)) {
-        if (module_inserted == FALSE) {
-            sleep(1);
-            g_pCmdFd = open(pbFileName, O_RDWR);
-            if (g_pCmdFd < 0) {
-                DMX_USB_DBG("open %s failed", pbFileName);
-                goto ERR;
-            }
-        } else {
-            DMX_USB_DBG(" %s opened", pbFileName);
+        if (cmd_rw_fd < 0)
+        {
+            DMX_USB_DBG("cimodule cmd interface open failed");
+            goto ERR;
         }
-    } else {
+    }
+    else
+    {
         DMX_USB_DBG("access %s failed", pbFileName);
-        g_pCmdFd = -1;
         goto ERR;
     }
-
-    ioctl(g_pCmdFd, AML_USBCAM_IOC_GET_DRIVER_VERSION, &dwDriverVersion);
+    cimodule_get_driver_version(cmd_rw_fd, &dwDriverVersion);
     DMX_USB_DBG("usbcimodule driver version: %d.%d.%d.%d",
                 (dwDriverVersion & 0xFF000000) >> 24,
                 (dwDriverVersion & 0x00FF0000) >> 16,
                 (dwDriverVersion & 0x0000FF00) >> 8,
                 dwDriverVersion & 0x000000FF);
 
+    cimodule_get_usb_cimodule_info(cmd_rw_fd, &tUsbCiModuleInfo);
 
-    ioctl(g_pCmdFd, AML_USBCAM_IOC_MODULE_CAPABILITIES, &usbci_module_capabilities);
-    DBG("ci_manufacturer_name = %s\n",usbci_module_capabilities.ci_manufacturer_name);
-    DBG("ci_product_name = %s\n",usbci_module_capabilities.ci_product_name);
-    DBG("ci_plus_supported = %d\n",usbci_module_capabilities.ci_plus_supported);
-    DBG("op_profile_supported = %d\n",usbci_module_capabilities.op_profile_supported);
+    DMX_USB_DBG("Show the usb cimodule Info: ");
+    DMX_USB_DBG("Vendor Id: 0x%x", tUsbCiModuleInfo.m_wVendorId);
+    DMX_USB_DBG("Product Id: 0x%x", tUsbCiModuleInfo.m_wProductId);
 
     if (media_read_fd < 0)
         media_read_fd = ci_media_read_open();
@@ -730,17 +625,18 @@ int STB_CIUsbOpen()
         goto ERR;
     }
 
-    g_pCmdWriteBuf = STB_MEMGetSysRAM(USB_CIMODULE_COMMAND_MAX_SIZE);
-    g_pCmdReadBuf = STB_MEMGetSysRAM(USB_CIMODULE_COMMAND_MAX_SIZE);
-
-    pbMediaWriteBuf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE);
-    pbMediaReadBuf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE);
+    g_pCmdWriteBuf = cimodule_cmd_intf_mmap_writebuf(cmd_rw_fd, USB_CIMODULE_COMMAND_MAX_SIZE);
+    g_pCmdReadBuf = cimodule_cmd_intf_mmap_readbuf(cmd_rw_fd, USB_CIMODULE_COMMAND_MAX_SIZE);
+    g_pbMediaReadBuf = cimodule_media_intf_mmap_readbuf(media_read_fd, USB_CIMODULE_MEDIA_MAX_SIZE);
+    g_pbMediaWriteBuf = cimodule_media_intf_mmap_writebuf(media_write_fd, USB_CIMODULE_MEDIA_MAX_SIZE);
 
     prepare_working_demuxes();
+    module_init = TRUE;
     module_inserted = TRUE;
     thread_running = TRUE;
-    module_init = TRUE;
+
     pthread_mutex_unlock(&resource_mutex);
+
     ret = pthread_create(&tMediaReadTaskId, NULL, (void *)cimodule_media_read_task, NULL);
     if (ret != 0)
         goto ERR;
@@ -750,6 +646,7 @@ int STB_CIUsbOpen()
     ret = pthread_create(&tCmdReadTaskId, NULL, (void *)cimodule_cmd_read_task, NULL);
     if (ret != 0)
         goto ERR;
+
 
     return TRUE;
 
@@ -804,7 +701,6 @@ int STB_CIUsbClose()
     module_init = FALSE;
 
     pthread_mutex_unlock(&resource_mutex);
-
     return 0;
 }
 
@@ -817,16 +713,14 @@ S32BIT STB_CIUsbWrite(U8BIT *buffer, U32BIT len)
 #endif
     unsigned int i;
 
-    DMX_USB_DBG("STB_CIUsbWrite len %d ",len);
-
     if (len > USB_CIMODULE_COMMAND_MAX_SIZE)
     {
         DMX_USB_DBG("write data is longer than buffer size, failed");
         return -1;
     }
     memcpy(g_pCmdWriteBuf, buffer, len);
-    if (g_pCmdFd > 0)
-        ret = cimodule_intf_write(g_pCmdFd, g_pCmdWriteBuf, len, &dwActualSendLen);
+    if (cmd_rw_fd > 0)
+        ret = cimodule_cmd_intf_write(cmd_rw_fd, g_pCmdWriteBuf, len, &dwActualSendLen, -1);
     else
     {
         DMX_USB_DBG("cmd fd is closed, exit.");
@@ -898,7 +792,7 @@ U8BIT STB_CIUsbCamTotal(void)
 {
     return 1;
 }
-
+#endif
 /**
  * \brief STB_DMXUsbGetTsDemux
  *        get the inject usb demux number, and set other
@@ -918,4 +812,27 @@ int STB_DMXUsbGetTsDemux()
 BOOLEAN STB_DMXUsbIsEnable()
 {
     return TRUE;
+}
+/**
+ * \brief   When ts data route using usbcam, play/record etc demux
+ *          need set source to usbcam demux.
+ *          This function will return usbcam demux number.
+ * \param live if requirement is called by live path.
+ * \return  demux source in code.
+ */
+U8BIT STB_CIUsbGetDmxSource(BOOLEAN live)
+{
+    if (live)
+        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
+    else
+        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
+}
+
+/**
+ * \brief   Check if usbcam is plugged.
+ * \return  TRUE if cam is inserted.
+ */
+BOOLEAN STB_CIUsbModuleInserted()
+{
+    return module_inserted;
 }

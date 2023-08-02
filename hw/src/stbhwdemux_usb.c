@@ -128,7 +128,7 @@ static BOOLEAN set_usbcam_recording_demux(int source)
     struct dmx_pes_filter_params params;
     int ret;
 
-    Aml_MP_SetDemuxSource(rec_dev_id, source);
+    STB_DMXSetSource(rec_dev_id, source);
     DMX_USB_DBG("================= set usb camcard data source %d", source);
 
     snprintf(rec_dmx_path, sizeof(rec_dmx_path), "/dev/dvb0.demux%d", rec_dev_id);

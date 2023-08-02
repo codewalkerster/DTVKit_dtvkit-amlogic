@@ -10,6 +10,7 @@ extern "C" {
 // Ocean Blue Software header files
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "stb_utils.h"
 #include "linuxdvbdmx_wrapper.h"
 #include "systemcontrol.h"
 #include "ap_cfg.h"
@@ -66,7 +67,7 @@ frequency:  4: only show once,will recovery when receive new frame.
             if (color == VIDEO_LAYER_COLOR_MAX)
             {
                 SCDBG("@@@@@@@@@@@@@ UNMUTE");
-                if (DMX_IsNewHW())
+                if (STB_IsNewHW())
                 {
                     //no need
                 }
@@ -86,7 +87,7 @@ frequency:  4: only show once,will recovery when receive new frame.
                     SCDBG("@@@@@@@@@@@@@ MUTE black [%d]", color);
                 }
 
-                if (DMX_IsNewHW())
+                if (STB_IsNewHW())
                 {
                     s32Ret = sws->setVideoScreenColorByVT(window,color,5);
                 }

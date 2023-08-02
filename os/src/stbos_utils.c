@@ -18,6 +18,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include "dtv_log.h"
 #define TAG  "STBOS_UTILS"
 
@@ -170,3 +173,18 @@ BOOLEAN STB_File_Read(const char *name, char *buf, int len)
     close(fp);
     return TRUE;
 }
+
+ BOOLEAN STB_IsNewHW(void)
+{
+    char node[32];
+    struct stat st;
+    int r;
+    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
+    r = stat(node, &st);
+    if (r == -1)
+    {
+        return TRUE;
+    }
+    return FALSE;
+}
+

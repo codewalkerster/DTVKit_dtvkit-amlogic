@@ -35,6 +35,7 @@
 #include "stbhwcfg.h"
 #include "stbhwc.h"
 #include "stbhwmem.h"
+#include "stb_utils.h"
 
 #define DMX_COUNT (6)
 #define DMX_FILTER_COUNT (32*DMX_COUNT)
@@ -543,7 +544,7 @@ BOOLEAN DMX_SetSource(int dev_no, AML_DMX_Source_t src)
         return FALSE;
     }
 
-    return DMX_FileEcho(buf, cmd);
+    return STB_File_Echo(buf, cmd);
 }
 
 
@@ -625,44 +626,3 @@ BOOLEAN DMX_Close(int dev_no)
     pthread_mutex_unlock(&dev->lock);
     return ret;
 }
-
-BOOLEAN DMX_FileEcho(const char *name, const char *cmd)
-{
-    int fd, len, ret;
-
-    if (!name || !cmd)
-        return FALSE;
-
-    fd = open(name, O_WRONLY);
-    if (fd == -1)
-    {
-        DMX_DBG("cannot open file \"%s\"", name);
-        return FALSE;
-    }
-
-    len = strlen(cmd);
-    ret = write(fd, cmd, len);
-    if (ret != len)
-    {
-        DMX_DBG("write failed file:\"%s\" cmd:\"%s\" error:\"%s\"", name, cmd, strerror(errno));
-        close(fd);
-        return FALSE;
-    }
-
-    close(fd);
-    return TRUE;
-}
- BOOLEAN DMX_IsNewHW(void)
-{
-    char node[32];
-    struct stat st;
-    int r;
-    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
-    r = stat(node, &st);
-    if (r == -1)
-    {
-        return TRUE;
-    }
-    return FALSE;
-}
-

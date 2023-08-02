@@ -54,11 +54,13 @@
 #include "stbhwos.h"
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
-#include "linuxdvbdmx_wrapper.h"
+//#include "linuxdvbdmx_wrapper.h"
 #include "stbdpc.h"
 #include "stb_utils.h"
+#include "stbci.h"
 #include "stbhwdemux_usb.h"
-#include <Aml_MP/Aml_MP.h>
+//#include <Aml_MP/Aml_MP.h>
+#include "wrapper_dmx.h"
 
 #define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
@@ -80,8 +82,8 @@
 #define DEMUX_SECTION_FILTER_LENGTH 8
 
 #define MAX_PID_FILTERS             24
-#define MAX_SECTION_FILTERS         16
-#define MAX_FILTERS_PER_PID         8
+//#define MAX_SECTION_FILTERS         16
+//#define MAX_FILTERS_PER_PID         8
 #define MAX_TEMI_FILTERS            2
 
 #define DEMUX_FILTER_NOT_ALLOCATED  0xFFFF
@@ -164,7 +166,7 @@ typedef enum
 
 typedef void(*SectionFilterFunc)(U8BIT path, U16BIT bytes, U16BIT pfilt_id);
 
-typedef struct s_section_filter_info
+/*typedef struct s_section_filter_info
 {
    BOOLEAN in_use;
    U8BIT match[DEMUX_SECTION_FILTER_LENGTH];
@@ -173,7 +175,7 @@ typedef struct s_section_filter_info
    BOOLEAN setup;
    BOOLEAN empty_mask;
 } S_SECTION_FILTER_INFO;
-
+*/
 #ifdef TEMI_TIMELINES
 typedef struct s_temi_filter
 {
@@ -185,6 +187,7 @@ typedef struct s_temi_filter
 } S_TEMI_FILTER;
 #endif
 
+/*
 typedef struct s_pid_filter_info
 {
    U8BIT index;
@@ -197,7 +200,7 @@ typedef struct s_pid_filter_info
    FILTER_CALLBACK func_ptr[MAX_FILTERS_PER_PID];
    U8BIT start_count[MAX_FILTERS_PER_PID];
 } S_PID_FILTER_INFO;
-
+*/
 typedef struct s_des_track_info
 {
    int chanid;
@@ -257,7 +260,7 @@ static int g_max_dev_num;
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
 
-static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
+static void PidCallback(ST_CALLBACK_T* param);
 static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
 static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
@@ -301,7 +304,6 @@ typedef struct s_sc2_dsc_dev_info
       int iv_odd_key_id;
       int one_key_id;
       int iv_one_key_id;
-      int dev_id;
    } dsc_pid_channel[SC2_DSC_CH_NUM];
 } S_SC2_DSC_DEV_INFO;
 
@@ -358,7 +360,7 @@ static BOOLEAN Is_DDB_Filter(S_PID_FILTER_INFO * pidfilter)
     return result;
 }
 
-static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC_CA_TYPE dsc_type, int dev_id)
+static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC_CA_TYPE dsc_type)
 {
    int i;
    struct s_sc2_dsc_channel *dsc_channel = NULL;
@@ -375,8 +377,7 @@ static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC
       if (dsc_channel->ref > 0 &&
           dsc_channel->src == src &&
           dsc_channel->pid == pid &&
-          dsc_channel->dsc_type == dsc_type &&
-          dsc_channel->dev_id == dev_id)
+          dsc_channel->dsc_type == dsc_type)
       {
          DMX_DBG("found channel");
          return dsc_channel;
@@ -498,7 +499,7 @@ static int key_set(int fd, int key_index, char *key, int key_len)
 }
 
 static int ca_set_scb(int dev_id, int index, int scb_flag)
-{  
+{
    int ret = 0;
    int fd = 0;
    struct ca_sc2_descr_ex desc = {0};
@@ -601,7 +602,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
    int chan_id = -1;
    int i, r, id;
    char name[256];
-   
+
    DMX_DBG("dev %d pid %x dsc_type %d %s", dev_id, pid, type, name);
 
    if (dmx_model_sc2)
@@ -645,7 +646,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       }
       //Find if pid exists
       ts_src = STB_GetDmxTsSource(dev_id);
-      dsc_channel = sc2_find_dsc_channel_by_pid(ts_src, pid, dsc_type, dev_id);
+      dsc_channel = sc2_find_dsc_channel_by_pid(ts_src, pid, dsc_type);
 
       if (dsc_channel)
       {
@@ -731,7 +732,6 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
          dsc_channel->iv_odd_key_id = -1;
          dsc_channel->one_key_id = -1;
          dsc_channel->iv_one_key_id = -1;
-         dsc_channel->dev_id = dev_id;
          dsc->dsc_ref[dev_id]++;
       }
       STB_OSMutexUnlock(dsc->mutex);
@@ -844,7 +844,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       for (i = 0; i < SC2_DSC_CH_NUM; i++)
       {
          dsc_channel = &sc2_dsc_dev_info->dsc_pid_channel[i];
-         if (dsc_channel->chan_id == chan_id && 
+         if (dsc_channel->chan_id == chan_id &&
                dsc_channel->ref > 0 &&
                dsc_channel->src == ts_src)
          {
@@ -865,7 +865,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
                r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
                if (r < 0)
                   DMX_DBG("CA_SC2_SET_DESCR_EX free channel failed");
-               
+
                if (dsc_channel->even_key_id != -1)
                   key_free(dsc->key_fd, dsc_channel->even_key_id);
                if (dsc_channel->odd_key_id != -1)
@@ -891,7 +891,6 @@ void STB_DMXDscFree(int dev_id, int chan_id)
                dsc_channel->pid = -1;
                dsc_channel->chan_id = -1;
                dsc_channel->ref = 0;
-               dsc_channel->dev_id = -1;
 
                dsc->dsc_ref[dev_id]--;
             }
@@ -1201,7 +1200,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
          memset(demux_status, 0, sizeof(S_DMX_STATUS) * num_paths);
          for (i = 0; i < num_paths; i++)
          {
-            am_result = DMX_Open(i);
+            am_result = TRUE;//DMX_Open(i);
             if (am_result)
             {
                demux_status[i].path = i;
@@ -1332,7 +1331,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
             sc2_dsc_dev_info->dsc_pid_channel[i].pid = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].chan_id = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].dsc_type = -1;
-            sc2_dsc_dev_info->dsc_pid_channel[i].dev_id = -1;
          }
       }
       else
@@ -1476,9 +1474,11 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
          if (demux_status[path].text_started)
          {
             /* Stop the filter and clear the callback */
-            DMX_StopFilter(path, demux_status[path].text_fhandle);
-            DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
-            DMX_FreeFilter(path, demux_status[path].text_fhandle);
+#if 0
+            //DMX_StopFilter(path, demux_status[path].text_fhandle);
+            //DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
+            //DMX_FreeFilter(path, demux_status[path].text_fhandle);
+#endif
             demux_status[path].text_fhandle = -1;
             demux_status[path].text_started = FALSE;
 
@@ -1511,7 +1511,7 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
          /* Set invalid PID value */
          text_pid = INVALID_PID;
       }
-
+#if 0
       if (text_pid != INVALID_PID)
       {
          /* Open a demux instance for the text (subtitle) PES */
@@ -1575,6 +1575,7 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
          }
 
       }
+ #endif
    }
 
    FUNCTION_FINISH(STB_DMXChangeTextPID);
@@ -1680,6 +1681,7 @@ U16BIT  STB_DMXGrabPIDFilter(U8BIT path, U16BIT pid, FILTER_CALLBACK func_ptr)
    S_PID_FILTER_INFO* filter_ptr;
 
    FUNCTION_START(STB_DMXGrabPIDFilter);
+   DMX_DBG("STB_DMXGrabPIDFilter Start");
 
    pfilt_id = DEMUX_FILTER_NOT_ALLOCATED;
 
@@ -1710,7 +1712,7 @@ U16BIT  STB_DMXGrabPIDFilter(U8BIT path, U16BIT pid, FILTER_CALLBACK func_ptr)
 
          pfilt_id = (filter_index << 8);
 #ifdef FILTER_PRINTS
-//printf(">> %s(%u): pid=%u, fd=%d, func=%p, 0x%04x - NEW\n", __FUNCTION__, path, pid, filter_ptr->filter_fd, func_ptr, pfilt_id);
+DMX_DBG(">> %s(%u): pid=%u, fd=%d, func=%p, 0x%04x - NEW\n", __FUNCTION__, path, pid, filter_ptr->filter_fd, func_ptr, pfilt_id);
 #endif
       }
       else
@@ -1722,6 +1724,7 @@ U16BIT  STB_DMXGrabPIDFilter(U8BIT path, U16BIT pid, FILTER_CALLBACK func_ptr)
    }
 
    FUNCTION_FINISH(STB_DMXGrabPIDFilter);
+   DMX_DBG("STB_DMXGrabPIDFilter end");
 
    return(pfilt_id);
 }
@@ -1737,6 +1740,7 @@ void STB_DMXReleasePIDFilter(U8BIT path, U16BIT pfilt_id)
    S_PID_FILTER_INFO* filter_ptr;
    BOOLEAN no_more_funcs;
    U8BIT i;
+   DMX_DBG("STB_DMXReleasePIDFilter Start");
 
    FUNCTION_START(STB_DMXReleasePIDFilter);
 
@@ -1801,6 +1805,7 @@ void STB_DMXReleasePIDFilter(U8BIT path, U16BIT pfilt_id)
 
       STB_OSMutexUnlock(demux_status[path].config_mutex);
    }
+   DMX_DBG("STB_DMXReleasePIDFilter end");
 
    FUNCTION_FINISH(STB_DMXReleasePIDFilter);
 }
@@ -1819,6 +1824,7 @@ U16BIT STB_DMXGrabSectFilter(U8BIT path, U16BIT pfilt_id)
    U16BIT i;
 
    FUNCTION_START(STB_DMXGrabSectFilter);
+   DMX_DBG("STB_DMXGrabSectFilter Start");
 
    sfilt_id = DEMUX_FILTER_NOT_ALLOCATED;
 
@@ -1852,15 +1858,16 @@ U16BIT STB_DMXGrabSectFilter(U8BIT path, U16BIT pfilt_id)
           * so that we can get back to it.  This relies on there not being more
           * than 16 section filters for each PID filter */
          sfilt_id += pfilt_id;
-#ifdef FILTER_PRINTS
-printf(">> %s(%u, 0x%04x): pid=%u, sfilt=0x%04x\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, sfilt_id);
-#endif
+//#ifdef FILTER_PRINTS
+DMX_DBG(">> %s(%u, 0x%04x): pid=%u, sfilt=0x%04x\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, sfilt_id);
+//#endif
       }
 
       STB_OSMutexUnlock(demux_status[path].config_mutex);
    }
 
    FUNCTION_FINISH(STB_DMXGrabSectFilter);
+   DMX_DBG("STB_DMXGrabSectFilter end");
 
    return(sfilt_id);
 }
@@ -1877,6 +1884,7 @@ void STB_DMXReleaseSectFilter(U8BIT path, U16BIT sfilt_id)
    S_SECTION_FILTER_INFO* sect_filter;
 
    FUNCTION_START(STB_DMXReleaseSectFilter);
+   DMX_DBG("STB_DMXReleaseSectFilter Start");
 
    if (path < num_paths)
    {
@@ -1888,9 +1896,9 @@ void STB_DMXReleaseSectFilter(U8BIT path, U16BIT sfilt_id)
 
       STB_OSMutexLock(demux_status[path].config_mutex);
 
-#ifdef FILTER_PRINTS
-printf(">> %s(%u, 0x%04x): in_use=%u\n", __FUNCTION__, path, sfilt_id, sect_filter->in_use);
-#endif
+//#ifdef FILTER_PRINTS
+DMX_DBG(">> %s(%u, 0x%04x): in_use=%u\n", __FUNCTION__, path, sfilt_id, sect_filter->in_use);
+//#endif
       if (sect_filter->in_use)
       {
          sect_filter->in_use = FALSE;
@@ -1901,6 +1909,7 @@ printf(">> %s(%u, 0x%04x): in_use=%u\n", __FUNCTION__, path, sfilt_id, sect_filt
 
       STB_OSMutexUnlock(demux_status[path].config_mutex);
    }
+   DMX_DBG("STB_DMXReleaseSectFilter end");
 
    FUNCTION_FINISH(STB_DMXReleaseSectFilter);
 }
@@ -1923,6 +1932,8 @@ void STB_DMXSetupSectFilter(U8BIT path, U16BIT sfilt_id, U8BIT *match_ptr, U8BIT
    S_SECTION_FILTER_INFO *sect_filter;
    U8BIT do_masking;
    U8BIT i;
+   BOOLEAN am_result;
+   DMX_DBG("STB_DMXSetupSectFilter Start");
 
    FUNCTION_START(STB_DMXSetupSectFilter);
    USE_UNWANTED_PARAM(not_equal_byte_index);
@@ -1963,8 +1974,10 @@ printf(">> %s(%u, 0x%04x, crc=%u)\n", __FUNCTION__, path, sfilt_id, crc);
 
       UpdateSectionFilter(path, pid_filter_index);
 
+
       STB_OSMutexUnlock(demux_status[path].config_mutex);
    }
+   DMX_DBG("STB_DMXSetupSectFilter end");
 
    FUNCTION_FINISH(STB_DMXSetupSectFilter);
 }
@@ -1982,6 +1995,7 @@ void  STB_DMXStartPIDFilter(U8BIT path, U16BIT pfilt_id)
    BOOLEAN am_result = TRUE;
 
    FUNCTION_START(STB_DMXStartPIDFilter);
+   DMX_DBG("STB_DMXStartPIDFilter Start");
 
    if (path < num_paths)
    {
@@ -1999,7 +2013,8 @@ void  STB_DMXStartPIDFilter(U8BIT path, U16BIT pfilt_id)
 printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pfilt_id,
    pid_filter->start_count[handler_index], pid_filter->started);
 #endif
-
+//HOOK
+#if 0
       if (!pid_filter->started)
       {
          if (pid_filter->fhandle == -1)
@@ -2051,9 +2066,29 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
             }
          }
       }
+#endif
 
+
+      if (!pid_filter->started)
+      {
+             if (pid_filter->fhandle != -1)
+             {
+                   am_result = DMX_StartFilter(pid_filter->fhandle);
+                   if (am_result)
+                   {
+                      pid_filter->started = TRUE;
+                      demux_status[path].num_pid_filters_started++;
+                   }
+            }
+            else
+            {
+                   DMX_ERR("%u: Failed to set callback for PID filter 0x%04x, error %d", path,
+                      pfilt_id, am_result);
+            }
+      }
       STB_OSMutexUnlock(demux_status[path].config_mutex);
    }
+   DMX_DBG("STB_DMXStartPIDFilter end");
 
    FUNCTION_FINISH(STB_DMXStartPIDFilter);
 }
@@ -2084,9 +2119,9 @@ void  STB_DMXStopPIDFilter(U8BIT path, U16BIT pfilt_id)
 
       if (pid_filter->started)
       {
-#ifdef FILTER_PRINTS
-printf(">> %s(%u, 0x%04x): start_count=%u", __FUNCTION__, path, pfilt_id, pid_filter->start_count[i]);
-#endif
+//#ifdef FILTER_PRINTS
+DMX_DBG(">> %s(%u, 0x%04x): start_count=%u", __FUNCTION__, path, pfilt_id, pid_filter->start_count[i]);
+//#endif
          if (pid_filter->start_count[i] > 0)
          {
             pid_filter->start_count[i]--;
@@ -2107,6 +2142,8 @@ printf(">> %s(%u, 0x%04x): start_count=%u", __FUNCTION__, path, pfilt_id, pid_fi
 #ifdef FILTER_PRINTS
 printf(" - STOP");
 #endif
+//HOOK
+#if 0
             /* Stop the filter and clear the callback */
             am_result = DMX_StopFilter(path, pid_filter->fhandle);
             if (!am_result)
@@ -2117,6 +2154,9 @@ printf(" - STOP");
 
             DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
             DMX_FreeFilter(path, pid_filter->fhandle);
+#endif
+            DMX_StopFilter(pid_filter->fhandle);
+            DMX_CloseFilter(pid_filter->fhandle);
             pid_filter->fhandle = -1;
             pid_filter->started = FALSE;
 
@@ -2172,6 +2212,8 @@ BOOLEAN STB_DMXCopyPIDFilterSect(U8BIT path, U8BIT *buffer, U16BIT size, U16BIT 
 
          if (bytes_to_copy > 0)
          {
+            //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,bytes_to_copy);
+            DMX_DBG("pid [%d ] data_packet %p  bytes_to_copy %d",pid_filter->pid,pid_filter->data_packet,bytes_to_copy);
             memcpy(buffer, pid_filter->data_packet, bytes_to_copy);
          }
 
@@ -2487,7 +2529,7 @@ static void* ci_signal_entry (void *arg)
       fds[0].fd     = event_fd;
       fds[0].events = POLLIN|POLLERR;
 
-      if(poll(fds, 1, 50) < 0)
+      if (poll(fds, 1, 50) < 0)
       {
          DMX_DBG("poll failure: %s", strerror(errno));
          break;
@@ -2529,14 +2571,14 @@ static void* ci_signal_entry (void *arg)
    filter.filter.mask[0]   = 0xff;
    filter.flags |= DMX_CHECK_CRC;
 
-   if(ioctl(fd, DMX_SET_FILTER, &filter) < 0)
+   if (ioctl(fd, DMX_SET_FILTER, &filter) < 0)
    {
         DMX_DBG("set filter fail error:%s", strerror(errno));
         close(fd);
         return NULL;
    }
 
-   if(ioctl(fd, DMX_START) < 0)
+   if (ioctl(fd, DMX_START) < 0)
    {
        DMX_DBG("set START fail error:%s", strerror(errno));
        close(fd);
@@ -2761,7 +2803,7 @@ void STB_DMXWriteDemux(U8BIT path, U8BIT *data, U32BIT size)
 {
    FUNCTION_START(STB_DMXWriteDemux);
 
-   AV_InjectData(path,data,size);
+   //AV_InjectData(path,data,size);
 
    FUNCTION_FINISH(STB_DMXWriteDemux);
 }
@@ -3141,7 +3183,8 @@ static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 /**
  * @brief   Callback function that receives data for PID and section filters
  */
-static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data)
+//int fhandle, const uint8_t *data, int len, void *user_data
+void PidCallback(ST_CALLBACK_T* param)
 {
    S_PID_FILTER_INFO *pid_filter;
    U8BIT i, j;
@@ -3151,15 +3194,15 @@ static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
    U16BIT sfi;
 
    FUNCTION_START(PidCallback);
-
-   if ((data != NULL) && (len != 0) && (user_data != NULL))
+//HOOK
+   if (param->un32_userdata != NULL)
    {
-      pid_filter = (S_PID_FILTER_INFO *)user_data;
+      pid_filter = (S_PID_FILTER_INFO *)param->un32_userdata;
 
-      if (pid_filter->fhandle == fhandle)
+      if (pid_filter->fhandle == param->un32filterID)
       {
-         pid_filter->data_packet = data;
-         pid_filter->data_packet_size = len;
+         pid_filter->data_packet = param->pun8_buffer;
+         pid_filter->data_packet_size = param->un32_length;
 
          for (i = 0; i < MAX_SECTION_FILTERS; i++)
          {
@@ -3175,7 +3218,7 @@ static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
                      if (pid_filter->func_ptr[j] != NULL)
                      {
                         func_ptr = pid_filter->func_ptr[j];
-                        (*func_ptr)(dev_no, (U16BIT)len, ((pid_filter->index << 8) + (j << 4)));
+                        (*func_ptr)(pid_filter->index, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                      }
                   }
                }
@@ -3198,7 +3241,7 @@ static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
                    *
                    * So m & (s^v) == 0 if and only if section is good.
                    */
-                  result = sect_filter->mask[0] & (data[0] ^ sect_filter->match[0]);
+                  result = sect_filter->mask[0] & (param->pun8_buffer[0] ^ sect_filter->match[0]);
 
                   /* Different tables can be on the same PID, so if result doesn't equal
                    * 0 then this data is for a different table id */
@@ -3207,7 +3250,7 @@ static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
                      for (sfi = 1; sfi < DEMUX_SECTION_FILTER_LENGTH; ++sfi)
                      {
                         /* Skip section length field */
-                        result |= (sect_filter->mask[sfi] & (data[sfi+2] ^ sect_filter->match[sfi]));
+                        result |= (sect_filter->mask[sfi] & (param->pun8_buffer[sfi+2] ^ sect_filter->match[sfi]));
                      }
 
                      if (result == 0)
@@ -3217,13 +3260,15 @@ static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
                            if (pid_filter->func_ptr[j] != NULL)
                            {
                               func_ptr = pid_filter->func_ptr[j];
-                              (*func_ptr)(dev_no, (U16BIT)len, ((pid_filter->index << 8) + (j << 4)));
+                              DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
+                              DMX_DBG("pid_filter->index [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->index , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
+                              (*func_ptr)(0, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                            }
                         }
                      }
                      else
                      {
-                        const U8BIT*p = data;
+                        const U8BIT*p = pid_filter->data_packet;
                         printf("  corrupt?: 0x%02x%02x%02x%02x%02x%02x%02x%02x match=0x%02x, mask=0x%02x\n",
                            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
                            sect_filter->match[0], sect_filter->mask[0]);
@@ -3240,7 +3285,7 @@ static void PidCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
       else
       {
          DMX_ERR("Callback for demux %d, filter %d, user data is for %d!",
-            dev_no, fhandle, pid_filter->fhandle);
+            pid_filter->index, param->un32filterID, pid_filter->fhandle);
       }
    }
 
@@ -3267,6 +3312,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    U16BIT num_filters;
    BOOLEAN am_result;
    FUNCTION_START(UpdateSectionFilter);
+   DMX_DBG("UpdateSectionFilter Start");
 
    pid_filter = &demux_status[path].filter_info[filter_index];
    success = FALSE;
@@ -3367,6 +3413,8 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
       pmask[0], pmask[1], pmask[2], pmask[3], pmask[4], pmask[5], pmask[6], pmask[7]);
 }
 #endif
+//HOOK
+#if 0
       if (pid_filter->started)
       {
          if (pid_filter->fhandle != -1)
@@ -3423,9 +3471,41 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
             }
          }
       }
+#endif
+
+        if (pid_filter->started)
+        {
+          if (pid_filter->fhandle != -1)
+          {
+             /* Stop the filter while it's updated */
+             DMX_StopFilter( pid_filter->fhandle);
+          }
+        }
+
+        if (pid_filter->fhandle == -1)
+        {
+           //alloc
+           pid_filter->fhandle = DMX_OpenFilter(1, 1, 8 * MAX_SECTION_SIZE, PidCallback, (void*)pid_filter);
+        }
+
+        if (pid_filter->fhandle != -1)
+        {
+          /*setup*/
+          //BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,SECTION_FILTER_INFO params )
+          /////
+          ////
+          DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, sect_filter);
+          if (pid_filter->started)
+          {
+             /* Restart the filter */
+             DMX_StartFilter(pid_filter->fhandle);
+          }
+        }
+
    }
 
    FUNCTION_FINISH(UpdateSectionFilter);
+   DMX_DBG("UpdateSectionFilter end");
 
    return success;
 }

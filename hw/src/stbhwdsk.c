@@ -1635,7 +1635,8 @@ static BOOLEAN SupportedFSType(char *fs_type)
 
    if ((strcmp(fs_type, "vfat") == 0) || (strcmp(fs_type, "exfat") == 0) ||
       (strcmp(fs_type, "ext2") == 0) || (strcmp(fs_type, "ext3") == 0) ||
-      (strcmp(fs_type, "ext4") == 0) || (strcmp(fs_type, "fuseblk") == 0))
+      (strcmp(fs_type, "ext4") == 0) || (strcmp(fs_type, "fuseblk") == 0) ||
+      (strcmp(fs_type, "fuse") == 0))
    {
       retval = TRUE;
    }

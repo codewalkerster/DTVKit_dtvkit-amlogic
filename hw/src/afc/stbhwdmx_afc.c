@@ -58,6 +58,9 @@
 #include "stbdpc.h"
 #include "stb_utils.h"
 #include "stbci.h"
+#include "libdsm.h"
+#include <jni.h>
+
 #include "stbhwdemux_usb.h"
 //#include <Aml_MP/Aml_MP.h>
 #include "wrapper_dmx.h"
@@ -92,12 +95,7 @@
 
 #define TEXT_BUFFER_SIZE            (65 * 1024)
 
-#define DSC_DEV_NO                  0
-#define DSC_CHAN_NUM                8
-#define MAX_DSC_DEV                 3
-#define MAX_SC2_DSC_DEV             32
 
-#define STB_TSO_SOURCE "/sys/class/stb/tso_source"
 /* Local ENUM/TYPE Definitions */
 
 typedef enum
@@ -111,58 +109,8 @@ typedef enum
    DMX_PID_COUNT
 } E_DMX_TRACK;
 
-/**Demux input source.*/
-typedef enum
-{
-   DVB_DEMUX_SOURCE_TS0,  /**< Hardware TS input port 0.*/
-   DVB_DEMUX_SOURCE_TS1,  /**< Hardware TS input port 1.*/
-   DVB_DEMUX_SOURCE_TS2,  /**< Hardware TS input port 2.*/
-   DVB_DEMUX_SOURCE_TS3,  /**< Hardware TS input port 3.*/
-   DVB_DEMUX_SOURCE_TS4,  /**< Hardware TS input port 4.*/
-   DVB_DEMUX_SOURCE_TS5,  /**< Hardware TS input port 5.*/
-   DVB_DEMUX_SOURCE_TS6,  /**< Hardware TS input port 6.*/
-   DVB_DEMUX_SOURCE_TS7,  /**< Hardware TS input port 7.*/
-   DVB_DEMUX_SOURCE_DMA0, /**< DMA input port 0.*/
-   DVB_DEMUX_SOURCE_DMA1, /**< DMA input port 1.*/
-   DVB_DEMUX_SOURCE_DMA2, /**< DMA input port 2.*/
-   DVB_DEMUX_SOURCE_DMA3, /**< DMA input port 3.*/
-   DVB_DEMUX_SOURCE_DMA4, /**< DMA input port 4.*/
-   DVB_DEMUX_SOURCE_DMA5, /**< DMA input port 5.*/
-   DVB_DEMUX_SOURCE_DMA6, /**< DMA input port 6.*/
-   DVB_DEMUX_SOURCE_DMA7,  /**< DMA input port 7.*/
-   DVB_DEMUX_SECSOURCE_DMA0, /**< DMA secure port 0.*/
-   DVB_DEMUX_SECSOURCE_DMA1, /**< DMA secure port 1.*/
-   DVB_DEMUX_SECSOURCE_DMA2, /**< DMA secure port 2.*/
-   DVB_DEMUX_SECSOURCE_DMA3, /**< DMA secure port 3.*/
-   DVB_DEMUX_SECSOURCE_DMA4, /**< DMA secure port 4.*/
-   DVB_DEMUX_SECSOURCE_DMA5, /**< DMA secure port 5.*/
-   DVB_DEMUX_SECSOURCE_DMA6, /**< DMA secure port 6.*/
-   DVB_DEMUX_SECSOURCE_DMA7,  /**< DMA secure port 7.*/
-   DVB_DEMUX_SOURCE_DMA0_1,  /**< DMA input port 0_1.*/
-   DVB_DEMUX_SOURCE_DMA1_1,   /**< DMA input port 1_1.*/
-   DVB_DEMUX_SOURCE_DMA2_1,  /**< DMA input port 2_1.*/
-   DVB_DEMUX_SOURCE_DMA3_1,   /**< DMA input port 3_1.*/
-   DVB_DEMUX_SOURCE_DMA4_1,  /**< DMA input port 4_1.*/
-   DVB_DEMUX_SOURCE_DMA5_1,   /**< DMA input port 5_1.*/
-   DVB_DEMUX_SOURCE_DMA6_1,  /**< DMA input port 6_1.*/
-   DVB_DEMUX_SOURCE_DMA7_1,   /**< DMA input port 7_1.*/
-   DVB_DEMUX_SECSOURCE_DMA0_1, /**< DMA secure port 0_1.*/
-   DVB_DEMUX_SECSOURCE_DMA1_1, /**< DMA secure port 1_1.*/
-   DVB_DEMUX_SECSOURCE_DMA2_1, /**< DMA secure port 2_1.*/
-   DVB_DEMUX_SECSOURCE_DMA3_1, /**< DMA secure port 3_1.*/
-   DVB_DEMUX_SECSOURCE_DMA4_1, /**< DMA secure port 4_1.*/
-   DVB_DEMUX_SECSOURCE_DMA5_1, /**< DMA secure port 5_1.*/
-   DVB_DEMUX_SECSOURCE_DMA6_1, /**< DMA secure port 6_1.*/
-   DVB_DEMUX_SECSOURCE_DMA7_1,  /**< DMA secure port 7_1.*/
-   DVB_DEMUX_SOURCE_TS0_1, /**< DMA secure port 0_1.*/
-   DVB_DEMUX_SOURCE_TS1_1, /**< DMA secure port 1_1.*/
-   DVB_DEMUX_SOURCE_TS2_1, /**< DMA secure port 2_1.*/
-   DVB_DEMUX_SOURCE_TS3_1, /**< DMA secure port 3_1.*/
-   DVB_DEMUX_SOURCE_TS4_1, /**< DMA secure port 4_1.*/
-   DVB_DEMUX_SOURCE_TS5_1, /**< DMA secure port 5_1.*/
-   DVB_DEMUX_SOURCE_TS6_1, /**< DMA secure port 6_1.*/
-   DVB_DEMUX_SOURCE_TS7_1, /**< DMA secure port 7_1.*/
-} DVB_DemuxSource_t;
+
+
 
 typedef void(*SectionFilterFunc)(U8BIT path, U16BIT bytes, U16BIT pfilt_id);
 
@@ -246,47 +194,14 @@ typedef struct
    U8BIT num_pid_filters_started;
 } S_DMX_STATUS;
 
-
-/*---local (static) variable declarations for this file----------------------*/
-static S_DMX_STATUS* demux_status;
-static U8BIT num_paths;
-
-static U8BIT* pes_data = NULL;
-static U32BIT pes_data_size = 0;
-static BOOLEAN support_tsd = TRUE;
-static int ciplus_enable = 0;
-static int g_max_dev_num;
-
-/*---local function prototypes for this file---------------------------------*/
-static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
-
-static void PidCallback(ST_CALLBACK_T* param);
-static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
-static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
-static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
-static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track);
-static void STB_SetTsoutSource(BOOLEAN is_cam_plugin);
-static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx);
-static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src);
-static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src);
-static int DvbEnableCIPlus(int enable);
-static int CheckIfDmxIsNew(void);
-
-
-
-/*Descrambler device information.*/
-typedef struct {
-   int path; /*Path number.*/
-   int ref;  /*Reference count.*/
-   int fd;   /*File descriptor.*/
-   int pid[DSC_CHAN_NUM];  /*PID.*/
-   int dmx_src;
-} S_DSC_DEV_INFO;
-
+#define MAX_SC2_DSC_DEV             32
 #define SC2_DSC_CH_NUM 32
 typedef struct s_sc2_dsc_dev_info
 {
    int key_fd;
+   int dsm_handle;
+   uint32_t dsm_token;
+   jobject descramble_handle;
    int dsc_fd[MAX_SC2_DSC_DEV];
    int dsc_ref[MAX_SC2_DSC_DEV];
    void *mutex;
@@ -298,876 +213,31 @@ typedef struct s_sc2_dsc_dev_info
       int ref;
       E_STB_DSC_CA_TYPE dsc_type;
       U8BIT random_key[4];
-      int even_key_id;
-      int odd_key_id;
-      int iv_even_key_id;
-      int iv_odd_key_id;
-      int one_key_id;
-      int iv_one_key_id;
+      int key_id;
+      int iv_key_id;
+      int dev_id;
    } dsc_pid_channel[SC2_DSC_CH_NUM];
 } S_SC2_DSC_DEV_INFO;
 
-static BOOLEAN                dmx_model_sc2 = FALSE;
-static int                    sc2_key_fd    = -1;
-static int                    sc2_key_ref   = 0;
-static S_DSC_DEV_INFO         *dsc_dev_info  = NULL;
+
 static S_SC2_DSC_DEV_INFO     *sc2_dsc_dev_info = NULL;
-static int                    dsc_dev_num   = 0;
 
-/*--- static function definitions---------------------------------------------*/
-static void *sc2_find_dsc_channel_by_channel(E_STB_TS_SOURCE src, int chan_id)
-{
-   int i;
-   struct s_sc2_dsc_channel *dsc_channel = NULL;
+/*---local (static) variable declarations for this file----------------------*/
+static S_DMX_STATUS* demux_status;
+static U8BIT num_paths;
 
-   DMX_DBG("src %d chan_id 0x%x", src, chan_id);
-   if (!sc2_dsc_dev_info)
-   {
-      DMX_DBG("dsc channel not found.");
-      return NULL;
-   }
-   for (i = 0; i < SC2_DSC_CH_NUM; i++)
-   {
-      dsc_channel = &sc2_dsc_dev_info->dsc_pid_channel[i];
-      if (dsc_channel->ref > 0 &&
-          dsc_channel->src == src &&
-          dsc_channel->chan_id == chan_id)
-      {
-         return dsc_channel;
-      }
-   }
-   return NULL;
-}
-static BOOLEAN Is_DDB_Filter(S_PID_FILTER_INFO * pidfilter)
-{
-    BOOLEAN result = FALSE;
-    S_SECTION_FILTER_INFO *sect_filter = NULL;
-    if (pidfilter && pidfilter->pid == OAD_DDB_PID)
-    {
-        for (int i = 0; i < MAX_SECTION_FILTERS; i++)
-        {
-           sect_filter = &pidfilter->section_filters[i];
-           if (sect_filter && sect_filter->setup)
-           {
-              if (sect_filter->match[0]== OAD_DSI_DDB_MATCH)
-              {
-                    result = TRUE;
-                    break;
-              }
-           }
-        }
-    }
-    return result;
-}
+static U8BIT* pes_data = NULL;
+static U32BIT pes_data_size = 0;
 
-static void *sc2_find_dsc_channel_by_pid(E_STB_TS_SOURCE src, int pid, E_STB_DSC_CA_TYPE dsc_type)
-{
-   int i;
-   struct s_sc2_dsc_channel *dsc_channel = NULL;
+/*---local function prototypes for this file---------------------------------*/
+static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
 
-   DMX_DBG("src %d pid 0x%x dsc_type %d", src, pid, dsc_type);
-   if (!sc2_dsc_dev_info)
-   {
-      DMX_DBG("dsc channel not found.");
-      return NULL;
-   }
-   for (i = 0; i < SC2_DSC_CH_NUM; i++)
-   {
-      dsc_channel = &sc2_dsc_dev_info->dsc_pid_channel[i];
-      if (dsc_channel->ref > 0 &&
-          dsc_channel->src == src &&
-          dsc_channel->pid == pid &&
-          dsc_channel->dsc_type == dsc_type)
-      {
-         DMX_DBG("found channel");
-         return dsc_channel;
-      }
-   }
-   return NULL;
-}
+static void PidCallback(ST_CALLBACK_T* param);
+static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
 
-static int key_open(void)
-{
-   char buf[32];
-   int s_fd = -1;
-
-   snprintf(buf, sizeof(buf), "/dev/key");
-   s_fd = open(buf, O_RDWR);
-   if (s_fd == -1)
-   {
-      return -1;
-   }
-   DMX_DBG("%s key fd:%d\n", buf, s_fd);
-   return s_fd;
-}
-
-static int key_close(int fd)
-{
-   if (fd == -1)
-   {
-      DMX_DBG("key_close inavlid fd\n");
-      return -1;
-   }
-   close(fd);
-   return 0;
-}
-
-static int key_alloc(int fd, int is_iv)
-{
-   int ret = 0;
-   struct key_alloc param;
-
-   DMX_DBG("fd %d is_iv %d\n", fd, is_iv);
-   if (fd == -1)
-   {
-      DMX_DBG("key alloc fd invalid\n");
-      return -1;
-   }
-   param.is_iv = is_iv;
-   param.key_index = -1;
-
-   ret = ioctl(fd, KEY_ALLOC, &param);
-   if (ret == 0)
-   {
-      DMX_DBG("key_alloc index:%d\n", param.key_index);
-      return param.key_index;
-   }
-   else
-   {
-      DMX_DBG("key_alloc key fail,fd:%d, is_iv:%d\n", fd, is_iv);
-      return -1;
-   }
-}
-
-static int key_config(int fd, int key_index, int key_userid, int key_algo, unsigned int ext_value)
-{
-   int ret = 0;
-   struct key_config config;
-
-   if (fd == -1)
-   {
-      DMX_DBG("key config fd invalid\n");
-      return -1;
-   }
-   config.key_userid = key_userid;
-   config.key_algo = key_algo;
-   config.key_index = key_index;
-   config.ext_value = ext_value;
-
-   DMX_DBG("fd %d key_index:%d key_userid %d algo %d\n", fd, key_index, key_userid, key_algo);
-
-   ret = ioctl(fd, KEY_CONFIG, &config);
-   if (ret == 0)
-   {
-      DMX_DBG("key_config index:%d\n", config.key_index);
-      return config.key_index;
-   }
-   else
-   {
-      DMX_DBG("key_config key fail,fd:%d, key_userid:%d, key_algo:%d\n", fd, key_userid, key_algo);
-      return -1;
-   }
-}
-
-static int key_set(int fd, int key_index, char *key, int key_len)
-{
-   int ret = 0;
-   struct key_descr key_d;
-
-   if (fd == -1 || key_index == -1 || key_len > 32)
-   {
-      DMX_DBG("key_set invalid parameter, fd:%d, key_index:%d, key_len:%d\n",
-             fd, key_index, key_len);
-      return -1;
-   }
-
-   DMX_DBG("fd %d key_index %d key %02x%02x%02x len %d", fd, key_index, key[0], key[1], key[2], key_len);
-   key_d.key_index = key_index;
-   memcpy(&key_d.key, key, key_len);
-   key_d.key_len = key_len;
-   ret = ioctl(fd, KEY_SET, &key_d);
-   if (ret == 0)
-   {
-      DMX_DBG("key_set success\n");
-      return 0;
-   }
-   else
-   {
-      DMX_DBG("key_set fail\n");
-      return -1;
-   }
-}
-
-static int ca_set_scb(int dev_id, int index, int scb_flag)
-{
-   int ret = 0;
-   int fd = 0;
-   struct ca_sc2_descr_ex desc = {0};
-   S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
-
-   desc.cmd = CA_SET_SCB;
-   desc.params.scb_params.ca_index = index;
-   desc.params.scb_params.ca_scb = scb_flag;
-   desc.params.scb_params.ca_scb_as_is = 0;
-
-   fd = dsc->dsc_fd[dev_id];
-   ret = ioctl(fd, CA_SC2_SET_DESCR_EX, &desc);
-
-   if (ret != 0)
-   {
-      DMX_DBG(" ca_set_scb ioctl fail, dev_id %d fd %d ret:0x%0x\n", dev_id, dsc->dsc_fd[dev_id], ret);
-      return -1;
-   }
-
-   return 0;
-}
-
-static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
-{
-   int ret = 0;
-   int fd = 0;
-   struct ca_sc2_descr_ex desc = {0};
-   S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
-
-   DMX_DBG("ca_set_key dev:%d, index:%d, parity:%d, key_index:%d\n",
-           dev_id, index, parity, key_index);
-
-   desc.cmd = CA_KEY;
-   desc.params.key_params.ca_index = index;
-   desc.params.key_params.parity = parity;
-   desc.params.key_params.key_index = key_index;
-
-   if (dev_id >= g_max_dev_num)
-   {
-      return -1;
-   }
-
-   fd = dsc->dsc_fd[dev_id];
-   ret = ioctl(fd, CA_SC2_SET_DESCR_EX, &desc);
-
-   if (ret != 0)
-   {
-      DMX_DBG(" ca_set_key ioctl fail, dev_id %d fd %d ret:0x%0x\n", dev_id, dsc->dsc_fd[dev_id], ret);
-      return -1;
-   }
-
-   DMX_DBG("ca_set_key, index:%d, parity:%d, key_index:%d\n", index, parity, key_index);
-   return 0;
-}
-
-static void ca_dump_channel()
-{
-   int i;
-   S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
-   struct s_sc2_dsc_channel *dsc_channel;
-
-   for (i = 0; i < SC2_DSC_CH_NUM; i++)
-   {
-      dsc_channel = &sc2_dsc_dev_info->dsc_pid_channel[i];
-      DMX_DBG("pid_info[%d] pid %d, chan_id %d, ref %d, dsc_type %d",
-         i, dsc_channel->pid, dsc_channel->chan_id, dsc_channel->ref, dsc_channel->dsc_type);
-   }
-}
-
-static void key_free (int key_fd, int key_id)
-{
-   DMX_DBG("dev_id %d key_id %d", key_fd, key_id);
-   ioctl(key_fd, KEY_FREE, key_id);
-}
-
-/*---global function definitions---------------------------------------------*/
-
-void STB_DMXDscSetSrc(int dev_id, int dmx_id)
-{
-   char dev_name[256];
-   char dst_name[32];
-   int  r;
-
-   if (dmx_model_sc2)
-      return;
-   DMX_DBG("/sys/class/stb/dsc%d_source", dev_id);
-   snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/dsc%d_source", dev_id);
-   snprintf(dst_name, sizeof(dst_name), "dmx%d", dmx_id);
-   r = STB_File_Echo(dev_name, dst_name);
-
-   if (r != 0)
-      DMX_DBG("set %s source failed: %s", dev_name, strerror(errno));
-#ifdef COMMON_INTERFACE
-      DvbEnableCIPlus(TRUE);
-#endif
-}
-
-int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type)
-{
-   int chan_id = -1;
-   int i, r, id;
-   char name[256];
-
-   DMX_DBG("dev %d pid %x dsc_type %d %s", dev_id, pid, type, name);
-
-   if (dmx_model_sc2)
-   {
-      S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
-      struct ca_sc2_descr_ex desc = {0};
-      enum ca_sc2_algo_type  algo;
-      struct s_sc2_dsc_channel *dsc_channel = NULL;
-      E_STB_TS_SOURCE ts_src;
-      // Normall Check
-      if (!dsc)
-      {
-         return -1;
-      }
-
-      /* if scb is not set, need protect pid 0 */
-      if (pid == 0)
-         return -1;
-
-      STB_OSMutexLock(dsc->mutex);
-      if (dsc->key_fd < 0)
-         dsc->key_fd = key_open();
-
-      if (dsc->dsc_ref[dev_id] == 0)
-      {
-         DMX_DBG("no reference, do init");
-
-         if (dsc->dsc_fd[dev_id] <= 0)
-         {
-            /* only one dsc device actually */
-            snprintf(name, sizeof(name), "/dev/dvb0.ca%d", dev_id);
-            dsc->dsc_fd[dev_id] = open(name, O_RDWR);
-            if (dsc->dsc_fd[dev_id] == -1)
-            {
-               DMX_DBG("open \"%s\" failed", name);
-               STB_OSMutexUnlock(dsc->mutex);
-               return -1;
-            }
-            DMX_DBG("dsc_fd %d, open success", dsc->dsc_fd[dev_id]);
-         }
-      }
-      //Find if pid exists
-      ts_src = STB_GetDmxTsSource(dev_id);
-      dsc_channel = sc2_find_dsc_channel_by_pid(ts_src, pid, dsc_type);
-
-      if (dsc_channel)
-      {
-         DMX_DBG("found exist pid channel 0x%x type %d", pid, dsc_type);
-         dsc_channel->ref++;
-         dsc->dsc_ref[dev_id]++;
-         STB_OSMutexUnlock(dsc->mutex);
-         return dsc_channel->chan_id;
-      }
-      else
-      {
-         for (i = 0; i < SC2_DSC_CH_NUM;i++)
-         {
-            if (dsc->dsc_pid_channel[i].ref <= 0)
-            {
-               dsc_channel = &(dsc->dsc_pid_channel[i]);
-               DMX_DBG("alloc new pid channel, [%d]", i);
-               break;
-            }
-         }
-
-         switch (type)
-         {
-         case DESC_TYPE_DVB:
-            algo = CA_ALGO_CSA2;
-            break;
-         case DESC_TYPE_AES:
-            algo = CA_ALGO_AES_CBC_CLR_END;
-            break;
-         case DESC_TYPE_AES_SCTE_52:
-            algo = CA_ALGO_AES_CBC_IDSA;
-            break;
-         case DESC_TYPE_DES:
-            algo = CA_ALGO_DES_SCTE52;
-            break;
-         case DESC_TYPE_TDES:
-            algo = CA_ALGO_TDES_ECB_CLR_END;
-            break;
-         default:
-            DMX_DBG("illegal descrambler type %d", type);
-            STB_OSMutexUnlock(dsc->mutex);
-            return -1;
-         }
-
-         desc.cmd = CA_ALLOC;
-         desc.params.alloc_params.pid = pid;
-         desc.params.alloc_params.algo = algo;
-         desc.params.alloc_params.dsc_type = (enum ca_sc2_dsc_type)dsc_type;
-         desc.params.alloc_params.ca_index = -1;
-
-         DMX_DBG("type %d algo %d dsc_type %d", type, algo, dsc_type);
-         r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
-         if (r < 0)
-         {
-            if (dsc_type == CA_DSC_TSD_TYPE)
-            {
-               DMX_DBG("CA_SC2_SET_DESCR_EX alloc channel failed, fd %d, try TSN", dsc->dsc_fd[dev_id]);
-               desc.params.alloc_params.dsc_type = CA_DSC_COMMON_TYPE;
-               r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
-               if (r < 0)
-               {
-                  DMX_DBG("CA_SC2_SET_DESCR_EX alloc channel failed, fd %d, byebye", dsc->dsc_fd[dev_id]);
-                  STB_OSMutexUnlock(dsc->mutex);
-                  return -1;
-               }
-               else
-               {
-                  DMX_DBG("alloc channel using TSN ok");
-                  support_tsd = FALSE;
-               }
-            }
-         }
-
-         chan_id = desc.params.alloc_params.ca_index;
-         dsc_channel->ref = 1;
-         dsc_channel->chan_id = chan_id;
-         dsc_channel->pid = pid;
-         dsc_channel->src = ts_src;
-         dsc_channel->dsc_type = dsc_type;
-         dsc_channel->even_key_id = -1;
-         dsc_channel->odd_key_id = -1;
-         dsc_channel->iv_even_key_id = -1;
-         dsc_channel->iv_odd_key_id = -1;
-         dsc_channel->one_key_id = -1;
-         dsc_channel->iv_one_key_id = -1;
-         dsc->dsc_ref[dev_id]++;
-      }
-      STB_OSMutexUnlock(dsc->mutex);
-      ca_dump_channel();
-   }
-   else
-   {
-      S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
-      DMX_DBG("dsc->fd  %d", dsc->fd);
-      int id;
-      if (dsc->fd == -1)
-      {
-         snprintf(name, sizeof(name), "/dev/dvb0.ca%d", dev_id);
-
-         dsc->fd = open(name, O_RDWR);
-         if (dsc->fd == -1)
-         {
-            DMX_DBG("open \"%s\" failed", name);
-            return -1;
-         }
-         dsc->ref = 0;
-      }
-
-      for (id = 0; id < DSC_CHAN_NUM; id++)
-      {
-         DMX_DBG("dsc->pid id %d pid %d", id, dsc->pid[id]);
-         if (dsc->pid[id] == -1)
-         {
-            struct ca_pid params;
-
-            params.pid = pid;
-            params.index = id;
-
-            r = ioctl(dsc->fd, CA_SET_PID, &params);
-            if (r < 0)
-            {
-               DMX_DBG("CA_SET_PID alloc channel failed");
-               return -1;
-            }
-            else
-               DMX_DBG("CA_SET_PID ok pid %d", pid);
-
-            dsc->pid[id] = pid;
-            dsc->ref++;
-            chan_id = id;
-            break;
-         }
-      }
-   }
-
-   return chan_id;
-}
-
-static void
-dsc_set_aes_output(BOOLEAN enable)
-{
-   S_DSC_DEV_INFO *dsc;
-   U8BIT i, r;
-   U32BIT flag = 0;
-   U8BIT dev_name[256];
-   U8BIT dst_name[32];
-   U8BIT dmx_src[16];
-   U8BIT target_source_str[8];
-   U8BIT target_source;
-
-   if (dmx_model_sc2)
-      return;
-   STB_GetCamSource(&target_source, NULL);
-   snprintf(target_source_str, sizeof(target_source_str), "ts%d", target_source);
-   if (enable)
-   {
-      for (i = 0; i < aml_hw_cfg.demux_num; i++)
-      {
-         snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/demux%d_source", i);
-         STB_File_Read(dev_name, dmx_src, sizeof(dmx_src));
-         DMX_DBG("dmx.%d src %s target %s",i, dmx_src, target_source_str);
-         if (strncmp(target_source_str, dmx_src, 3) == 0)
-         {
-            DMX_DBG("dmx source %d match ts1", i);
-            flag |= 1 << i;
-         }
-      }
-   }
-   else
-   {
-      flag = 0;
-   }
-   DMX_DBG("ciplus flag %d", flag);
-   snprintf(dev_name, sizeof(dev_name), "/sys/class/dmx/ciplus_output_ctrl");
-   snprintf(dst_name, sizeof(dst_name), "%d", flag);
-   r = STB_File_Echo(dev_name, dst_name);
-   if (r != 0)
-      DMX_DBG("set %s source failed", dev_name);
-}
-
-void STB_DMXDscFree(int dev_id, int chan_id)
-{
-   int i;
-   int r;
-
-   if (dmx_model_sc2)
-   {
-      S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
-      struct ca_sc2_descr_ex desc;
-      struct s_sc2_dsc_channel* dsc_channel = NULL;
-      E_STB_TS_SOURCE ts_src = STB_GetDmxTsSource(dev_id);
-
-      STB_OSMutexLock(dsc->mutex);
-
-      for (i = 0; i < SC2_DSC_CH_NUM; i++)
-      {
-         dsc_channel = &sc2_dsc_dev_info->dsc_pid_channel[i];
-         if (dsc_channel->chan_id == chan_id &&
-               dsc_channel->ref > 0 &&
-               dsc_channel->src == ts_src)
-         {
-            dsc_channel->ref--;
-
-            if (dsc_channel->ref > 0)
-            {
-               DMX_DBG("not freeing channel, ref now %d", dsc_channel->ref);
-               STB_OSMutexUnlock(dsc->mutex);
-               return;
-            }
-            else
-            {
-               DMX_DBG("freeing channel");
-               desc.cmd = CA_FREE;
-               desc.params.free_params.ca_index = chan_id;
-
-               r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
-               if (r < 0)
-                  DMX_DBG("CA_SC2_SET_DESCR_EX free channel failed");
-
-               if (dsc_channel->even_key_id != -1)
-                  key_free(dsc->key_fd, dsc_channel->even_key_id);
-               if (dsc_channel->odd_key_id != -1)
-                  key_free(dsc->key_fd, dsc_channel->odd_key_id);
-               if (dsc_channel->iv_even_key_id != -1)
-                  key_free(dsc->key_fd, dsc_channel->iv_even_key_id);
-               if (dsc_channel->iv_odd_key_id != -1)
-                  key_free(dsc->key_fd, dsc_channel->iv_odd_key_id);
-               if (dsc_channel->one_key_id != -1)
-                  key_free(dsc->key_fd, dsc_channel->one_key_id);
-               if (dsc_channel->iv_one_key_id != -1)
-                  key_free(dsc->key_fd, dsc_channel->iv_one_key_id);
-
-               dsc_channel->even_key_id = -1;
-               dsc_channel->odd_key_id = -1;
-               dsc_channel->iv_even_key_id = -1;
-               dsc_channel->iv_odd_key_id = -1;
-               dsc_channel->one_key_id = -1;
-               dsc_channel->iv_one_key_id = -1;
-
-               dsc_channel->src = STB_TS_SOURCE_MAX;
-               dsc_channel->dsc_type = -1;
-               dsc_channel->pid = -1;
-               dsc_channel->chan_id = -1;
-               dsc_channel->ref = 0;
-
-               dsc->dsc_ref[dev_id]--;
-            }
-         }
-      }
-      if (dsc->dsc_ref[dev_id] == 0)
-      {
-         DMX_DBG("freeing dsc, fd %d", dsc->dsc_fd[dev_id]);
-         if (dsc->dsc_fd[dev_id] > 0)
-         {
-            close(dsc->dsc_fd[dev_id]);
-            dsc->dsc_fd[dev_id] = -1;
-         }
-      }
-      STB_OSMutexUnlock(dsc->mutex);
-      ca_dump_channel();
-   }
-   else
-   {
-      S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
-      struct ca_pid params;
-      if ((dsc->fd == -1) || (chan_id == -1))
-         return;
-
-      params.pid = DEMUX_PID_NOT_USED;
-      params.index = chan_id;
-
-      r = ioctl(dsc->fd, CA_SET_PID, &params);
-      if (r < 0)
-         DMX_DBG("CA_SET_PID free channel failed");
-
-      dsc->pid[chan_id] = -1;
-      if (dsc->ref > 0)
-      {
-         dsc->ref--;
-      }
-      DMX_DBG("dsc->ref %d dev_id %d free_chan_id %d", dsc->ref, dev_id, chan_id);
-      if ((dsc->ref == 0) && (dsc->fd != -1))
-      {
-         close(dsc->fd);
-         dsc->fd = -1;
-         dsc->dmx_src = -1;
-      }
-   }
-}
-
-int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type, E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *data)
-{
-   int r = 0;
-   int i;
-   char buffer[512] = {0};
-
-   DMX_DBG("setkey: %x %x %x", data[0], data[1], data[2]);
-   DMX_DBG("dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, dmx_model_sc2);
-
-   if (dev_id > g_max_dev_num || chan_id < 0)
-   {
-      DMX_DBG("param invalid, set key failed");
-      return -1;
-   }
-   // memset(data, 1, 16);
-   // memset(data+16, 2, 16);
-
-   // for (i=0; i<32; i++)
-      // data[i] = i;
-   for (i = 0; i < 32; i++)
-      sprintf(buffer + i * 3, "%02x ", data[i]);
-   DMX_DBG("data: %s", buffer);
-
-   if (dmx_model_sc2)
-   {
-      S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
-      E_STB_TS_SOURCE ts_src;
-      E_KEY_ALGO_SC2 key_algo;
-      struct s_sc2_dsc_channel *dsc_channel;
-      int key_userid = 0;
-
-      if (dsc_type == CA_DSC_TSD_TYPE)
-      {
-         if (support_tsd == FALSE)
-         {
-            dsc_type = DSC_COMMON_TYPE;
-            DMX_DBG("Not support tsd, set ca key type change to common");
-         }
-      }
-
-      STB_OSMutexLock(dsc->mutex);
-
-      for (i = 0; i < DSC_CHAN_NUM; i++)
-      {
-         if (dsc->dsc_pid_channel[i].chan_id == chan_id)
-            dsc_channel = &dsc->dsc_pid_channel[i];
-      }
-      ts_src = STB_GetDmxTsSource(dev_id);
-      dsc_channel = sc2_find_dsc_channel_by_channel(ts_src, chan_id);
-
-      if (!dsc_channel)
-      {
-         DMX_DBG("channel not found");
-         STB_OSMutexUnlock(dsc->mutex);
-         return 0;
-      }
-
-      if (dsc_channel->ref > 1)
-      {
-         DMX_DBG("channel already set, skip set_key.");
-         STB_OSMutexUnlock(dsc->mutex);
-         return 0;
-      }
-
-      switch (dsc_type)
-      {
-         case DSC_COMMON_TYPE:
-            key_userid = DSC_NETWORK;
-            break;
-         case DSC_TSD_TYPE:
-            key_userid = DSC_LOC_DEC;
-            break;
-         case DSC_TSE_TYPE:
-            key_userid = DSC_LOC_ENC;
-            break;
-         default:
-            key_userid = DSC_NETWORK;
-            break;
-      }
-
-      switch (type)
-      {
-         case DESC_TYPE_AES:
-            key_algo = KEY_ALGO_AES;
-            break;
-         case DESC_TYPE_DVB:
-            key_algo = KEY_ALGO_CSA2;
-            break;
-         case DESC_TYPE_DES:
-            key_algo = KEY_ALGO_DES;
-            break;
-         case DESC_TYPE_TDES:
-            key_algo = KEY_ALGO_TDES;
-            break;
-         default:
-            DMX_DBG("key type invalid");
-            break;
-      };
-      E_CA_KEY_TYPE_SC2 key_type;
-      E_CA_KEY_TYPE_SC2 iv_key_type;
-      int *key_id;
-      int *iv_key_id;
-
-      switch (parity)
-      {
-      case KEY_PARITY_EVEN:
-            key_type = CA_KEY_EVEN_TYPE;
-            iv_key_type = CA_KEY_EVEN_IV_TYPE;
-            key_id = &dsc_channel->even_key_id;
-            iv_key_id = &dsc_channel->iv_even_key_id;
-            break;
-      case KEY_PARITY_ODD:
-            key_type = CA_KEY_ODD_TYPE;
-            iv_key_type = CA_KEY_ODD_IV_TYPE;
-            key_id = &dsc_channel->odd_key_id;
-            iv_key_id = &dsc_channel->iv_odd_key_id;
-            break;
-      case KEY_PARITY_NONE:
-            key_type = CA_KEY_00_TYPE;
-            iv_key_type = CA_KEY_00_IV_TYPE;
-            key_id = &dsc_channel->one_key_id;
-            iv_key_id = &dsc_channel->iv_one_key_id;
-            break;
-      }
-
-      if (*key_id == -1)
-      {
-            *key_id = key_alloc(dsc->key_fd, FALSE);
-            key_config(dsc->key_fd, *key_id, key_userid, key_algo, 0);
-      }
-      if (*iv_key_id == -1)
-      {
-            *iv_key_id = key_alloc(dsc->key_fd, TRUE);
-            key_config(dsc->key_fd, *iv_key_id, key_userid, key_algo, 0);
-      }
-      /* set TSE scb */
-      // if (dsc_type == CA_DSC_TSE_TYPE)
-      // ca_set_scb(dev_id, chan_id, 2);
-      /* set key */
-      key_set(dsc->key_fd, *key_id, data, 16);
-      ca_set_key(dev_id, chan_id, key_type, *key_id);
-      /* set iv */
-      key_set(dsc->key_fd, *iv_key_id, data + 16, 16);
-      ca_set_key(dev_id, chan_id, iv_key_type, *iv_key_id);
-      STB_OSMutexUnlock(dsc->mutex);
-   }
-   else
-   {
-      S_DSC_DEV_INFO *dsc = &dsc_dev_info[dev_id];
-      struct ca_descr_ex desc;
-      enum ca_cw_type cw_type;
-      enum ca_cw_type cw_type_iv;
-      enum ca_dsc_mode mode;
-
-      if (dsc->fd == -1)
-         return -1;
-
-      switch (type)
-      {
-      case DESC_TYPE_DVB:
-         cw_type = (parity == KEY_PARITY_EVEN) ? CA_CW_DVB_CSA_EVEN : CA_CW_DVB_CSA_ODD;
-         mode = CA_DSC_ECB;
-         break;
-      case DESC_TYPE_AES:
-         cw_type = (parity == KEY_PARITY_EVEN) ? CA_CW_AES_EVEN : CA_CW_AES_ODD;
-         mode = CA_DSC_CBC;
-         break;
-      case DESC_TYPE_AES_SCTE_52:
-         cw_type = (parity == KEY_PARITY_EVEN) ? CA_CW_AES_EVEN : CA_CW_AES_ODD;
-         mode = CA_DSC_IDSA;
-         break;
-      case DESC_TYPE_DES:
-         cw_type = (parity == KEY_PARITY_EVEN) ? CA_CW_DES_EVEN : CA_CW_DES_ODD;
-         mode = CA_DSC_ECB;
-         break;
-      default:
-         DMX_DBG("illegal descrambler type %d", type);
-         return -1;
-      }
-
-      /*if (type == DESC_TYPE_DVB)
-      {
-         dsc_set_aes_output(FALSE);
-      }
-      else //aes & des need set this.
-      {
-         dsc_set_aes_output(TRUE);
-      }*/
-
-      if (mode == CA_DSC_CBC)
-      {
-         DMX_DBG("Set iv data");
-         desc.index = chan_id;
-         cw_type_iv = (parity == KEY_PARITY_EVEN) ? CA_CW_AES_EVEN_IV : CA_CW_AES_ODD_IV;
-         desc.type = cw_type_iv;
-         desc.mode = mode;
-         desc.flags = 0;
-         memcpy(desc.cw, data+16, 16);
-
-         r = ioctl(dsc->fd, CA_SET_DESCR_EX, &desc);
-         if (r < 0)
-            DMX_DBG("CA_SET_DESCR_EX set iv key failed");
-         else
-            DMX_DBG("CA_SET_DESCR_EX set iv key success");
-      }
-
-      DMX_DBG("Set dsc data");
-      desc.index = chan_id;
-      desc.type = cw_type;
-      desc.mode = mode;
-      desc.flags = 0;
-      memcpy(desc.cw, data, 16);
-
-      r = ioctl(dsc->fd, CA_SET_DESCR_EX, &desc);
-      if (r < 0)
-         DMX_DBG("CA_SET_DESCR_EX set key failed");
-      else
-         DMX_DBG("CA_SET_DESCR_EX set key success");
-
-   }
-   /*if (type == DESC_TYPE_AES)
-   {
-      dsc_set_aes_output(TRUE);
-   }
-   else
-   {
-      dsc_set_aes_output(FALSE);
-   }*/
-
-   return r;
-}
+static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
+static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
+static int key_open(void);
 
 /**
  * @brief   Initialises the demux / programmable transport interface
@@ -1296,28 +366,13 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       DMX_DBG("No demuxes found!");
    }
 
-   /*Test is it the SC2 descrambler.*/
-   {
-      struct stat st;
-      int         r;
-
-      r = stat("/dev/key", &st);
-      if (r == 0)
+#if 1
       {
-         dmx_model_sc2 = TRUE;
-         dsc_dev_num   = num_paths;
-      }
-      else
-      {
-         dmx_model_sc2 = FALSE;
-         dsc_dev_num   = 2;
-      }
-      DMX_DBG("STB_DMXInitialise dsc_dev_num %d",dsc_dev_num);
-      if (dmx_model_sc2)
-      {
-         g_max_dev_num = MAX_SC2_DSC_DEV;
          sc2_dsc_dev_info = (S_SC2_DSC_DEV_INFO *)STB_MEMGetSysRAM(sizeof(S_SC2_DSC_DEV_INFO));
-         sc2_dsc_dev_info->key_fd = -1;
+         sc2_dsc_dev_info->key_fd = key_open();;
+         DMX_DBG("KEY TABLE FD[%d]",sc2_dsc_dev_info->key_fd);
+
+         sc2_dsc_dev_info->descramble_handle = NULL;
          sc2_dsc_dev_info->mutex = STB_OSCreateMutex();
          for (i = 0; i < MAX_SC2_DSC_DEV; i++)
          {
@@ -1327,39 +382,20 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
          for (i = 0; i < SC2_DSC_CH_NUM; i++)
          {
             sc2_dsc_dev_info->dsc_pid_channel[i].src = STB_TS_SOURCE_MAX;
-            sc2_dsc_dev_info->dsc_pid_channel[i].ref = 0;
             sc2_dsc_dev_info->dsc_pid_channel[i].pid = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].chan_id = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].dsc_type = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].key_id = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].iv_key_id = -1;
          }
       }
-      else
-      {
-         dsc_dev_info = (S_DSC_DEV_INFO *)STB_MEMGetSysRAM(sizeof(S_DSC_DEV_INFO) * num_paths);
-         g_max_dev_num = MAX_DSC_DEV;
 
-         for (i = 0; i < dsc_dev_num; i++)
-         {
-            int c;
-
-            for (c = 0; c < DSC_CHAN_NUM; c++)
-            {
-               dsc_dev_info[i].pid[c] = -1;
-            }
-
-            dsc_dev_info[i].path = i;
-            dsc_dev_info[i].ref = 0;
-            dsc_dev_info[i].fd = -1;
-         }
-
-         for (i = 0; i < dsc_dev_num; i++)
-         {
-            STB_DMXDscSetSrc(i, i);
-            dsc_dev_info[i].dmx_src = i;
-         }
-      }
-   }
-
+      uint32_t token_  = -1;
+      sc2_dsc_dev_info->dsm_handle = DSM_OpenSession(0);
+      DSM_GenerateToken(sc2_dsc_dev_info->dsm_handle,&token_);
+      sc2_dsc_dev_info->dsm_token = token_;
+      DMX_DBG("DSM handle[%d] [%d] !", sc2_dsc_dev_info->dsm_handle , sc2_dsc_dev_info->dsm_token);
+#endif
    FUNCTION_FINISH(STB_DMXInitialise);
 }
 
@@ -1422,12 +458,18 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
          {
             if (audio_pid != 0)
             {
-               ResetDscChannel(path, DESC_TRACK_AUDIO);
+                #if 1 //EMING
+               DMX_DBG("ApplyKey AUDIO");
+               //ResetDscChannel(path, DESC_TRACK_AUDIO);
                ApplyKey(path, DESC_TRACK_AUDIO);
+               #endif
             }
             else
             {
+               #if 1 //EMING
+                DMX_DBG("ClearKey AUDIO");
                ClearKey(path, DESC_TRACK_AUDIO);
+               #endif
             }
          }
       }
@@ -1438,12 +480,18 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
          {
             if (video_pid != 0)
             {
-               ResetDscChannel(path, DESC_TRACK_VIDEO);
+                DMX_DBG("ApplyKey VIDEO");
+               #if 1 //EMING
+               //ResetDscChannel(path, DESC_TRACK_VIDEO);
                ApplyKey(path, DESC_TRACK_VIDEO);
+               #endif
             }
             else
             {
+            DMX_DBG("ClearKey VIDEO");
+            #if 1 //EMING
                ClearKey(path, DESC_TRACK_VIDEO);
+            #endif
             }
          }
       }
@@ -1497,12 +545,16 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
          demux_status[path].pids[DMX_TEXT] = text_pid;
          if (text_pid != 0)
          {
+            #if 0 //EMING
             ResetDscChannel(path, DESC_TRACK_TEXT);
             ApplyKey(path, DESC_TRACK_TEXT);
+            #endif
          }
          else
          {
+            #if 0 //EMING
             ClearKey(path, DESC_TRACK_TEXT);
+            #endif
          }
       }
 
@@ -2213,7 +1265,7 @@ BOOLEAN STB_DMXCopyPIDFilterSect(U8BIT path, U8BIT *buffer, U16BIT size, U16BIT 
          if (bytes_to_copy > 0)
          {
             //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,bytes_to_copy);
-            DMX_DBG("pid [%d ] data_packet %p  bytes_to_copy %d",pid_filter->pid,pid_filter->data_packet,bytes_to_copy);
+            //DMX_DBG("pid [%d ] data_packet %p  bytes_to_copy %d",pid_filter->pid,pid_filter->data_packet,bytes_to_copy);
             memcpy(buffer, pid_filter->data_packet, bytes_to_copy);
          }
 
@@ -2264,124 +1316,6 @@ U8BIT STB_DMXGetMaxSectionFilters(void)
    return MAX_SECTION_FILTERS;
 }
 
-
-/**
- * @brief   Returns the maximum number of section filters available on this hw
- * @return  The number of filters
- */
-static U8BIT inline _GetDmxDMASourceById(int id)
-{
-   U8BIT source = DVB_DEMUX_SOURCE_DMA0;
-   switch (id)
-   {
-      case 0:
-         source = DVB_DEMUX_SOURCE_DMA0;
-         break;
-      case 1:
-         source = DVB_DEMUX_SOURCE_DMA1;
-         break;
-      case 2:
-         source = DVB_DEMUX_SOURCE_DMA2;
-         break;
-      case 3:
-         source = DVB_DEMUX_SOURCE_DMA3;
-         break;
-      case 4:
-         source = DVB_DEMUX_SOURCE_DMA4;
-         break;
-      case 5:
-         source = DVB_DEMUX_SOURCE_DMA5;
-         break;
-      case 6:
-         source = DVB_DEMUX_SOURCE_DMA6;
-         break;
-      case 7:
-         source = DVB_DEMUX_SOURCE_DMA7;
-         break;
-      default:
-         break;
-      }
-   DMX_ERR("path:%d source:%d", id, source);
-   return source;
-}
-
-
-/**
- * @brief   Configures the source of the demux
- * @param   path the demux path to configure
- * @param   source the source to use
- * @param   param source specific parameters (e.g. tuner number)
- */
-void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
-{
-   int tuner_index;
-   int ret;
-   BOOLEAN am_result;
-   DVB_DemuxSource_t dmx_src_cfg, dmx_src_cur;
-
-   FUNCTION_START(STB_DMXSetDemuxSource);
-
-   if (path >= num_paths)
-   {
-       DMX_ERR("path:%d error", path);
-       return;
-   }
-   tuner_index = param >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : param;
-
-   dmx_src_cfg = GetDemuxSourceByCfg(aml_hw_cfg.tuners[tuner_index].ts_input_idx);
-
-   if (dmx_model_sc2)
-   {
-      if (STB_CIUsbModuleInserted() && source == DMX_TUNER)
-      {
-         dmx_src_cfg = STB_CIUsbGetDmxSource(demux_cap==DMX_CAPS_LIVE);
-         DMX_DBG("DMX_CAPS_LIVE usb camcard dmx_src_cfg=%d", dmx_src_cfg);
-      }
-      else if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
-      {
-         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0_1 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-         DMX_DBG("DMX_CAPS_LIVE dmx_src_cfg=%d", dmx_src_cfg);
-      }
-      else if (demux_cap == DMX_CAPS_RECORDING && source == DMX_TUNER)
-      {
-         dmx_src_cfg = DVB_DEMUX_SOURCE_TS0 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
-         DMX_DBG("DMX_CAPS_Recording dmx_src_cfg=%d", dmx_src_cfg);
-      }
-   }
-
-   DvbGetDemuxSource(path, &dmx_src_cur);
-   DMX_DBG("path %d Demux source [config:cur_node] = [%d:%d]", path, dmx_src_cfg, dmx_src_cur);
-   if ((source != demux_status[path].source) || (param != demux_status[path].source_param) || (dmx_src_cfg != dmx_src_cur))
-   {
-      DMX_DBG("%u: new=%u, %u; old=%u, %u", path, source, param, demux_status[path].source, demux_status[path].source_param);
-      demux_status[path].source = source;
-      demux_status[path].source_param = param;
-
-      if (source == DMX_TUNER)
-      {
-         ret = DvbSetDemuxSource(path, dmx_src_cfg);
-         if (ret == -1)
-         {
-            DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, ret);
-         }
-      }
-      else if(source == DMX_MEMORY)
-      {
-         DMX_DBG("setting source to MEMORY");
-         if (dmx_src_cur != _GetDmxDMASourceById(path))
-         {
-            ret = DvbSetDemuxSource(path, _GetDmxDMASourceById(path));
-            if (ret == -1)
-            {
-                DMX_ERR("Failed to set demux %u source to %u ", path, param);
-            }
-         }
-      }
-   }
-
-   FUNCTION_FINISH(STB_DMXSetDemuxSource);
-}
-
 /**
  * @brief   Gets the current source of a given demux
  * @param   path the demux path to query
@@ -2400,79 +1334,21 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
 
    FUNCTION_FINISH(STB_DMXGetDemuxSource);
 }
-
-
-/**
- * @brief   change the source of the demux when cam card plug or unplug
- *          we need check "is_set_tssource" is 0 or not,if it value is 0,
- *          we do nothing now.
- * @param   slot  cam card slot
- * @param   plug 0:cam card unplug, 1：camc card plug
- */
-void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
+void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
 {
-   int i = 0;
-   int tuner_index = 0;
-   FUNCTION_START(STB_DMXChangeAllDemuxSource);
-   //no used now, only one cam card
-   slot = 0;
-   int param = 0;
+   FUNCTION_START(STB_DMXSetDemuxSource);
 
-   if (aml_hw_cfg.cam[slot].is_set_tssource == 0)
+   if ((path < num_paths) &&
+       ((source != demux_status[path].source) || (param != demux_status[path].source_param)))
    {
-      //not set source at cfg file,so we return now,
-      return;
+      DMX_DBG("%u: new=%u, %u; old=%u, %u", path, source, param,
+         demux_status[path].source, demux_status[path].source_param);
+
+      demux_status[path].source = source;
+      demux_status[path].source_param = param;
    }
 
-#ifdef COMMON_INTERFACE
-   DvbEnableCIPlus(plug);
-#endif
-
-   for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
-      if (plug == 0)
-      {
-         // cam card is unplug.used camUnplug_tssource to
-         // set ts_input_idx for dmx source
-         STB_SetTsoutSource(FALSE);
-         aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camUnplug_tssource;
-         DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.cam[slot].camUnplug_tssource);
-      }
-      else if (plug == 1)
-      {
-         // cam card is plug.used camPlug_tssource to
-         // set ts_input_idx for dmx source
-         STB_SetTsoutSource(TRUE);
-         aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
-         DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
-      }
-   }
-   DMX_DBG("demux reset now");
-   STB_File_Echo("/sys/class/stb/demux_reset", "1");
-   for (i = 0; i < num_paths; i++)
-   {
-      // change ts_input_idx
-      E_STB_DMX_DEMUX_SOURCE source;
-      U8BIT param;
-      STB_DMXGetDemuxSource(i, &source, &param);
-      if (source == DMX_TUNER)
-      {
-         if (dmx_model_sc2)
-         {
-            if (STB_DPIsDecodingPath(i))
-               param = DMX_CAPS_LIVE;
-            if (STB_DPIsRecordingPath(i))
-               param = DMX_CAPS_RECORDING;
-            STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);
-         }
-         else
-         {
-            DMX_DBG("demux reset now");
-            STB_File_Echo("/sys/class/stb/demux_reset", "1");
-            STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);
-         }
-      }
-   }
-   FUNCTION_FINISH(STB_DMXChangeAllDemuxSource);
+   FUNCTION_FINISH(STB_DMXSetDemuxSource);
 }
 
 /**
@@ -2483,241 +1359,6 @@ void STB_DMXResetDemuxSource(U8BIT path)
 {
     STB_DMXSetDemuxSource(path, DMX_TUNER, 0, 0);
 }
-
-#define TUNER_PATH 0
-#define PAT_TIMEOUT (10000)
-#define POLL_TIMEOUT (100)
-
-static pthread_t ci_signal_thread;
-static int       ci_signal_thread_run = 0;
-static int       event_fd   = -1;
-static int       demod_mode = 0;
-
-#define DEMOD_NODE_NAME "/sys/class/dtvdemod/attr"
-#define DEMOD_NODE_CMD0 "ci_mode 0"
-#define DEMOD_NODE_CMD1 "ci_mode 1"
-
-static void set_demod_mode (int mode)
-{
-   demod_mode = mode;
-   DMX_DBG("ci monitor set demod mode to %d", mode);
-
-   if (mode == 0) {
-      DMX_DBG("echo %s > %s", DEMOD_NODE_CMD0, DEMOD_NODE_NAME);
-      STB_File_Echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD0);
-   } else {
-      DMX_DBG("echo %s > %s", DEMOD_NODE_CMD1, DEMOD_NODE_NAME);
-      STB_File_Echo(DEMOD_NODE_NAME, DEMOD_NODE_CMD1);
-   }
-}
-
-static void* ci_signal_entry (void *arg)
-{
-   struct dmx_sct_filter_params filter;
-   struct pollfd fds[2];
-   char buf[64];
-   int  i, r;
-   int  fd;
-   int  has_signal = 0;
-   int  timeout = 0;
-   DMX_DBG("ci monitor wait lock");
-
-   while (ci_signal_thread_run) {
-      if (STB_TuneGetLockStatus(TUNER_PATH) == TUNER_STATE_LOCKED)
-         break;
-
-      fds[0].fd     = event_fd;
-      fds[0].events = POLLIN|POLLERR;
-
-      if (poll(fds, 1, 50) < 0)
-      {
-         DMX_DBG("poll failure: %s", strerror(errno));
-         break;
-      }
-   }
-
-   if (!ci_signal_thread_run)
-      return NULL;
-
-   DMX_DBG("ci monitor locked");
-
-   if (STB_TuneGetActualSignalType(TUNER_PATH) != TUNE_SIGNAL_QAM) {
-      return NULL;
-   }
-
-   for (i = 0; i < num_paths; i++) {
-      E_STB_DMX_DEMUX_SOURCE source;
-      U8BIT param;
-
-      STB_DMXGetDemuxSource(i, &source, &param);
-      if (source == DMX_TUNER)
-         break;
-   }
-
-   DMX_DBG("ci monitor open demux %d", i);
-
-   snprintf(buf, sizeof(buf), "/dev/dvb0.demux%d", i);
-
-   fd = open(buf, O_RDWR);
-   if (fd == -1) {
-      DMX_DBG("cannot open demux %d", i);
-      return NULL;
-   }
-
-   memset(&filter, 0, sizeof(filter));
-
-   filter.pid = 0;
-   filter.filter.filter[0] = 0;
-   filter.filter.mask[0]   = 0xff;
-   filter.flags |= DMX_CHECK_CRC;
-
-   if (ioctl(fd, DMX_SET_FILTER, &filter) < 0)
-   {
-        DMX_DBG("set filter fail error:%s", strerror(errno));
-        close(fd);
-        return NULL;
-   }
-
-   if (ioctl(fd, DMX_START) < 0)
-   {
-       DMX_DBG("set START fail error:%s", strerror(errno));
-       close(fd);
-       return NULL;
-   }
-
-   fds[0].fd     = event_fd;
-   fds[0].events = POLLIN|POLLERR;
-   fds[1].fd     = fd;
-   fds[1].events = POLLIN|POLLERR;
-
-   while (ci_signal_thread_run) {
-      //one time is 200ms
-      r = poll(fds, 2, POLL_TIMEOUT);
-      if (r > 1) {
-         if (fds[1].revents & POLLIN) {
-            has_signal = 1;
-            DMX_DBG("ci monitor PAT got");
-            break;
-         }
-      }
-      timeout = timeout + POLL_TIMEOUT;
-      if (timeout >= PAT_TIMEOUT) {
-         break;
-      }
-   }
-
-   close(fd);
-
-   if (!ci_signal_thread_run)
-      return NULL;
-
-   if (!has_signal) {
-      DMX_DBG("ci monitor PAT timeout");
-      set_demod_mode(1);
-   }
-
-   return NULL;
-}
-
-
-/**
- * @brief set demod mode api.
- */
-void STB_DMXCI_Set_Demod_Mode(int mode)
-{
-   DMX_DBG("ci set demod mode set[%d]old[%d]", mode, demod_mode);
-   if (mode != demod_mode) {
-      set_demod_mode(mode);
-   }
-}
-
-/**
- * @brief Start the CI signal monitor.
- */
-void STB_DMXCISignalMonitorStart()
-{
-   FUNCTION_START(STB_DMXCISignalMonitorStart);
-   DMX_DBG("ci monitor start");
-   if (!ci_signal_thread_run) {
-      ci_signal_thread_run = 1;
-      event_fd = eventfd(0, 0);
-      pthread_create(&ci_signal_thread, NULL, ci_signal_entry, NULL);
-   }
-
-   FUNCTION_FINISH(STB_DMXCISignalMonitorStart);
-}
-
-/**
- * @brief Stop the CI signal monitor.
- */
-void STB_DMXCISignalMonitorStop()
-{
-   FUNCTION_START(STB_DMXCISignalMonitorStop);
-   DMX_DBG("ci monitor stop");
-   if (ci_signal_thread_run) {
-      int v = 0;
-
-      ci_signal_thread_run = 0;
-      write(event_fd, &v, sizeof(v));
-      pthread_join(ci_signal_thread, NULL);
-      close(event_fd);
-      if (demod_mode)
-         set_demod_mode(0);
-   }
-
-   FUNCTION_FINISH(STB_DMXCISignalMonitorStop);
-}
-
-E_STB_TS_SOURCE STB_GetDmxTsSource(int dmx_id)
-{
-   // Now we only support one ts source.
-   return 0;
-}
-
-/**
- * @brief   set the tsout source when ts route is "tsin->tsout->tsin"
- * get ts out source from cfg
- */
-static void STB_SetTsoutSource(BOOLEAN is_cam_plugin)
-{
-   FUNCTION_START(STB_SetTsoutSource);
-   if (aml_hw_cfg.cam[0].is_set_tsout)
-   {
-      char buf[32];
-      char *cmd;
-      int src = aml_hw_cfg.cam[0].tsout_source;
-      sprintf(buf, STB_TSO_SOURCE);
-      if (is_cam_plugin)
-      {
-         switch (src)
-         {
-         case STB_TS_SOURCE0:
-            cmd = "ts0";
-            break;
-         case STB_TS_SOURCE1:
-            cmd = "ts1";
-            break;
-         case STB_TS_SOURCE2:
-            cmd = "ts2";
-            break;
-         case STB_TS_SOURCE3:
-            cmd = "ts3";
-            break;
-         default:
-            DMX_DBG("do not support demux source %d", src);
-            return;
-         }
-      }
-      else
-         cmd = "close";
-      DMX_DBG("set tsout: %s", cmd);
-      STB_File_Echo(buf, cmd);
-      return;
-   }
-
-   FUNCTION_FINISH(STB_SetTsoutSource);
-}
-
 
 /**
  * @brief   Reads Teletext PES data from the demux
@@ -2818,21 +1459,20 @@ BOOLEAN STB_DMXGetDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
 {
    BOOLEAN ret;
    BOOLEAN result = TRUE;
-   int     dsc_dev;
-   S_DSC_DEV_INFO *dsc;
 
    FUNCTION_START(STB_DMXGetDescramblerKey);
 
    if ((path < num_paths) && (track < DESC_NUM_TRACKS))
    {
+#if 0 //EMING
+       int     dsc_dev;
+       S_DSC_DEV_INFO *dsc;
       dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
-
       dsc = &dsc_dev_info[dsc_dev];
-
       ClearKey(path, track);
-
       STB_DMXDscSetSrc(dsc_dev, path);
-
+#endif
+      ClearKey(path, track);
       result = TRUE;
    }
    else
@@ -2859,21 +1499,24 @@ BOOLEAN STB_DMXFreeDescramblerKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    S_DES_TRACK_INFO *ptrk;
    BOOLEAN ret;
    BOOLEAN result = TRUE;
-   int     dsc_dev;
-   S_DSC_DEV_INFO *dsc;
 
    FUNCTION_START(STB_DMXFreeDescramblerKey);
 
    DMX_DBG("path %u track %u", path, track);
 
+#if 0 //EMING
+   int     dsc_dev;
+   S_DSC_DEV_INFO *dsc;
    dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
    dsc     = &dsc_dev_info[dsc_dev];
-
+#endif
    if ((path < num_paths) && (track < DESC_NUM_TRACKS))
    {
       pdmx = demux_status + path;
       ptrk = pdmx->tracks + track;
+#if 1 //EMING
       ClearKey(path, track);
+#endif
       result = TRUE;
    }
    else
@@ -2915,7 +1558,10 @@ BOOLEAN STB_DMXSetDescramblerKeyData(U8BIT path, E_STB_DMX_DESC_TRACK track,
          demux_status[path].tracks[track].isodd = TRUE;
          memcpy(demux_status[path].tracks[track].odd, data, 32);
       }
+
+#if 1 //EMING
       ApplyKey(path, track);
+#endif
       result = TRUE;
    }
    else
@@ -2963,6 +1609,16 @@ BOOLEAN STB_DMXGetKeyUsage(U8BIT path, E_STB_DMX_DESC_TRACK track, E_STB_DMX_KEY
  */
 E_STB_BOARD_TYPE STB_DMXGetModel()
 {
+    struct stat st;
+    int         r;
+    static BOOLEAN                dmx_model_sc2 = FALSE;
+
+   r = stat("/dev/key", &st);
+   if (r == 0)
+   {
+      dmx_model_sc2 = TRUE;
+   }
+
    if (dmx_model_sc2)
       return STB_DMX_MODEL_SC2;
    else
@@ -3087,98 +1743,6 @@ BOOLEAN DMXGetDecodePIDs(U8BIT path, U16BIT *pcr_pid, U16BIT *video_pid, U16BIT 
    return(retval);
 }
 
-/*---local function definitions----------------------------------------------*/
-
-/**
- * @brief   Apply descrambler keys
- * @param   param - demux path
- */
-static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
-{
-   S_DMX_STATUS* pdmx;
-   S_DES_TRACK_INFO *ptrk;
-   BOOLEAN ret;
-   int desc_chan;
-   int dsc_dev;
-
-   dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
-
-   pdmx = demux_status + path;
-   ptrk = pdmx->tracks + track;
-
-   DMX_DBG("path %d ptrk->chanid %d even %d odd %d pid %d track %d", path, ptrk->chanid, ptrk->iseven, ptrk->isodd, pdmx->pids[track], track);
-
-   if (pdmx->pids[track] == 0)
-   {
-      DMX_DBG("pid is zero, return");
-      return;
-   }
-
-   if (ptrk->iseven || ptrk->isodd)
-   {
-      if (ptrk->chanid == -1)
-      {
-         ptrk->chanid = STB_DMXDscAlloc(dsc_dev, pdmx->pids[track], ptrk->type, DSC_COMMON_TYPE);
-         if (ptrk->chanid == -1)
-         {
-            DMX_DBG("dsc alloc failed");
-            return;
-         }
-      }
-      if (ptrk->iseven)
-         STB_DMXSetKey(dsc_dev, ptrk->chanid, ptrk->type, DSC_COMMON_TYPE, KEY_PARITY_EVEN, ptrk->even);
-      if (ptrk->isodd)
-         STB_DMXSetKey(dsc_dev, ptrk->chanid, ptrk->type, DSC_COMMON_TYPE, KEY_PARITY_ODD, ptrk->odd);
-   }
-}
-static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track)
-{
-   S_DMX_STATUS *pdmx;
-   S_DES_TRACK_INFO *ptrk;
-   int dsc_dev;
-
-   pdmx = demux_status + path;
-   ptrk = pdmx->tracks + track;
-
-   dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
-
-   if (ptrk->chanid != -1)
-   {
-      STB_DMXDscFree(dsc_dev, ptrk->chanid);
-      ptrk->chanid = -1;
-   }
-}
-
-/**
- * @brief   Clear descrambler keys
- * @param   param - demux path
- */
-static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
-{
-   S_DMX_STATUS* pdmx;
-   S_DES_TRACK_INFO *ptrk;
-   BOOLEAN ret;
-   int desc_chan;
-   int dsc_dev;
-
-   DMX_DBG("Clear key");
-
-   dsc_dev = dmx_model_sc2 ? path : DSC_DEV_NO;
-
-   pdmx = demux_status + path;
-   ptrk = pdmx->tracks + track;
-
-   ptrk->iseven = FALSE;
-   memset(ptrk->even, 0, 32);
-   ptrk->isodd = FALSE;
-   memset(ptrk->odd, 0, 32);
-
-   if (ptrk->chanid != -1)
-   {
-      STB_DMXDscFree(dsc_dev, ptrk->chanid);
-      ptrk->chanid = -1;
-   }
-}
 
 /**
  * @brief   Callback function that receives data for PID and section filters
@@ -3260,7 +1824,7 @@ void PidCallback(ST_CALLBACK_T* param)
                            if (pid_filter->func_ptr[j] != NULL)
                            {
                               func_ptr = pid_filter->func_ptr[j];
-                              DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
+                              //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
                               DMX_DBG("pid_filter->index [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->index , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(0, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                            }
@@ -3566,377 +2130,518 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
    FUNCTION_FINISH(PesCallback);
 }
 
-static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx)
-{
-   DVB_DemuxSource_t demux_source = DVB_DEMUX_SOURCE_TS0;
-   switch (ts_input_idx)
-   {
-       case 0:
-           demux_source = DVB_DEMUX_SOURCE_TS0;
-           break;
-       case 1:
-           demux_source = DVB_DEMUX_SOURCE_TS1;
-           break;
-       case 2:
-           demux_source = DVB_DEMUX_SOURCE_TS2;
-           break;
-       case 3:
-           demux_source = DVB_DEMUX_SOURCE_TS3;
-           break;
-       default:
-           DMX_DBG("do not support demux source:ts%d", ts_input_idx);
-       break;
-       }
-   return demux_source;
-}
-
-static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
-{
-    char node[32] = {0};
-    char node2[20] = {0};
-    int r = 0;
-
-    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", dmx_idx);
-    snprintf(node2, sizeof(node2), "/dev/dvb0.demux%d", dmx_idx);
-
-    int fd = open(node, O_RDONLY);
-    if (fd == -1)
-    {
-        int source = 0;
-        int input = 0;
-        int fd2 = open(node2, O_WRONLY);
-        if (fd2 != -1)
-        {
-            if (src <= DVB_DEMUX_SOURCE_TS7) {
-                source = FRONTEND_TS0 + src - DVB_DEMUX_SOURCE_TS0;
-                input = INPUT_DEMOD;
-            } else if (src >= DVB_DEMUX_SOURCE_DMA0 &&
-                src <= DVB_DEMUX_SOURCE_DMA7) {
-                source = DMA_0 + src - DVB_DEMUX_SOURCE_DMA0;
-                input = INPUT_LOCAL;
-            } else if (src >= DVB_DEMUX_SECSOURCE_DMA0 &&
-                src <= DVB_DEMUX_SECSOURCE_DMA7) {
-                source = DMA_0 + src - DVB_DEMUX_SECSOURCE_DMA0;
-                input = INPUT_LOCAL_SEC;
-            } else if (src >= DVB_DEMUX_SOURCE_DMA0_1 &&
-                src <= DVB_DEMUX_SOURCE_DMA7_1) {
-                source = DMA_0_1 + src - DVB_DEMUX_SOURCE_DMA0_1;
-                input = INPUT_LOCAL;
-            } else if (src >= DVB_DEMUX_SECSOURCE_DMA0_1 &&
-                src <= DVB_DEMUX_SECSOURCE_DMA7_1) {
-                source = DMA_0_1 + src - DVB_DEMUX_SECSOURCE_DMA0_1;
-                input = INPUT_LOCAL_SEC;
-            } else if (src >= DVB_DEMUX_SOURCE_TS0_1 &&
-                src <= DVB_DEMUX_SOURCE_TS7_1) {
-                source = FRONTEND_TS0_1 + src - DVB_DEMUX_SOURCE_TS0_1;
-                input = INPUT_DEMOD;
-            } else {
-               DMX_ERR("DvbSetDemuxSource:%d invalid source:%d", __LINE__, src);
-               close(fd2);
-               return -1;
-            }
-
-            if (ioctl(fd2, DMX_SET_INPUT, input) < 0)
-            {
-                 DMX_DBG("DvbSetDemuxSource ioctl DMX_SET_INPUT:%d error:%d", input, errno);
-                 r = -1;
-            }
-            else
-            {
-                 DMX_DBG("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_INPUT:%d dmx_idx:%d", src, input, dmx_idx);
-                 r = 0;
-            }
-            if (ioctl(fd2, DMX_SET_HW_SOURCE, source) < 0)
-            {
-                DMX_DBG("DvbSetDemuxSource ioctl DMX_SET_HW_SOURCE:%d error:%d", source, errno);
-                r = -1;
-            }
-            else
-            {
-                DMX_DBG("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_HW_SOURCE:%d dmx_idx:%d", src, source, dmx_idx);
-                r = 0;
-            }
-            close(fd2);
-        }
-        else
-        {
-            DMX_ERR("DvbSetDemuxSource open \"%s\" failed, error:%d", node, errno);
-        }
-    }
-    else
-    {
-        char *val = NULL;
-
-        close(fd);
-
-        if (ciplus_enable)
-        {
-            char buf[32];
-            int i, out;
-
-            out = 0;
-
-            for (i = 0; i < 3; i ++)
-            {
-                DVB_DemuxSource_t dmx_src = DVB_DEMUX_SOURCE_TS0;
-
-                if (i == dmx_idx)
-                    dmx_src = src;
-                else
-                    DvbGetDemuxSource(i, &dmx_src);
-                if (dmx_src != DVB_DEMUX_SOURCE_DMA0)
-                    out |= 1 << i;
-            }
-
-            snprintf(buf, sizeof(buf), "%d", out);
-            STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
-        }
-
-        switch (src)
-        {
-        case DVB_DEMUX_SOURCE_TS0:
-        case DVB_DEMUX_SOURCE_TS0_1:
-            val = "ts0";
-            break;
-        case DVB_DEMUX_SOURCE_TS1:
-        case DVB_DEMUX_SOURCE_TS1_1:
-            val = "ts1";
-            break;
-        case DVB_DEMUX_SOURCE_TS2:
-        case DVB_DEMUX_SOURCE_TS2_1:
-            val = "ts2";
-            break;
-        case DVB_DEMUX_SOURCE_DMA0:
-        case DVB_DEMUX_SOURCE_DMA1:
-        case DVB_DEMUX_SOURCE_DMA2:
-        case DVB_DEMUX_SOURCE_DMA3:
-        case DVB_DEMUX_SOURCE_DMA4:
-        case DVB_DEMUX_SOURCE_DMA5:
-        case DVB_DEMUX_SOURCE_DMA6:
-        case DVB_DEMUX_SOURCE_DMA7:
-            val = "hiu";
-            break;
-        default:
-            DMX_ERR("DvbSetDemuxSource:%d invalid source:%d", __LINE__, src);
-            return -1;
-        }
-
-        r = STB_File_Echo(node, val);
-    }
-    return r;
-}
-
-static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src)
-{
-    char node[32] = {0};
-    char node2[20] = {0};
-    char buf[32] = {0};
-    int r = 0;
-    int source_no = 0;
-
-    snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", dmx_idx);
-    snprintf(node2, sizeof(node2), "/dev/dvb0.demux%d", dmx_idx);
-
-    int fd = open(node, O_RDONLY);
-    if (fd == -1)
-    {
-        int source;
-        int fd2 = open(node2, O_RDONLY);
-        if (fd2 != -1)
-        {
-            if (ioctl(fd2, DMX_GET_HW_SOURCE, &source) >= 0)
-            {
-                switch (source)
-                {
-                case FRONTEND_TS0:
-                    *src = DVB_DEMUX_SOURCE_TS0;
-                    break;
-                case FRONTEND_TS1:
-                    *src = DVB_DEMUX_SOURCE_TS1;
-                    break;
-                case FRONTEND_TS2:
-                    *src = DVB_DEMUX_SOURCE_TS2;
-                    break;
-                case FRONTEND_TS3:
-                    *src = DVB_DEMUX_SOURCE_TS3;
-                    break;
-                case FRONTEND_TS4:
-                    *src = DVB_DEMUX_SOURCE_TS4;
-                    break;
-                case FRONTEND_TS5:
-                    *src = DVB_DEMUX_SOURCE_TS5;
-                    break;
-                case FRONTEND_TS6:
-                    *src = DVB_DEMUX_SOURCE_TS6;
-                    break;
-                case FRONTEND_TS7:
-                    *src = DVB_DEMUX_SOURCE_TS7;
-                    break;
-                case DMA_0:
-                    *src = DVB_DEMUX_SOURCE_DMA0;
-                    break;
-                case DMA_1:
-                    *src = DVB_DEMUX_SOURCE_DMA1;
-                    break;
-                case DMA_2:
-                    *src = DVB_DEMUX_SOURCE_DMA2;
-                    break;
-                case DMA_3:
-                    *src = DVB_DEMUX_SOURCE_DMA3;
-                    break;
-                case DMA_4:
-                    *src = DVB_DEMUX_SOURCE_DMA4;
-                    break;
-                case DMA_5:
-                    *src = DVB_DEMUX_SOURCE_DMA5;
-                    break;
-                case DMA_6:
-                    *src = DVB_DEMUX_SOURCE_DMA6;
-                    break;
-                case DMA_7:
-                    *src = DVB_DEMUX_SOURCE_DMA7;
-                    break;
-                case FRONTEND_TS0_1:
-                    *src = DVB_DEMUX_SOURCE_TS0_1;
-                    break;
-                case FRONTEND_TS1_1:
-                    *src = DVB_DEMUX_SOURCE_TS1_1;
-                    break;
-                case FRONTEND_TS2_1:
-                    *src = DVB_DEMUX_SOURCE_TS2_1;
-                    break;
-                case FRONTEND_TS3_1:
-                    *src = DVB_DEMUX_SOURCE_TS3_1;
-                    break;
-                case FRONTEND_TS4_1:
-                    *src = DVB_DEMUX_SOURCE_TS4_1;
-                    break;
-                case FRONTEND_TS5_1:
-                    *src = DVB_DEMUX_SOURCE_TS5_1;
-                    break;
-                case FRONTEND_TS6_1:
-                    *src = DVB_DEMUX_SOURCE_TS6_1;
-                    break;
-                case FRONTEND_TS7_1:
-                    *src = DVB_DEMUX_SOURCE_TS7_1;
-                    break;
-                case DMA_0_1:
-                    *src = DVB_DEMUX_SOURCE_DMA0_1;
-                    break;
-                case DMA_1_1:
-                    *src = DVB_DEMUX_SOURCE_DMA1_1;
-                    break;
-                case DMA_2_1:
-                    *src = DVB_DEMUX_SOURCE_DMA2_1;
-                    break;
-                case DMA_3_1:
-                    *src = DVB_DEMUX_SOURCE_DMA3_1;
-                    break;
-                case DMA_4_1:
-                    *src = DVB_DEMUX_SOURCE_DMA4_1;
-                    break;
-                case DMA_5_1:
-                    *src = DVB_DEMUX_SOURCE_DMA5_1;
-                    break;
-                case DMA_6_1:
-                    *src = DVB_DEMUX_SOURCE_DMA6_1;
-                    break;
-                case DMA_7_1:
-                    *src = DVB_DEMUX_SOURCE_DMA7_1;
-                    break;
-                default:
-                    DMX_ERR("DvbGetDemuxSource invalid source:%d", source);
-                    r = -1;
-                }
-            }
-            else
-            {
-                DMX_ERR("ioctl DMX_GET_HW_SOURCE:%d error:%d", source, errno);
-            }
-            close(fd2);
-        }
-        else
-        {
-            DMX_ERR("opening \"%s\" failed with errno:%d", node2, errno);
-        }
-    }
-    else
-    {
-        close(fd);
-        r = STB_File_Read(node, buf, sizeof(buf));
-        if (r != -1)
-        {
-            if (strncmp(buf, "ts", 2) == 0 && strlen(buf) == 3)
-            {
-                sscanf(buf, "ts%d", &source_no);
-                switch (source_no)
-                {
-                case 0:
-                    *src = DVB_DEMUX_SOURCE_TS0;
-                    break;
-                case 1:
-                    *src = DVB_DEMUX_SOURCE_TS1;
-                    break;
-                case 2:
-                    *src = DVB_DEMUX_SOURCE_TS2;
-                    break;
-                default:
-                    DMX_DBG("do not support demux source:%s", buf);
-                    r = -1;
-                    break;
-                }
-            }
-            else if (strncmp(buf, "hiu", 3) == 0)
-            {
-                *src = DVB_DEMUX_SOURCE_DMA0;
-            }
-            else
-            {
-                r = -1;
-            }
-            DMX_DBG("DvbGetDemuxSource \"%s\" :%s", node, buf);
-        }
-    }
-    return r;
-}
-
-static int DvbEnableCIPlus(int enable)
-{
-    int out;
-    char buf[32];
-
-    ciplus_enable = enable;
-
-    if (STB_IsNewHW())
-        return 0;
-
-    if (enable)
-    {
-        int i;
-
-        out = 0;
-
-        for (i = 0; i < 3; i ++)
-        {
-            DVB_DemuxSource_t src = DVB_DEMUX_SOURCE_TS0;
-
-            DvbGetDemuxSource(i, &src);
-            if (src != DVB_DEMUX_SOURCE_DMA0)
-                out |= 1 << i;
-        }
-    }
-    else
-    {
-        out = 8;
-    }
-
-    snprintf(buf, sizeof(buf), "%d", out);
-    STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
-
-    return 0;
-}
-
 BOOLEAN STB_DMXSetSource(U8BIT dmx_idx, U8BIT src)
 {
-    return DvbSetDemuxSource(dmx_idx, (DVB_DemuxSource_t)src);
+    return FALSE ;
+}
+void STB_DMXDscSetSrc(int dev_id, int dmx_id)
+{
+    //NA
+}
+void STB_DMXCI_Set_Demod_Mode(int mode)
+{
+    //NA
+}
+void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
+{
+    //NA
+}
+
+static int key_open(void)
+{
+   char buf[32];
+   int s_fd = -1;
+
+   snprintf(buf, sizeof(buf), "/dev/key");
+   s_fd = open(buf, O_RDWR);
+   if (s_fd == -1)
+   {
+      DMX_DBG("key_open[%d] [%s]",s_fd,strerror(errno) );;
+      return -1;
+   }
+   DMX_DBG("%s key fd:%d\n", buf, s_fd);
+   return s_fd;
+}
+
+static int key_close(int fd)
+{
+   if (fd == -1)
+   {
+      DMX_DBG("key_close invalid fd\n");
+      return -1;
+   }
+   close(fd);
+   return 0;
+}
+
+static int key_alloc(int fd, int is_iv)
+{
+   int ret = 0;
+   struct key_alloc param;
+
+   DMX_DBG("fd %d is_iv %d\n", fd, is_iv);
+   if (fd == -1)
+   {
+      DMX_DBG("key alloc fd invalid\n");
+      return -1;
+   }
+   param.is_iv = is_iv;
+   param.key_index = -1;
+
+   ret = ioctl(fd, KEY_ALLOC, &param);
+   if (ret == 0)
+   {
+      DMX_DBG("key_alloc index----------:[%x]\n", param.key_index);
+      return param.key_index;
+   }
+   else
+   {
+      DMX_DBG("key_alloc key fail,fd:%d, is_iv:%d\n", fd, is_iv);
+      return -1;
+   }
+}
+
+static int key_config(int fd, int key_index, int key_userid, int key_algo, unsigned int ext_value)
+{
+   int ret = 0;
+   struct key_config config;
+
+   if (fd == -1)
+   {
+      DMX_DBG("key config fd invalid\n");
+      return -1;
+   }
+   config.key_userid = key_userid;
+   config.key_algo = key_algo;
+   config.key_index = key_index;
+   config.ext_value = ext_value;
+
+   DMX_DBG("fd %d key_index:%d key_userid %d algo %d\n", fd, key_index, key_userid, key_algo);
+
+   ret = ioctl(fd, KEY_CONFIG, &config);
+   if (ret == 0)
+   {
+      DMX_DBG("key_config index:%d\n", config.key_index);
+      return config.key_index;
+   }
+   else
+   {
+      DMX_DBG("key_config key fail,fd:%d, key_userid:%d, key_algo:%d\n", fd, key_userid, key_algo);
+      return -1;
+   }
+}
+
+static int key_set(int fd, int key_index, char *key, int key_len)
+{
+   int ret = 0;
+   struct key_descr key_d;
+
+   if (fd == -1 || key_index == -1 || key_len > 32)
+   {
+      DMX_DBG("key_set invalid parameter, fd:%d, key_index:%d, key_len:%d\n",
+             fd, key_index, key_len);
+      return -1;
+   }
+
+   DMX_DBG("fd %d key_index %d key %02x%02x%02x len %d", fd, key_index, key[0], key[1], key[2], key_len);
+   key_d.key_index = key_index;
+   memcpy(&key_d.key, key, key_len);
+   key_d.key_len = key_len;
+   ret = ioctl(fd, KEY_SET, &key_d);
+   if (ret == 0)
+   {
+      DMX_DBG("key_set success\n");
+      return 0;
+   }
+   else
+   {
+      DMX_DBG("key_set fail\n");
+      return -1;
+   }
+}
+
+static void key_free (int key_fd, int key_id)
+{
+   DMX_DBG("dev_id %d key_id %d", key_fd, key_id);
+   ioctl(key_fd, KEY_FREE, key_id);
+}
+
+int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type)
+{
+   int chan_id = -1;
+   int i, r, id;
+   char name[256];
+
+   DMX_DBG("dev %d pid %x dsc_type %d %s", dev_id, pid, type, name);
+
+   //{
+      S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
+      struct ca_sc2_descr_ex desc = {0};
+      enum ca_sc2_algo_type  algo;
+      struct s_sc2_dsc_channel *dsc_channel = NULL;
+      E_STB_TS_SOURCE ts_src;
+
+      STB_OSMutexLock(dsc->mutex);
+      for (i = 0; i < SC2_DSC_CH_NUM; i++)
+      {
+         dsc_channel = &dsc->dsc_pid_channel[i];
+         if (dsc_channel->chan_id == -1 )
+         {
+             DMX_DBG("+++++++++++++++++++++++++++alloc new pid channel, [%d]", i);
+             chan_id = i;
+            break ;
+         }
+      }
+
+      if (dsc_channel == NULL)
+          DMX_DBG("@@@@@@@@@@flow wrong");
+      {
+         switch (type)
+         {
+         case DESC_TYPE_DVB:
+            algo = CA_ALGO_CSA2;
+            break;
+         case DESC_TYPE_AES:
+            algo = CA_ALGO_AES_CBC_CLR_END;
+            break;
+         case DESC_TYPE_AES_SCTE_52:
+            algo = CA_ALGO_AES_CBC_IDSA;
+            break;
+         case DESC_TYPE_DES:
+            algo = CA_ALGO_DES_SCTE52;
+            break;
+         case DESC_TYPE_TDES:
+            algo = CA_ALGO_TDES_ECB_CLR_END;
+            break;
+         default:
+            break;
+         }
+
+        /*
+        desc.cmd = CA_ALLOC;
+        desc.params.alloc_params.pid = pid;
+        desc.params.alloc_params.algo = algo;
+        desc.params.alloc_params.dsc_type = (enum ca_sc2_dsc_type)dsc_type;
+        desc.params.alloc_params.ca_index = -1;
+
+        DMX_DBG("type %d algo %d dsc_type %d", type, algo, dsc_type);
+        r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
+        chan_id = desc.params.alloc_params.ca_index;
+        */
+
+         dsc_channel->ref = 1;
+         dsc_channel->chan_id = chan_id;
+         dsc_channel->pid = pid;
+         dsc_channel->dsc_type = dsc_type;
+         ////////////////////////////
+         dsc_channel->key_id = -1;
+         dsc_channel->iv_key_id = -1;
+        ///////////////////
+      }
+      STB_OSMutexUnlock(dsc->mutex);
+      //ca_dump_channel();
+       //tuner hal flow
+      // open descramble
+      if (dsc->dsc_ref[dev_id] == 0)
+      {
+           dsc->descramble_handle = DESCRAMBLE_Open();
+      }
+      dsc->dsc_ref[dev_id]++;
+   return chan_id;
+}
+
+int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type, E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *data)
+{
+   int r = 0;
+   int i;
+   int dsm_result = -1;
+   DMX_DBG("setkey: %x %x %x", data[0], data[1], data[2]);
+   DMX_DBG("@@@@@@@@@@@@  dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, 1);
+
+   //{
+      S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
+      E_KEY_ALGO_SC2 key_algo;
+      struct s_sc2_dsc_channel *dsc_channel;
+      int key_userid = 0;
+
+      STB_OSMutexLock(dsc->mutex);
+
+      for (i = 0; i < SC2_DSC_CH_NUM; i++)
+      {
+         dsc_channel = &dsc->dsc_pid_channel[i];
+         if (dsc_channel->chan_id == chan_id)
+         {
+            DMX_DBG("set key found channel");
+            break ;
+         }
+      }
+      if (dsc_channel == NULL)
+          DMX_DBG("@@@@@@@@@@flow wrong");
+
+      switch (dsc_type)
+      {
+         case DSC_COMMON_TYPE:
+            key_userid = DSC_NETWORK;
+            break;
+         case DSC_TSD_TYPE:
+            key_userid = DSC_LOC_DEC;
+            break;
+         case DSC_TSE_TYPE:
+            key_userid = DSC_LOC_ENC;
+            break;
+         default:
+            key_userid = DSC_NETWORK;
+            break;
+      }
+
+      switch (type)
+      {
+         case DESC_TYPE_AES:
+            key_algo = KEY_ALGO_AES;
+            break;
+         case DESC_TYPE_DVB:
+            key_algo = KEY_ALGO_CSA2;
+            break;
+         case DESC_TYPE_DES:
+            key_algo = KEY_ALGO_DES;
+            break;
+         case DESC_TYPE_TDES:
+            key_algo = KEY_ALGO_TDES;
+            break;
+         default:
+            DMX_DBG("key type invalid");
+            break;
+      };
+
+      E_CA_KEY_TYPE_SC2 key_type;
+      E_CA_KEY_TYPE_SC2 iv_key_type;
+
+      switch (parity)
+      {
+      case KEY_PARITY_EVEN:
+            key_type = CA_KEY_EVEN_TYPE;
+            iv_key_type = CA_KEY_EVEN_IV_TYPE;
+            break;
+      case KEY_PARITY_ODD:
+            key_type = CA_KEY_ODD_TYPE;
+            iv_key_type = CA_KEY_ODD_IV_TYPE;
+            break;
+      case KEY_PARITY_NONE:
+            key_type = CA_KEY_00_TYPE;
+            iv_key_type = CA_KEY_00_IV_TYPE;
+            break;
+      }
+   /*ALL ES share one Key TABLe*/
+      if (dsc->dsc_ref[dev_id] == 1)
+    {
+          if (dsc_channel->key_id == -1)
+          {
+                dsc_channel->key_id = key_alloc(dsc->key_fd, FALSE);
+                key_config(dsc->key_fd, dsc_channel->key_id, key_userid, key_algo, 0);
+          }
+          if (dsc_channel->iv_key_id == -1)
+          {
+                dsc_channel->iv_key_id = key_alloc(dsc->key_fd, TRUE);
+                key_config(dsc->key_fd, dsc_channel->iv_key_id, key_userid, key_algo, 0);
+          }
+          /* set key */
+          key_set(dsc->key_fd, dsc_channel->key_id, data, 16);
+          //ca_set_key(dev_id, chan_id, key_type, *key_id);
+          /* set iv */
+          key_set(dsc->key_fd, dsc_channel->iv_key_id, data + 16, 16);
+          //ca_set_key(dev_id, chan_id, iv_key_type, *iv_key_id);
+          /*
+           ca_set_key(dev_id, chan_id, key_type, *key_id);
+           {
+              static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
+              desc.cmd = CA_KEY;
+              desc.params.key_params.ca_index = index;
+              desc.params.key_params.parity = parity;
+              desc.params.key_params.key_index = key_index;
+              ret = ioctl(fd, CA_SC2_SET_DESCR_EX, &desc);
+          }
+          */
+
+          dsm_result = DSM_SetProperty(dsc->dsm_handle, DSM_PROP_SC2_DSC_TYPE, DSM_PROP_SC2_DSC_TYPE_TSN);
+          DMX_DBG("dsm_result %d",dsm_result);
+
+          dsm_result = DSM_SetProperty(dsc->dsm_handle, DSM_PROP_DEC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
+          DMX_DBG("dsm_result %d",dsm_result);
+
+          dsm_result = DSM_SetProperty(dsc->dsm_handle, DSM_PROP_ENC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
+          DMX_DBG("dsm_result %d",dsm_result);
+
+          struct dsm_keyslot keyslot;
+          keyslot.parity = (parity = KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
+          keyslot.algo = DSM_ALGO_AES_CBC_IDSA;
+          keyslot.id = dsc_channel->key_id;
+          keyslot.is_iv = FALSE;
+          keyslot.is_enc = FALSE ;
+          DMX_DBG("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot.parity,keyslot.is_iv,keyslot.id);
+          dsm_result = DSM_AddKeySlot(dsc->dsm_handle, &keyslot);
+
+          struct dsm_keyslot keyslot_iv;
+          keyslot_iv.parity = (parity = KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
+          keyslot_iv.algo = CA_ALGO_AES_CBC_CLR_END;
+          keyslot_iv.id = dsc_channel->iv_key_id;
+          keyslot_iv.is_iv = TRUE;
+          keyslot_iv.is_enc = FALSE ;
+          DMX_DBG("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot_iv.parity,keyslot_iv.is_iv,keyslot_iv.id);
+          dsm_result = DSM_AddKeySlot(dsc->dsm_handle, &keyslot_iv);
+          uint32_t token =dsc->dsm_token;
+          DMX_DBG("dsm_token [0x%x] 0[%x]1[%x]2[]3[%x]4[%x]",dsc->dsm_token,(token & 0xFF),((token & 0xFF00) >> 8),((token & 0xFF0000) >> 16),((token >> 24) & 0xFF));
+          DESCRAMBLE_SetKeyToken(dsc->descramble_handle,dsc->dsm_token);
+    }
+      DESCRAMBLE_AddPid(dsc->descramble_handle,dsc_channel->pid);
+
+      //add pid here
+      STB_OSMutexUnlock(dsc->mutex);
+   //}
+
+
+   return r;
+}
+
+void STB_DMXDscFree(int dev_id, int chan_id)
+{
+   int i;
+   int r;
+
+      S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
+      struct ca_sc2_descr_ex desc;
+      struct s_sc2_dsc_channel* dsc_channel = NULL;
+
+      STB_OSMutexLock(dsc->mutex);
+
+
+      for (i = 0; i < SC2_DSC_CH_NUM; i++)
+      {
+         dsc_channel = &dsc->dsc_pid_channel[i];
+         if (dsc_channel->chan_id == chan_id)
+         {
+            DMX_DBG("free found channel");
+            break ;
+         }
+      }
+
+      if (dsc_channel == NULL)
+          DMX_DBG("@@@@@@@@@@flow wrong");
+
+    //desc.cmd = CA_FREE;
+    //desc.params.free_params.ca_index = chan_id;
+    //r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
+
+    if (dsc_channel->key_id != -1)
+    {
+        DSM_RemoveKeySlot(dsc->dsm_handle, dsc_channel->key_id);
+        key_free(dsc->key_fd, dsc_channel->key_id);
+    }
+
+    if (dsc_channel->iv_key_id != -1)
+    {
+        DSM_RemoveKeySlot(dsc->dsm_handle, dsc_channel->key_id);
+        key_free(dsc->key_fd, dsc_channel->iv_key_id);
+    }
+
+      dsc_channel->key_id = -1;
+      dsc_channel->iv_key_id = -1;
+
+      dsc_channel->src = STB_TS_SOURCE_MAX;
+      dsc_channel->dsc_type = -1;
+      dsc_channel->chan_id = -1;
+      dsc_channel->ref = 0;
+      dsc->dsc_ref[dev_id]--;
+      //ca_dump_channel();
+      DMX_DBG("---------------------------------free pid channel, [%d]", i);
+      STB_OSMutexUnlock(dsc->mutex);
+
+      //tuner hal flow
+      //remove pid
+      //close descramble
+      DESCRAMBLE_RemovePid(dsc->descramble_handle,dsc_channel->pid);
+      dsc_channel->pid = -1;
+
+      if (dsc->dsc_ref[dev_id] == 0)
+      {
+          DESCRAMBLE_close(dsc->descramble_handle);
+          dsc->descramble_handle = NULL;
+      }
+}
+
+/**
+ * @brief   Apply descrambler keys
+ * @param   param - demux path
+ */
+static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
+{
+   S_DMX_STATUS* pdmx;
+   S_DES_TRACK_INFO *ptrk;
+   BOOLEAN ret;
+   int desc_chan;
+   int dsc_dev;
+
+   dsc_dev =   path ;
+
+   pdmx = demux_status + path;
+   ptrk = pdmx->tracks + track;
+
+   DMX_DBG("path %d ptrk->chanid %d even %d odd %d pid %d track %d", path, ptrk->chanid, ptrk->iseven, ptrk->isodd, pdmx->pids[track], track);
+
+   if (pdmx->pids[track] == 0)
+   {
+      DMX_DBG("pid is zero, return");
+      return;
+   }
+
+   if (ptrk->iseven || ptrk->isodd)
+   {
+      if (ptrk->chanid == -1)
+      {
+         ptrk->chanid = STB_DMXDscAlloc(dsc_dev, pdmx->pids[track], ptrk->type, DSC_COMMON_TYPE);
+         if (ptrk->chanid == -1)
+         {
+            DMX_DBG("----------------dsc alloc failed");
+            return;
+         }
+      }
+    if (ptrk->iseven)
+    {
+        DMX_DBG("SET EVEN");
+        STB_DMXSetKey(dsc_dev, ptrk->chanid, ptrk->type, DSC_COMMON_TYPE, KEY_PARITY_EVEN, ptrk->even);
+    }
+    if (ptrk->isodd)
+    {
+        DMX_DBG("ODD EVEN");
+        STB_DMXSetKey(dsc_dev, ptrk->chanid, ptrk->type, DSC_COMMON_TYPE, KEY_PARITY_ODD, ptrk->odd);
+    }
+   }
+}
+
+/**
+ * @brief   Clear descrambler keys
+ * @param   param - demux path
+ */
+static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
+{
+   S_DMX_STATUS* pdmx;
+   S_DES_TRACK_INFO *ptrk;
+   BOOLEAN ret;
+   int dsc_dev = path;
+
+   DMX_DBG("Clear key track==> [%d]",track);
+
+
+   pdmx = demux_status + path;
+   ptrk = pdmx->tracks + track;
+
+   ptrk->iseven = FALSE;
+   memset(ptrk->even, 0, 32);
+   ptrk->isodd = FALSE;
+   memset(ptrk->odd, 0, 32);
+
+   if (ptrk->chanid != -1)
+   {
+      STB_DMXDscFree(dsc_dev, ptrk->chanid);
+      ptrk->chanid = -1;
+   }
 }

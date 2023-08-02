@@ -2422,14 +2422,6 @@ void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
         return;
     }
 
-    if (vol < 0) {
-        vol = 0;
-    } else if (vol > 100) {
-        vol = 100;
-    }
-    //    ad_volume.masterVolume = (int)(100 - vol);
-    //    ad_volume.slaveVolume = (int)vol;
-
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
         AUD_DBG("Can't get lock, audio decoder[%d]", path);
@@ -2444,7 +2436,7 @@ void STB_AVSetADMixLevel(U8BIT path, U8BIT vol)
         return;
     }
 
-    // ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, (void*)&ad_volume);
+    ret = Wrapper_Player_SetADMixLevel(player_handle, vol);
     AUD_DBG("SetADMixLevel ad path[%d] vol[%d] err:%d, av_path: %d", path,  vol, ret, av_path);
     pthread_rwlock_unlock(_l);
 
@@ -2463,9 +2455,7 @@ U8BIT STB_AVGetADMixLevel(U8BIT path)
     FUNCTION_START(STB_AVGetADMixLevel);
 
     U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
-    U8BIT ad_mix_level;
-    //    ad_mix_level.masterVolume = 0;
-    //    ad_mix_level.slaveVolume = 0;
+    S32BIT ad_mix_level;
 
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
@@ -2481,12 +2471,12 @@ U8BIT STB_AVGetADMixLevel(U8BIT path)
         return 0;
     }
 
-    //ret = Aml_MP_Player_GetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AD_MIX_LEVEL, &ad_mix_level);
-    //    AUD_DBG("GetADMixLevel level:%d, err:%d", ad_mix_level.slaveVolume, ret);
+    ret = Wrapper_Player_GetADMixLevel(player_handle, &ad_mix_level);
+    AUD_DBG("GetADMixLevel level:%d, err:%d", ad_mix_level, ret);
     pthread_rwlock_unlock(_l);
 
     FUNCTION_FINISH(STB_AVGetADMixLevel);
-    return ad_mix_level;
+    return (U8BIT)ad_mix_level;
 }
 
 /**
@@ -3044,7 +3034,6 @@ S16BIT STB_AVGetAC4ActivePresentationsID(U8BIT path)
     return presentations_id;
 }
 
-
 BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_language_code)
 {
     int ret;
@@ -3163,11 +3152,9 @@ int AV_CreateTsPlayer_l(U8BIT path,
    AV_DBG("path: %d", path);
    Wrapper_Player_Initialise();
    memset(&parm, 0, sizeof(parm));
-   parm.dmx_dev_id = path;
    parm.event_mask= path;
    parm.source = source_type;
    parm.playback_mode = JNI_ASPLAYER_PLAYBACK_MODE_PASSTHROUGH;
-   parm.drmmode = JNI_ASPLAYER_TS_INPUT_BUFFER_TYPE_NORMAL;
    ret = Wrapper_Player_Create(parm, &player_handle);
    if (ret == 0)
    {
@@ -3371,6 +3358,13 @@ int AV_StartVideoDecode_l(jni_asplayer_handle player_handle,
     if (ret < 0)
     {
         VID_DBG("Set video params failed, v_pid:%d fmt:%d err:%d", v_pid, format, ret);
+        return ret;
+    }
+
+    ret = Wrapper_Player_SetSurface(player_handle);
+    if (ret < 0)
+    {
+        VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
         return ret;
     }
 

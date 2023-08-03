@@ -2292,7 +2292,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
    {
       if (demux_cap == DMX_CAPS_USBCAM)
       {
-         dmx_src_cfg = aml_hw_cfg.tuners[tuner_index].ts_input_idx;
+         dmx_src_cfg = DVB_DEMUX_SOURCE_DMA0 + aml_hw_cfg.tuners[tuner_index].ts_input_idx;
          DMX_DBG("DMX_CAPS_USBCAM dmx_src_cfg=%d", dmx_src_cfg);
       }
       else if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
@@ -2400,7 +2400,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          if (STB_CIUsbModuleInserted())
          {
             aml_hw_cfg.tuners[i].ts_input_idx = STB_CIUsbGetDmxSource(TRUE);
-            DMX_DBG("index[%d]unplug[%d]", i, STB_CIUsbGetDmxSource(TRUE));
+            DMX_DBG("index[%d]plug[%d]", i, STB_CIUsbGetDmxSource(TRUE));
          }
          else
          {
@@ -3500,22 +3500,59 @@ static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx)
    DVB_DemuxSource_t demux_source = DVB_DEMUX_SOURCE_TS0;
    switch (ts_input_idx)
    {
-       case 0:
-           demux_source = DVB_DEMUX_SOURCE_TS0;
-           break;
-       case 1:
-           demux_source = DVB_DEMUX_SOURCE_TS1;
-           break;
-       case 2:
-           demux_source = DVB_DEMUX_SOURCE_TS2;
-           break;
-       case 3:
-           demux_source = DVB_DEMUX_SOURCE_TS3;
-           break;
-       default:
-           DMX_DBG("do not support demux source:ts%d", ts_input_idx);
-       break;
-       }
+   case 0:
+      demux_source = DVB_DEMUX_SOURCE_TS0; /**< Hardware TS input port 0.*/
+      break;
+   case 1:
+      demux_source = DVB_DEMUX_SOURCE_TS1; /**< Hardware TS input port 1.*/
+      break;
+   case 2:
+      demux_source = DVB_DEMUX_SOURCE_TS2; /**< Hardware TS input port 2.*/
+      break;
+   case 3:
+      demux_source = DVB_DEMUX_SOURCE_TS3; /**< Hardware TS input port 3.*/
+      break;
+   case 4:
+      demux_source = DVB_DEMUX_SOURCE_TS4; /**< Hardware TS input port 4.*/
+      break;
+   case 5:
+      demux_source = DVB_DEMUX_SOURCE_TS5; /**< Hardware TS input port 5.*/
+      break;
+   case 6:
+      demux_source = DVB_DEMUX_SOURCE_TS6; /**< Hardware TS input port 6.*/
+      break;
+   case 7:
+      demux_source = DVB_DEMUX_SOURCE_TS7; /**< Hardware TS input port 7.*/
+      break;
+   case 8:
+      demux_source = DVB_DEMUX_SOURCE_DMA0; /**< DMA input port 0.*/
+      break;
+   case 9:
+      demux_source = DVB_DEMUX_SOURCE_DMA1; /**< DMA input port 1.*/
+      break;
+   case 10:
+      demux_source = DVB_DEMUX_SOURCE_DMA2; /**< DMA input port 2.*/
+      break;
+   case 11:
+      demux_source = DVB_DEMUX_SOURCE_DMA3; /**< DMA input port 3.*/
+      break;
+   case 12:
+      demux_source = DVB_DEMUX_SOURCE_DMA4; /**< DMA input port 4.*/
+      break;
+   case 13:
+      demux_source = DVB_DEMUX_SOURCE_DMA5; /**< DMA input port 5.*/
+      break;
+   case 14:
+      demux_source = DVB_DEMUX_SOURCE_DMA6; /**< DMA input port 6.*/
+      break;
+   case 15:
+      demux_source = DVB_DEMUX_SOURCE_DMA7; /**< DMA input port 6.*/
+      break;
+
+   default:
+      DMX_DBG("do not support demux source:ts%d", ts_input_idx);
+      break;
+   }
    return demux_source;
 }
 

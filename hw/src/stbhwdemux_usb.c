@@ -51,7 +51,7 @@
 #define DMX_USB_DBG(x, ...)
 #endif
 
-#define REC_BUFF_SIZE (USB_CIMODULE_MEDIA_MAX_SIZE * 20)
+#define REC_BUFF_SIZE (USB_CIMODULE_MEDIA_MAX_SIZE * 120)
 
 #define MEDIA_INPUT_ENABLE 1
 #define MEDIA_OUTPUT_ENABLE 1
@@ -371,15 +371,14 @@ static void *cimodule_media_write_task(void *args)
     unsigned int dwCiCompatibility;
     unsigned char bMediaInputCtrl;
     unsigned char *buffer;
-    int write_len, rec_len, threshold;
-    static int fd = -1;
+    int write_len = 0;
+    int rec_len = 0;
+    int threshold = 0;
+    BOOLEAN first_run = TRUE;
     unsigned char arDummyTsHdr[10] = {0x00, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-    DMX_USB_DBG("entry");
     buffer = STB_MEMGetSysRAM(REC_BUFF_SIZE);
-    write_len = 0;
-    // Aml_MP_SetDemuxSource(0, DVB_DEMUX_SOURCE_DMA0 + inj_dev_id);
-    threshold = 0;
+
     DMX_USB_DBG("open usb cimodlue media interface succeessfully,write handle:%d", media_write_fd);
 
     ret = cimodule_get_usb_cimodule_info(media_write_fd, &tUsbCiModuleInfo);
@@ -400,14 +399,13 @@ static void *cimodule_media_write_task(void *args)
             return NULL;
         }
     }
-    DMX_USB_DBG("ci20 detected ok");
 
-    DMX_USB_DBG("ready to inject ts, buf %p", g_pbMediaWriteBuf);
+    DMX_USB_DBG("ci20 detected ok. ready to inject ts, buf %p", g_pbMediaWriteBuf);
 
     while (thread_running)
     {
 #ifndef INJECT_FROM_FILE
-        rec_len = record_from_tsin(buffer + threshold, USB_CIMODULE_MEDIA_MAX_SIZE);
+        rec_len = record_from_tsin(buffer + threshold, USB_CIMODULE_MEDIA_MAX_SIZE*10);
 #else
         if (fd <= 0)
             fd = open("/data/test.ts", O_RDONLY);
@@ -416,9 +414,21 @@ static void *cimodule_media_write_task(void *args)
         if (rec_len > 0)
             threshold += rec_len;
 
-        while ((threshold >= USB_CIMODULE_MEDIA_MAX_SIZE) && thread_running)
+        if (first_run)
         {
-            // DMX_USB_DBG("write dummy first");
+            if (threshold <= USB_CIMODULE_MEDIA_MAX_SIZE*100)
+            {
+#ifdef DEMUX_USB_MODULE_DEBUG
+                DMX_USB_DBG("first run ,%x buf %d rec %d", buffer[0], threshold, rec_len);
+#endif
+                continue;
+            }
+            else
+                first_run = FALSE;
+        }
+
+        while ((threshold > USB_CIMODULE_MEDIA_MAX_SIZE) && thread_running)
+        {
             memcpy(g_pbMediaWriteBuf, arDummyTsHdr, 10);
             ret = cimodule_media_intf_write(media_write_fd, g_pbMediaWriteBuf, 10, &write_len, -1);
 #ifdef DEMUX_USB_MODULE_DEBUG
@@ -435,10 +445,12 @@ static void *cimodule_media_write_task(void *args)
                 }
 #ifdef DEMUX_USB_MODULE_DEBUG
                 DMX_USB_DBG("write ts len %d ret %d", write_len, ret);
-                DMX_USB_DBG("write count %d", count);
 #endif
-                memmove(buffer, buffer + write_len, threshold - write_len);
-                threshold -= write_len;
+                if (threshold - write_len >= 0)
+                {
+                    memmove(buffer, buffer + write_len, threshold - write_len);
+                    threshold -= write_len;
+                }
             }
             else if (ret == USBCAM_UNPLUG)
             {
@@ -449,7 +461,6 @@ static void *cimodule_media_write_task(void *args)
 EXIT:
     DMX_USB_DBG("usbcam unplug, media write task exit.");
     module_inserted = FALSE;
-
     return NULL;
 }
 
@@ -823,9 +834,9 @@ BOOLEAN STB_DMXUsbIsEnable()
 U8BIT STB_CIUsbGetDmxSource(BOOLEAN live)
 {
     if (live)
-        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
+        return inj_dev_id;
     else
-        return AML_MP_DEMUX_SOURCE_DMA0 + inj_dev_id;
+        return inj_dev_id;
 }
 
 /**

@@ -2290,10 +2290,10 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 
    if (dmx_model_sc2)
    {
-      if (STB_CIUsbModuleInserted() && source == DMX_TUNER)
+      if (demux_cap == DMX_CAPS_USBCAM)
       {
-         dmx_src_cfg = STB_CIUsbGetDmxSource(demux_cap==DMX_CAPS_LIVE);
-         DMX_DBG("DMX_CAPS_LIVE usb camcard dmx_src_cfg=%d", dmx_src_cfg);
+         dmx_src_cfg = aml_hw_cfg.tuners[tuner_index].ts_input_idx;
+         DMX_DBG("DMX_CAPS_USBCAM dmx_src_cfg=%d", dmx_src_cfg);
       }
       else if (demux_cap == DMX_CAPS_LIVE && source == DMX_TUNER)
       {
@@ -2397,11 +2397,18 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       }
       else if (plug == 1)
       {
-         // cam card is plug.used camPlug_tssource to
-         // set ts_input_idx for dmx source
-         STB_SetTsoutSource(TRUE);
-         aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
-         DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
+         if (STB_CIUsbModuleInserted())
+         {
+            aml_hw_cfg.tuners[i].ts_input_idx = STB_CIUsbGetDmxSource(TRUE);
+            DMX_DBG("index[%d]unplug[%d]", i, STB_CIUsbGetDmxSource(TRUE));
+         }
+         else
+         {
+            // cam card is plug.used camPlug_tssource to
+            // set ts_input_idx for dmx source
+            aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
+            DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
+         }
       }
    }
    DMX_DBG("demux reset now");
@@ -2420,6 +2427,8 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
                param = DMX_CAPS_LIVE;
             if (STB_DPIsRecordingPath(i))
                param = DMX_CAPS_RECORDING;
+            if ((plug == 1) && (STB_CIUsbModuleInserted()))
+               param = DMX_CAPS_USBCAM;
             STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);
          }
          else

@@ -263,7 +263,16 @@ int open_vdin_port_tvafe()
             DTV_LOGE(TAG, "!!! ioctl TVIN_IOC_OPEN, error (%s).\n", strerror(errno));
             return ret;
         }
-   }
+    } else {
+            vdinParam.port = TVIN_PORT_CVBS3;
+            vdinParam.index = 0;
+            ret = ioctl(fd_vdin, TVIN_IOC_OPEN, &vdinParam);
+            if (ret < 0)
+            {
+                DTV_LOGE(TAG, "!!! ioctl TVIN_IOC_OPEN, error (%s).\n", strerror(errno));
+                return ret;
+            }
+    }
 
     return ret;
 }
@@ -311,6 +320,11 @@ int stop_vdin_dec()
     return ioctl(fd_vdin, TVIN_IOC_STOP_DEC);
 }
 
+int close_vdin_port()
+{
+    return ioctl(fd_vdin, TVIN_IOC_CLOSE);
+}
+
 int start_vdin_dec(struct tvin_info_s signal_info)
 {
     int ret = 0;
@@ -353,9 +367,6 @@ int vdin_signal_handle()
         }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_UNSTABLE ) {
         ret = stop_vdin_dec();
-        if (call_back) {
-            call_back(m_cur_sig_info.status);
-        }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOTSUP ) {
 
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
@@ -381,20 +392,20 @@ int Epoll_isvalid()
         return 1;
 }
 
-int Epoll_create()
-{
-    if (!Epoll_isvalid())
-    {
-        fd_epoll = epoll_create(2);
-    }
-    return fd_epoll;
-}
-
 int Epoll_add(int fd, struct epoll_event *event)
 {
     if (Epoll_isvalid())
     {
         return epoll_ctl(fd_epoll, ADD, fd, event);
+    }
+    return -1;
+}
+
+int Epoll_delete(int fd)
+{
+    if (Epoll_isvalid())
+    {
+        return epoll_ctl(fd_epoll, DEL, fd, NULL);
     }
     return -1;
 }
@@ -428,24 +439,39 @@ void* signal_detect_thread(void *arg)
     return 0;
 }
 
-int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
+int Epoll_create()
 {
     struct epoll_event m_event;
-    Epoll_create();
-    open_vdin_port_tvafe();
-    if (fd_vdin >0) {
-        m_event.data.fd = fd_vdin;
-        m_event.events = EPOLLIN | EPOLLET;
-        Epoll_add(fd_vdin, &m_event);
 
-        pthread_mutex_init(&lock, NULL);
-        pthread_cond_init(&cond, NULL);
-        enable_thread = 1;
-        if (pthread_create(&thread, NULL, signal_detect_thread, NULL)) {
-            pthread_mutex_destroy(&lock);
-            pthread_cond_destroy(&cond);
-            return -1;
+    if (!Epoll_isvalid())
+    {
+        fd_epoll = epoll_create(2);
+
+        if (fd_vdin >0) {
+            m_event.data.fd = fd_vdin;
+            m_event.events = EPOLLIN | EPOLLET;
+            Epoll_add(fd_vdin, &m_event);
+
+            pthread_mutex_init(&lock, NULL);
+            pthread_cond_init(&cond, NULL);
+            enable_thread = 1;
+            if (pthread_create(&thread, NULL, signal_detect_thread, NULL)) {
+                pthread_mutex_destroy(&lock);
+                pthread_cond_destroy(&cond);
+            }
         }
+    }
+    return fd_epoll;
+}
+
+int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
+{
+    open_vdin_port_tvafe();
+
+    if (Epoll_isvalid()) {
+        enable_thread = 1;
+    } else {
+        Epoll_create();
     }
     call_back = cb;
     return 0;
@@ -456,10 +482,13 @@ int stop_vdin_signal_detect()
     call_back = NULL;
     if (fd_vdin >0) {
         stop_vdin_dec();
+        close_vdin_port();
     }
+/*
     if (Epoll_isvalid()) {
         enable_thread = 0;
         pthread_join(thread, NULL);
+        Epoll_delete(fd_epoll);
         close(fd_epoll);
         fd_epoll = -1;
         pthread_mutex_destroy(&lock);
@@ -474,7 +503,7 @@ int stop_vdin_signal_detect()
         close(fd_tvafe);
         fd_tvafe = -1;
     }
-
+*/
     return 0;
 }
 

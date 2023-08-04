@@ -138,7 +138,6 @@ stb_custom_config aml_custom_config = {
     .deu_sort_lcn_after_last = FALSE,
     .deu_use_invisible_flag = TRUE,
     .disable_automatic_update = FALSE,
-    .ita_save_same_service = TRUE,
 };
 
 static void DVR_Get_Prop(const char *name, char *buf, int len);
@@ -651,14 +650,10 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             else if (!strcmp(an, "deu_use_invisible_flag") && !strcmp(av, "no")) {
                 aml_custom_config.deu_use_invisible_flag = FALSE;
             }
-            else if (!strcmp(an, "ita_save_same_service") && !strcmp(av, "no")) {
-                aml_custom_config.ita_save_same_service = FALSE;
-            }
             att += 2;
         }
         CFG_DBG("lcn_function, deu_sort_lcn_after_last is set to %d", aml_custom_config.deu_sort_lcn_after_last);
         CFG_DBG("lcn_function, deu_use_invisible_flag is set to %d", aml_custom_config.deu_use_invisible_flag);
-        CFG_DBG("lcn_function, ita_save_same_service is set to %d", aml_custom_config.ita_save_same_service);
     }
     else if (!strcmp(name,"monitor_function"))
     {
@@ -1255,11 +1250,6 @@ BOOLEAN STB_GetCustomCFGForDEUUseInviableFlag(void)
 BOOLEAN STB_GetCustomCFGForDisableAutomaticUpdate(void)
 {
     return aml_custom_config.disable_automatic_update;
-}
-
-BOOLEAN STB_GetCustomCFGForItaSaveSameService(void)
-{
-    return aml_custom_config.ita_save_same_service;
 }
 
 /**

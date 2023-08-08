@@ -4025,6 +4025,7 @@ int AV_ReleaseTsPlayer_l(U8BIT path)
 int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_PLAYER * player_handle, BOOLEAN recreat_handle)
 {
    int ret = -1;
+   Aml_MP_InputSourceType mode = 0;
 
    if (STB_PVRIsPlayStopped(audio_decoder, video_decoder))
    {
@@ -4044,9 +4045,12 @@ int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_
       }
       else if (recreat_handle && av_path != INVALID_RES_ID)
       {
-         ret = AV_CreateTsPlayer_l(av_path, AML_MP_INPUT_SOURCE_TS_DEMOD, av_paths_status[av_path].demux, 0);
          if (STB_CIUsbModuleInserted())
-            STB_DMXSetDemuxSource(av_path, DMX_TUNER, 0, DMX_CAPS_LIVE);
+            mode = AML_MP_INPUT_SOURCE_USBCAM;
+         else
+            mode = AML_MP_INPUT_SOURCE_TS_DEMOD;
+
+         ret = AV_CreateTsPlayer_l(av_path, mode, av_paths_status[av_path].demux, 0);
 
          if (ret != AML_MP_OK && IS_CACHED(av_paths_status[av_path].decoding_mode))
          {

@@ -3492,12 +3492,13 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
             pthread_rwlock_unlock(_l);
         }
 
-         if (IS_AUDIO_DISABLE(av_paths_status[av_path].decoding_mode) != IS_AUDIO_DISABLE(mode))
+         if (IS_AUDIO_DISABLE(av_paths_status[av_path].decoding_mode) != IS_AUDIO_DISABLE(mode)
+             || IS_CACHED(mode))
          {
             int ret;
             AML_MP_PLAYER player_handle;
 
-            av_paths_status[av_path].mute = IS_AUDIO_DISABLE(mode) ? TRUE : FALSE;
+            av_paths_status[av_path].mute = (IS_AUDIO_DISABLE(mode) || IS_CACHED(mode)) ? TRUE : FALSE;
 
             pthread_rwlock_t* _l = STB_AVGetLockByPath(video_decoder);
             if (_l == NULL) {

@@ -31,6 +31,7 @@ enum tvin_sig_status_e {
     TVIN_SIG_STATUS_UNSTABLE, // unstable - physically bad signal
     TVIN_SIG_STATUS_NOTSUP,   // not supported - physically good signal & not supported
     TVIN_SIG_STATUS_STABLE,   // stable - physically good signal & supported
+    TVIN_SIG_STATUS_BLOCKED,  // blocked - current channel is locked
 };
 
 
@@ -45,6 +46,7 @@ extern int getCurrentSignalInfo(int *fmt, int *transFmt, int *status, int *frame
 extern void initCurrentSignalInfo();
 extern int set_atv_snow_status(int enable);
 extern void setAtvSearchstatus(int searched);
+extern void setChannelLockd(int locked);
 
 static void SysEventCallback(int color);
 static int mlistener;

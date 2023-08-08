@@ -191,6 +191,7 @@ static tvin_info_t m_cur_sig_info;
 
 static int mSnowStatusEnable = 0;
 static int mSearchStatus = 0;
+static int mLocked = 0;
 
 static char *str_vstd[] =
 {
@@ -375,7 +376,10 @@ int vdin_signal_handle()
         SC_setATVVideoColor(0, 0, 5);
         set_atv_snow_status(0);
         ret = start_vdin_dec(m_cur_sig_info);
-        SC_setATVVideoColor(0, 0, 6);
+        DTV_LOGI(TAG, "mLocked: %d\n", mLocked);
+        if (!mLocked) {
+            SC_setATVVideoColor(0, 0, 6);
+        }
         if (call_back) {
             call_back(m_cur_sig_info.status);
         }
@@ -506,6 +510,7 @@ int stop_vdin_signal_detect()
         stop_vdin_dec();
         close_vdin_port();
     }
+    mLocked = 0;
 /*
     if (Epoll_isvalid()) {
         enable_thread = 0;
@@ -685,6 +690,12 @@ int getCurrentSignalInfo(int *fmt, int *transFmt, int *status, int *frameRate)
     *fmt = m_cur_sig_info.fmt;
     *transFmt = m_cur_sig_info.trans_fmt;
     *status = m_cur_sig_info.status;
+    if (mLocked) {
+        if (m_cur_sig_info.status == TVIN_SIG_STATUS_UNSTABLE || m_cur_sig_info.status == TVIN_SIG_STATUS_NOTSUP
+            || m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE) {
+            *status = TVIN_SIG_STATUS_BLOCKED;
+        }
+    }
     *frameRate = fps;
     DTV_LOGE(TAG, "trans_fmt is %d,fmt is %d, status is %d, frameRate is %d\n", *transFmt, *fmt, *status, *frameRate);
 
@@ -709,7 +720,7 @@ void initCurrentSignalInfo()
 int set_atv_snow_status(int enable)
 {
     int ret = 0;
-    DTV_LOGE(TAG, "%s: enable is %d\n", __FUNCTION__, enable);
+    DTV_LOGI(TAG, "%s: enable is %d\n", __FUNCTION__, enable);
 
     if ( enable ) {
         ioctl(fd_tvafe, TVIN_IOC_S_AFE_SONWON);
@@ -728,20 +739,36 @@ int set_atv_snow_status(int enable)
 
 void setAtvSearchstatus(int searched)
 {
-    DTV_LOGE(TAG, "%s:searched: %d\n", __FUNCTION__, searched);
+    DTV_LOGI(TAG, "%s:searched: %d\n", __FUNCTION__, searched);
     mSearchStatus = searched;
+}
+
+extern void setChannelLockd(int locked)
+{
+    DTV_LOGI(TAG, "%s: set locked: %d\n", __FUNCTION__, locked);
+    mLocked = locked;
+
+    if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE) {
+        if (mLocked) {
+            SC_setATVVideoColor(0, 0, 5);
+        } else {
+            SC_setATVVideoColor(0, 0, 6);
+        }
+    }
 }
 
 static void SysEventCallback(int color)
 {
+    /*
     struct tvin_info_s Info;
     int ret = vdin_get_signal_info ( &Info );
         if (ret < 0) {
             DTV_LOGE(TAG, "%s:can't get vdio info\n", __FUNCTION__);
             return;
         }
-    if (Info.status != TVIN_SIG_STATUS_STABLE && Info.status != TVIN_SIG_STATUS_UNSTABLE) {
-        DTV_LOGE(TAG, "%s:TVIN_SIG_STATUS_NOSIG, mSnowStatusEnable = %d, mSearchStatus=%d\n", __FUNCTION__, mSnowStatusEnable, mSearchStatus);
+    */
+    if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
+        DTV_LOGI(TAG, "%s:TVIN_SIG_STATUS_NOSIG, mSnowStatusEnable = %d, mSearchStatus=%d\n", __FUNCTION__, mSnowStatusEnable, mSearchStatus);
         if (color && !mSearchStatus) {
             SC_setATVVideoColor(0, 0, 5);
             if (mSnowStatusEnable) {
@@ -754,7 +781,7 @@ static void SysEventCallback(int color)
             }
         }
     } else {
-        DTV_LOGE(TAG, "%s:TVIN_SIG_STATUS_STABLE, need't operation\n", __FUNCTION__);
+        DTV_LOGI(TAG, "%s:TVIN_SIG_STATUS_STABLE, need't operation\n", __FUNCTION__);
     }
 }
 

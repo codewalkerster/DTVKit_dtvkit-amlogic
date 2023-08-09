@@ -31,11 +31,7 @@
 #else
 #endif
 
-#ifdef RDK_COMPILE
-#define DTVKIT_CONFIG_XML_FILE "/etc/config.xml"
-#else
 #define DTVKIT_CONFIG_XML_FILE "config.xml"
-#endif
 
 #define CFG_PARSER_BUF_SIZE 512
 #define CFG_DEBUG 1
@@ -713,14 +709,7 @@ static BOOLEAN getDtvKitConfigXmlFile(char *strPathBuf,U16BIT u16PathBufLen)
         return bRet;
     }
 
-#ifdef RDK_COMPILE
-    if(u16PathBufLen > strlen(DTVKIT_CONFIG_XML_FILE))
-    {
-        sprintf(strPathBuf, "%s", DTVKIT_CONFIG_XML_FILE);
-    }
-#else
-    bRet = APCFG_AddFilePathForDtvKitConfigFile(strPathBuf, u16PathBufLen, DTVKIT_CONFIG_XML_FILE);
-#endif
+    bRet = ACFG_GetFullPathForDtvKitConfigFile(strPathBuf, u16PathBufLen, DTVKIT_CONFIG_XML_FILE);
 
     STB_SPDebugWrite("%s %d strPathBuf = %s", __FUNCTION__, __LINE__, strPathBuf);
 
@@ -734,34 +723,16 @@ void STB_CfgInitialise(void)
     FILE           *fp = NULL;
     int             i;
 
-    #ifdef DTVKIT_IN_VENDOR_PARTITION
-    char buf[128];
-    BOOLEAN ret;
+    char strCfgPath[APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH];
 
-    memset(buf, 0x00, sizeof(buf));
-    ret = property_get("persist.vendor.tvconfig.path",buf,NULL);
-    if (ret) {
-        if ((access(buf, 0) == 0)) {
-            CFG_ERR("read from prop, open \"%s\"", buf);
-            fp = fopen(buf, "rb");
-            if (!fp) {
-                CFG_ERR("cannot open \"%s\"", buf);
-            }
-        }
-    }
-    #endif
-
+    memset(strCfgPath, 0, APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
+    getDtvKitConfigXmlFile(strCfgPath,APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
+    fp = fopen(strCfgPath, "rb");
     if (!fp) {
-        char strCfgPath[APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH];
-
-        memset(strCfgPath, 0, APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
-        getDtvKitConfigXmlFile(strCfgPath,APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
-        fp = fopen(strCfgPath, "rb");
-        if (!fp) {
-            CFG_ERR("cannot open \"%s\"", strCfgPath);
-            return;
-        }
+        CFG_ERR("cannot open \"%s\"", strCfgPath);
+        return;
     }
+
 
     parser = XML_ParserCreate(NULL);
     if (!parser) {

@@ -24,8 +24,8 @@
 
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "ap_cfg.h"
 #include "dtv_log.h"
-
 
 #define TAG         "dtvkit-amlogic:Logcfg"
 #define BUFFSIZE    512
@@ -38,10 +38,7 @@
 
 
 #ifdef RDK_COMPILE
-#define DTV_LOGFILTER_FILEPATH  "/data/dtv_logfilter"
 typedef void (* sighandler_t)(int);
-#else
-#define DTV_LOGFILTER_FILEPATH  "/data/vendor/dtvkit/dtv_logfilter"
 #endif
 
 
@@ -90,10 +87,12 @@ U8BIT DTV_GetLogFilterConfig(void)
     static U8BIT logfilter_level = ANDROID_LOG_INFO;
     FILE* fp = NULL;
     char filecontent[32];
-    char *filepath = DTV_LOGFILTER_FILEPATH;
+    char filepath[128];
+
+    ACFG_GetFullPathForDtvKitDataFile(filepath,sizeof(filepath),"dtv_logfilter");
+    LOGCFG_LOGI("dtv_logfilter filepath: %s", filepath);
 
     fp = fopen(filepath, "r");
-
     if (fp == NULL)
     {
         LOGCFG_LOGW("Can not open file: %s", filepath);

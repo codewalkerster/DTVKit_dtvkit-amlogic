@@ -389,7 +389,8 @@ int vdin_signal_handle()
         SC_setATVVideoColor(0, 0, 5);
         set_atv_snow_status(1);
         ret = start_vdin_dec(m_cur_sig_info);
-        if (SC_getScreenColorSetting() != VIDEO_LAYER_COLOR_BLUE && !mSearchStatus) {
+        DTV_LOGI(TAG, "nosignal mSearchStatus: %d\n", mSearchStatus);
+        if (SC_getScreenColorSetting() != VIDEO_LAYER_COLOR_BLUE || mSearchStatus) {
             SC_setATVVideoColor(0, 0, 6);
         }
         if (call_back) {

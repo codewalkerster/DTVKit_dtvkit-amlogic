@@ -48,6 +48,7 @@ extern void setAtvSearchstatus(int searched);
 
 static void SysEventCallback(int color);
 static int mlistener;
+static struct SysClientWrapper_t * pSysClientWrapper;
 
 #ifdef __cplusplus
 }

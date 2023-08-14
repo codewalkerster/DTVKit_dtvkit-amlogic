@@ -1213,6 +1213,45 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
     return (U8BIT)ssi;
 }
 
+/**
+ * @brief   Returns the current signal dBuV
+ * @param   path the tuner path to query
+ * @return  the signal dBuV as percentage of maximum (0-100)
+ */
+U8BIT STB_TuneGetSignaldBuV(U8BIT path)
+{
+    U8BIT retval;
+    S16BIT strength;
+
+    FUNCTION_START(STB_TuneGetSignaldBuV);
+
+    retval = EmuTunerGetSignalStrength(path);
+    if (retval > 0)
+    {
+        return retval;
+    }
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        if (IsTunerLocked(&tuner_status[path]))
+        {
+            /* New method of reading signal strength not supported, so use the old API */
+            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, (U16BIT *)&strength) >= 0)
+            {
+                retval = (U8BIT)(107 + strength); // dBm to dBuV for 50 ohms
+                TUN_DBG("%u: dBuV:%u(strength:%d)", path, retval, strength);
+            }
+            else
+            {
+                TUN_ERR("%u: Failed to get signal strength, errno %d", path, errno);
+            }
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneGetSignaldBuV);
+
+    return retval;
+}
 
 /**
  * @brief   Returns the current signal strength
@@ -1243,7 +1282,7 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
             {
                 /* Strength is returned as a percentage */
                 retval = StrengthToSSI(path, strength);
-                //TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
+                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
             }
             else
             {
@@ -1491,7 +1530,7 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
             if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, (U16BIT *)&quality) >= 0)
             {
                 retval = SNR10ToSQI(path, quality);
-                //TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
+                TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
             }
             else
             {
@@ -1505,6 +1544,45 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
     return retval;
 }
 
+/**
+ * @brief   Returns the current signal SNR
+ * @param   path the tuner path to query
+ * @return  the signal quality
+ * @todo    Confirm DVB API BER units
+ */
+U16BIT STB_TuneGetSignalSNR(U8BIT path)
+{
+    U16BIT retval;
+    uint16_t quality;
+
+    FUNCTION_START(STB_TuneGetSignalSNR);
+
+    retval = EmuTunerGetSignalQuality(path);
+    if (retval > 0)
+    {
+        return retval;
+    }
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        if (IsTunerLocked(&tuner_status[path]))
+        {
+            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, &quality) >= 0)
+            {
+                retval = (U16BIT)quality;
+                TUN_DBG("%u: snr=%u", path, retval);
+            }
+            else
+            {
+                TUN_ERR("%u: FE_READ_SNR failed, errno %d", path, errno);
+            }
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneGetSignalSNR);
+
+    return retval;
+}
 
 /**
  * @brief   Returns the actual frequency of the current terrestrial signal
@@ -2058,6 +2136,22 @@ void STB_TuneActiveAerialPower(U8BIT path, BOOLEAN enabled)
     FUNCTION_FINISH(STB_TuneActiveAerialPower);
 }
 
+E_STB_TUNE_LNB_VOLTAGE STB_TuneGetLNBVoltage(U8BIT path)
+{
+    E_STB_TUNE_LNB_VOLTAGE voltage = LNB_VOLTAGE_OFF;
+
+    FUNCTION_START(STB_TuneGetLNBVoltage);
+
+    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    {
+        voltage = tuner_status[path].u.sat.lnb_voltage;
+    }
+
+    FUNCTION_FINISH(STB_TuneGetLNBVoltage);
+
+    return voltage;
+}
+
 /**
  * @brief   Sets the LNB voltage for the given tuner
  * @param   path tuner path
@@ -2087,8 +2181,41 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN r
 void STB_TuneSetFrontendFd(U8BIT path, U32BIT fe_fd)
 {
     tuner_status[path].frontend_fd = fe_fd;
-    TUN_DBG("STB_TuneSetFrontendFd path:%d fd:%d", path, tuner_status[path].frontend_fd);
+    TUN_DBG("path:%d fd:%d", path, tuner_status[path].frontend_fd);
 }
+
+E_STB_TUNE_SYSTEM_TYPE STB_TuneGetActualSysType(U8BIT path)
+{
+    E_STB_TUNE_SYSTEM_TYPE sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
+    struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
+    struct dtv_properties props = {.num = 1, .props = &p};
+
+    if (ioctl(tuner_status[path].frontend_fd, FE_GET_PROPERTY, &props) != -1)
+    {
+        if (p.u.data == SYS_DVBT)
+        {
+            sys_type = TUNE_SYSTEM_TYPE_DVBT;
+        }
+        else if (p.u.data == SYS_DVBT2)
+        {
+            sys_type = TUNE_SYSTEM_TYPE_DVBT2;
+        }
+        else if (p.u.data == SYS_DVBS)
+        {
+            sys_type = TUNE_SYSTEM_TYPE_DVBS;
+        }
+        else if (p.u.data == SYS_DVBS2)
+        {
+            sys_type = TUNE_SYSTEM_TYPE_DVBS2;
+        }
+        // loop more
+    }
+
+    TUN_DBG("path:%d fd:%d sys_type:%d", path, tuner_status[path].frontend_fd, sys_type);
+
+    return sys_type;
+}
+
 
 void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
 {
@@ -2111,7 +2238,7 @@ void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
             break;
     }
 
-    TUN_DBG("STB_TuneSetVoltageInterface path:%d fd:%d voltage:%d", path, tuner_status[path].frontend_fd, voltage);
+    TUN_DBG("path:%d fd:%d voltage:%d", path, tuner_status[path].frontend_fd, voltage);
     if (ioctl(tuner_status[path].frontend_fd, FE_SET_VOLTAGE, voltage) < 0)
     {
         TUN_DBG("ioctl FE_SET_VOLTAGE failed, path:%d fd:%d error:%d", path, tuner_status[path].frontend_fd, errno);
@@ -2136,6 +2263,22 @@ void STB_TuneSetModulation(U8BIT path, E_STB_TUNE_MODULATION modulation)
     }
 
     FUNCTION_FINISH(STB_TuneSetModulation);
+}
+
+BOOLEAN STB_TuneGet22kState(U8BIT path)
+{
+    BOOLEAN state = FALSE;
+
+    FUNCTION_START(STB_TuneGet22kState);
+
+    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    {
+        state = tuner_status[path].u.sat.use_22khz;
+    }
+
+    FUNCTION_FINISH(STB_TuneGet22kState);
+
+    return state;
 }
 
 /**
@@ -2192,7 +2335,7 @@ void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
     for (U8BIT i = 0; i < size; i++)
     {
         cmd.msg[i] = data[i];
-        TUN_DBG("STB_TuneSendDISEQCMessage cmd:0x%02x", data[i]);
+        TUN_DBG("cmd:0x%02x", data[i]);
     }
 
     cmd.msg_len = size;
@@ -2234,7 +2377,7 @@ void STB_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT time
             for (U8BIT i = 0; i < reply.msg_len; i++)
             {
                 data[i] = reply.msg[i];
-                TUN_DBG("STB_TuneReceiveDISEQCReply reply:0x%02x", data[i]);
+                TUN_DBG("reply:0x%02x", data[i]);
             }
         }
     }
@@ -2252,7 +2395,7 @@ void STB_TuneSendBurstMessage(U8BIT path, U8BIT data)
     FUNCTION_START(STB_TuneSendBurstMessage);
     fe_sec_mini_cmd_t cmd;
 
-    TUN_DBG("STB_TuneSendBurstMessage cmd:0x%x", data);
+    TUN_DBG("cmd:0x%x", data);
 
     if (data == 0x00 || data == 0xFF)
     {

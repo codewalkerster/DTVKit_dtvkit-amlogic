@@ -2406,6 +2406,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          {
             // cam card is plug.used camPlug_tssource to
             // set ts_input_idx for dmx source
+            STB_SetTsoutSource(TRUE);
             aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
             DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
          }

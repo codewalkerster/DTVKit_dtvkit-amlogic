@@ -281,7 +281,7 @@ static void *cimodule_media_read_task(void *args)
     unsigned char bMediaOutputCtrl = 0;
     char *usbdata_buf;
 
-    usbdata_buf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE * 2);
+    usbdata_buf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE * 100);
     if (!usbdata_buf)
     {
         DMX_USB_DBG("no mem to alloc usbdata_buf");
@@ -336,9 +336,10 @@ static void *cimodule_media_read_task(void *args)
                 usbdata_len += read_len;
                 if (usbdata_len >= USB_CIMODULE_MEDIA_MAX_SIZE)
                 {
-                    inj_len = inject_usbcam_source_demux(usbdata_buf, USB_CIMODULE_MEDIA_MAX_SIZE);
+                    inj_len = inject_usbcam_source_demux(usbdata_buf, usbdata_len);
                     usbdata_len -= inj_len;
-                    memmove(usbdata_buf, usbdata_buf + inj_len, usbdata_len);
+                    if (usbdata_len > 0)
+                        memmove(usbdata_buf, usbdata_buf + inj_len, usbdata_len);
                 }
                 // DMX_USB_DBG("read %d, inject %d", read_len, inj_len);
 #ifdef DMX_USB_TEST
@@ -423,13 +424,16 @@ static void *cimodule_media_write_task(void *args)
 #endif
                 continue;
             }
-            else
-                first_run = FALSE;
         }
 
         while ((threshold > USB_CIMODULE_MEDIA_MAX_SIZE) && thread_running)
         {
             memcpy(g_pbMediaWriteBuf, arDummyTsHdr, 10);
+            if (first_run)
+            {
+                first_run = FALSE;
+                g_pbMediaWriteBuf[3] |= (1<<7);
+            }
             ret = cimodule_media_intf_write(media_write_fd, g_pbMediaWriteBuf, 10, &write_len, -1);
 #ifdef DEMUX_USB_MODULE_DEBUG
             DMX_USB_DBG("write dummy len %d ret %d", write_len, ret);
@@ -446,11 +450,13 @@ static void *cimodule_media_write_task(void *args)
 #ifdef DEMUX_USB_MODULE_DEBUG
                 DMX_USB_DBG("write ts len %d ret %d", write_len, ret);
 #endif
-                if (threshold - write_len >= 0)
+                if (threshold - write_len > 0)
                 {
                     memmove(buffer, buffer + write_len, threshold - write_len);
-                    threshold -= write_len;
                 }
+                if (threshold - write_len < 0)
+                    DMX_USB_DBG("write data error occur");
+                threshold -= write_len;
             }
             else if (ret == USBCAM_UNPLUG)
             {
@@ -460,6 +466,8 @@ static void *cimodule_media_write_task(void *args)
     }
 EXIT:
     DMX_USB_DBG("usbcam unplug, media write task exit.");
+    if (buffer > 0)
+        free(buffer);
     module_inserted = FALSE;
     return NULL;
 }
@@ -548,7 +556,7 @@ static int record_from_tsin(void *buff, int buff_len)
     fds[0].fd = rec_dvr_fd;
     fds[1].fd = ev_fd;
     fds[0].events = fds[1].events = POLLIN | POLLERR;
-    ret = poll(fds, 2, 300);
+    ret = poll(fds, 2, 20);
     if (ret <= 0)
     {
 #ifdef DEMUX_USB_MODULE_DEBUG

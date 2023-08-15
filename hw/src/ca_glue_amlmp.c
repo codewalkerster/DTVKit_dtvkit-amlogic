@@ -100,7 +100,10 @@ static U32BIT g_pvrplay_replay = 0;
 static U32BIT g_last_stream_pos = -1;
 static void *g_ca_mutex;
 
+static BOOLEAN is_enable_cicam = FALSE;
 static E_CAS_TYPE g_cas_type = CAS_TYPE_NONE;
+static BOOLEAN is_enable_fta = FALSE;
+
 typedef enum {
     CAS_MODE_NONE,
     CAS_MODE_TSE,
@@ -1757,6 +1760,18 @@ void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status)
     FUNCTION_FINISH(STB_CANotifyRecordingStatus);
 #endif
 }
+
+BOOLEAN STB_CATMSCicamBit()
+{
+    //return TRUE;
+    return is_enable_cicam;
+}
+
+BOOLEAN STB_CATMSFtaBit()
+{
+    return is_enable_fta;
+}
+
 
 /******************************************************************************
 ** End of file

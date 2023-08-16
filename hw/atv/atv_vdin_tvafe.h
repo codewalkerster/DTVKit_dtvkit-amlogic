@@ -48,10 +48,6 @@ extern int set_atv_snow_status(int enable);
 extern void setAtvSearchstatus(int searched);
 extern void setChannelLockd(int locked);
 
-static void SysEventCallback(int color);
-static int mlistener;
-static struct SysClientWrapper_t * pSysClientWrapper;
-
 #ifdef __cplusplus
 }
 #endif

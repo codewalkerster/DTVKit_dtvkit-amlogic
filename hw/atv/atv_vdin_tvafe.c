@@ -224,7 +224,9 @@ static char *str_cvbs[] =
     "UNKNOWN",
 };
 
-
+static int mlistener;
+static struct SysClientWrapper_t * pSysClientWrapper;
+static void SysEventCallback(int color);
 /****************************************************************************
  * Static functions
  ***************************************************************************/

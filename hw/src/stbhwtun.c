@@ -76,7 +76,6 @@ static BOOLEAN isTvPlatform = FALSE;
 static U32BIT real_srate = SYMBOL_RATE_AUTO;
 static E_STB_TUNE_CMODE real_cmode = TUNE_MODE_QAM_UNDEFINED;
 void *tune_interface_sem = NULL;
-static E_STB_TUNE_SYSTEM_TYPE blindscan_sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
 
 
 /*---local function prototypes for this file---------------------------------*/
@@ -586,18 +585,8 @@ static BOOLEAN SetBlindScanFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sy
     memset(property, 0, sizeof(struct dtv_property));
 
     property->cmd = DTV_DELIVERY_SYSTEM;
-    if (fe_mode == SYS_DVBC_ANNEX_A)
-    {
-        property->u.buffer.data[0] = fe_mode;
-        property->u.buffer.data[1] = 1;  // set dvbc_blind_scan mode: 1-new mode 0-legacy mode
-        TUN_DBG("set blind fe prop cmd[%d] buf.data[%d %d]",
-                property->cmd, property->u.buffer.data[0], property->u.buffer.data[1]);
-    }
-    else
-    {
-        property->u.data = fe_mode;
-        TUN_DBG("set blind fe prop cmd[%d] data[%d]", property->cmd, property->u.data);
-    }
+    property->u.data = fe_mode;
+    TUN_DBG("set blind fe prop cmd[%d] data[%d]", property->cmd, property->u.data);
 
     struct dtv_properties prop;
     prop.num = 1;
@@ -2936,13 +2925,6 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
         return FALSE;
     }
 
-    blindscan_sys_type = sys_type;
-    if (sys_type == TUNE_SYSTEM_TYPE_DVBC)
-    {
-        //exit dvb mode firstly for DVBC blind scan
-        SetFeProperty(tuner_status[path].frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
-    }
-
     /*this function set the parameters blind scan process needed.*/
     SetBlindScanFeProperty(tuner_status[path].frontend_fd, sys_type);
 
@@ -4360,12 +4342,6 @@ static BOOLEAN AM_FEND_IBlindScanAPI_Exit(U8BIT path)
     ret = dvb_blindscan_cancel(path);
 
     usleep(10 * 1000);
-
-    if (blindscan_sys_type == TUNE_SYSTEM_TYPE_DVBC)
-    {
-        // exit dvb type
-        SetFeProperty(tuner_status[path].frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);
-    }
 
     pthread_mutex_unlock(&tuner_status[path].lock);
     return ret;

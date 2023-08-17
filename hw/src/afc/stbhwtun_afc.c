@@ -343,6 +343,23 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
 }
 
 /**
+ * @brief   Returns the current signal dBuV
+ * @param   path the tuner path to query
+ * @return  the signal dBuV as percentage of maximum (0-100)
+ */
+U8BIT STB_TuneGetSignaldBuV(U8BIT path)
+{
+    U8BIT retval = 0;
+
+    FUNCTION_START(STB_TuneGetSignaldBuV);
+
+
+    FUNCTION_FINISH(STB_TuneGetSignaldBuV);
+
+    return retval;
+}
+
+/**
  * @brief   Returns the current signal strength
  * @param   path the tuner path to query
  * @return  the signal strength as percentage of maximum (0-100)
@@ -401,6 +418,23 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
     return retval;
 }
 
+/**
+ * @brief   Returns the current signal SNR
+ * @param   path the tuner path to query
+ * @return  the signal quality
+ * @todo    Confirm DVB API BER units
+ */
+U16BIT STB_TuneGetSignalSNR(U8BIT path)
+{
+    U16BIT retval = 0;
+
+    FUNCTION_START(STB_TuneGetSignalSNR);
+
+
+    FUNCTION_FINISH(STB_TuneGetSignalSNR);
+
+    return retval;
+}
 
 /**
  * @brief   Returns the actual frequency of the current terrestrial signal
@@ -640,6 +674,22 @@ void STB_TuneActiveAerialPower(U8BIT path, BOOLEAN enabled)
     FUNCTION_FINISH(STB_TuneActiveAerialPower);
 }
 
+E_STB_TUNE_LNB_VOLTAGE STB_TuneGetLNBVoltage(U8BIT path)
+{
+    E_STB_TUNE_LNB_VOLTAGE voltage = LNB_VOLTAGE_OFF;
+
+    FUNCTION_START(STB_TuneGetLNBVoltage);
+
+    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    {
+        voltage = tuner_status[path].u.sat.lnb_voltage;
+    }
+
+    FUNCTION_FINISH(STB_TuneGetLNBVoltage);
+
+    return voltage;
+}
+
 /**
  * @brief   Sets the LNB voltage for the given tuner
  * @param   path tuner path
@@ -649,8 +699,19 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN r
 {
     FUNCTION_START(STB_TuneSetLNBVoltage);
 
-        voltage = (EW_STB_TUNE_LNB_VOLTAGE)voltage;
-        Wrapper_TuneSetLNBVoltage(path, voltage, retune);
+    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    {
+        if (tuner_status[path].u.sat.lnb_voltage != voltage)
+        {
+            tuner_status[path].u.sat.lnb_voltage = voltage;
+            if (retune)
+            {
+                tuner_status[path].tuning_params_changed = TRUE;
+            }
+        }
+
+        STB_TuneSetVoltageInterface(path, voltage);
+    }
 
     FUNCTION_FINISH(STB_TuneSetLNBVoltage);
 }
@@ -661,13 +722,21 @@ void STB_TuneSetFrontendFd(U8BIT path, U32BIT fe_fd)
     TUN_DBG("STB_TuneSetFrontendFd path:%d fd:%d", path, tuner_status[path].frontend_fd);
 }
 
+E_STB_TUNE_SYSTEM_TYPE STB_TuneGetActualSysType(U8BIT path)
+{
+    E_STB_TUNE_SYSTEM_TYPE sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
+
+    return sys_type;
+}
+
 void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
 {
     FUNCTION_START(STB_TuneSetVoltageInterface);
 
+    Wrapper_TuneSetLNBVoltage(path, vol, FALSE);
+
     FUNCTION_FINISH(STB_TuneSetVoltageInterface);
 }
-
 
 /**
  * @brief   Sets the type of modulation for the specified tuner
@@ -681,6 +750,22 @@ void STB_TuneSetModulation(U8BIT path, E_STB_TUNE_MODULATION modulation)
     Wrapper_TuneSetModulation(path,modulation);
 
     FUNCTION_FINISH(STB_TuneSetModulation);
+}
+
+BOOLEAN STB_TuneGet22kState(U8BIT path)
+{
+    BOOLEAN state = FALSE;
+
+    FUNCTION_START(STB_TuneGet22kState);
+
+    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    {
+        state = tuner_status[path].u.sat.use_22khz;
+    }
+
+    FUNCTION_FINISH(STB_TuneGet22kState);
+
+    return state;
 }
 
 /**

@@ -3961,7 +3961,6 @@ int AV_CreateTsPlayer_l(U8BIT path,
       } else {
           VID_DBG("Cannot set surface to AML MP, surface(tunnelid) ptr is NULL.");
       }
-
       if (window_rect_array[path].w != 0) {
           int32_t x = window_rect_array[path].x;
           int32_t y = window_rect_array[path].y;

@@ -1238,7 +1238,7 @@ U8BIT STB_TuneGetSignaldBuV(U8BIT path)
             /* New method of reading signal strength not supported, so use the old API */
             if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, (U16BIT *)&strength) >= 0)
             {
-                retval = (U8BIT)(107 + strength); // dBm to dBuV for 50 ohms
+                retval = (U8BIT)(109 + strength); // plus 108.75(dBm to dBuV for 75 ohms)
                 TUN_DBG("%u: dBuV:%u(strength:%d)", path, retval, strength);
             }
             else

@@ -178,7 +178,7 @@ static char msg[2*BUFFSIZE];
 void DTV_LOG(U32BIT loglevel, const char* module, const char* format, ...)
 {
     va_list vparams;
-    char tag[64];
+    char exformat[BUFFSIZE];
     pthread_t tid = pthread_self();
 
     ASSERT(module != NULL);
@@ -193,17 +193,17 @@ void DTV_LOG(U32BIT loglevel, const char* module, const char* format, ...)
 
     if (loglevel >= DTV_GetLogFilterLevel())
     {
-        sprintf(tag,"DTV_LOG-%s",module);
+        sprintf(exformat,"<%s> %s", module, format);
         va_start(vparams, format);
-        vsnprintf(dtv_log_buff, sizeof(dtv_log_buff), format, vparams);
+        vsnprintf(dtv_log_buff, sizeof(dtv_log_buff), exformat, vparams);
         va_end(vparams);
 
         SYSTEMTIME localSysTime;
         GetLocalTime(&localSysTime);
-        sprintf(msg, "[%2d-%2d-%2d:%3d] <tid:%u>\tDTV_LOG: <%s> %s",
+        sprintf(msg, "[%2d-%2d-%2d:%3d] <tid:%u>\tDTV_LOG: %s",
                         localSysTime.wHour, localSysTime.wMinute,
                         localSysTime.wSecond, localSysTime.wMilliseconds,
-                        pthread_getw32threadid_np(tid), tag, dtv_log_buff);
+                        pthread_getw32threadid_np(tid), dtv_log_buff);
         printf("%s\n", msg);
     }
     STB_OSMutexUnlock(sg_dtv_log_mutex);
@@ -214,7 +214,7 @@ void DTV_LOG(U32BIT loglevel, const char* module, const char* format, ...)
 void DTV_LOG(U32BIT loglevel, const char *module, const char *format, ...)
 {
     va_list vparams;
-    char tag[64];
+    char exformat[BUFFSIZE];
     ASSERT(module != NULL);
     ASSERT(format != NULL);
 
@@ -225,13 +225,13 @@ void DTV_LOG(U32BIT loglevel, const char *module, const char *format, ...)
             /* For Amazon shine, The lowest log level that can be output is ANDROID LOG INFO. */
             loglevel = ANDROID_LOG_INFO;
         }
-        sprintf(tag,"DTV_LOG-%s",module);
+        sprintf(exformat,"<%s> %s", module, format);
 
         va_start(vparams, format);
-        vsnprintf(dtv_log_buff, sizeof(dtv_log_buff), format, vparams);
+        vsnprintf(dtv_log_buff, sizeof(dtv_log_buff), exformat, vparams);
         va_end(vparams);
 
-        __android_log_print(loglevel, tag, "%s", dtv_log_buff);
+        __android_log_print(loglevel, "DTV_LOG", "%s", dtv_log_buff);
     }
 }
 

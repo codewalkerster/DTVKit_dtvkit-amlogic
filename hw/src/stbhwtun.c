@@ -1209,16 +1209,18 @@ static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
  */
 U8BIT STB_TuneGetSignaldBuV(U8BIT path)
 {
-    U8BIT retval;
+    U8BIT retval = 0;
     S16BIT strength;
 
     FUNCTION_START(STB_TuneGetSignaldBuV);
 
+#ifdef EMUTUNNER_ENABLE
     retval = EmuTunerGetSignalStrength(path);
     if (retval > 0)
     {
         return retval;
     }
+#endif
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {
@@ -1541,16 +1543,18 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
  */
 U16BIT STB_TuneGetSignalSNR(U8BIT path)
 {
-    U16BIT retval;
+    U16BIT retval = 0;
     uint16_t quality;
 
     FUNCTION_START(STB_TuneGetSignalSNR);
 
+#ifdef EMUTUNNER_ENABLE
     retval = EmuTunerGetSignalQuality(path);
     if (retval > 0)
     {
         return retval;
     }
+#endif
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {

@@ -829,6 +829,7 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
 
     //need use the real device num on dual tuner lib.
     ca_serv_info.dmx_dev = STB_DPGetPathDemux(((STB_CA_Glue_t *)handle)->path);
+    ca_serv_info.fend_dev = STB_DPGetPathTuner(((STB_CA_Glue_t *)handle)->path);
     ca_serv_info.serviceMode = AML_MP_CAS_SERVICE_DVB;
     ca_serv_info.serviceType = AML_MP_CAS_SERVICE_LIVE_PLAY;
     if (((STB_CA_Glue_t *)handle)->session_info)

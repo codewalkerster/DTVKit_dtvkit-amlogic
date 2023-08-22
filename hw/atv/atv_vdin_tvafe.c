@@ -192,6 +192,7 @@ static tvin_info_t m_cur_sig_info;
 static int mSnowStatusEnable = 0;
 static int mSearchStatus = 0;
 static int mLocked = 0;
+static int mSetPQmode = 0;
 
 static char *str_vstd[] =
 {
@@ -375,6 +376,10 @@ int vdin_signal_handle()
     DTV_LOGE(TAG, "trans_fmt is %d,fmt is %d, status is %d\n", m_cur_sig_info.trans_fmt, m_cur_sig_info.fmt, m_cur_sig_info.status);
 
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE ) {
+        if (mSetPQmode) {
+            SC_setDisplayMode(SC_getDisplayMode());
+            mSetPQmode = 0;
+        }
         SC_setATVVideoColor(0, 0, 5);
         set_atv_snow_status(0);
         ret = start_vdin_dec(m_cur_sig_info);
@@ -392,6 +397,10 @@ int vdin_signal_handle()
         SC_setATVVideoColor(1, 0, 5);
         ret = stop_vdin_dec();
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
+        if (5 != SC_getDisplayMode()) {//5:VPP_DISPLAY_MODE_FULL
+            SC_setDisplayMode(5);//no sig need full screen
+            mSetPQmode = 1;
+        }
         SC_setATVVideoColor(0, 0, 5);
         set_atv_snow_status(1);
         ret = start_vdin_dec(m_cur_sig_info);

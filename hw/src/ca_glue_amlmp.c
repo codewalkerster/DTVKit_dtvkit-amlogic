@@ -151,12 +151,6 @@ typedef struct
     BOOLEAN is_timeshift;
 } STB_CA_Glue_t;
 
-typedef struct
-{
-    U8BIT path;
-    U8BIT pathType;
-    char data_str[1024];
-} CAS_EVENT_DATA_t;
 
 /*---local function prototypes for this file-----------------------------------*/
 /*   (internal functions declared static to make them local) */
@@ -347,7 +341,7 @@ static void update_desc_pid(UINTPTR handle)
 
 static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
 {
-    CAS_EVENT_DATA_t cas_event_data;
+    static CAS_EVENT_DATA_t cas_event_data;
     BOOLEAN isPlaybackPath = false, has_ca = false;
     U8BIT num_paths, cas_path = INVALID_RES_ID;
     UINTPTR ca_handle = 0;
@@ -383,6 +377,8 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
     cJSON* cas = cJSON_GetObjectItemCaseSensitive(data, ITEM_CAS);
     cJSON* type = cJSON_GetObjectItemCaseSensitive(data, ITEM_TYPE);
     cJSON* pathType = cJSON_GetObjectItemCaseSensitive(data, ITEM_PATH_TYPE);
+    cJSON* msg_type = cJSON_GetObjectItem(data, "msg_type");
+
     if (isPlaybackPath &&
     cJSON_IsString(cas) &&
     (!strcmp(cas->valuestring, VMX_CAS_STRING)) &&
@@ -413,7 +409,7 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         }
     }
     cJSON_AddNumberToObject(data, "session", (UINTPTR)session);
-    cJSON_PrintPreallocated(data, cas_event_data.data_str, 1024, 0);
+    cJSON_PrintPreallocated(data, cas_event_data.data_str, CAS_MSG_LEN, 0);
 
     if (cJSON_IsNumber(pathType))
         cas_event_data.pathType = (U8BIT)(pathType->valuedouble);
@@ -431,7 +427,6 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
     cas_event_data.path = cas_path;
     CA_DBG("%s:%s", __func__, cas_event_data.data_str);
     STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, HW_EV_TYPE_CAS_MSG, &cas_event_data, sizeof(cas_event_data));
-
     return 0;
 }
 
@@ -471,6 +466,93 @@ static void get_cas_mode(AML_MP_CASSESSION session)
     }
 
     cJSON_Delete(input);
+}
+
+static void tms_status_check(char* Json ,U32BIT outLen)
+{
+    #define msg_len 1024*80
+    static char out_json[msg_len];
+    cJSON *client_data = NULL;
+    cJSON *result_data = NULL;
+    if (NULL == Json)
+    {
+        Aml_MP_CAS_Ioctl(0, "{\"InvokeID\":1003}", out_json, 8192);
+    }
+    else
+    {
+        if (outLen <= msg_len)
+            memcpy(out_json, Json, outLen);
+    }
+    client_data = cJSON_Parse(out_json);
+    if (TRUE == cJSON_HasObjectItem(client_data, "Result"))
+    {
+        result_data = cJSON_GetObjectItem(client_data, "Result");
+        //check have TMS&Flexi
+        CA_DBG("==TmsData [%d]  FlexiCore [%d ]==",\
+        cJSON_HasObjectItem(result_data, "TmsData"),\
+        cJSON_HasObjectItem(result_data, "FlexiCore") );
+
+        //retrieve FlexiCore
+        if (TRUE == cJSON_HasObjectItem(result_data, "FlexiCore"))
+        {
+            cJSON *FlexiCore =cJSON_GetObjectItem(result_data, "FlexiCore");
+            cJSON *message = cJSON_GetObjectItem(FlexiCore, "message");
+            CA_DBG("===================>message[%d]" ,  message->valueint );
+        }
+        //retrieve TmsData
+        if (TRUE == cJSON_HasObjectItem(result_data, "TmsData"))
+        {
+            cJSON *TmsData =cJSON_GetObjectItem(result_data, "TmsData");
+            //retrieve each item
+            cJSON *TmsData_element = NULL;
+            cJSON_ArrayForEach(TmsData_element, TmsData)
+            {
+                cJSON *CICAM = cJSON_GetObjectItem(TmsData_element, "CICAM");
+                if (NULL != CICAM)
+                {
+                    CA_DBG("===================>CICAM[%d]", CICAM->valueint);
+                    /*mark this since for SMDC test*/
+                    if (CICAM->valueint == 0)
+                    {
+                        is_enable_cicam = FALSE;
+                    }
+                    else
+                    {
+                        is_enable_cicam = TRUE;
+                    }
+                }
+                else
+                {
+                    CA_DBG("===================>no CICAM");
+                    is_enable_cicam = FALSE;
+                }
+
+                cJSON *FTA = cJSON_GetObjectItem(TmsData_element, "FTA");
+                if (NULL != FTA)
+                {
+                    CA_DBG("===================>FTA[%d]" , FTA->valueint);
+                    if (FTA->valueint == 0)
+                    {
+                        is_enable_fta = FALSE;
+                    }
+                    else
+                    {
+                        is_enable_fta = TRUE;
+                    }
+                 }
+                 else
+                 {
+                     CA_DBG("===================>no FTA");
+                     is_enable_fta = FALSE;
+                 }
+             }
+         }
+    }
+    if (client_data)
+    {
+        cJSON_Delete(client_data);
+        client_data = NULL;
+    }
 }
 #endif
 /*---global function definitions-----------------------------------------------*/
@@ -518,6 +600,7 @@ BOOLEAN STB_CAInitialise(void)
             g_cas_type = CAS_TYPE_NAGRA;
         }
         CA_DBG("am cas init g_cas_type=%d", g_cas_type);
+
     }
 
     FUNCTION_FINISH(STB_CAInitialise);
@@ -839,9 +922,16 @@ void STB_CADescrambleIoctl(UINTPTR handle, const char* inJson, char* outJson, U3
     CA_DBG("%s(0x%lx) [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, handle, inJson, outJson, outLen);
 
     STB_OSMutexLock(g_ca_mutex);
-    if (Aml_MP_CAS_Ioctl(((STB_CA_Glue_t *)handle)->session_info->cas_session, inJson, outJson, outLen))
+    if (handle == 0)
     {
-        CA_DBG("CA  descrambling Ioctl failed.");
+        Aml_MP_CAS_Ioctl(NULL, inJson, outJson, outLen);
+    }
+    else
+    {
+        if (Aml_MP_CAS_Ioctl(((STB_CA_Glue_t *)handle)->session_info->cas_session, inJson, outJson, outLen))
+        {
+            CA_DBG("CA  descrambling Ioctl failed.");
+        }
     }
     FUNCTION_FINISH(STB_CADescrambleIoctl);
 
@@ -856,23 +946,9 @@ void STB_CADescrambleIoctl(UINTPTR handle, const char* inJson, char* outJson, U3
 void STB_CADescrambleSessionIoctl(UINTPTR session, const char* inJson, char* outJson, U32BIT outLen)
 {
 #ifdef SUPPORT_CAS
-    FUNCTION_START(STB_CADescrambleSessionIoctl);
 
-    ASSERT(session);
-
-    CA_DBG("%s(0x%lx) [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, session, inJson, outJson, outLen);
-
-    STB_OSMutexLock(g_ca_mutex);
-    if (Aml_MP_CAS_Ioctl((AML_MP_CASSESSION)(session), inJson, outJson, outLen))
-    {
-        CA_DBG("CA  descrambling Ioctl failed.");
-    }
-    FUNCTION_FINISH(STB_CADescrambleSessionIoctl);
-
-    STB_OSMutexUnlock(g_ca_mutex);
 #endif
 }
-
 /*!**************************************************************************
  * @brief   When there's an update to the PMT for a service, the updated PMT
  *          will be reported to the CA system using this function.

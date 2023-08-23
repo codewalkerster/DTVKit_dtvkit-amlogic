@@ -376,39 +376,45 @@ int vdin_signal_handle()
         return ret;
     }
     DTV_LOGE(TAG, "trans_fmt is %d,fmt is %d, status is %d\n", m_cur_sig_info.trans_fmt, m_cur_sig_info.fmt, m_cur_sig_info.status);
+    DTV_LOGI(TAG, "mSearchStatus: %d\n", mSearchStatus);
 
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE ) {
+        SC_setATVVideoColor(1, 0, 5);
         if (mSetPQmode) {
             SC_setDisplayMode(SC_getDisplayMode());
             mSetPQmode = 0;
         }
-        SC_setATVVideoColor(0, 0, 5);
         set_atv_snow_status(0);
         ret = start_vdin_dec(m_cur_sig_info);
         DTV_LOGI(TAG, "mLocked: %d\n", mLocked);
         if (!mLocked) {
-            SC_setATVVideoColor(0, 0, 6);
+            SC_setATVVideoColor(1, 0, 6);
         }
         if (call_back) {
             call_back(m_cur_sig_info.status);
         }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_UNSTABLE ) {
-        SC_setATVVideoColor(1, 0, 5);
-        ret = stop_vdin_dec();
+        if (!mSearchStatus) {
+            SC_setATVVideoColor(1, 0, 5);
+            ret = stop_vdin_dec();
+        }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOTSUP ) {
-        SC_setATVVideoColor(1, 0, 5);
-        ret = stop_vdin_dec();
+        if (!mSearchStatus) {
+            SC_setATVVideoColor(1, 0, 5);
+            ret = stop_vdin_dec();
+        }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
+        SC_setATVVideoColor(1, 0, 5);
         if (5 != SC_getDisplayMode()) {//5:VPP_DISPLAY_MODE_FULL
             SC_setDisplayMode(5);//no sig need full screen
             mSetPQmode = 1;
         }
-        SC_setATVVideoColor(0, 0, 5);
         set_atv_snow_status(1);
         ret = start_vdin_dec(m_cur_sig_info);
-        DTV_LOGI(TAG, "nosignal mSearchStatus: %d\n", mSearchStatus);
         if (SC_getScreenColorSetting() != VIDEO_LAYER_COLOR_BLUE || mSearchStatus) {
-            SC_setATVVideoColor(0, 0, 6);
+            SC_setATVVideoColor(1, 0, 6);
+        } else {
+            SC_setATVVideoColor(0, 0, 5);
         }
         if (call_back) {
             call_back(m_cur_sig_info.status);
@@ -801,7 +807,7 @@ static void SysEventCallback(int color)
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
         DTV_LOGI(TAG, "%s:TVIN_SIG_STATUS_NOSIG, mSnowStatusEnable = %d, mSearchStatus=%d\n", __FUNCTION__, mSnowStatusEnable, mSearchStatus);
         if (color && !mSearchStatus) {
-            SC_setATVVideoColor(0, 0, 5);
+            SC_setATVVideoColor(1, 1, 5);
             if (mSnowStatusEnable) {
                 set_atv_snow_status(0);
             }

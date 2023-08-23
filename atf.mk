@@ -1,6 +1,5 @@
-LOCAL_PATH:= $(call my-dir)
+#####################################################################
 include $(CLEAR_VARS)
-
 include $(LOCAL_PATH)/Config.mk
 
 ifeq ($(DTVKIT_INCLUDE_TEMI),1)
@@ -42,7 +41,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28&& echo OK),OK)
     DTVKIT_WITH_TSPLAYER = 1
 endif
 
-LOCAL_MODULE := libdtvkit_platform
+LOCAL_MODULE := libdtvkit_platform_ATF
 LOCAL_MODULE_TAGS := optional
 
 ifneq ($(DTVKIT_USE_STDINT),1)
@@ -127,8 +126,8 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/kernel/android/uapi \
     bionic/libc/stdio \
     bionic/libc/include \
-    bionic/libc/../libm/include
-
+    bionic/libc/../libm/include \
+    vendor/amlogic/reference/apps/JDvrLib/jni/include
 LOCAL_CFLAGS += \
     -Wno-unused-function \
     -Wno-unused-parameter \
@@ -139,8 +138,7 @@ LOCAL_CFLAGS += \
     -Wno-unknown-attributes \
     -Werror=int-to-pointer-cast \
     -Werror=pointer-to-int-cast \
-    -Werror=incompatible-pointer-types \
-    -Werror
+    -Werror=incompatible-pointer-types
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux
@@ -199,36 +197,24 @@ LOCAL_SRC_FILES += hw/src/emu_tuner.c \
 
 LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
+LOCAL_HEADER_LIBRARIES := jni_headers
 
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../android-inputsource/app/src/main/logictuner/src/jni/include \
+                $(LOCAL_PATH)/../android-inputsource/tuner-framework-wrapper/inc \
+                $(LOCAL_PATH)/../../../aml_mp_sdk/include \
+                $(LOCAL_PATH)/hw/src \
+                $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
+                $(LOCAL_PATH)/tunerframework/JNI_dvr/include \
+                $(LOCAL_PATH)/tunerframework/JNI_tuner/include \
+                $(LOCAL_PATH)/tunerframework/wrapper/inc \
+                vendor/amlogic/common/libdsm \
+                vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include
 
-    LOCAL_SRC_FILES += hw/src/stbhwtun.c \
-                       hw/src/stbhwresm.c \
-                       hw/src/stbhwdmx.c \
-                       hw/src/linuxdvbdmx_wrapper.c
-
-ifeq ($(SUPPORT_CAS), true)
-    LOCAL_CFLAGS += -DSUPPORT_CAS
-    LOCAL_SRC_FILES += hw/src/ca_glue_amlmp.c
-    LOCAL_C_INCLUDES += $(TOP)/$(LOCAL_PATH)/../../../aml_mp_sdk/include
-    #LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/aml_mp_sdk/include
-    LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
-endif
-
-ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-    ifneq ($(DTVKIT_WITH_AML_MP_SDK), true)
-        LOCAL_SRC_FILES += hw/src/stbhwav_tsplayer.c
-        LOCAL_SRC_FILES += hw/src/stbpvrpr_tsplayer.c
-    else
-        LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
-        LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
-        LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../aml_mp_sdk/include
-        #LOCAL_C_INCLUDES += vendor/amlogic/common/aml_mp_sdk/include
-        LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
-    endif
-else
-    LOCAL_SRC_FILES += hw/src/stbhwav.c
-    LOCAL_SRC_FILES += hw/src/stbpvrpr.c
-endif
+LOCAL_SRC_FILES += hw/src/afc/stbhwtun_afc.c \
+                   hw/src/afc/stbhwdmx_afc.c \
+                   hw/src/afc/stbhwav_asplayer.c \
+                   hw/src/afc/stbpvrpr_jdvrlib.cpp \
+                   hw/src/afc/ca_glue.c
 
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
@@ -236,6 +222,8 @@ LOCAL_ARM_MODE := arm
 SUPPORT_DTVKIT_IN_VENDOR := true
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
 LOCAL_SHARED_LIBRARIES+=libmediahal_resman
+LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni
+LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni_wrapper
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     LOCAL_SHARED_LIBRARIES+=liblog libswdemux
 else
@@ -250,9 +238,5 @@ endif
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
-
 include $(BUILD_STATIC_LIBRARY)
-
-
-include $(LOCAL_PATH)/atf.mk
-include $(LOCAL_PATH)/tunerframework/wrapper/Android.mk
+##############################################################

@@ -251,6 +251,9 @@ static BOOLEAN av_start_flag = FALSE;
 static U8BIT num_paths = 0;
 static BOOLEAN video_blank_lock = FALSE;
 static BOOLEAN audio_mute_lock = FALSE;
+static int mlistener_dtv = 0;
+
+struct SysClientWrapper_t * pSysClientWrapper;
 
 typedef enum
 {
@@ -287,6 +290,16 @@ static S_VIDEO_MODE video_modes[] =
    {HW_AM_VOUT_FORMAT_1080P, VIDEO_FORMAT_1080P50HD}
 };
 
+typedef enum
+{
+    VIDEO_SIGNAL_STABLE = 0,
+    VIDEO_SIGNAL_LOSS
+} VIDEO_SIGNAL_TYPE;
+
+static VIDEO_SIGNAL_TYPE FLAGS = 0;
+static U8BIT dtv_path = 0;
+static int test_screen = 0;
+
 /*---local function prototypes for this file---------------------------------*/
 static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, int64_t param);
 static int AV_CreateTsPlayer_l(U8BIT path, Aml_MP_InputSourceType source_type, int32_t dmx_dev_id, int32_t event_mask);
@@ -314,6 +327,12 @@ static int AV_SetAudioVolume_l(AML_MP_PLAYER player_handle, U8BIT vol);
 static int AV_SetAudioMute_l(AML_MP_PLAYER player_handle, BOOLEAN mute);
 static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN mute);
 
+/**
+ * @brief   add auto detection function
+ */
+static void AV_EventCallback(int color);
+static void AV_GetInstance(void);
+
 /*---global function definitions----------------------------------------------*/
 
 /**
@@ -330,6 +349,13 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
 
    if (av_paths_status == NULL)
    {
+      /* add auto detection function */
+      if (!mlistener_dtv)
+      {
+          AV_GetInstance();
+          mlistener_dtv = 1;
+      }
+
       num_paths = video_paths;
       AV_DBG("video paths=%u demux = %d", num_paths, aml_hw_cfg.demux + 5);
 
@@ -741,6 +767,76 @@ BOOLEAN STB_AVGetIsBlackTransitionColor(void)
    return true;
 }
 
+/**
+ * @brief   Clear Full Screen
+ */
+void STB_ClearFullScreen(void)
+{
+    FUNCTION_START(STB_ClearFullScreen);
+
+    SC_setDisplayMode(test_screen,1);
+
+    FUNCTION_FINISH(STB_ClearFullScreen);
+}
+
+/**
+ * @brief   no sig need full screen display
+ */
+BOOLEAN STB_SetFullScreen(void)
+{
+    int ret = 0;
+    FUNCTION_START(STB_SetFullScreen);
+
+    test_screen = SC_getDisplayMode();
+
+    /*5:VPP_DISPLAY_MODE_FULL*/
+    if (5 != test_screen)
+    {
+        /*no sig need full screen,1:save database*/
+        SC_setDisplayMode(5,1);
+        ret = 1;
+    }
+
+    FUNCTION_FINISH(STB_SetFullScreen);
+    return ret;
+}
+
+/**
+ * @brief auto detect
+ */
+static void AV_GetInstance()
+{
+    FUNCTION_START(AV_GetInstance);
+
+    pSysClientWrapper = SC_getInstance();
+    SC_setSysClientCallback(AV_EventCallback);
+
+    FUNCTION_FINISH(AV_GetInstance);
+}
+
+/**
+ * @brief set color frame
+ */
+static void AV_EventCallback(int color)
+{
+    FUNCTION_START(AV_EventCallback);
+
+    VID_DBG("FLAGS=%d",FLAGS);
+    if ((FLAGS == VIDEO_SIGNAL_LOSS) || (STB_DPGetVideoPID(0) == INVALID_A_V_PID && STB_DPGetAudioPID(0) != INVALID_A_V_PID))
+    {
+        VID_DBG("color=%d",color);
+        if (color)
+        {
+            SC_setVideoColor(1, 1);//blue
+        }
+        else
+        {
+            SC_setVideoColor(1, 0);//black
+        }
+    }
+
+    FUNCTION_FINISH(AV_EventCallback);
+}
 
 /**
  * @brief   Blanks or unblanks the video display
@@ -3785,30 +3881,35 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_VIDEO_FIRST_FRAME, &status->decoder, sizeof(U8BIT));
          info.flags |= VIDEO_INFO_DECODER_STATUS;
          info.status = DECODER_STATUS_DECODE_FIRST_FRAME_VIDEO;
+         FLAGS = VIDEO_SIGNAL_STABLE;
          break;
       }
       case AML_MP_PLAYER_EVENT_DATA_LOSS:
       {
          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_LOSS!\n", status->decoder);
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_INPUT_DATA_LOSS, &status->decoder, sizeof(U8BIT));
+         FLAGS = VIDEO_SIGNAL_LOSS;
          break;
       }
       case AML_MP_PLAYER_EVENT_DATA_RESUME:
       {
          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_RESUME\n", status->decoder);
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_INPUT_DATA_RESUME, &status->decoder, sizeof(U8BIT));
+         FLAGS = VIDEO_SIGNAL_STABLE;
          break;
       }
       case AML_MP_PLAYER_EVENT_DECODER_DATA_LOSS:
       {
          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DECODER_DATA_LOSS!\n", status->decoder);
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
+         FLAGS = VIDEO_SIGNAL_LOSS;
          break;
       }
       case AML_MP_PLAYER_EVENT_DECODER_DATA_RESUME:
       {
          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DECODER_DATA_RESUME\n", status->decoder);
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_DATA_RESUME, &status->decoder, sizeof(U8BIT));
+         FLAGS = VIDEO_SIGNAL_STABLE;
          break;
       }
       case AML_MP_PLAYER_EVENT_SCRAMBLING:
@@ -3851,6 +3952,7 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
                 };
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
          }
+         FLAGS = VIDEO_SIGNAL_STABLE;
          break;
       }
       case AML_MP_PLAYER_EVENT_VIDEO_ERROR_FRAME_COUNT:

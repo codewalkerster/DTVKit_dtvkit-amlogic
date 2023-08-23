@@ -176,6 +176,8 @@ frequency:  4: only show once,will recovery when receive new frame.
                 if (STB_IsNewHW())
                 {
                     //no need
+                    s32Ret = sws->setVideoScreenColorByVT(window,0,6);
+                    SCDBG("@@@@@@@@@@@@@ no need UNMUTE6[%d]",s32Ret);
                 }
                 else
                 {
@@ -328,13 +330,14 @@ extern "C" int SC_getDisplayMode() {
     return ret;
 }
 
-extern "C" int SC_setDisplayMode(int mode) {
+/* issave: Whether to save to the database */
+extern "C" int SC_setDisplayMode(int mode, int issave) {
     int ret = 0;
 #if ANDROID_PLATFORM_SDK_VERSION >= 30
     const sp<SystemControlClient> &sws = getSystemControlService();
     if (sws != nullptr) {
         SCDBG("mode: %d\n", mode);
-        ret = sws->setDisplayMode(11, mode, 0);
+        ret = sws->setDisplayMode(11, mode, issave);
     }
 #endif
     return 0;

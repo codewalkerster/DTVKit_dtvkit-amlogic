@@ -27,7 +27,7 @@ int SC_setATVVideoColor(int forceColor, int setColor, int freq) ;
 int SC_WriteSysfs(const char *path, const char *value);
 int SC_ReadSysfs(const char *path, char *value);
 int SC_getDisplayMode();
-int SC_setDisplayMode(int mode);
+int SC_setDisplayMode(int mode, int issave);
 int SC_SetCurrentSourceInfo(int source_input, int sig_fmt, int trans_fmt);
 
 struct SysClientWrapper_t *SC_getInstance(void);

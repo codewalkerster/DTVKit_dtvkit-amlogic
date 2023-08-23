@@ -171,7 +171,9 @@ enum atv_video_std_e {
     CC_ATV_VIDEO_STD_PAL,
     CC_ATV_VIDEO_STD_NTSC,
     CC_ATV_VIDEO_STD_SECAM,
-    CC_ATV_VIDEO_STD_END = CC_ATV_VIDEO_STD_SECAM,
+    CC_ATV_VIDEO_STD_PAL_M,
+    CC_ATV_VIDEO_STD_PAL_N,
+    CC_ATV_VIDEO_STD_END = CC_ATV_VIDEO_STD_PAL_N,
 };
 
 
@@ -585,6 +587,24 @@ unsigned long enumToStdAndColor(int videoStd, int audioStd)
         } else if (audioStd == CC_ATV_AUDIO_STD_LC) {
             tmpTunerStd |= V4L2_STD_SECAM_LC;
         }
+    } else if (videoStd == CC_ATV_VIDEO_STD_PAL_M) {
+        tmpTunerStd |= V4L2_STD_PAL_M;
+        if (audioStd == CC_ATV_AUDIO_STD_DK) {
+            tmpTunerStd |= V4L2_STD_PAL_DK;
+        } else if (audioStd == CC_ATV_AUDIO_STD_I) {
+            tmpTunerStd |= V4L2_STD_PAL_I;
+        } else if (audioStd == CC_ATV_AUDIO_STD_BG) {
+            tmpTunerStd |= V4L2_STD_PAL_BG;
+        }
+    } else if (videoStd == CC_ATV_VIDEO_STD_PAL_N) {
+        tmpTunerStd |= V4L2_STD_PAL_Nc;
+        if (audioStd == CC_ATV_AUDIO_STD_DK) {
+            tmpTunerStd |= V4L2_STD_PAL_DK;
+        } else if (audioStd == CC_ATV_AUDIO_STD_I) {
+            tmpTunerStd |= V4L2_STD_PAL_I;
+        } else if (audioStd == CC_ATV_AUDIO_STD_BG) {
+            tmpTunerStd |= V4L2_STD_PAL_BG;
+        }
     }
     return tmpTunerStd;
 }
@@ -635,7 +655,7 @@ int stdEnumToCvbsFmt (int vfmt, unsigned long std)
             }
             break;
         case V4L2_STD_PAL_Nc:
-            if ((std & V4L2_STD_PAL_M) || (std & V4L2_STD_NTSC_M)) {
+            if ((std & V4L2_STD_PAL_M) || (std & V4L2_STD_NTSC_M) || (std & V4L2_STD_PAL_Nc)) {
                 cvbs_fmt = TVIN_SIG_FMT_CVBS_PAL_CN;
             } else {
                 cvbs_fmt = TVIN_SIG_FMT_CVBS_PAL_I;

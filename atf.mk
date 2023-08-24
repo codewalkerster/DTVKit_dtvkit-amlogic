@@ -126,8 +126,18 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/kernel/android/uapi \
     bionic/libc/stdio \
     bionic/libc/include \
-    bionic/libc/../libm/include \
-    vendor/amlogic/reference/apps/JDvrLib/jni/include
+    bionic/libc/../libm/include
+ifneq ($(TUNER_FRAMEWORK), false)
+    LOCAL_C_INCLUDES += \
+        $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
+        $(LOCAL_PATH)/tunerframework/JNI_dvr/include \
+        $(LOCAL_PATH)/tunerframework/JNI_tuner/include
+else
+    LOCAL_C_INCLUDES += \
+        vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
+        vendor/amlogic/reference/apps/JDvrLib/jni/include \
+        $(LOCAL_PATH)/../android-inputsource/logicdtvkit/src/jni/tuner_jni/include
+endif
 LOCAL_CFLAGS += \
     -Wno-unused-function \
     -Wno-unused-parameter \
@@ -199,16 +209,10 @@ LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
 LOCAL_HEADER_LIBRARIES := jni_headers
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../android-inputsource/app/src/main/logictuner/src/jni/include \
-                $(LOCAL_PATH)/../android-inputsource/tuner-framework-wrapper/inc \
-                $(LOCAL_PATH)/../../../aml_mp_sdk/include \
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../aml_mp_sdk/include \
                 $(LOCAL_PATH)/hw/src \
-                $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
-                $(LOCAL_PATH)/tunerframework/JNI_dvr/include \
-                $(LOCAL_PATH)/tunerframework/JNI_tuner/include \
                 $(LOCAL_PATH)/tunerframework/wrapper/inc \
                 vendor/amlogic/common/libdsm \
-                vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include
 
 LOCAL_SRC_FILES += hw/src/afc/stbhwtun_afc.c \
                    hw/src/afc/stbhwdmx_afc.c \

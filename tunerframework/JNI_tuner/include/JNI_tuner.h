@@ -56,6 +56,7 @@ enum FRONTEND_TYPE {
 };
 
 enum TUNER_CONSTANT{
+    TUNER_CONSTANT_INVALID_TUNER_CLIENT_ID = 0xFFFF,
     /**
      * An invalid packet ID in transport stream according to ISO/IEC 13818-1.
      */
@@ -129,6 +130,12 @@ enum TUNER_LIFECYCLE_STATUS {
     TUNER_CREATE = 1,
 };
 
+enum TUNER_TYPE {
+    TUNER_TYPE_DEFAULT = 0,
+    TUNER_TYPE_PIP     = 1,
+    TUNER_TYPE_RECORD  = 2,
+    TUNER_TYPE_SCAN    = 3,
+};
 /*
 struct AMTuner : public RefBase {
     AMTuner(JNIEnv *env, jobject thiz);
@@ -144,6 +151,7 @@ private:
  * @return tuner client id.
  */
 int Am_tuner_getTunerClientId();
+int Am_tuner_getTunerClientIdByType(int tunerType);
 
 /**
  * get tuner object by client id.
@@ -336,7 +344,6 @@ jobject Am_tuner_openLnb(int tunerClientId, long callbackContext);
  * @return lnb weak global ref.
  */
 jobject Am_tuner_openLnbByName(int tunerClientId, const std::string &name, long callbackContext);
-
 /**
  * alloc the Descrambler instance.
  *
@@ -377,6 +384,14 @@ int Am_tuner_connectFrontendToCiCam(int tunerClientId, int ciCamId);
  * @return result status of the operation.
  */
 int Am_tuner_disconnectFrontendToCiCam(int tunerClientId, int ciCamId);
+
+/**
+ * Get TvInputSession.setSurface surfece instance by tuner client id.
+ *
+ * @param tunerClientId the current open tuner clientId.
+ * @return result surface object or null.
+ */
+jobject Am_tuner_getSurfaceByTunerClient(int tunerClientId);
 
 /**
  * Sets the filter type.

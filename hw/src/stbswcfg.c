@@ -73,6 +73,7 @@ static BOOLEAN TvConfigSyncJsonDBFromCache(const char* filePath, TV_CONFIG* ptv_
         }
 
         fclose(fp);
+        sync();
         return TRUE;
     }
     else {

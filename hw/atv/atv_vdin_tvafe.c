@@ -387,7 +387,7 @@ int vdin_signal_handle()
         set_atv_snow_status(0);
         ret = start_vdin_dec(m_cur_sig_info);
         DTV_LOGI(TAG, "mLocked: %d\n", mLocked);
-        if (!mLocked) {
+        if (!mLocked && !mSearchStatus) {
             SC_setATVVideoColor(1, 0, 6);
         }
         if (call_back) {

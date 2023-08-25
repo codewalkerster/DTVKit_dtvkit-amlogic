@@ -7,6 +7,8 @@
 #include <vector>
 #include <pthread.h>
 
+
+
 //!self
 #include "JNI_tuner.h"
 #include "filter_utils.h"
@@ -20,6 +22,17 @@
 #include <jni.h>
 
 #define LOG_TAG "wrapper_dmx"
+
+typedef enum
+{
+    DMX_CAPS_LIVE = 0x0001,          /* Demux can be used to watch live TV */
+    DMX_CAPS_PIP = 0x0002,           /* Demux can be used for picture-in-picture */
+    DMX_CAPS_RECORDING = 0x0004,     /* Demux can be used for PVR recording */
+    DMX_CAPS_PLAYBACK = 0x0008,      /* Demux can be used for PVR playback */
+    DMX_CAPS_MONITOR_SI = 0x0010,    /* Demux can be used to monitor SI data from a tuner */
+    DMX_CAPS_NO_DSC_NEEDED = 0x0020, /* Demux can be assign to whom need no dsc */
+    DMX_CAPS_USBCAM = 0x0040         /* Demux can be assign to usbcam */
+} E_STB_DMX_CAPS;
 
 typedef struct s_pid_hal
 {
@@ -35,6 +48,13 @@ typedef struct
     bool dmx_exit;
     bool initDmxLocked = false;
 } DMX_THREAD_PARA;
+
+typedef struct
+{
+    filter_callback cb;
+    ST_CALLBACK_T para;
+}PID_TASK_PACKAGE;
+
 DMX_THREAD_PARA gDMXTaskLocked;
 
 
@@ -43,7 +63,24 @@ typedef map<int, S_HAL*> FILTER_MAP;
 
 static FILTER_MAP filter_map;
 static int gTunerClient = 0xFFFF;
+static int symbol_open = 0;
+S_QUEUE *pid_queue = NULL;
 
+static void FilterTask(void *param)
+{
+    ALOGD("start:%s", __FUNCTION__);
+    PID_TASK_PACKAGE package;
+    while (1)
+    {
+        if (!wrapper_OSReadQueue(pid_queue , (void *)&package, sizeof(PID_TASK_PACKAGE), TIMEOUT_NEVER))
+        {
+            ALOGD("%s read pid_queue failure", __FUNCTION__);
+        }
+        package.cb(&package.para);
+        ALOGD("%s pidcallback is %d", __FUNCTION__, package.para.un32filterID);
+    }
+    ALOGD("end:%s", __FUNCTION__);
+}
 
 void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus) {
     ALOGD("start:%s", __FUNCTION__);
@@ -79,16 +116,22 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
             {
                 S_PID_FILTER_INFO* user_data = (S_PID_FILTER_INFO*)it->second->user_data;
                 ALOGD("user_data.index = %d, user_data.pid = %d, handle =%d,user_data = %p", user_data->index, user_data->pid, user_data->fhandle, user_data);
-                filter_callback callback = it->second->cb;
+                //filter_callback callback = it->second->cb;
                 ST_CALLBACK_T para;
                 para.un32filterID = Am_filter_getId(filter) ;
                 para.pun8_buffer = (uint8_t *)buffer ;
                 para.un32_length =  readSize;
                 user_data->fhandle = Am_filter_getId(filter);
                 para.un32_userdata = user_data;
-                if ( callback != NULL )
+                if ( it->second!= NULL && it->second->cb != NULL )
                 {
-                    callback( &para);
+                    PID_TASK_PACKAGE package;
+                    package.cb = it->second->cb;
+                    package.para = para;
+                    if (!wrapper_OSWriteQueue(pid_queue, (void *)&package, sizeof(PID_TASK_PACKAGE), TIMEOUT_NEVER))
+                    {
+                        ALOGD("%s: write pid_queue failure", __FUNCTION__);
+                    }
                 }
             }
             ALOGD("read callback data size :%d ", readSize);
@@ -110,7 +153,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
     ALOGD("end:%s", __FUNCTION__);
 }
 
-int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback cb, void* user_data)
+int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback cb, void* user_data, int caps)
 {
     ALOGD("start:%s", __FUNCTION__);
     if (!gDMXTaskLocked.initDmxLocked )
@@ -121,7 +164,16 @@ int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback c
     }
 
     //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
-    gTunerClient = Am_tuner_getTunerClientId();
+    if (caps == DMX_CAPS_PLAYBACK)
+    {
+        ALOGD("start DMX_CAPS_PLAYBACK filter:%s", __FUNCTION__);
+        gTunerClient = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
+    }
+    else
+    {
+        ALOGD("start DMX_CAPS_Live filter%s", __FUNCTION__);
+        gTunerClient = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
+    }
     Am_filter_callback filterCallback = FilterCallback;
     S_HAL *filerInfo;
     filerInfo = new S_HAL();
@@ -142,6 +194,22 @@ int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback c
         ALOGI("%s instert new filerInfo filterId: %d.", __FUNCTION__, filterId);
     }
     ALOGI("%s  filerInfo %p filerInfo.Jfilter %p, filerInfo->user_data %p", __FUNCTION__, filerInfo, filerInfo->Jfilter, filerInfo->user_data);
+    if (symbol_open == 0)
+    {
+        if (pid_queue == NULL)
+        {
+            pid_queue = (S_QUEUE*)wrapper_OSCreateQueue(sizeof(PID_TASK_PACKAGE),  20);
+        }
+        else
+        {
+            ALOGI("%s error:pid_queue initialization failure", __FUNCTION__);
+        }
+        if (wrapper_OSCreateTask(FilterTask, NULL, (U8BIT *)"FilterTask") == NULL)
+        {
+            ALOGI("%s error:Failed to create task for filter", __FUNCTION__);
+        }
+        symbol_open = 1;
+    }
     //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
     ALOGD("end:%s", __FUNCTION__);
     return filterId ;
@@ -194,7 +262,7 @@ BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO* para
         tsFilterConfiguration.pid = pid;
         tsFilterConfiguration.type = MAIN_TYPE_TS;
         tsFilterConfiguration.setting.section_setting.crc_enable = params->check_crc;
-        tsFilterConfiguration.setting.section_setting.is_repeat = false;
+        tsFilterConfiguration.setting.section_setting.is_repeat = true;
         tsFilterConfiguration.setting.section_setting.is_raw = false;
         tsFilterConfiguration.setting.section_setting.filter[0] = params->match[0];
         tsFilterConfiguration.setting.section_setting.filter[3] = params->match[1];
@@ -283,6 +351,29 @@ BOOLEAN  DMX_StopFilter(int un32filterID )
     return ret ;
 }
 
+
+void DMX_Route_TS(int cicamid,BOOLEAN pass_through)
+{
+    if (INVALID_TUNER_ID == Am_tuner_getTunerClientId())
+    {
+        ALOGD("%s : gTunerClient is invalid", __FUNCTION__);
+        return ;
+    }
+
+    if (true == pass_through)
+    {
+        ALOGD("======>TS change to passthough");
+        Am_tuner_connectCiCam(Am_tuner_getTunerClientId(),cicamid);
+        Am_tuner_connectFrontendToCiCam(Am_tuner_getTunerClientId(),cicamid);
+    }
+    else
+    {
+        ALOGD("======>TS change to bypass");
+        Am_tuner_disconnectCiCam(Am_tuner_getTunerClientId());
+        Am_tuner_disconnectFrontendToCiCam(Am_tuner_getTunerClientId(),cicamid);
+    }
+    ALOGD("END:%s", __FUNCTION__);
+}
 ////////////////////////////
  //tuner hal flow
 // open descramble
@@ -342,3 +433,5 @@ void DESCRAMBLE_close(jobject handle)
     Am_descrambler_close(handle);
     ALOGD("OUT:%s", __FUNCTION__);
 }
+
+

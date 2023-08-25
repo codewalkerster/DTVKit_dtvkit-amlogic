@@ -131,11 +131,15 @@ enum TUNER_LIFECYCLE_STATUS {
 };
 
 enum TUNER_TYPE {
-    TUNER_TYPE_DEFAULT = 0,
-    TUNER_TYPE_PIP     = 1,
-    TUNER_TYPE_RECORD  = 2,
-    TUNER_TYPE_SCAN    = 3,
+    TUNER_TYPE_DEFAULT              = 0,
+    TUNER_TYPE_PIP                  = 1,
+    TUNER_TYPE_DVR_RECORD           = 2,
+    TUNER_TYPE_DVR_TIMESHIFT_RECORD = 3,
+    TUNER_TYPE_DVR_PLAY             = 4,
+    TUNER_TYPE_SCAN                 = 5,
+    TUNER_TYPE_FCC_TUNE             = 6,
 };
+
 /*
 struct AMTuner : public RefBase {
     AMTuner(JNIEnv *env, jobject thiz);
@@ -151,6 +155,12 @@ private:
  * @return tuner client id.
  */
 int Am_tuner_getTunerClientId();
+
+/**
+ * get open tuner client id by type.
+ * @param tunerType see@enmu TUNER_TYPE.
+ * @return tuner client id.
+ */
 int Am_tuner_getTunerClientIdByType(int tunerType);
 
 /**
@@ -173,6 +183,14 @@ jobject Am_tuner_getValidTuner();
 jobject Am_tuner_getRecordTuner();
 
 /**
+  * get dvr tuner object.
+  * @param tunerType see@enmu TUNER_TYPE.
+  * @return dvr tuner jobject or null.
+  */
+ jobject Am_tuner_getDvrTunerByType(int tunerType);
+
+ /**
+
  * register listener to receive tuner jobject life cycle status change.
  * @param listenerContext The listener context.
  * @return null.

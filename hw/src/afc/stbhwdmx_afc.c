@@ -172,6 +172,7 @@ typedef struct
 
    E_STB_DMX_DEMUX_SOURCE source;
    U8BIT source_param;
+U16BIT demux_cap;
 #ifdef TEMI_TIMELINES
    S_TEMI_FILTER temi_filters[MAX_TEMI_FILTERS];
 #endif
@@ -299,7 +300,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                   for (j = 0; j < MAX_PID_FILTERS; j++)
                   {
                      memset(&demux_status[i].filter_info[j], 0, sizeof(demux_status[i].filter_info[j]));
-
+                     demux_status[i].filter_info[j].path = i;
                      demux_status[i].filter_info[j].index = j;
                      demux_status[i].filter_info[j].fhandle = -1;
                      demux_status[i].filter_info[j].started = FALSE;
@@ -1337,15 +1338,16 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
 void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
 {
    FUNCTION_START(STB_DMXSetDemuxSource);
-
+   DMX_DBG("path [%u], source[%u]  param[%0x] ,demux_cap[%0x] ",path,source,param,demux_cap);
    if ((path < num_paths) &&
-       ((source != demux_status[path].source) || (param != demux_status[path].source_param)))
+       ((source != demux_status[path].source) || (param != demux_status[path].source_param)||(demux_cap != demux_status[path].demux_cap)))
    {
-      DMX_DBG("%u: new=%u, %u; old=%u, %u", path, source, param,
-         demux_status[path].source, demux_status[path].source_param);
+      DMX_DBG("path %u: new:  [%u], [%u]  [%0x];   old:  [%u], [%u]  [%0x];", path, source, param,demux_cap,
+         demux_status[path].source, demux_status[path].source_param, demux_status[path].demux_cap);
 
       demux_status[path].source = source;
       demux_status[path].source_param = param;
+      demux_status[path].demux_cap = demux_cap;
    }
 
    FUNCTION_FINISH(STB_DMXSetDemuxSource);
@@ -1782,7 +1784,7 @@ void PidCallback(ST_CALLBACK_T* param)
                      if (pid_filter->func_ptr[j] != NULL)
                      {
                         func_ptr = pid_filter->func_ptr[j];
-                        (*func_ptr)(pid_filter->index, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
+                        (*func_ptr)(pid_filter->path, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                      }
                   }
                }
@@ -1825,7 +1827,8 @@ void PidCallback(ST_CALLBACK_T* param)
                            {
                               func_ptr = pid_filter->func_ptr[j];
                               //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
-                              DMX_DBG("pid_filter->index [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->index , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
+                               DMX_DBG("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
+                              (*func_ptr)(pid_filter->path, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(0, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                            }
                         }
@@ -1875,10 +1878,12 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    struct dmx_sct_filter_params dvb_filt_p;
    U16BIT num_filters;
    BOOLEAN am_result;
+   U16BIT demux_cap = 0;
    FUNCTION_START(UpdateSectionFilter);
-   DMX_DBG("UpdateSectionFilter Start");
+   DMX_DBG("UpdateSectionFilter Start path: [%d] filter_index[%d] caps[0x%x]",path,filter_index,demux_status[path].demux_cap);
 
    pid_filter = &demux_status[path].filter_info[filter_index];
+   demux_cap = demux_status[path].demux_cap;
    success = FALSE;
 
    /* Find new mask/match and CRC status
@@ -1965,6 +1970,8 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
        * need to be passed in as they are */
       memcpy(&dvb_filt_p.filter.filter[0], &mask_all[0], DEMUX_SECTION_FILTER_LENGTH);
       memcpy(&dvb_filt_p.filter.mask[0], &mask[0], DEMUX_SECTION_FILTER_LENGTH);
+      memcpy(sect_filter->match, &dvb_filt_p.filter.filter[0], DEMUX_SECTION_FILTER_LENGTH);
+      memcpy(sect_filter->mask, &dvb_filt_p.filter.mask[0], DEMUX_SECTION_FILTER_LENGTH);
 
 #if 0
 //if (pid_filter->pid == 17)
@@ -2049,7 +2056,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
         if (pid_filter->fhandle == -1)
         {
            //alloc
-           pid_filter->fhandle = DMX_OpenFilter(1, 1, 8 * MAX_SECTION_SIZE, PidCallback, (void*)pid_filter);
+           pid_filter->fhandle = DMX_OpenFilter(1, 1, 8 * MAX_SECTION_SIZE, PidCallback, (void*)pid_filter,demux_cap);
         }
 
         if (pid_filter->fhandle != -1)
@@ -2144,7 +2151,14 @@ void STB_DMXCI_Set_Demod_Mode(int mode)
 }
 void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
 {
-    //NA
+     if (1 == plug)
+    {
+        DMX_Route_TS(slot,TRUE);
+    }
+     else
+    {
+        DMX_Route_TS(slot,FALSE);
+    }
 }
 
 static int key_open(void)

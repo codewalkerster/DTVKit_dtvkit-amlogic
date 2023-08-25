@@ -59,6 +59,9 @@ static U32BIT tuner_srate = 0;
 static BOOLEAN auto_relock= FALSE;
 
 jobject tuner_lnb;
+DVBT_BANDWIDTH Wrapper_TuneGetTerrBwidth(EW_STB_TUNE_TBWIDTH tbwidth);
+DVBT_TRANSMISSION_MODE Wrapper_TuneGetTransmissionMode(EW_STB_TUNE_TMODE tmode);
+
 
 void LnbCallback(jobject lnb, int eventType, jbyteArray diseqcMessage);
 
@@ -251,7 +254,7 @@ void RegisterCallback(SendEvent callback)
 
 }
 
-void tuner_Eventshow(int event) {
+void scanCallback(int event) {
     ALOGD("sh1164-->:%s : enter tuner event : %d", __FUNCTION__, event);
     int gTunerClient = INVALID_TUNER_ID;
     static int flag = 0;
@@ -265,83 +268,20 @@ void tuner_Eventshow(int event) {
         //return;
     }
     //3.test get tuner status
-    curr_path = 0;
-
-
 
     if (0 == event)
     {
-        //Wrapper_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_LOCKED, &curr_path, sizeof(U8BIT));
         Lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_LOCKED, &curr_path, sizeof(U8BIT));
+        ALOGD("scanCallback: tuner lock");
     }
     else
     {
-        //Wrapper_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_NOTLOCKED, &curr_path, sizeof(U8BIT));
         Lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_NOTLOCKED, &curr_path, sizeof(U8BIT));
+        ALOGD("scanCallback: tuner unlock");
     }
 
 
-    ALOGD("%s : leave tuner event : %d,curr_path=%d", __FUNCTION__, event,curr_path);
-}
-void scanCallback(int scanCallbackMessageType, jobjectArray scanCallbackMessage) {
-    ALOGD("start:%s, scanCallbackMessageType :%d ", __FUNCTION__, scanCallbackMessageType);
-    Scan_Callback_Message scanMessage;
-    memset(&scanMessage, 0, sizeof(Scan_Callback_Message));
-    if (NULL != scanCallbackMessage) {
-        bool attached = false;
-        JNIEnv *env = Am_tuner_getJNIEnv(&attached);
-        if (NULL == env) {
-            ALOGD("%s : test fail, env is null", __FUNCTION__);
-            return;
-        }
-        frontend_utils_parseScanCallbackMessage(env, scanCallbackMessageType, scanCallbackMessage, &scanMessage);
-        ALOGD("Scan_Callback_Message scanMessageType : %d", scanMessage.scanMessageType);
-        for (int value : scanMessage.integer_value) {
-            ALOGD("Scan_Callback_Message message : %d", value);
-        }
-    }
-       switch (scanCallbackMessageType)
-      {
-            case SCAN_MESSAGE_LOCKED:
-                Lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_LOCKED, &curr_path, sizeof(U8BIT));
-                ALOGD("scanCallback: tuner lock");
-                break;
-            case SCAN_MESSAGE_UNLOCK:
-                    Lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_NOTLOCKED, &curr_path, sizeof(U8BIT));
-                    ALOGD("scanCallback: tuner unlock");
-                break;
-            case SCAN_MESSAGE_END:
-                break;
-            case SCAN_MESSAGE_PROGRESS_PERCENT:
-                break;
-            case SCAN_MESSAGE_FREQUENCY:
-                break;
-            case SCAN_MESSAGE_SYMBOL_RATE:
-                break;
-            case SCAN_MESSAGE_PLP_IDS:
-                break;
-            case SCAN_MESSAGE_GROUP_IDS:
-                break;
-            case SCAN_MESSAGE_INPUT_STREAM_IDS:
-                break;
-            case SCAN_MESSAGE_DVBS_STANDARD:
-                break;
-            case SCAN_MESSAGE_DVBT_STANDARD:
-                break;
-            case SCAN_MESSAGE_ANALOG_TYPE:
-                break;
-            case SCAN_MESSAGE_HIERARCHY:
-                break;
-            case SCAN_MESSAGE_SIGNAL_TYPE:
-                break;
-            case SCAN_MESSAGE_DVBT_CELL_IDS:
-                break;
-            default:
-                ALOGD("scanCallback: default");
-                break;
-
-      }
-    ALOGD("end:%s", __FUNCTION__);
+    ALOGD("%s : leave tuner event : %d,curr_path=%d", __FUNCTION__, event, curr_path);
 }
 void LnbCallback(jobject lnb, int eventType, jbyteArray diseqcMessage) {
     ALOGD("start:%s, lnb : %p, eventType :%d", __FUNCTION__, lnb, eventType);
@@ -411,6 +351,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         return;
     }
     long callbackContext = (long)scanCallback;
+    Am_tuner_setOnTuneEventListener(gTunerClient, callbackContext);
     Tmode = tmode;
     TBWidth = tbwidth;
     tuner_srate = srate;
@@ -421,9 +362,16 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         Dvbt_Frontend_Settings dvbtFrontendSettings;
         memset(&dvbtFrontendSettings, 0, sizeof(Dvbt_Frontend_Settings));
         dvbtFrontendSettings.frequency = freq;
-        dvbtFrontendSettings.transmissionMode = tmode;
-        dvbtFrontendSettings.bandwidth = tbwidth;
-        dvbtFrontendSettings.standard = E_TERR_TYPE_DVBT;
+        dvbtFrontendSettings.transmissionMode = Wrapper_TuneGetTransmissionMode(tmode);
+        dvbtFrontendSettings.bandwidth = Wrapper_TuneGetTerrBwidth(tbwidth);
+        if (sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT)
+        {
+            dvbtFrontendSettings.standard = DVBT_STANDARD_T;
+        }
+        else if (sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2)
+        {
+            dvbtFrontendSettings.standard = DVBT_STANDARD_T2;
+        }
         //dvbtFrontendSettings.standard = E_TERR_TYPE_DVBC;
         jobject dvbtSettingObject = dvb_utils_getDvbtFrontendSettingsObject(env, dvbtFrontendSettings);
         if (NULL == dvbtSettingObject)
@@ -432,7 +380,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             testFailLeave(attached);
             return;
         }
-        Am_tuner_scan(gTunerClient, dvbtSettingObject, SCAN_TYPE_AUTO, callbackContext);
+        Am_tuner_tune(gTunerClient, dvbtSettingObject);
         curr_starttune = TRUE;
     }else if (signal_type == E_TERR_TYPE_DVBC)
     {
@@ -451,7 +399,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             testFailLeave(attached);
             return;
         }
-        Am_tuner_scan(gTunerClient, dvbcSettingObject, SCAN_TYPE_AUTO, callbackContext);
+        Am_tuner_tune(gTunerClient, dvbcSettingObject);
         curr_starttune = TRUE;
     }else if(signal_type == E_TERR_TYPE_DVBS)
     {
@@ -473,7 +421,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             testFailLeave(attached);
             return;
         }
-        Am_tuner_scan(gTunerClient, dvbsSettingObject, SCAN_TYPE_AUTO, callbackContext);
+        Am_tuner_tune(gTunerClient, dvbsSettingObject);
         tuner_lnb = Am_tuner_openLnb(ClientId, (long)LnbCallback);
         if (tuner_lnb == NULL)
         {
@@ -496,6 +444,7 @@ void Wrapper_TuneStopTuner(U8BIT path)
     if (it != tuner_map.end())
     {
         gTunerClient = it->second;
+        tuner_map.erase(it);
     }else
     {
         ALOGD("gTunerClient is invalid: %d", gTunerClient);
@@ -1288,6 +1237,62 @@ U32BIT Wrapper_TuneGetMaxTunerSymbolRate(U8BIT path)
 
     ALOGD("end:%s ", __FUNCTION__);
     return rate_max;
+}
+DVBT_BANDWIDTH Wrapper_TuneGetTerrBwidth(EW_STB_TUNE_TBWIDTH tbwidth)
+{
+    DVBT_BANDWIDTH bwidth = DVBT_BANDWIDTH_UNDEFINED;
+    switch (tbwidth)
+        {
+        case WRAPPER_TUNE_TBWIDTH_8MHZ:
+            bwidth = DVBT_BANDWIDTH_8MHZ;
+            break;
+        case WRAPPER_TUNE_TBWIDTH_7MHZ:
+            bwidth = DVBT_BANDWIDTH_7MHZ;
+            break;
+        case WRAPPER_TUNE_TBWIDTH_6MHZ:
+            bwidth = DVBT_BANDWIDTH_6MHZ;
+            break;
+        case WRAPPER_TUNE_TBWIDTH_5MHZ:
+            bwidth = DVBT_BANDWIDTH_5MHZ;
+            break;
+        case WRAPPER_TUNE_TBWIDTH_10MHZ:
+            bwidth = DVBT_BANDWIDTH_10MHZ;
+            break;
+        default:
+            bwidth = DVBT_BANDWIDTH_AUTO;
+            break;
+        }
+    return bwidth;
+}
+
+DVBT_TRANSMISSION_MODE Wrapper_TuneGetTransmissionMode(EW_STB_TUNE_TMODE tmode)
+{
+    DVBT_TRANSMISSION_MODE mode = DVBT_TRANSMISSION_MODE_UNDEFINED;
+    switch (tmode)
+        {
+        case WRAPPER_TUNE_MODE_COFDM_1K:
+            mode = DVBT_TRANSMISSION_MODE_1K;
+            break;
+        case WRAPPER_TUNE_MODE_COFDM_2K:
+            mode = DVBT_TRANSMISSION_MODE_2K;
+            break;
+        case WRAPPER_TUNE_MODE_COFDM_4K:
+            mode = DVBT_TRANSMISSION_MODE_4K;
+            break;
+        case WRAPPER_TUNE_MODE_COFDM_8K:
+            mode = DVBT_TRANSMISSION_MODE_8K;
+            break;
+        case WRAPPER_TUNE_MODE_COFDM_16K:
+            mode = DVBT_TRANSMISSION_MODE_16K;
+            break;
+        case WRAPPER_TUNE_MODE_COFDM_32K:
+            mode = DVBT_TRANSMISSION_MODE_32K;
+            break;
+        default:
+            mode = DVBT_TRANSMISSION_MODE_AUTO;
+            break;
+        }
+    return mode;
 }
 
 U32BIT Wrapper_TuneGetMinTunerSymbolRate(U8BIT path)

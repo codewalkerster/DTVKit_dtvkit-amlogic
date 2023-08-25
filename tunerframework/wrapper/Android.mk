@@ -9,7 +9,8 @@ LOCAL_CFLAGS = $(L_CFLAGS)
 LOCAL_SRC_FILES := src/wrapper_dmx.cpp \
                    src/wrapper_frontend.cpp \
                    src/wrapper_pvr.cpp \
-                   src/wrapper_player.cpp
+                   src/wrapper_player.cpp \
+                   src/wrapper_os.cpp
 
 LOCAL_C_INCLUDES += frameworks/base/core/jni/include \
                                            $(LOCAL_PATH)/inc
@@ -24,7 +25,7 @@ ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/log
 $(warning "build jni")
     LOCAL_C_INCLUDES += vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include
     LOCAL_C_INCLUDES += vendor/amlogic/reference/apps/JDvrLib/jni/include
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/jni/tuner_jni/include
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include
 
     LOCAL_SHARED_LIBRARIES += libjdvrlib-jni
     LOCAL_SHARED_LIBRARIES += libdtvkit_tuner_jni

@@ -131,7 +131,7 @@ ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/log
     LOCAL_C_INCLUDES += \
         vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
         vendor/amlogic/reference/apps/JDvrLib/jni/include \
-        $(LOCAL_PATH)/../android-inputsource/logicdtvkit/src/jni/tuner_jni/include
+        $(LOCAL_PATH)/../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include
 else
     LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \

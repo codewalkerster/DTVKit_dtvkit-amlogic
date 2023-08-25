@@ -2,6 +2,7 @@
 #define _TF_DMX_H
 #include <jni.h>
 #include "techtype.h"
+#include "wrapper_os.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -9,6 +10,7 @@ extern "C" {
 #define DEMUX_SECTION_FILTER_LENGTH 8
 #define MAX_SECTION_FILTERS         16
 #define MAX_FILTERS_PER_PID         8
+
 
 typedef struct _ST_CALLBACK_T
 {
@@ -35,6 +37,7 @@ typedef struct _S_SECTION_FILTER_INFO
 
 typedef struct s_pid_filter_info
 {
+   U8BIT path;
    U8BIT index;
    U16BIT pid;
    int fhandle;
@@ -46,17 +49,21 @@ typedef struct s_pid_filter_info
    U8BIT start_count[MAX_FILTERS_PER_PID];
 } S_PID_FILTER_INFO;
 
-int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback cb, void* user_data);
+int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback cb, void* user_data,int caps);
+
 BOOLEAN DMX_CloseFilter(int un32filterID);
 BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO *params );
 BOOLEAN DMX_StartFilter(int un32filterID );
 BOOLEAN DMX_StopFilter(int un32filterID );
 
+
+void DMX_Route_TS(int cicamid,BOOLEAN pass_through);
 jobject DESCRAMBLE_Open();
 void DESCRAMBLE_AddPid( jobject handle, int pid);
 void DESCRAMBLE_RemovePid(jobject handle, int pid);
 void DESCRAMBLE_SetKeyToken(jobject handle,uint32_t token);
 void DESCRAMBLE_close(jobject handle);
+
 #ifdef __cplusplus
 }
 #endif

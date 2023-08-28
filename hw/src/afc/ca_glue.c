@@ -290,7 +290,20 @@ BOOLEAN STB_CADescramblerRequiredForRecording(U16BIT *ca_ids, U16BIT num_ca_ids)
  ****************************************************************************/
 U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
 {
-    return -1;
+    U16BIT num_pids;
+
+    FUNCTION_START(STB_CAGetRecordingPids);
+
+    num_pids = 0;
+
+    USE_UNWANTED_PARAM(pmt_data);
+    USE_UNWANTED_PARAM(pid_array);
+
+    CA_DBG("%s(pmt_data=%p, pid_array=%p): %u", __FUNCTION__, pmt_data, pid_array, num_pids);
+
+    FUNCTION_FINISH(STB_CAGetRecordingPids);
+
+    return(num_pids);
 }
 
 void STB_CAPVRRecodingEncrypt(void *handle, void *param)

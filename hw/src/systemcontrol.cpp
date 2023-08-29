@@ -365,6 +365,19 @@ extern "C" int SC_ReadSysfs(const char *path, char *value) {
     return -1;
 }
 
+int SC_SetCurrentSourceInfo(int source_input, int sig_fmt, int trans_fmt)
+{
+    int s32Ret;
+    SCDBG("%s: Start LoadPQ source info", __FUNCTION__);
+    const sp<SystemControlClient> &sws = getSystemControlService();
+    if (sws != nullptr) {
+        s32Ret = sws->setCurrentSourceInfo(source_input, sig_fmt, trans_fmt);
+        SCDBG("%s: End LoadPQ source info", __FUNCTION__);
+        return s32Ret;
+    }
+    return -1;
+}
+
 #endif
 
 /*****************************************************************************

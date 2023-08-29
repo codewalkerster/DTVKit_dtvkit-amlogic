@@ -195,6 +195,7 @@ static int mSnowStatusEnable = 0;
 static int mSearchStatus = 0;
 static int mLocked = 0;
 static int mSetPQmode = 0;
+static int mSourcePlayed = 0;
 
 static char *str_vstd[] =
 {
@@ -384,6 +385,7 @@ int vdin_signal_handle()
             SC_setDisplayMode(SC_getDisplayMode());
             mSetPQmode = 0;
         }
+        SC_SetCurrentSourceInfo(0, m_cur_sig_info.fmt, m_cur_sig_info.trans_fmt);
         set_atv_snow_status(0);
         ret = start_vdin_dec(m_cur_sig_info);
         DTV_LOGI(TAG, "mLocked: %d\n", mLocked);
@@ -476,7 +478,12 @@ void* signal_detect_thread(void *arg)
              */
             if (backEvents[i].events & EPOLLIN) {
                 if ( fd == fd_vdin ) {
-                    vdin_signal_handle();
+                    if (mSourcePlayed) {
+                        vdin_signal_handle();
+                   } else {
+                        DTV_LOGI(TAG, "%s: mSource has stoped\n", __FUNCTION__);
+                   }
+
                 }
             }
         }
@@ -519,12 +526,15 @@ int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
         Epoll_create();
     }
     call_back = cb;
+    mSourcePlayed = 1;
     return 0;
 }
 
 int stop_vdin_signal_detect()
 {
     call_back = NULL;
+    mSourcePlayed = 0;
+    SC_setATVVideoColor(1, 0, 5);
     if (fd_vdin >0) {
         stop_vdin_dec();
         close_vdin_port();
@@ -751,7 +761,6 @@ void initCurrentSignalInfo()
     m_cur_sig_info.low_latency    = 0;
     m_cur_sig_info.signal_type    = 0;
     m_cur_sig_info.input_colorimetry = 0;
-
 }
 
 int set_atv_snow_status(int enable)
@@ -796,14 +805,6 @@ extern void setChannelLockd(int locked)
 
 static void SysEventCallback(int color)
 {
-    /*
-    struct tvin_info_s Info;
-    int ret = vdin_get_signal_info ( &Info );
-        if (ret < 0) {
-            DTV_LOGE(TAG, "%s:can't get vdio info\n", __FUNCTION__);
-            return;
-        }
-    */
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
         DTV_LOGI(TAG, "%s:TVIN_SIG_STATUS_NOSIG, mSnowStatusEnable = %d, mSearchStatus=%d\n", __FUNCTION__, mSnowStatusEnable, mSearchStatus);
         if (color && !mSearchStatus) {

@@ -590,12 +590,10 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
                             GetTunerLockStatus(tstatus->frontend_fd),
                             tstatus->state);
 
-        if (start_tuning ||
-            tstatus->tuning_params_changed ||
-            GetTunerLockStatus(tstatus->frontend_fd) != TUNER_STATE_LOCKED ||
-            tstatus->state == TUNER_IDLE)
+        if (start_tuning || tstatus->tuning_params_changed || GetTunerLockStatus(tstatus->frontend_fd)!= TUNER_STATE_LOCKED )
         {
             // start tune
+            CERT_LOG_INFO(TAG, "[%s]start tune  ", __FUNCTION__);
             ret = stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_CNTRL_MSG, EN_TUNE_CNTRL_EVENT_START_TUNE, tstatus, NULL);
             if (!ret)
             {
@@ -604,6 +602,7 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
         }
         else
         {
+            CERT_LOG_INFO(TAG, "[%s]already locked ", __FUNCTION__);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
         }
 

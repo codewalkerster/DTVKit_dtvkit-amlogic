@@ -1218,9 +1218,9 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
 
     ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
     if (ret < 0) {
-        AUD_DBG("%d Set aduio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
+        AUD_DBG("%d Set audio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
     } else {
-        AUD_DBG("Set aduio stereo mode[%d]", audio_mode);
+        AUD_DBG("Set audio stereo mode[%d]", audio_mode);
     }
     pthread_rwlock_unlock(_l);
 
@@ -4224,7 +4224,7 @@ int AV_StartAudioDecode_l(AML_MP_PLAYER player_handle, U16BIT a_pid,
       ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &audioPresentationId);
       if (ret < 0)
       {
-         AUD_DBG("Set aduio presentation id[%d] failed, err:%d", audioPresentationId, ret);
+         AUD_DBG("Set audio presentation id[%d] failed, err:%d", audioPresentationId, ret);
          return ret;
       }
    }
@@ -4232,7 +4232,7 @@ int AV_StartAudioDecode_l(AML_MP_PLAYER player_handle, U16BIT a_pid,
    ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
    if (ret < 0)
    {
-      AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
+      AUD_DBG("Set audio stereo mode[%d] failed, err:%d", audio_mode, ret);
       return ret;
    }
 
@@ -4260,7 +4260,7 @@ int AV_SetAudioDecode_l(AML_MP_PLAYER player_handle, Aml_MP_AudioBalance audio_m
    ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_BALANCE, &audio_mode);
    if (ret < 0)
    {
-      AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
+      AUD_DBG("Set audio stereo mode[%d] failed, err:%d", audio_mode, ret);
       return ret;
    }
 

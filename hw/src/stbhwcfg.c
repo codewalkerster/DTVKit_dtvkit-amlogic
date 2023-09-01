@@ -129,13 +129,11 @@ stb_hardware_cfg aml_hw_cfg = {
 };
 
 stb_custom_config aml_custom_config = {
-    .auto_time_enable = FALSE,
-    .fos_ad_enable = FALSE,
-    .shine_dmx_enable = FALSE,
     .ms12_ac4_enable = TRUE,
     .deu_sort_lcn_after_last = FALSE,
     .deu_use_invisible_flag = TRUE,
     .disable_automatic_update = FALSE,
+    .a_a_1 = FALSE
 };
 
 static void DVR_Get_Prop(const char *name, char *buf, int len);
@@ -578,44 +576,18 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             att += 2;
         }
     }
-    else if (!strcmp(name, "time_function"))
+    else if (!strcmp(name, "a_a_1_function"))
     {
         att = atts;
         while (*att) {
             an = att[0];
             av = att[1];
-            if (!strcmp(an, "auto_time_enable") && !strcmp(av, "yes")) {
-                aml_custom_config.auto_time_enable = TRUE;
+            if (!strcmp(an, "a_a_1_enable") && !strcmp(av, "yes")) {
+                aml_custom_config.a_a_1 = TRUE;
             }
             att += 2;
         }
-        CFG_DBG("time_function, auto_time_enable is set to %d", aml_custom_config.auto_time_enable);
-    }
-    else if (!strcmp(name, "audio_function"))
-    {
-        att = atts;
-        while (*att) {
-            an = att[0];
-            av = att[1];
-            if (!strcmp(an, "shine_ad_enable") && !strcmp(av, "yes")) {
-                aml_custom_config.fos_ad_enable = TRUE;
-            }
-            att += 2;
-        }
-        CFG_DBG("audio_function, fos_ad_enable is set to %d", aml_custom_config.fos_ad_enable);
-    }
-    else if (!strcmp(name, "demux_function"))
-    {
-        att = atts;
-        while (*att) {
-            an = att[0];
-            av = att[1];
-            if (!strcmp(an, "shine_dmx_enable") && !strcmp(av, "yes")) {
-                aml_custom_config.shine_dmx_enable = TRUE;
-            }
-            att += 2;
-        }
-        CFG_DBG("demux_function, shine_dmx_enable is set to %d", aml_custom_config.shine_dmx_enable);
+        CFG_DBG("a_a_1_function, a_a_1 is set to %d", aml_custom_config.a_a_1);
     }
     else if (!strcmp(name, "ms12_function"))
     {
@@ -1193,19 +1165,9 @@ BOOLEAN STB_GetSecMemEnable(void)
     return aml_hw_cfg.secure_cfg.secmem_enable;
 }
 
-BOOLEAN STB_GetCustomCFGForAutoTime(void)
+BOOLEAN STB_GetCustomCFGForA_A_1(void)
 {
-    return aml_custom_config.auto_time_enable;
-}
-
-BOOLEAN STB_GetCustomCFGForFOSAudio(void)
-{
-    return aml_custom_config.fos_ad_enable;
-}
-
-BOOLEAN STB_GetCustomCFGForShineDemux(void)
-{
-    return aml_custom_config.shine_dmx_enable;
+    return aml_custom_config.a_a_1;
 }
 
 BOOLEAN STB_GetCustomCFGForMS12AC4(void)

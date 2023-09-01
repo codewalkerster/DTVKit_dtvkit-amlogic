@@ -221,7 +221,7 @@ void DTV_LOG(U32BIT loglevel, const char *module, const char *format, ...)
     {
         if (loglevel < ANDROID_LOG_INFO)
         {
-            /* For Amazon shine, The lowest log level that can be output is ANDROID LOG INFO. */
+            /* For Custom, The lowest log level that can be output is ANDROID LOG INFO. */
             loglevel = ANDROID_LOG_INFO;
         }
         sprintf(exformat,"<%s> %s", module, format);

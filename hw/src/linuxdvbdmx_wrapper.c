@@ -166,7 +166,7 @@ static void* dmx_data_thread(void *arg)
 #endif
                 if (len > 0 && filter_cb)
                 {
-                    if (TRUE == STB_GetCustomCFGForShineDemux())
+                    if (TRUE == STB_GetCustomCFGForA_A_1())
                     {
                         filter_cb(dmx->dev_no, fids[i], sec_buf, len, filter_data);
                     }
@@ -299,7 +299,7 @@ BOOLEAN DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_pa
     filter = dmx_get_filter(dev, fhandle);
     if (filter)
     {
-        if (TRUE == STB_GetCustomCFGForShineDemux())
+        if (TRUE == STB_GetCustomCFGForA_A_1())
         {
             int real_dev_no = (params->pid == 0x10) ? 2 : dev_no;
             if (filter->dev_no != real_dev_no)
@@ -597,7 +597,7 @@ BOOLEAN DMX_Close(int dev_no)
     for (i = 0; i < DMX_FILTER_COUNT; i++)
     {
         filter = &dev->filter[i];
-        if (((TRUE == STB_GetCustomCFGForShineDemux()) && (filter->used)) ||
+        if (((TRUE == STB_GetCustomCFGForA_A_1()) && (filter->used)) ||
             ((filter->used && filter->dev_no == dev_no)))
         {
             if (filter->enable)

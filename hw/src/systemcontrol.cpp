@@ -231,7 +231,7 @@ frequency:  4: only show once,will recovery when receive new frame.
 #endif
 
 #if (ANDROID_PLATFORM_SDK_VERSION <= 28)
-    /*used by shine only*/
+    /*used by custom only*/
     if (color == VIDEO_LAYER_COLOR_MAX)
     {
         SCDBG("@@@@@@@@@@@@@ UNMUTE");

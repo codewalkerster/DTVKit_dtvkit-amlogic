@@ -332,6 +332,7 @@ void STB_TuneSetActualTsInputIdx(U8BIT path, S32BIT frontend_fd)
 
         if (ioctl(frontend_fd, FE_GET_PROPERTY, &props) >= 0)
         {
+            aml_hw_cfg.tuners[path].ori_tsinput_idx =
             aml_hw_cfg.tuners[path].ts_input_idx = cmd.u.data;
             TUN_DBG("%u: ts_input_idx=%lu", path, cmd.u.data);
         }

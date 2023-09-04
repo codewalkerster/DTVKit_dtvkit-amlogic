@@ -674,20 +674,30 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
         return;
     }
 
-#ifndef RDK_COMPILE
-    {
-        VID_DBG("window:%d, force_all:%d blank:%d force_black:%d",
-            window, force_all, blank, force_black);
+    VID_DBG("window:%d, force_all:%d blank:%d force_black:%d",
+        window, force_all, blank, force_black);
 
-        if (window > 0)
+#ifndef RDK_COMPILE
+    if (window > 0)
+    {
+        U8BIT win = window;
+        U8BIT win_max = window;
+
+        if (force_all)
+        {
+            win = 1;
+            win_max = 2;
+        }
+
+        for (; win <= win_max; win++)
         {
             if (blank == TRUE)
             {
-                SC_setVideoColor(window, force_black? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting());
+                SC_setVideoColor(win, force_black? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting());
             }
             else
             {
-                SC_setVideoColor(window, VIDEO_LAYER_COLOR_MAX);
+                SC_setVideoColor(win, VIDEO_LAYER_COLOR_MAX);
             }
         }
     }

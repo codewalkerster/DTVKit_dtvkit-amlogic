@@ -20,17 +20,7 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libbase
 
-$(warning "TUNER_FRAMEWORK $(TUNER_FRAMEWORK)")
-ifneq ($(TUNER_FRAMEWORK), false)
-$(warning "prebuild")
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_asplayer/include
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_dvr/include
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_tuner/include
-
-    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_asplayer/lib/libjniasplayer-jni.so
-    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_dvr/lib/libjdvrlib-jni.so
-    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_tuner/lib/libdtvkit_tuner_jni.so
-else
+ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/jni/tuner_jni/include/JNI_tuner.h),)
 $(warning "build jni")
     LOCAL_C_INCLUDES += vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include
     LOCAL_C_INCLUDES += vendor/amlogic/reference/apps/JDvrLib/jni/include
@@ -39,7 +29,15 @@ $(warning "build jni")
     LOCAL_SHARED_LIBRARIES += libjdvrlib-jni
     LOCAL_SHARED_LIBRARIES += libdtvkit_tuner_jni
     LOCAL_SHARED_LIBRARIES += libjniasplayer-jni
+else
+$(warning "prebuild")
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_asplayer/include
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_dvr/include
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_tuner/include
 
+    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_asplayer/lib/libjniasplayer-jni.so
+    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_dvr/lib/libjdvrlib-jni.so
+    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_tuner/lib/libdtvkit_tuner_jni.so
 endif
 
 LOCAL_HEADER_LIBRARIES := jni_headers

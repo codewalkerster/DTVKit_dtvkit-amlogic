@@ -382,7 +382,7 @@ int vdin_signal_handle()
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE ) {
         SC_setATVVideoColor(1, 0, 5);
         if (mSetPQmode) {
-            SC_setDisplayMode(SC_getDisplayMode());
+            SC_setDisplayMode(SC_getDisplayMode(), 0);
             mSetPQmode = 0;
         }
         SC_SetCurrentSourceInfo(0, m_cur_sig_info.fmt, m_cur_sig_info.trans_fmt);
@@ -408,7 +408,7 @@ int vdin_signal_handle()
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
         SC_setATVVideoColor(1, 0, 5);
         if (5 != SC_getDisplayMode()) {//5:VPP_DISPLAY_MODE_FULL
-            SC_setDisplayMode(5);//no sig need full screen
+            SC_setDisplayMode(5, 0);//no sig need full screen
             mSetPQmode = 1;
         }
         set_atv_snow_status(1);

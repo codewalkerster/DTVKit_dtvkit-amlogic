@@ -101,6 +101,10 @@ S8BIT Wrapper_Player_ResetWorkMode(void);
 U8BIT Wrapper_Player_GetPlayerPathByHandle(jni_asplayer_handle handle);
 jni_asplayer_handle Wrapper_Player_GetPlayerHandleByPath(U16BIT av_path);
 
+int Wrapper_Player_GetInstanceNo(jni_asplayer_handle handle);
+int Wrapper_Player_GetSyncInstanceNo(jni_asplayer_handle handle);
+
+
 #ifdef __cplusplus
 }
 #endif

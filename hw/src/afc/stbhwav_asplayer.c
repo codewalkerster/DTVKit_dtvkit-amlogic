@@ -3135,6 +3135,17 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
         {
             AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_VIDEO: ## VIDEO_AVAILABLE ##\n", status->decoder);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
+
+            int sync_id = Wrapper_Player_GetSyncInstanceNo(status->player_handle);
+
+            S_VIDEO_DECODER_PRIV_DATA priv =
+                {
+                    .decoder = status->decoder,
+                    .decoder_id_valid = FALSE,
+                    .sync_id = sync_id,
+                    .sync_id_valid = TRUE,
+                };
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
             break;
         }
         case JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_AUDIO:
@@ -3187,6 +3198,22 @@ int AV_CreateTsPlayer_l(U8BIT path,
 
         Wrapper_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[path]);
         AV_DBG("Create asplayer success. path= %d, player_handle= %u, dxm_id:%d", path, player_handle, dmx_dev_id);
+
+        uint32_t decoder_id = Wrapper_Player_GetInstanceNo(player_handle);
+        S_VIDEO_DECODER_PRIV_DATA priv =
+        {
+            .decoder = av_paths_status[path].decoder,
+            .decoder_id = decoder_id,
+            .decoder_id_valid = TRUE,
+            .sync_id_valid = FALSE,
+        };
+        STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
+
+        char afd_cmd[16];
+        snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", path, decoder_id);
+        AV_DBG("[AFD] [%d:%d] enable afd for player created.", path, decoder_id);
+        if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+            AV_DBG("[AFD] (%d:%d) enable afd failed when player created.", path, decoder_id);
     }
     else
     {
@@ -3208,6 +3235,12 @@ int AV_ReleaseTsPlayer_l(U8BIT path)
     }
 
     AV_DBG("Will Release Ts player");
+
+    //release afd context
+    snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", path);
+    AV_DBG("[AFD] [%d] disable afd for tsplayer released.", path);
+    if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
+       AV_DBG("[AFD] [%d] disable afd failed when player stopped.", path);
 
     if (IS_INVALID_PLAYER_HANDLE(path))
     {

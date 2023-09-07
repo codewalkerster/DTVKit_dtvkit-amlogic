@@ -705,6 +705,34 @@ static int player_GetAvSyncHwId(jni_asplayer_handle handle)
     return avSyncHwId;
 }
 
+int Wrapper_Player_GetInstanceNo(jni_asplayer_handle handle)
+{
+    int ret = 0;
+    if (JniASPlayer_getInstanceNo(handle, &ret) == JNI_ASPLAYER_OK)
+    {
+        ALOGD("%s :  handle = %u, instanceNo = %d", __FUNCTION__, handle, ret);
+    }
+    else
+    {
+        ALOGD("%s :get instanceNo failed, handle = %u", __FUNCTION__, handle);
+    }
+    return ret;
+}
+
+int Wrapper_Player_GetSyncInstanceNo(jni_asplayer_handle handle)
+{
+    int ret = -1;
+    if (JniASPlayer_getSyncInstanceNo(handle, &ret) == JNI_ASPLAYER_OK)
+    {
+        ALOGD("%s :  handle = %u, syncId = %d", __FUNCTION__, handle, ret);
+    }
+    else
+    {
+        ALOGD("%s :get syncInstanceNo failed, handle = %u", __FUNCTION__, handle);
+    }
+    return ret;
+}
+
 static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus)
 {
     ALOGD("start:%s", __FUNCTION__);

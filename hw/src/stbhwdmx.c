@@ -2389,11 +2389,11 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
       if (plug == 0)
       {
-         // cam card is unplug.used camUnplug_tssource to
+         // cam card is unplug.used ori_tsinput_idx to
          // set ts_input_idx for dmx source
          STB_SetTsoutSource(FALSE);
-         aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camUnplug_tssource;
-         DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.cam[slot].camUnplug_tssource);
+         aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.tuners[i].ori_tsinput_idx;
+         DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.tuners[i].ori_tsinput_idx);
       }
       else if (plug == 1)
       {

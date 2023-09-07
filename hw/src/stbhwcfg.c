@@ -47,6 +47,7 @@ stb_hardware_cfg aml_hw_cfg = {
 .tuners = {
 	{
 	.ts_input_idx  = 2,
+	.ori_tsinput_idx = 2,
 	.frontend_idx  = 0,
 	.signal_types  = 0,
 	.support_dvbt2 = 1,
@@ -60,7 +61,6 @@ stb_hardware_cfg aml_hw_cfg = {
 	.tsout_source  = 0,
 	.is_set_tssource = 0,
 	.camPlug_tssource = 2,
-	.camUnplug_tssource = 2,
 	.is_changeTo_utf8 = 0,
 	.encodec_source = {0},
 	.dev_id = -1,
@@ -156,6 +156,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         tun = &cfg->tuners[cfg->tuner_num ++];
 
         tun->ts_input_idx  = 0;
+        tun->ori_tsinput_idx = 0;
         tun->frontend_idx  = 0;
         tun->signal_types  = 0;
         tun->support_dvbt2 = 0;
@@ -256,7 +257,6 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         cam->tsout_source  = 0;
         cam->is_set_tssource = 0;
         cam->camPlug_tssource = 0;
-        cam->camUnplug_tssource = 0;
         cam->dev_id = -1;
 
         att = atts;
@@ -276,9 +276,6 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             } else if (!strcmp(an, "camPlug_tssource")) {
                 cam->camPlug_tssource = atoi(av);
                 //CFG_DBG("cam->camPlug_tssource[%d]", cam->camPlug_tssource);
-            } else if (!strcmp(an, "camUnPlug_tssource")) {
-                cam->camUnplug_tssource = atoi(av);
-                //CFG_DBG("cam->camUnplug_tssource[%d]", cam->camUnplug_tssource);
             } else if (!strcmp(an, "is_changeTo_utf8")) {
                 cam->is_changeTo_utf8 = atoi(av);
                 //CFG_DBG("cam->is_changeTo_utf8[%d]", cam->is_changeTo_utf8);
@@ -816,8 +813,13 @@ void STB_CfgInitialise(void)
                                 aml_hw_cfg.epg_cfg.is_not_match_tsid,
                                 aml_hw_cfg.epg_cfg.barker_channel_enabled,
                                 aml_hw_cfg.epg_cfg.eit_search_enabled);
-    // E: Starting Up Log
 
+    // record origin ts input index
+    for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
+        aml_hw_cfg.tuners[i].ori_tsinput_idx = aml_hw_cfg.tuners[i].ts_input_idx;
+    }
+
+    // E: Starting Up Log
     for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
         stb_tuner_cfg *tun = &aml_hw_cfg.tuners[i];
 
@@ -1120,7 +1122,8 @@ BOOLEAN STB_GetCamSource(U8BIT* input_with_card, U8BIT* input_without_card)
         *input_with_card = aml_hw_cfg.cam->camPlug_tssource;
     }
     if (input_without_card)
-        *input_without_card = aml_hw_cfg.cam->camUnplug_tssource;
+        *input_without_card = aml_hw_cfg.tuners->ori_tsinput_idx;
+
     return TRUE;
 }
 

@@ -378,6 +378,18 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
     return retval;
 }
 
+U8BIT STB_TuneReadSignalStrength(U8BIT path)
+{
+    U8BIT retval = 0;
+
+    FUNCTION_START(STB_TuneReadSignalStrength);
+
+
+    FUNCTION_FINISH(STB_TuneReadSignalStrength);
+
+    return retval;
+}
+
 /**
  * @brief   Returns the current data integrity
  * @param   path the tuner path to query
@@ -414,6 +426,18 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
     retval = Wrapper_TuneGetSignalQuality(path);
 
     FUNCTION_FINISH(STB_TuneGetSignalQuality);
+
+    return retval;
+}
+
+U8BIT STB_TuneReadSignalQuality(U8BIT path)
+{
+    U8BIT retval = 0;
+
+    FUNCTION_START(STB_TuneReadSignalQuality);
+
+
+    FUNCTION_FINISH(STB_TuneReadSignalQuality);
 
     return retval;
 }
@@ -1246,6 +1270,12 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
     return ret;
 }
 
+BOOLEAN STB_Tune_BlindContinue(U8BIT path)
+{
+    BOOLEAN ret = TRUE;
+
+    return ret;
+}
 
 
 /*---local function definitions----------------------------------------------*/

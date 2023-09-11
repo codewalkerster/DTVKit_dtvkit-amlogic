@@ -97,6 +97,7 @@ static BOOLEAN dvbsx_blindscan_setsinglecable(U8BIT fd, struct dvbsx_singlecable
 static BOOLEAN dvb_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara);
 static BOOLEAN dvb_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindscanevent *pbsevent);
 static BOOLEAN dvb_blindscan_cancel(U8BIT path);
+static BOOLEAN dvb_blindscan_continue(U8BIT path);
 static BOOLEAN  AM_FEND_IBlindScanAPI_Start(U8BIT path);
 static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blindscanevent *pbsevent);
 static BOOLEAN  AM_FEND_IBlindScanAPI_Exit(U8BIT path);
@@ -1269,17 +1270,33 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
     {
         if (IsTunerLocked(&tuner_status[path]))
         {
-            /* New method of reading signal strength not supported, so use the old API */
-            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, (U16BIT *)&strength) >= 0)
-            {
-                /* Strength is returned as a percentage */
-                retval = StrengthToSSI(path, strength);
-                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
-            }
-            else
-            {
-                TUN_ERR("%u: Failed to get signal strength, errno %d", path, errno);
-            }
+           retval = STB_TuneReadSignalStrength(path);
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneGetSignalStrength);
+
+    return retval;
+}
+
+U8BIT STB_TuneReadSignalStrength(U8BIT path)
+{
+    U8BIT retval = 0;
+    S16BIT strength;
+
+    FUNCTION_START(STB_TuneGetSignalStrength);
+
+    if (path < num_paths && tuner_status[path].frontend_fd != INVALID_FD)
+    {
+        if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, (U16BIT *)&strength) >= 0)
+        {
+            /* Strength is returned as a percentage */
+            retval = StrengthToSSI(path, strength);
+            TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
+        }
+        else
+        {
+            TUN_ERR("%u: Failed to get signal strength, errno %d", path, errno);
         }
     }
 
@@ -1519,19 +1536,36 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
     {
         if (IsTunerLocked(&tuner_status[path]))
         {
-            if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, (U16BIT *)&quality) >= 0)
-            {
-                retval = SNR10ToSQI(path, quality);
-                TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
-            }
-            else
-            {
-                TUN_ERR("%u: FE_READ_SNRfailed, errno %d", path, errno);
-            }
+            retval = STB_TuneReadSignalQuality(path);
         }
     }
 
     FUNCTION_FINISH(STB_TuneGetSignalQuality);
+
+    return retval;
+}
+
+U8BIT STB_TuneReadSignalQuality(U8BIT path)
+{
+    U8BIT retval = 0;
+    S16BIT quality;
+
+    FUNCTION_START(STB_TuneReadSignalQuality);
+
+    if (path < num_paths && tuner_status[path].frontend_fd != INVALID_FD)
+    {
+        if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, (U16BIT *)&quality) >= 0)
+        {
+            retval = SNR10ToSQI(path, quality);
+            TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
+        }
+        else
+        {
+            TUN_ERR("%u: FE_READ_SNR failed, errno %d", path, errno);
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneReadSignalQuality);
 
     return retval;
 }
@@ -2978,6 +3012,11 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
     return TRUE;
 }
 
+BOOLEAN STB_Tune_BlindContinue(U8BIT path)
+{
+    return dvb_blindscan_continue(path);
+}
+
 BOOLEAN STB_Tune_BlindExit(U8BIT path)
 {
     BOOLEAN ret = TRUE;
@@ -3009,13 +3048,13 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
     BOOLEAN ret = TRUE;
     para = (struct dvb_frontend_parameters *)para;
 
-    pthread_mutex_lock(&tuner_status[path].lock);
-
     if (!para)
     {
         *count = 0;
         return FALSE;
     }
+
+    pthread_mutex_lock(&tuner_status[path].lock);
 
     if((*count) > tuner_status[path].bs_setting.m_uiChannelCount)
     {
@@ -4256,6 +4295,29 @@ static BOOLEAN dvb_blindscan_cancel(U8BIT path)
     return ret;
 }
 
+static BOOLEAN dvb_blindscan_continue(U8BIT path)
+{
+    BOOLEAN ret = TRUE;
+
+    struct dtv_properties prop;
+    struct dtv_property property;
+
+    prop.num = 1;
+    prop.props = &property;
+    /*set min fre*/
+    memset(&property, 0, sizeof(property));
+    property.cmd = DTV_BLIND_SCAN_STEP_NEXT;
+    property.u.data = 0;
+
+    ret = dvb_set_prop(tuner_status[path].frontend_fd, &prop);
+
+    if (!ret)
+    {
+        TUN_DBG( "set continue blind scan error\n");
+    }
+
+    return ret;
+}
 
 
 /**\brief Performs a blind scan operation.*/
@@ -4478,6 +4540,8 @@ static void* fend_blindscan_thread(void *arg)
                         TUN_DBG( "adp result freq %d symb %d\n", cur_bsevent.u.parameters.frequency, cur_bsevent.u.parameters.u.qpsk.symbol_rate);
 
                         evt.status = AM_FEND_BLIND_UPDATETP;
+                        evt.freq = cur_bsevent.u.parameters.frequency;
+                        evt.srate = cur_bsevent.u.parameters.u.qpsk.symbol_rate;
                         tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
                     }
                 }

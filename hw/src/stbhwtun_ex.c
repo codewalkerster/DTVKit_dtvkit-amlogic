@@ -107,9 +107,12 @@ static BOOLEAN idle_state_exit(void *param_ptr);
 // 1.1 target state: TUNER_TUNING
 static BOOLEAN idle_to_tuning_check(void *param_ptr);
 static BOOLEAN idle_to_tuning_transition(void *param_ptr);
+static BOOLEAN idle_to_tracking_check(void *param_ptr);
+static BOOLEAN idle_to_tracking_transition(void *param_ptr);
 
 static STATE_TRANSITION_TABLE idle_state_trans_tbl[] = {
         {TUNER_TUNING, idle_to_tuning_check, idle_to_tuning_transition},
+        {STATE_TUNER_TRACKING, idle_to_tracking_check, idle_to_tracking_transition},
         {INVALID_STATE, NULL, NULL}
     };
 
@@ -603,6 +606,8 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
         else
         {
             CERT_LOG_INFO(TAG, "[%s]already locked ", __FUNCTION__);
+            stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_CNTRL_MSG, EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE, tstatus, NULL);
+
             STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
         }
 
@@ -843,6 +848,20 @@ static BOOLEAN idle_state_exit(void *param_ptr)
     return ret;
 }
 
+static BOOLEAN idle_to_tracking_check(void *param_ptr)
+{
+    BOOLEAN ret = FALSE;
+    STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
+    S_TUNER_STATUS *tstatus = (S_TUNER_STATUS *)msg_ptr->para1_ptr;
+
+    if (msg_ptr->type == EN_TUNE_CNTRL_MSG && msg_ptr->event == EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE)
+    {
+        ret = TRUE;
+    }
+
+    return ret;
+}
+
 
 // 1.1 target state: TUNER_TUNING
 static BOOLEAN idle_to_tuning_check(void *param_ptr)
@@ -866,6 +885,12 @@ static BOOLEAN idle_to_tuning_check(void *param_ptr)
     return ret;
 }
 
+static BOOLEAN idle_to_tracking_transition(void *param_ptr)
+{
+    BOOLEAN ret = TRUE;
+
+    return ret;
+}
 
 static BOOLEAN idle_to_tuning_transition(void *param_ptr)
 {

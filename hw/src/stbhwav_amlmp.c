@@ -773,9 +773,9 @@ BOOLEAN STB_AVGetIsBlackTransitionColor(void)
 void STB_ClearFullScreen(void)
 {
     FUNCTION_START(STB_ClearFullScreen);
-
+#ifndef RDK_COMPILE
     SC_setDisplayMode(test_screen,1);
-
+#endif
     FUNCTION_FINISH(STB_ClearFullScreen);
 }
 
@@ -786,7 +786,7 @@ BOOLEAN STB_SetFullScreen(void)
 {
     int ret = 0;
     FUNCTION_START(STB_SetFullScreen);
-
+#ifndef RDK_COMPILE
     test_screen = SC_getDisplayMode();
 
     /*5:VPP_DISPLAY_MODE_FULL*/
@@ -796,7 +796,7 @@ BOOLEAN STB_SetFullScreen(void)
         SC_setDisplayMode(5,1);
         ret = 1;
     }
-
+#endif
     FUNCTION_FINISH(STB_SetFullScreen);
     return ret;
 }
@@ -807,10 +807,10 @@ BOOLEAN STB_SetFullScreen(void)
 static void AV_GetInstance()
 {
     FUNCTION_START(AV_GetInstance);
-
+#ifndef RDK_COMPILE
     pSysClientWrapper = SC_getInstance();
     SC_setSysClientCallback(AV_EventCallback);
-
+#endif
     FUNCTION_FINISH(AV_GetInstance);
 }
 
@@ -820,7 +820,7 @@ static void AV_GetInstance()
 static void AV_EventCallback(int color)
 {
     FUNCTION_START(AV_EventCallback);
-
+#ifndef RDK_COMPILE
     VID_DBG("FLAGS=%d",FLAGS);
     if ((FLAGS == VIDEO_SIGNAL_LOSS) || (STB_DPGetVideoPID(0) == INVALID_A_V_PID && STB_DPGetAudioPID(0) != INVALID_A_V_PID))
     {
@@ -834,7 +834,7 @@ static void AV_EventCallback(int color)
             SC_setVideoColor(1, 0);//black
         }
     }
-
+#endif
     FUNCTION_FINISH(AV_EventCallback);
 }
 

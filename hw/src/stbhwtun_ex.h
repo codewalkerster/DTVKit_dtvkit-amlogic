@@ -51,7 +51,8 @@ typedef enum tune_msg_type
 typedef enum tune_cntrl_msg_event
 {
     EN_TUNE_CNTRL_EVENT_START_TUNE = 0,
-    EN_TUNE_CNTRL_EVENT_STOP_TUNE
+    EN_TUNE_CNTRL_EVENT_STOP_TUNE,
+    EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE
 } ENUM_TUNE_MSG_CNTRL_EVENT;
 
 typedef enum tune_inner_msg_event

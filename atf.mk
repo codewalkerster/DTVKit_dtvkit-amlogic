@@ -127,7 +127,7 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/stdio \
     bionic/libc/include \
     bionic/libc/../libm/include
-ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/jni/tuner_jni/include/JNI_tuner.h),)
+ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include/JNI_tuner.h),)
     LOCAL_C_INCLUDES += \
         vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
         vendor/amlogic/reference/apps/JDvrLib/jni/include \

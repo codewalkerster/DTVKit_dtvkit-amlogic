@@ -20,7 +20,7 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libbase
 
-ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/jni/tuner_jni/include/JNI_tuner.h),)
+ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include/JNI_tuner.h),)
 $(warning "build jni")
     LOCAL_C_INCLUDES += vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include
     LOCAL_C_INCLUDES += vendor/amlogic/reference/apps/JDvrLib/jni/include

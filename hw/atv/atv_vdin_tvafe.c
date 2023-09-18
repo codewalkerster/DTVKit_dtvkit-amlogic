@@ -530,7 +530,7 @@ int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
     return 0;
 }
 
-int stop_vdin_signal_detect()
+int close_vdin_signal_detect()
 {
     call_back = NULL;
     mSourcePlayed = 0;
@@ -540,26 +540,16 @@ int stop_vdin_signal_detect()
         close_vdin_port();
     }
     mLocked = 0;
-/*
-    if (Epoll_isvalid()) {
-        enable_thread = 0;
-        pthread_join(thread, NULL);
-        Epoll_delete(fd_epoll);
-        close(fd_epoll);
-        fd_epoll = -1;
-        pthread_mutex_destroy(&lock);
-        pthread_cond_destroy(&cond);
+
+    return 0;
+}
+
+int stop_vdin_signal_detect()
+{
+    if (fd_vdin >0) {
+        stop_vdin_dec();
     }
 
-    if (fd_vdin >0) {
-        close(fd_vdin);
-        fd_vdin = -1;
-    }
-    if (fd_tvafe) {
-        close(fd_tvafe);
-        fd_tvafe = -1;
-    }
-*/
     return 0;
 }
 

@@ -23,17 +23,6 @@
 
 #define LOG_TAG "wrapper_dmx"
 
-typedef enum
-{
-    DMX_CAPS_LIVE = 0x0001,          /* Demux can be used to watch live TV */
-    DMX_CAPS_PIP = 0x0002,           /* Demux can be used for picture-in-picture */
-    DMX_CAPS_RECORDING = 0x0004,     /* Demux can be used for PVR recording */
-    DMX_CAPS_PLAYBACK = 0x0008,      /* Demux can be used for PVR playback */
-    DMX_CAPS_MONITOR_SI = 0x0010,    /* Demux can be used to monitor SI data from a tuner */
-    DMX_CAPS_NO_DSC_NEEDED = 0x0020, /* Demux can be assign to whom need no dsc */
-    DMX_CAPS_USBCAM = 0x0040         /* Demux can be assign to usbcam */
-} E_STB_DMX_CAPS;
-
 typedef struct s_pid_hal
 {
     jobject Jfilter;
@@ -153,7 +142,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
     ALOGD("end:%s", __FUNCTION__);
 }
 
-int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback cb, void* user_data, int caps)
+int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
 {
     ALOGD("start:%s", __FUNCTION__);
     if (!gDMXTaskLocked.initDmxLocked )
@@ -164,21 +153,22 @@ int DMX_OpenFilter(int mainType, int subType, long bufferSize, filter_callback c
     }
 
     //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
-    if (caps == DMX_CAPS_PLAYBACK)
+    if (type != 0)
     {
         ALOGD("start DMX_CAPS_PLAYBACK filter:%s", __FUNCTION__);
         gTunerClient = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
     }
     else
     {
-        ALOGD("start DMX_CAPS_Live filter%s", __FUNCTION__);
+        ALOGD("start DMX_CAPS_Live filter%s,tuner_path [%d]", __FUNCTION__,path);
+        //note :Need find correct tunerobject from wrappper_tuner
         gTunerClient = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
     }
     Am_filter_callback filterCallback = FilterCallback;
     S_HAL *filerInfo;
     filerInfo = new S_HAL();
     filerInfo->cb = cb ;
-    filerInfo->Jfilter = Am_tuner_openFilter(gTunerClient, mainType, subType, bufferSize, (long)filterCallback);
+    filerInfo->Jfilter = Am_tuner_openFilter(gTunerClient, 1, 1, 8 * 4096, (long)filterCallback);
     filerInfo->user_data  = user_data;
     int filterId = Am_filter_getId(filerInfo->Jfilter);
     FILTER_MAP::iterator it = filter_map.find(filterId);

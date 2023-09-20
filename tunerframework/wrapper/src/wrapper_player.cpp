@@ -34,7 +34,7 @@ static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventA
 
 /******************************************************************/
 
-S8BIT Wrapper_Player_Initialise(void)
+S8BIT Wrapper_Player_Initialise(WRAPPER_TUNER_TYPE tunerType)
 {
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -44,16 +44,21 @@ S8BIT Wrapper_Player_Initialise(void)
     }
     else
     {
-        ALOGD("%s : get env success!", __FUNCTION__);
+        ALOGD("%s : tuner type: %d, get env success!", __FUNCTION__, tunerType);
     }
 
     //Set JNI evn, need create by ASPlayer self?
-    gPlayerClient = Am_tuner_getTunerClientId();
+    gPlayerClient = Am_tuner_getTunerClientIdByType((int)tunerType);
     if (INVALID_TUNER_ID == gPlayerClient) {
         ALOGD("%s : get fail", __FUNCTION__);
         return -1 ;
     }
-    PlayerTuner = Am_tuner_getTunerObjectByClientId(gPlayerClient);
+
+    if (tunerType >= WP_TUNER_TYPE_DVR_RECORD && tunerType <= WP_TUNER_TYPE_DVR_PLAY)
+        PlayerTuner = Am_tuner_getDvrTunerByType((int)tunerType);
+    else
+        PlayerTuner = Am_tuner_getTunerObjectByClientId(gPlayerClient);
+
     if (NULL == PlayerTuner) {
         ALOGD("%s : get fail, get Tuner object is null", __FUNCTION__);
         playerFailLeave(attached);

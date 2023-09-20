@@ -56,7 +56,17 @@ typedef enum {
     WP_AUDIO_STREAM_TYPE_AAC_HE_LATM,// High-Efficiency AAC (HE-AAC) with LATM (Low-overhead MPEG-4 Audio Transport Multiplex).
 }WRAPPER_PLAYER_AUDIO_STREAM_TYPE;
 
-S8BIT Wrapper_Player_Initialise(void);
+typedef enum {
+    WP_TUNER_TYPE_DEFAULT              = 0,
+    WP_TUNER_TYPE_PIP                  = 1,
+    WP_TUNER_TYPE_DVR_RECORD           = 2,
+    WP_TUNER_TYPE_DVR_TIMESHIFT_RECORD = 3,
+    WP_TUNER_TYPE_DVR_PLAY             = 4,
+    WP_TUNER_TYPE_SCAN                 = 5,
+    WP_TUNER_TYPE_FCC_TUNE             = 6,
+}WRAPPER_TUNER_TYPE;
+
+S8BIT Wrapper_Player_Initialise(WRAPPER_TUNER_TYPE tunerType);
 S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle *handle);
 S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter);

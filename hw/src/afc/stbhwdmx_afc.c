@@ -1827,7 +1827,7 @@ void PidCallback(ST_CALLBACK_T* param)
                            {
                               func_ptr = pid_filter->func_ptr[j];
                               //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
-                               DMX_DBG("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
+                               //DMX_DBG("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(pid_filter->path, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(0, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                            }
@@ -1878,12 +1878,16 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    struct dmx_sct_filter_params dvb_filt_p;
    U16BIT num_filters;
    BOOLEAN am_result;
-   U16BIT demux_cap = 0;
+   U16BIT source_type = 0;
+   U8BIT source_path = 0;
    FUNCTION_START(UpdateSectionFilter);
-   DMX_DBG("UpdateSectionFilter Start path: [%d] filter_index[%d] caps[0x%x]",path,filter_index,demux_status[path].demux_cap);
+   DMX_DBG("UpdateSectionFilter Start path: [%d] filter_index[%d] source[0x%x] source_param[0x%x]",path,filter_index,\
+    demux_status[path].source,\
+    demux_status[path].source_param);
 
    pid_filter = &demux_status[path].filter_info[filter_index];
-   demux_cap = demux_status[path].demux_cap;
+   source_type = demux_status[path].source;
+   source_path = demux_status[path].source_param;
    success = FALSE;
 
    /* Find new mask/match and CRC status
@@ -2056,7 +2060,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
         if (pid_filter->fhandle == -1)
         {
            //alloc
-           pid_filter->fhandle = DMX_OpenFilter(1, 1, 8 * MAX_SECTION_SIZE, PidCallback, (void*)pid_filter,demux_cap);
+           pid_filter->fhandle = DMX_OpenFilter(source_path, PidCallback, (void*)pid_filter,source_type);
         }
 
         if (pid_filter->fhandle != -1)

@@ -1076,6 +1076,21 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
     return(max_freq);
 }
 
+static BOOLEAN IsDataConversionNeeded(U8BIT path)
+{
+    BOOLEAN retval = TRUE;
+
+    if (ioctl(tuner_status[path].frontend_fd, FE_GET_INFO, &(tuner_status[path].fe_info)) >= 0)
+    {
+        if (NULL != strstr(tuner_status[path].fe_info.name,"CXD2856"))
+        {
+            TUN_INFO("fe_info.name=%s", tuner_status[path].fe_info.name);
+            retval = FALSE;  //For cxd2856, not need to convert to percentage
+        }
+    }
+    return retval;
+}
+
 static U8BIT StrengthToSSI(U8BIT path, S16BIT strength)
 {
     int ssi = 0;
@@ -1291,7 +1306,15 @@ U8BIT STB_TuneReadSignalStrength(U8BIT path)
         if (ioctl(tuner_status[path].frontend_fd, FE_READ_SIGNAL_STRENGTH, (U16BIT *)&strength) >= 0)
         {
             /* Strength is returned as a percentage */
-            retval = StrengthToSSI(path, strength);
+            if (IsDataConversionNeeded(path))
+            {
+                retval = StrengthToSSI(path, strength);
+            }
+            else
+            {
+                retval = strength;
+            }
+
             TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
         }
         else
@@ -1556,7 +1579,15 @@ U8BIT STB_TuneReadSignalQuality(U8BIT path)
     {
         if (ioctl(tuner_status[path].frontend_fd, FE_READ_SNR, (U16BIT *)&quality) >= 0)
         {
-            retval = SNR10ToSQI(path, quality);
+            if (IsDataConversionNeeded(path))
+            {
+                retval = SNR10ToSQI(path, quality);
+            }
+            else
+            {
+                retval = quality;
+            }
+
             TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
         }
         else

@@ -21,7 +21,7 @@
 //!JNI
 #include <jni.h>
 
-#define LOG_TAG "wrapper_dmx"
+#define LOG_TAG "DTVKIT_LOG"
 
 typedef struct s_pid_hal
 {
@@ -51,7 +51,6 @@ typedef map<int, S_HAL*> FILTER_MAP;
 #define MAP_INSERT_ITEM(__MAP__, __KEY__, __VALUE__) __MAP__.insert(std::make_pair(__KEY__, __VALUE__))
 
 static FILTER_MAP filter_map;
-static int gTunerClient = 0xFFFF;
 static int symbol_open = 0;
 S_QUEUE *pid_queue = NULL;
 
@@ -66,13 +65,13 @@ static void FilterTask(void *param)
             ALOGD("%s read pid_queue failure", __FUNCTION__);
         }
         package.cb(&package.para);
-        ALOGD("%s pidcallback is %d", __FUNCTION__, package.para.un32filterID);
+        //ALOGD("%s pidcallback is %d", __FUNCTION__, package.para.un32filterID);
     }
     ALOGD("end:%s", __FUNCTION__);
 }
 
 void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus) {
-    ALOGD("start:%s", __FUNCTION__);
+    //ALOGD("start:%s", __FUNCTION__);
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
     if (NULL == env) {
@@ -80,7 +79,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
         return;
     }
     //show filter status
-    ALOGD("filterStatus : %d", filterStatus);
+    //ALOGD("filterStatus : %d", filterStatus);
 
     //handle Filter Event
     //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
@@ -93,8 +92,8 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
             memset(&stSectionEvent, 0, sizeof(Section_Event));
             filter_utils_getSectionEvent(env, filterEvent, &stSectionEvent);
 
-            ALOGD("tableId :%d, version :%d, section num :%d, data length :%d", stSectionEvent.tableId, stSectionEvent.version,
-                stSectionEvent.sectionNum, stSectionEvent.dataLength);
+            //ALOGD("tableId :%d, version :%d, section num :%d, data length :%d", stSectionEvent.tableId, stSectionEvent.version,
+            //    stSectionEvent.sectionNum, stSectionEvent.dataLength);
 
             //3.read section data
             char *buffer = new char[stSectionEvent.dataLength];
@@ -104,7 +103,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
             if (it != filter_map.end())
             {
                 S_PID_FILTER_INFO* user_data = (S_PID_FILTER_INFO*)it->second->user_data;
-                ALOGD("user_data.index = %d, user_data.pid = %d, handle =%d,user_data = %p", user_data->index, user_data->pid, user_data->fhandle, user_data);
+                //ALOGD("user_data.index = %d, user_data.pid = %d, handle =%d,user_data = %p", user_data->index, user_data->pid, user_data->fhandle, user_data);
                 //filter_callback callback = it->second->cb;
                 ST_CALLBACK_T para;
                 para.un32filterID = Am_filter_getId(filter) ;
@@ -123,7 +122,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
                     }
                 }
             }
-            ALOGD("read callback data size :%d ", readSize);
+            //ALOGD("read callback data size :%d ", readSize);
             if (readSize > stSectionEvent.dataLength) {
                 ALOGD("%s : test fail, read data too long than real data size", __FUNCTION__);
             } else {
@@ -139,12 +138,13 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
         Am_tuner_detachJNIEnv();
     }
     //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
-    ALOGD("end:%s", __FUNCTION__);
+    //ALOGD("end:%s", __FUNCTION__);
 }
 
 int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
 {
     ALOGD("start:%s", __FUNCTION__);
+    int ClientId = 0xFF;
     if (!gDMXTaskLocked.initDmxLocked )
     {
         gDMXTaskLocked.initDmxLocked = true;
@@ -155,20 +155,44 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
     //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     if (type != 0)
     {
-        ALOGD("start DMX_CAPS_PLAYBACK filter:%s", __FUNCTION__);
-        gTunerClient = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
+        ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
+        ALOGD("===start DMX_CAPS_PLAYBACK filter:%s  ClientId 0x%x", __FUNCTION__,ClientId);
     }
     else
     {
-        ALOGD("start DMX_CAPS_Live filter%s,tuner_path [%d]", __FUNCTION__,path);
-        //note :Need find correct tunerobject from wrappper_tuner
-        gTunerClient = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
+        TUNER_TYPE object_id = TUNER_TYPE_DEFAULT;
+        switch (path)
+        {
+            case 0:
+            {
+                object_id = TUNER_TYPE_DEFAULT;
+                break ;
+            }
+            case 1:
+            {
+                object_id = TUNER_TYPE_FCC_TUNE_PREV;
+                break ;
+            }
+            case 2 :
+            {
+                object_id = TUNER_TYPE_FCC_TUNE_NEXT;
+                break ;
+            }
+            default:
+            {
+                object_id = TUNER_TYPE_DEFAULT;
+                break ;
+            }
+        }
+        ClientId = Am_tuner_getTunerClientIdByType(object_id);
+        //ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
+        ALOGD("===%s start DMX_CAPS_Live filtertuner_path [%d] ClientId[%d] ClientId[%d]", __FUNCTION__,path,ClientId,object_id);
     }
     Am_filter_callback filterCallback = FilterCallback;
     S_HAL *filerInfo;
     filerInfo = new S_HAL();
     filerInfo->cb = cb ;
-    filerInfo->Jfilter = Am_tuner_openFilter(gTunerClient, 1, 1, 8 * 4096, (long)filterCallback);
+    filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, 8 * 4096, (long)filterCallback);
     filerInfo->user_data  = user_data;
     int filterId = Am_filter_getId(filerInfo->Jfilter);
     FILTER_MAP::iterator it = filter_map.find(filterId);
@@ -183,7 +207,7 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
         MAP_INSERT_ITEM( filter_map, filterId, filerInfo );
         ALOGI("%s instert new filerInfo filterId: %d.", __FUNCTION__, filterId);
     }
-    ALOGI("%s  filerInfo %p filerInfo.Jfilter %p, filerInfo->user_data %p", __FUNCTION__, filerInfo, filerInfo->Jfilter, filerInfo->user_data);
+    ALOGI("==%s  filerInfo %p filerInfo.Jfilter %p, filerInfo->user_data %p", __FUNCTION__, filerInfo, filerInfo->Jfilter, filerInfo->user_data);
     if (symbol_open == 0)
     {
         if (pid_queue == NULL)

@@ -11,6 +11,7 @@
 #include "wrapper_player.h"
 #include "wrapper_dmx.h"
 #include "wrapper_frontend.h"
+#include "wrapper_os.h"
 #include "filter_utils.h"
 
 //!JNI
@@ -22,19 +23,59 @@
 
 using namespace android;
 
-static int gPlayerClient = WRAPPER_PLAYER_INVALID_ID;
-static jobject PlayerTuner;
 static auto playerFailLeave = [](bool attached){if (attached) Am_tuner_detachJNIEnv();};
-static jobject gPlayerWeakRefVideoFilter = NULL;
-static jobject gPlayerWeakRefAudioFilter = NULL;
+static U8BIT num_paths = 0;
 
+typedef struct
+{
+    U8BIT player_no;
+    jni_asplayer_handle player_handle;
+    WRAPPER_TUNER_TYPE tunerType;
+    int playerClient;
+    jobject playerTuner;
+    jobject playerWeakRefVideoFilter;
+    jobject playerWeakRefAudioFilter;
+}WRAPPER_PLAYER_AV_STATUS;
+
+static WRAPPER_PLAYER_AV_STATUS *wp_player_av_status = NULL;
+
+static int player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, int audioStreamType, jni_asplayer_handle handle);
+static int player_GetAvSyncHwId(jni_asplayer_handle handle);
 static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
 static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
 
 
 /******************************************************************/
+S8BIT Wrapper_Player_AVInit(U8BIT player_paths)
+{
+    U16BIT av_path;
 
-S8BIT Wrapper_Player_Initialise(WRAPPER_TUNER_TYPE tunerType)
+    if (wp_player_av_status == NULL)
+    {
+        wp_player_av_status = (WRAPPER_PLAYER_AV_STATUS *)wrapper_MEMGetSysRAM((sizeof(WRAPPER_PLAYER_AV_STATUS) * player_paths));
+        memset(wp_player_av_status, 0, WP_TUNER_TYPE_MAX * sizeof(WRAPPER_PLAYER_AV_STATUS));
+        num_paths = player_paths;
+
+        if (wp_player_av_status != NULL)
+        {
+            for (av_path = 0; av_path < player_paths; av_path++)
+            {
+                wp_player_av_status[av_path].player_no = WRAPPER_PLAYER_INVALID_RES_ID;
+                wp_player_av_status[av_path].player_handle = WRAPPER_PLAYER_INVALID_HANDLE;
+                wp_player_av_status[av_path].tunerType = WP_TUNER_TYPE_MAX;
+                wp_player_av_status[av_path].playerClient = WRAPPER_PLAYER_INVALID_ID;
+                wp_player_av_status[av_path].playerTuner = NULL;
+                wp_player_av_status[av_path].playerWeakRefVideoFilter = NULL;
+                wp_player_av_status[av_path].playerWeakRefAudioFilter = NULL;
+            }
+        }
+
+        ALOGD("%s : init success.", __FUNCTION__);
+    }
+    return 0;
+}
+
+S8BIT Wrapper_Player_Initialise(U8BIT av_path, WRAPPER_TUNER_TYPE tunerType)
 {
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -48,18 +89,56 @@ S8BIT Wrapper_Player_Initialise(WRAPPER_TUNER_TYPE tunerType)
     }
 
     //Set JNI evn, need create by ASPlayer self?
-    gPlayerClient = Am_tuner_getTunerClientIdByType((int)tunerType);
-    if (INVALID_TUNER_ID == gPlayerClient) {
-        ALOGD("%s : get fail", __FUNCTION__);
-        return -1 ;
-    }
+    wp_player_av_status[av_path].tunerType = tunerType;
 
     if (tunerType >= WP_TUNER_TYPE_DVR_RECORD && tunerType <= WP_TUNER_TYPE_DVR_PLAY)
-        PlayerTuner = Am_tuner_getDvrTunerByType((int)tunerType);
+    {
+        wp_player_av_status[av_path].playerClient = Am_tuner_getTunerClientIdByType((int)tunerType);
+        if (INVALID_TUNER_ID == wp_player_av_status[av_path].playerClient) {
+            ALOGD("%s : get fail", __FUNCTION__);
+            return -1 ;
+        }
+        wp_player_av_status[av_path].playerTuner = Am_tuner_getDvrTunerByType((int)tunerType);
+    }
     else
-        PlayerTuner = Am_tuner_getTunerObjectByClientId(gPlayerClient);
+    {
+        if (tunerType != WP_TUNER_TYPE_PIP)
+        {
+            switch (wp_player_av_status[av_path].player_no)
+            {
+                case 0:
+                {
+                    tunerType = WP_TUNER_TYPE_DEFAULT;
+                    break ;
+                }
+                case 1:
+                {
+                    tunerType = WP_TUNER_TYPE_FCC_TUNE_PREV;
+                    break ;
+                }
+                case 2 :
+                {
+                    tunerType = WP_TUNER_TYPE_FCC_TUNE_NEXT;
+                    break ;
+                }
+                default:
+                {
+                    tunerType = WP_TUNER_TYPE_DEFAULT;
+                    break;
+                }
+            }
+        }
+        wp_player_av_status[av_path].playerClient = Am_tuner_getTunerClientIdByType((int)tunerType);
 
-    if (NULL == PlayerTuner) {
+        if (INVALID_TUNER_ID == wp_player_av_status[av_path].playerClient) {
+            ALOGD("%s : get fail", __FUNCTION__);
+            return -1 ;
+        }
+        wp_player_av_status[av_path].playerTuner = Am_tuner_getTunerObjectByClientId(wp_player_av_status[av_path].playerClient);
+    }
+    ALOGD("%s : playerClient = %d, tunerType: %d, path: %d", __FUNCTION__, wp_player_av_status[av_path].playerClient, tunerType, av_path);
+
+    if (NULL == wp_player_av_status[av_path].playerTuner) {
         ALOGD("%s : get fail, get Tuner object is null", __FUNCTION__);
         playerFailLeave(attached);
         return -1 ;
@@ -67,20 +146,20 @@ S8BIT Wrapper_Player_Initialise(WRAPPER_TUNER_TYPE tunerType)
     return 0;
 }
 
-S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle *handle)
+S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle *handle, U8BIT av_path)
 {
     S8BIT ret = -1;
-    jni_asplayer_handle player_handle;
-    if (JniASPlayer_create(params, (void *)PlayerTuner, &player_handle) == JNI_ASPLAYER_OK)
+//    jni_asplayer_handle player_handle;
+    if (JniASPlayer_create(params, (void *)wp_player_av_status[av_path].playerTuner, &wp_player_av_status[av_path].player_handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
-        ALOGD("%s : player_handle = %u", __FUNCTION__, player_handle);
-        JniASPlayer_prepare(player_handle);
-        * handle = player_handle;
+        ALOGD("%s : player_handle = %u, av_path: %d", __FUNCTION__, wp_player_av_status[av_path].player_handle, av_path);
+        JniASPlayer_prepare(wp_player_av_status[av_path].player_handle);
+        * handle = wp_player_av_status[av_path].player_handle;
     }
     else
     {
-        ALOGD("%s : Player set fail, handle = %u", __FUNCTION__, player_handle);
+        ALOGD("%s : Player set fail, handle = %u", __FUNCTION__, wp_player_av_status[av_path].player_handle);
     }
     return ret;
 }
@@ -88,6 +167,16 @@ S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle
 S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+
+    U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
+    wp_player_av_status[av_path].player_no = WRAPPER_PLAYER_INVALID_RES_ID;
+    wp_player_av_status[av_path].player_handle = WRAPPER_PLAYER_INVALID_HANDLE;
+    wp_player_av_status[av_path].tunerType = WP_TUNER_TYPE_MAX;
+    wp_player_av_status[av_path].playerClient = WRAPPER_PLAYER_INVALID_ID;
+    wp_player_av_status[av_path].playerTuner = NULL;
+    wp_player_av_status[av_path].playerWeakRefVideoFilter = NULL;
+    wp_player_av_status[av_path].playerWeakRefAudioFilter = NULL;
+
     if (JniASPlayer_release(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -98,6 +187,40 @@ S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle)
         ALOGD("%s : Player set fail, handle = %u", __FUNCTION__, handle);
     }
     return ret;
+}
+
+BOOLEAN Wrapper_Player_SetPlayerNo(U8BIT player_no)
+{
+   U8BIT i;
+   BOOLEAN acquired = FALSE;
+
+   for (i = 0; i < num_paths; i++)
+   {
+       if (wp_player_av_status[i].player_no == WRAPPER_PLAYER_INVALID_RES_ID)
+       {
+           wp_player_av_status[i].player_no = player_no;
+           acquired = TRUE;
+           break;
+       }
+   }
+
+   return acquired;
+}
+
+U8BIT Wrapper_Player_GetPlayerPathByNo(U8BIT player_no)
+{
+    U8BIT i;
+    U8BIT av_path = WRAPPER_PLAYER_INVALID_RES_ID;
+
+    for (i = 0; i < num_paths; i++)
+    {
+       if (player_no != WRAPPER_PLAYER_INVALID_RES_ID && wp_player_av_status[i].player_no == player_no)
+       {
+          av_path = i;
+       }
+    }
+
+   return av_path;
 }
 
 S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter)
@@ -115,32 +238,52 @@ S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_paramete
     return ret;
 }
 
-S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_video_params *params)
+S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_video_params *video_params, WRAPPER_PLAYER_VIDEO_STREAM_TYPE format)
 {
     S8BIT ret = -1;
-    if (JniASPlayer_setVideoParams(handle, params) == JNI_ASPLAYER_OK)
+
+    if (video_params != NULL)
     {
-        ret = JNI_ASPLAYER_OK;
-        ALOGD("%s : handle = %u", __FUNCTION__, handle);
+        video_params->filterId = player_GetAVFilterId(false, video_params->pid, format, WP_AUDIO_STREAM_TYPE_UNDEFINED, handle);
+        video_params->avSyncHwId = player_GetAvSyncHwId(handle);
+        if (JniASPlayer_setVideoParams(handle, video_params) == JNI_ASPLAYER_OK)
+        {
+            ret = JNI_ASPLAYER_OK;
+            ALOGD("%s : handle = %u", __FUNCTION__, handle);
+        }
+        else
+        {
+            ALOGD("%s : Player set fail, handle = %u", __FUNCTION__, handle);
+        }
     }
     else
     {
-        ALOGD("%s : Player set fail, handle = %u", __FUNCTION__, handle);
+        ALOGD("%s : Player param error, handle = %u", __FUNCTION__, handle);
     }
     return ret;
 }
 
-S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_audio_params *params)
+S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_audio_params *audio_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format)
 {
     S8BIT ret = -1;
-    if (JniASPlayer_setAudioParams(handle, params) == JNI_ASPLAYER_OK)
+    if (audio_params != NULL)
     {
-        ret = JNI_ASPLAYER_OK;
-        ALOGD("%s : handle = %u", __FUNCTION__, handle);
+        audio_params->filterId = player_GetAVFilterId(true, audio_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
+        audio_params->avSyncHwId = player_GetAvSyncHwId(handle);
+
+        if (JniASPlayer_setAudioParams(handle, audio_params) == JNI_ASPLAYER_OK)
+        {
+            ret = JNI_ASPLAYER_OK;
+            ALOGD("%s : handle = %u", __FUNCTION__, handle);
+        }
+        else
+        {
+            ALOGD("%s : Player set fail, handle = %u", __FUNCTION__, handle);
+        }
     }
     else
     {
-        ALOGD("%s : Player set fail, handle = %u", __FUNCTION__, handle);
+        ALOGD("%s : Player param error, handle = %u", __FUNCTION__, handle);
     }
     return ret;
 }
@@ -193,11 +336,16 @@ S8BIT Wrapper_Player_GetAudioStereoMode(jni_asplayer_handle handle, jni_asplayer
 S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
-    jobject surface = Am_tuner_getSurface();
+
+    U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
+    jobject surface = Am_tuner_getSurfaceByTunerClient(wp_player_av_status[av_path].playerClient);
     if (JniASPlayer_setSurface(handle, (void *)surface) == JNI_ASPLAYER_OK)
     {
-        ret = JNI_ASPLAYER_OK;
         ALOGD("%s : handle = %u", __FUNCTION__, handle);
+        if (wp_player_av_status[av_path].tunerType == WP_TUNER_TYPE_PIP)
+            ret = Wrapper_Player_SetPIPMode(handle, JNI_ASPLAYER_PIP_MODE_PIP);
+        else
+            ret = JNI_ASPLAYER_OK;
     }
     else
     {
@@ -292,17 +440,27 @@ S8BIT Wrapper_Player_StopAudioDecoding(jni_asplayer_handle handle)
     return ret;
 }
 
-S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_params *pParams)
+S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_params *ad_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format)
 {
     S8BIT ret = -1;
-    if (JniASPlayer_setADParams(handle, pParams) == JNI_ASPLAYER_OK)
+
+    if (ad_params != NULL)
     {
-        ret = JNI_ASPLAYER_OK;
-        ALOGD("%s : handle = %u", __FUNCTION__, handle);
+        ad_params->filterId = player_GetAVFilterId(true, ad_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
+        ad_params->avSyncHwId = player_GetAvSyncHwId(handle);
+        if (JniASPlayer_setADParams(handle, ad_params) == JNI_ASPLAYER_OK)
+        {
+            ret = JNI_ASPLAYER_OK;
+            ALOGD("%s : handle = %u", __FUNCTION__, handle);
+        }
+        else
+        {
+            ALOGD("%s : set AD params fail, handle = %u", __FUNCTION__, handle);
+        }
     }
     else
     {
-        ALOGD("%s : set AD params fail, handle = %u", __FUNCTION__, handle);
+        ALOGD("%s : Player param error, handle = %u", __FUNCTION__, handle);
     }
     return ret;
 }
@@ -412,23 +570,59 @@ S8BIT Wrapper_Player_SetWorkMode(jni_asplayer_handle handle, jni_asplayer_work_m
     return ret;
 }
 
-S8BIT Wrapper_Player_ResetWorkMode(jni_asplayer_handle handle)
+S8BIT Wrapper_Player_ResetWorkMode(void)
 {
     S8BIT ret = -1;
-    if (JniASPlayer_resetWorkMode(handle) == JNI_ASPLAYER_OK)
+    U8BIT i;
+
+    for (i = 0; i < num_paths; i++)
     {
-        ret = JNI_ASPLAYER_OK;
-        ALOGD("%s :  handle = %u", __FUNCTION__, handle);
+        if (wp_player_av_status[i].tunerType == WP_TUNER_TYPE_DEFAULT ||
+            wp_player_av_status[i].tunerType == WP_TUNER_TYPE_FCC_TUNE_PREV ||
+            wp_player_av_status[i].tunerType == WP_TUNER_TYPE_FCC_TUNE_NEXT)
+        {
+            if (JniASPlayer_resetWorkMode(wp_player_av_status[i].player_handle) == JNI_ASPLAYER_OK)
+            {
+                ret = JNI_ASPLAYER_OK;
+                ALOGD("%s :  handle = %u, i = %d", __FUNCTION__, wp_player_av_status[i].player_handle, i);
+            }
+            else
+            {
+                ALOGD("%s :reset work mode failed, handle = %u, i = %d", __FUNCTION__, wp_player_av_status[i].player_handle, i);
+            }
+        }
     }
-    else
-    {
-        ALOGD("%s :reset work mode failed, handle = %u", __FUNCTION__, handle);
-    }
+
     return ret;
 }
 
+U8BIT Wrapper_Player_GetPlayerPathByHandle(jni_asplayer_handle handle)
+{
+    U8BIT i;
+    U8BIT av_path = WRAPPER_PLAYER_INVALID_RES_ID;
 
-int Wrapper_Player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, int audioStreamType)
+    if (handle != WRAPPER_PLAYER_INVALID_HANDLE)
+    {
+        for (i = 0; i < num_paths; i++)
+        {
+            if (handle == wp_player_av_status[i].player_handle)
+            {
+                av_path = i;
+            }
+        }
+    }
+    ALOGD("%s : handle = %u, player_handle = %u, av_path: %d", __FUNCTION__, handle, wp_player_av_status[av_path].player_handle, av_path);
+
+    return av_path;
+}
+
+jni_asplayer_handle Wrapper_Player_GetPlayerHandleByPath(U16BIT av_path)
+{
+    ALOGD("%s : player_handle = %u, av_path: %d", __FUNCTION__, wp_player_av_status[av_path].player_handle, av_path);
+    return wp_player_av_status[av_path].player_handle;
+}
+
+static int player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, int audioStreamType, jni_asplayer_handle handle)
 {
     ALOGD("start:%s, isAudio : %d, pid :%d, vidoeStreamType : %d, audioStreamType : %d ", __FUNCTION__, isAudio, pid, vidoeStreamType, audioStreamType);
 
@@ -439,12 +633,13 @@ int Wrapper_Player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, 
         return INVALID_VALUE;
     }
     jobject avFilter;
+    U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
     if (true == isAudio) {
         Am_filter_callback vidoefilterCallback = player_VideoFilterCallback;
-        avFilter = Am_tuner_openFilter(gPlayerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT, (long)vidoefilterCallback);
+        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT, (long)vidoefilterCallback);
     } else {
         Am_filter_callback audioCallback = player_AudioFilterCallback;
-        avFilter = Am_tuner_openFilter(gPlayerClient, MAIN_TYPE_TS, SUBTYPE_VIDEO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioCallback);
+        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_VIDEO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioCallback);
     }
 
     if (NULL == avFilter) {
@@ -481,9 +676,9 @@ int Wrapper_Player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, 
     int filterId = Am_filter_getId(avFilter);
     ALOGD("%s : filter Id : %d", __FUNCTION__, filterId);
     if (true == isAudio) {
-        gPlayerWeakRefAudioFilter = avFilter;
+        wp_player_av_status[av_path].playerWeakRefAudioFilter = avFilter;
     } else {
-        gPlayerWeakRefVideoFilter = avFilter;
+        wp_player_av_status[av_path].playerWeakRefVideoFilter = avFilter;
     }
 
     if (attached) {
@@ -493,7 +688,7 @@ int Wrapper_Player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, 
     return filterId;
 }
 
-int Wrapper_Player_GetAvSyncHwId()
+static int player_GetAvSyncHwId(jni_asplayer_handle handle)
 {
     ALOGD("start:%s", __FUNCTION__);
 
@@ -503,7 +698,9 @@ int Wrapper_Player_GetAvSyncHwId()
         ALOGD("%s : test fail, env is null", __FUNCTION__);
         return INVALID_VALUE;
     }
-    int avSyncHwId = Am_tuner_getAvSyncHwId(gPlayerClient, gPlayerWeakRefVideoFilter != NULL ? gPlayerWeakRefVideoFilter : gPlayerWeakRefAudioFilter);
+    U16BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
+    int avSyncHwId = Am_tuner_getAvSyncHwId(wp_player_av_status[av_path].playerClient,
+        wp_player_av_status[av_path].playerWeakRefVideoFilter != NULL ? wp_player_av_status[av_path].playerWeakRefVideoFilter : wp_player_av_status[av_path].playerWeakRefAudioFilter);
     ALOGD("end:%s, AV SyncHwId : %d", __FUNCTION__, avSyncHwId);
     return avSyncHwId;
 }

@@ -65,14 +65,16 @@
 //#include <Aml_MP/Aml_MP.h>
 #include "wrapper_dmx.h"
 
-#define DEMUX_DEBUG 1
+//#define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
 #ifdef DEMUX_DEBUG
 #define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
 #define DMX_DBG(x,...)
 #endif
+
 #define DMX_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_INFO(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 
 #define DMX_TASK_PRIORITY           12
@@ -1827,7 +1829,7 @@ void PidCallback(ST_CALLBACK_T* param)
                            {
                               func_ptr = pid_filter->func_ptr[j];
                               //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
-                               //DMX_DBG("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
+                               DMX_INFO("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(pid_filter->path, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(0, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                            }
@@ -1881,7 +1883,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    U16BIT source_type = 0;
    U8BIT source_path = 0;
    FUNCTION_START(UpdateSectionFilter);
-   DMX_DBG("UpdateSectionFilter Start path: [%d] filter_index[%d] source[0x%x] source_param[0x%x]",path,filter_index,\
+   DMX_INFO("UpdateSectionFilter Start path: [%d] filter_index[%d] source[0x%x] source_param[0x%x]",path,filter_index,\
     demux_status[path].source,\
     demux_status[path].source_param);
 

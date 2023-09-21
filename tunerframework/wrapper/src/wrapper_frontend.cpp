@@ -370,8 +370,34 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             Am_tuner_closeFrontend(gTunerClient);
         }
     }
-    int ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
-    ALOGD("start:%s  ClientId:%d  gTunerClient:%d", __FUNCTION__, ClientId, gTunerClient);
+    TUNER_TYPE object_id = TUNER_TYPE_DEFAULT;
+    switch (path)
+    {
+        case 0:
+        {
+            object_id = TUNER_TYPE_DEFAULT;
+            break ;
+        }
+        case 1:
+        {
+            object_id = TUNER_TYPE_FCC_TUNE_PREV;
+            break ;
+        }
+        case 2 :
+        {
+            object_id = TUNER_TYPE_FCC_TUNE_NEXT;
+            break ;
+        }
+        default:
+        {
+            object_id = TUNER_TYPE_DEFAULT;
+            break ;
+        }
+    }
+    int ClientId = Am_tuner_getTunerClientIdByType(object_id);
+
+    //int ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
+    ALOGD("start:%s  ClientId:%d ", __FUNCTION__, ClientId);
     //update tuner map
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
@@ -396,9 +422,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         MAP_INSERT_ITEM( tuner_map, path, ClientId );
         ALOGI("%s instert new ClientId : %d.", __FUNCTION__, ClientId);
     }
-    gTunerClient = ClientId;
 
-    ALOGD("gTunerClient: %d ", gTunerClient);
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
     if (NULL == env)
@@ -407,7 +431,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         return;
     }
     long callbackContext = (long)scanCallback;
-    Am_tuner_setOnTuneEventListener(gTunerClient, callbackContext);
+    Am_tuner_setOnTuneEventListener(ClientId, callbackContext);
     Tmode = tmode;
     TBWidth = tbwidth;
     tuner_srate = srate;
@@ -436,7 +460,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             testFailLeave(attached);
             return;
         }
-        Am_tuner_tune(gTunerClient, dvbtSettingObject);
+        Am_tuner_tune(ClientId, dvbtSettingObject);
         curr_starttune = TRUE;
     }else if (signal_type == E_TERR_TYPE_DVBC)
     {
@@ -455,7 +479,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             testFailLeave(attached);
             return;
         }
-        Am_tuner_tune(gTunerClient, dvbcSettingObject);
+        Am_tuner_tune(ClientId, dvbcSettingObject);
         curr_starttune = TRUE;
     }else if(signal_type == E_TERR_TYPE_DVBS)
     {
@@ -477,7 +501,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             testFailLeave(attached);
             return;
         }
-        Am_tuner_tune(gTunerClient, dvbsSettingObject);
+        Am_tuner_tune(ClientId, dvbsSettingObject);
         curr_starttune = TRUE;
     }
     curr_tuner = TRUE;

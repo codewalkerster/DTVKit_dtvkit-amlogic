@@ -263,7 +263,7 @@ S8BIT Wrapper_PVR_Player_create(wrapper_player_init_params* params, am_dvr_playe
        ALOGE("Input ASPlayer handle is invalid");
        return -1;
     }
-    ALOGD("ASPlayer handle: %p", params->asplayer_handle);
+    //ALOGD("ASPlayer handle: %p", params->asplayer_handle);
 
     jobject jasplayer;
     JniASPlayer_getJavaASPlayer(params->asplayer_handle,&jasplayer);

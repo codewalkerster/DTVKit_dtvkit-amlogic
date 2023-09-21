@@ -291,7 +291,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    PVR_DBG("Calling Wrapper_Player_Initialise(WP_TUNER_TYPE_DVR_PLAY)");
-   Wrapper_Player_Initialise(WP_TUNER_TYPE_DVR_PLAY);
+   U8BIT av_path = STB_AVGetPath(video_decoder, audio_decoder);
+   Wrapper_Player_Initialise(av_path, WP_TUNER_TYPE_DVR_PLAY);
 
    jni_asplayer_handle asplayer_handle;
    jni_asplayer_init_params asplayer_params;
@@ -299,7 +300,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    asplayer_params.playback_mode = JNI_ASPLAYER_PLAYBACK_MODE_PASSTHROUGH;
    asplayer_params.event_mask = 1;
    PVR_DBG("Calling Wrapper_Player_Create");
-   int ret = Wrapper_Player_Create(asplayer_params, &asplayer_handle);
+   int ret = Wrapper_Player_Create(asplayer_params, &asplayer_handle, av_path);
    if (ret != 0)
    {
       PVR_ERR("Failed to create Wrapper Player");

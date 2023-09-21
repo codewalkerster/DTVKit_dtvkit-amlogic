@@ -13,6 +13,7 @@ extern "C" {
 
 #define WRAPPER_PLAYER_INVALID_HANDLE   (0)
 #define WRAPPER_PLAYER_INVALID_ID   (0xFFFF)
+#define WRAPPER_PLAYER_INVALID_RES_ID   (255)
 
 #define WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT 1024 * 1024 * 4L
 #define WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT 1024 * 1024 * 2L
@@ -63,15 +64,20 @@ typedef enum {
     WP_TUNER_TYPE_DVR_TIMESHIFT_RECORD = 3,
     WP_TUNER_TYPE_DVR_PLAY             = 4,
     WP_TUNER_TYPE_SCAN                 = 5,
-    WP_TUNER_TYPE_FCC_TUNE             = 6,
+    WP_TUNER_TYPE_FCC_TUNE_PREV        = 6,
+    WP_TUNER_TYPE_FCC_TUNE_NEXT        = 7,
+    WP_TUNER_TYPE_MAX                  = 255
 }WRAPPER_TUNER_TYPE;
 
-S8BIT Wrapper_Player_Initialise(WRAPPER_TUNER_TYPE tunerType);
-S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle *handle);
+S8BIT Wrapper_Player_AVInit(U8BIT player_paths);
+S8BIT Wrapper_Player_Initialise(U8BIT av_path, WRAPPER_TUNER_TYPE tunerType);
+S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle *handle, U8BIT av_path);
 S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle);
+BOOLEAN Wrapper_Player_SetPlayerNo(U8BIT player_no);
+U8BIT Wrapper_Player_GetPlayerPathByNo(U8BIT player_no);
 S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter);
-S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_video_params *params);
-S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_audio_params *params);
+S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_video_params *video_params, WRAPPER_PLAYER_VIDEO_STREAM_TYPE format);
+S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_audio_params *audio_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format);
 S8BIT Wrapper_Player_GetVideoInfo(jni_asplayer_handle handle, jni_asplayer_video_info *pInfo);
 S8BIT Wrapper_Player_SetAudioStereoMode(jni_asplayer_handle handle, jni_asplayer_audio_stereo_mode Mode);
 S8BIT Wrapper_Player_GetAudioStereoMode(jni_asplayer_handle handle, jni_asplayer_audio_stereo_mode *pMode);
@@ -83,7 +89,7 @@ S8BIT Wrapper_Player_StartVideoDecoding(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_StopVideoDecoding(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_StartAudioDecoding(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_StopAudioDecoding(jni_asplayer_handle handle);
-S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_params *pParams);
+S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_params *ad_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format);
 S8BIT Wrapper_Player_EnableADMix(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_DisableADMix(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_SetADMixLevel(jni_asplayer_handle handle, S32BIT mix_level);
@@ -91,10 +97,9 @@ S8BIT Wrapper_Player_GetADMixLevel(jni_asplayer_handle handle, S32BIT *mix_level
 S8BIT Wrapper_Player_SetAudioMute(jni_asplayer_handle handle, BOOLEAN audio_mute);
 S8BIT Wrapper_Player_SetPIPMode(jni_asplayer_handle handle, jni_asplayer_pip_mode mode);
 S8BIT Wrapper_Player_SetWorkMode(jni_asplayer_handle handle, jni_asplayer_work_mode mode);
-S8BIT Wrapper_Player_ResetWorkMode(jni_asplayer_handle handle);
-
-int Wrapper_Player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, int audioStreamType);
-int Wrapper_Player_GetAvSyncHwId();
+S8BIT Wrapper_Player_ResetWorkMode(void);
+U8BIT Wrapper_Player_GetPlayerPathByHandle(jni_asplayer_handle handle);
+jni_asplayer_handle Wrapper_Player_GetPlayerHandleByPath(U16BIT av_path);
 
 #ifdef __cplusplus
 }

@@ -691,8 +691,10 @@ EW_STB_TUNE_CMODE Wrapper_TuneGetActualCableMode(U8BIT path);
 EW_STB_TUNE_MODULATION Wrapper_TuneGetModulation(U8BIT path);
 void Wrapper_TuneSetModulation(U8BIT path, EW_STB_TUNE_MODULATION modulation);
 void Wrapper_TuneSetLOFrequency(U8BIT tuner, U16BIT lo_freq);
+EW_STB_TUNE_LNB_VOLTAGE Wrapper_TuneGetLNBVoltage(U8BIT path);
 void Wrapper_TuneSetLNBVoltage(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune);
 void Wrapper_TuneSetVoltageInterface(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage);
+BOOLEAN Wrapper_TuneGet22kState(U8BIT path);
 void Wrapper_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune);
 BOOLEAN Wrapper_TuneSetTone(U8BIT path, BOOLEAN use_22khz);
 void Wrapper_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size);
@@ -700,10 +702,11 @@ void Wrapper_TuneSendBurstMessage(U8BIT path, U8BIT data);
 void Wrapper_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT timeout);
 
 //Pr5
-BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, Wrapper_Tnue_BlindCallback_t cb, void *user_data, unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable);
+BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tnue_BlindCallback_t cb, void *user_data,
+                                      unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable);
 BOOLEAN Wrapper_Tune_BlindExit(U8BIT path);
 void Wrapper_Tune_BlindGetTPCount(U8BIT path, U16BIT *count);
-BOOLEAN Wrapper_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count);
+BOOLEAN Wrapper_Tune_BlindGetTPInfo(U8BIT path, U32BIT** freq, U32BIT** srate, U16BIT *count);
 
 #ifdef __cplusplus
 }

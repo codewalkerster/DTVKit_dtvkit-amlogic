@@ -68,14 +68,6 @@
 #define TUN_INFO(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 /*---local (static) variable declarations for this file----------------------*/
-static S_TUNER_STATUS *tuner_status = NULL;
-static U8BIT num_paths;
-static BOOLEAN resm_adc_requested = FALSE;
-static BOOLEAN isTvPlatform = FALSE;
-static U32BIT real_srate = SYMBOL_RATE_AUTO;
-static E_STB_TUNE_CMODE real_cmode = TUNE_MODE_QAM_UNDEFINED;
-void *tune_interface_sem = NULL;
-static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz);
 typedef void (*WrapperSendEvent) (BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size);
 void EventCallback(BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size)
 {
@@ -122,9 +114,6 @@ void STB_TuneAutoRelock(U8BIT path, BOOLEAN state)
  */
 void STB_TuneSetActualTsInputIdx(U8BIT path, S32BIT frontend_fd)
 {
-    struct dtv_property cmd;
-    struct dtv_properties props;
-
     FUNCTION_START(STB_TuneSetActualTsInputIdx);
 
     Wrapper_TuneSetActualTsInputIdx(path, frontend_fd);
@@ -141,10 +130,6 @@ void STB_TuneSetActualTsInputIdx(U8BIT path, S32BIT frontend_fd)
  */
 void STB_TuneSetActualSupportedSystemType(U8BIT path, S32BIT frontend_fd)
 {
-    enum fe_delivery_system delsys;
-    struct dtv_property cmd;
-    struct dtv_properties props;
-
     FUNCTION_START(STB_TuneSetActualSupportedSystemType);
 
     Wrapper_TuneSetActualSupportedSystemType(path, frontend_fd);
@@ -229,11 +214,6 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                         S8BIT freq_off, E_STB_TUNE_TMODE tmode, E_STB_TUNE_TBWIDTH tbwidth,
                         E_STB_TUNE_CMODE cmode, E_STB_TUNE_ANALOG_VIDEO_TYPE anlg_vtype)
 {
-    S_TUNER_STATUS *tstatus;
-    E_TUNER_STATE state;
-    BOOLEAN start_tuning;
-    BOOLEAN sem_ret;
-
     FUNCTION_START(STB_TuneStartTuner);
 
     USE_UNWANTED_PARAM(freq_off);
@@ -255,9 +235,6 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
  */
 void STB_TuneStopTuner(U8BIT path)
 {
-    S_TUNER_STATUS *tstatus;
-    E_TUNER_STATE state;
-
     FUNCTION_START(STB_TuneStopTuner);
 
     Wrapper_TuneStopTuner(path);
@@ -367,7 +344,6 @@ U8BIT STB_TuneGetSignaldBuV(U8BIT path)
 U8BIT STB_TuneGetSignalStrength(U8BIT path)
 {
     U8BIT retval = 0;
-    S16BIT strength;
 
     FUNCTION_START(STB_TuneGetSignalStrength);
 
@@ -399,7 +375,6 @@ U8BIT STB_TuneReadSignalStrength(U8BIT path)
 U32BIT STB_TuneGetDataIntegrity(U8BIT path)
 {
     U32BIT retval;
-    __u32 ber;
 
     FUNCTION_START(STB_TuneGetDataIntegrity);
 
@@ -419,7 +394,6 @@ U32BIT STB_TuneGetDataIntegrity(U8BIT path)
 U8BIT STB_TuneGetSignalQuality(U8BIT path)
 {
     U8BIT retval;
-    S16BIT quality;
 
     FUNCTION_START(STB_TuneGetSignalQuality);
 
@@ -468,8 +442,6 @@ U16BIT STB_TuneGetSignalSNR(U8BIT path)
 U32BIT STB_TuneGetActualTerrFrequency(U8BIT path)
 {
     U32BIT freq;
-    struct dtv_property cmd;
-    struct dtv_properties props;
 
     FUNCTION_START(STB_TuneGetActualTerrFrequency);
 
@@ -488,8 +460,6 @@ U32BIT STB_TuneGetActualTerrFrequency(U8BIT path)
 S8BIT STB_TuneGetActualTerrFreqOffset(U8BIT path)
 {
     S8BIT offset;
-    struct dtv_property cmd;
-    struct dtv_properties props;
 
     FUNCTION_START(STB_TuneGetActualTerrFreqOffset);
 
@@ -508,8 +478,6 @@ S8BIT STB_TuneGetActualTerrFreqOffset(U8BIT path)
 E_STB_TUNE_TMODE STB_TuneGetActualTerrMode(U8BIT path)
 {
     E_STB_TUNE_TMODE mode;
-    struct dtv_property cmd;
-    struct dtv_properties props;
 
     FUNCTION_START(STB_TuneGetActualTerrMode);
 
@@ -544,8 +512,6 @@ E_STB_TUNE_TBWIDTH STB_TuneGetActualTerrBwidth(U8BIT path)
  */
 E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
 {
-    struct dtv_property cmd;
-    struct dtv_properties props;
     E_STB_TUNE_TCONST t_modu = TUNE_TCONST_UNDEFINED;
 
     FUNCTION_START(STB_TuneGetActualTerrConstellation);
@@ -565,9 +531,6 @@ E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
 E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
 {
     U8BIT retval = TUNE_THIERARCHY_NONE;
-    struct dtv_property cmd;
-    struct dtv_properties props;
-    uint8_t plp_ids[256];
 
     FUNCTION_START(STB_TuneGetActualTerrHierarchy);
 
@@ -588,11 +551,6 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
 S32BIT STB_TuneGetMPLPIDList(U8BIT tuner_id, U8BIT *plp_list, U16BIT listlen)
 {
     S32BIT retval = 0;
-    struct dtv_property cmd;
-    struct dtv_properties props;
-    uint8_t plp_ids[MAX_PLP_NUMBER];
-    U32BIT start_time;
-    static const U32BIT timeout_dvbt2 = 5000;
 
     FUNCTION_START(STB_TuneGetMPLPIDList);
 
@@ -657,8 +615,6 @@ E_STB_TUNE_TGUARDINT STB_TuneGetActualTerrGuardInt(U8BIT path)
  */
 U16BIT STB_TuneGetActualTerrCellId(U8BIT path)
 {
-    struct dtv_property cmd;
-    struct dtv_properties props;
     U16BIT cell_id = 0xFFFF;
 
     FUNCTION_START(STB_TuneGetActualTerrCellId);
@@ -704,10 +660,7 @@ E_STB_TUNE_LNB_VOLTAGE STB_TuneGetLNBVoltage(U8BIT path)
 
     FUNCTION_START(STB_TuneGetLNBVoltage);
 
-    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
-    {
-        voltage = tuner_status[path].u.sat.lnb_voltage;
-    }
+    voltage = (E_STB_TUNE_LNB_VOLTAGE)Wrapper_TuneGetLNBVoltage(path);
 
     FUNCTION_FINISH(STB_TuneGetLNBVoltage);
 
@@ -723,27 +676,15 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN r
 {
     FUNCTION_START(STB_TuneSetLNBVoltage);
 
-    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
-    {
-        if (tuner_status[path].u.sat.lnb_voltage != voltage)
-        {
-            tuner_status[path].u.sat.lnb_voltage = voltage;
-            if (retune)
-            {
-                tuner_status[path].tuning_params_changed = TRUE;
-            }
-        }
-
-        STB_TuneSetVoltageInterface(path, voltage);
-    }
+    Wrapper_TuneSetLNBVoltage(path, (EW_STB_TUNE_LNB_VOLTAGE)voltage, retune);
 
     FUNCTION_FINISH(STB_TuneSetLNBVoltage);
 }
 
 void STB_TuneSetFrontendFd(U8BIT path, U32BIT fe_fd)
 {
-    tuner_status[path].frontend_fd = fe_fd;
-    TUN_DBG("STB_TuneSetFrontendFd path:%d fd:%d", path, tuner_status[path].frontend_fd);
+    USE_UNWANTED_PARAM(path);
+    USE_UNWANTED_PARAM(fe_fd);
 }
 
 E_STB_TUNE_SYSTEM_TYPE STB_TuneGetActualSysType(U8BIT path)
@@ -755,11 +696,8 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetActualSysType(U8BIT path)
 
 void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
 {
-    FUNCTION_START(STB_TuneSetVoltageInterface);
-
-    Wrapper_TuneSetLNBVoltage(path, vol, FALSE);
-
-    FUNCTION_FINISH(STB_TuneSetVoltageInterface);
+    USE_UNWANTED_PARAM(path);
+    USE_UNWANTED_PARAM(vol);
 }
 
 /**
@@ -782,10 +720,7 @@ BOOLEAN STB_TuneGet22kState(U8BIT path)
 
     FUNCTION_START(STB_TuneGet22kState);
 
-    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
-    {
-        state = tuner_status[path].u.sat.use_22khz;
-    }
+    state = Wrapper_TuneGet22kState(path);
 
     FUNCTION_FINISH(STB_TuneGet22kState);
 
@@ -801,19 +736,7 @@ void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
 {
     FUNCTION_START(STB_TuneSet22kState);
 
-    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
-    {
-        if (tuner_status[path].u.sat.use_22khz != state)
-        {
-            tuner_status[path].u.sat.use_22khz = state;
-            if (retune)
-            {
-                tuner_status[path].tuning_params_changed = TRUE;
-            }
-        }
-
-        STB_TuneSetTone(path, state);
-    }
+    Wrapper_TuneSet22kState(path, state, retune);
 
     FUNCTION_FINISH(STB_TuneSet22kState);
 }
@@ -1006,7 +929,7 @@ void STB_TuneSetSystemType(U8BIT path, E_STB_TUNE_SYSTEM_TYPE type)
 
     Wrapper_TuneSetSystemType(path, type);
 
-    FUNCTION_FINISH(STB_TuneSetTerrType);
+    FUNCTION_FINISH(STB_TuneSetSystemType);
 }
 
 /**
@@ -1039,8 +962,6 @@ E_STB_TUNE_MODULATION STB_TuneGetModulation(U8BIT path)
     FUNCTION_FINISH(STB_TuneGetModulation);
 
     return (E_STB_TUNE_MODULATION)Wrapper_TuneGetModulation(path);
-
-
 }
 
 /**
@@ -1112,7 +1033,7 @@ void STB_TuneGetSupportedSystemType(U8BIT path, U8BIT *support_sys)
 }
 BOOLEAN STB_TuneOpen(U8BIT path)
 {
-    BOOLEAN ret = FALSE, sem_ret = FALSE;
+    BOOLEAN ret = FALSE;
     FUNCTION_START(STB_TuneOpen);
 
     ret = Wrapper_TuneOpen(path);
@@ -1144,6 +1065,13 @@ void STB_TuneUpdateFeUsage(U8BIT path, BOOLEAN use)
 
 BOOLEAN STB_TuneIsTvPlatform()
 {
+    FUNCTION_START(STB_TuneIsTvPlatform);
+
+    BOOLEAN isTvPlatform = FALSE;
+    isTvPlatform = Wrapper_TuneIsTvPlatform();
+
+    FUNCTION_FINISH(STB_TuneIsTvPlatform);
+
     return isTvPlatform;
 }
 
@@ -1171,7 +1099,6 @@ void STB_TuneAllStart()
 {
     FUNCTION_START(STB_TuneAllStart);
 
-    U8BIT i;
     Wrapper_TuneAllStart();
 
     FUNCTION_FINISH(STB_TuneAllStart);
@@ -1181,70 +1108,62 @@ void STB_TuneAllStop()
 {
     FUNCTION_START(STB_TuneAllStop);
 
-    U8BIT i = 0;
     E_TUNER_STATE state;
     Wrapper_TuneAllStop();
 
     FUNCTION_FINISH(STB_TuneAllStop);
 }
 
-static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz)
-{
-    FUNCTION_START(STB_TuneSetTone);
-
-    BOOLEAN ret = FALSE;
-
-    FUNCTION_FINISH(STB_TuneSetTone);
-    return ret;
-}
-
 BOOLEAN STB_Tune_BlindExit(U8BIT path)
 {
     BOOLEAN ret = TRUE;
 
-    /*Stop the thread*/
-    tuner_status[path].enable_blindscan_thread = FALSE;
-    pthread_join((U32BIT)tuner_status[path].blindscan_thread, NULL);
+    FUNCTION_START(STB_Tune_BlindExit);
+
+    ret = Wrapper_Tune_BlindExit(path);
+
+    FUNCTION_FINISH(STB_Tune_BlindExit);
 
     return ret;
 }
 
 void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)
 {
-    pthread_mutex_lock(&tuner_status[path].lock);
+    FUNCTION_START(STB_Tune_BlindGetTPCount);
 
-    *count = 0;
+    Wrapper_Tune_BlindGetTPCount(path, count);
 
-    if (tuner_status[path].bs_setting.m_uiChannelCount)
-    {
-        *count = (unsigned int)(tuner_status[path].bs_setting.m_uiChannelCount);
-    }
-
-    pthread_mutex_unlock(&tuner_status[path].lock);
-
+    FUNCTION_FINISH(STB_Tune_BlindGetTPCount);
 }
 
 BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
 {
     BOOLEAN ret = TRUE;
-    para = (struct dvb_frontend_parameters *)para;;
+    U32BIT* freq = NULL;
+    U32BIT* srate = NULL;
 
-    pthread_mutex_lock(&tuner_status[path].lock);
+    FUNCTION_START(STB_Tune_BlindGetTPInfo);
 
-    if (!para)
+    ret = Wrapper_Tune_BlindGetTPInfo(path, &freq, &srate, count);
+    if (FALSE == ret)
     {
-        *count = 0;
         return FALSE;
     }
 
-    if ((*count) > tuner_status[path].bs_setting.m_uiChannelCount)
+    struct dvb_frontend_parameters* fe_para = (struct dvb_frontend_parameters*)para;
+    if (fe_para == NULL || freq == NULL || srate == NULL)
     {
-        *count = (unsigned int)(tuner_status[path].bs_setting.m_uiChannelCount);
+        return FALSE;
     }
 
-    memcpy(para, tuner_status[path].bs_setting.channels, (*count) * sizeof(struct dvb_frontend_parameters));
+    for (U16BIT i = 0; i < *count; i++)
+    {
+        fe_para[i].frequency = freq[i];
+        fe_para[i].u.qpsk.symbol_rate = srate[i];
+    }
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
+    FUNCTION_FINISH(STB_Tune_BlindGetTPInfo);
+
     return ret;
 }
 
@@ -1252,11 +1171,20 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
                                  unsigned int start_freq, unsigned int stop_freq, E_STB_TUNE_BlindUnicable_t unicable)
 {
     BOOLEAN ret = TRUE;
-    int rc;
+    E_TTYPE terr_type = E_TERR_TYPE_UNKNOWN;
+    EW_STB_TUNE_BlindUnicable_t w_unicable;
 
     FUNCTION_START(STB_Tune_BlindScan);
 
-    EW_STB_TUNE_BlindUnicable_t w_unicable;
+    if (sys_type == TUNE_SYSTEM_TYPE_DVBS || sys_type == TUNE_SYSTEM_TYPE_DVBS2)
+    {
+        terr_type = E_TERR_TYPE_DVBS;
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_DVBC)
+    {
+        terr_type = E_TERR_TYPE_DVBC;
+    }
+
     w_unicable.frequency = unicable.frequency;
     w_unicable.unicable = unicable.unicable;
     w_unicable.channel = unicable.channel;
@@ -1264,9 +1192,16 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
     w_unicable.position_b = unicable.position_b;
     w_unicable.uncommitted = unicable.uncommitted;
     w_unicable.committed = unicable.committed;
-    //Wrapper_Tune_BlindScan(path, (Wrapper_Tnue_BlindCallback_t*)cb, user_data, start_freq, stop_freq, w_unicable);
+
+    if (!Wrapper_Tune_BlindScan(path, terr_type, (Wrapper_Tnue_BlindCallback_t)cb, user_data, start_freq, stop_freq, w_unicable))
+    {
+        E_STB_TUNE_BlindEvent_t evt;
+        evt.status = AM_FEND_BLIND_START_FAILED;
+        cb(path, &evt, user_data);
+    }
 
     FUNCTION_FINISH(STB_Tune_BlindScan);
+
     return ret;
 }
 

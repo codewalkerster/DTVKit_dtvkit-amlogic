@@ -40,9 +40,9 @@ static E_TTYPE signal_type = E_TERR_TYPE_DVBT;
 static EW_STB_TUNE_SYSTEM_TYPE sys_type = WRAPPER_TUNE_SYSTEM_TYPE_UNKNOWN;
 static EW_STB_TUNE_TMODE Tmode = WRAPPER_TUNE_MODE_COFDM_UNDEFINED;
 static EE_TUNER_STATE tuner_state  = E_TUNER_IDLE;
-static EW_STB_TUNE_CMODE cable_mode;
-static EW_STB_TUNE_MODULATION tune_modulation;
-EW_STB_TUNE_LNB_VOLTAGE tune_voltage;
+static EW_STB_TUNE_CMODE cable_mode = WRAPPER_TUNE_MODE_QAM_UNDEFINED;
+static EW_STB_TUNE_MODULATION tune_modulation = WRAPPER_TUNE_MOD_AUTO;
+static EW_STB_TUNE_LNB_VOLTAGE tune_voltage = WRAPPER_LNB_VOLTAGE_OFF;
 
 static U8BIT curr_path = 0;
 static U8BIT tuner_plp = 0;
@@ -50,37 +50,32 @@ static U8BIT frontend_usage = 0;
 static U16BIT tuner_lo_freq;
 static BOOLEAN tuner_search_mode = FALSE;
 //static BOOLEAN  tuner_lock = FALSE;
-BOOLEAN use_22khz = FALSE;
-BOOLEAN tuning_params_changed = FALSE;
-BOOLEAN curr_starttune = FALSE;
+static BOOLEAN use_22khz = FALSE;
+static BOOLEAN tuning_params_changed = FALSE;
+static BOOLEAN curr_starttune = FALSE;
 
 
 static U32BIT tuner_srate = 0;
 static BOOLEAN auto_relock= FALSE;
 
-jobject tuner_lnb;
+static Wrapper_Tnue_BlindCallback_t blindscan_event_cb = NULL;
+static void* blindscan_cb_user_data = NULL;
+static std::vector<U32BIT> blindscan_tp_freq;
+static std::vector<U32BIT> blindscan_tp_srate;
+static BOOLEAN blindscan_mode = FALSE;
+
+static jobject tuner_lnb;
 DVBT_BANDWIDTH Wrapper_TuneGetTerrBwidth(EW_STB_TUNE_TBWIDTH tbwidth);
 DVBT_TRANSMISSION_MODE Wrapper_TuneGetTransmissionMode(EW_STB_TUNE_TMODE tmode);
 
-
+void blindscanCallback(int scanCallbackMessageType, jobjectArray scanCallbackMessage);
 void LnbCallback(jobject lnb, int eventType, jbyteArray diseqcMessage);
 
 BOOLEAN tuner_getFrontendIds(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     bool ret = FALSE;
-    /*
-    int gTunerClient = INVALID_TUNER_ID;
-    TUNER_MAP::iterator it = tuner_map.find( path );
-    if (it != tuner_map.end())
-    {
-        gTunerClient = it->second;
-    }else
-    {
-        ALOGD("gTunerClient is invalid: %d ", gTunerClient);
-        return ret;
-    }
-*/
+
     jobject list = Am_tuner_getFrontendIds(gTunerClient);
     if (NULL == list) {
         ALOGD("%s : test fail, list is null", __FUNCTION__);
@@ -133,13 +128,13 @@ BOOLEAN tuner_getFrontendIds(U8BIT path)
     return ret;
 }
 
-Frontend_Status tuner_getFrontendStatus(int gTunerClient, FRONTEND_STATUS_TYPE DataType)
+Frontend_Status tuner_getFrontendStatus(int tuner_client, FRONTEND_STATUS_TYPE DataType)
 {
     ALOGD("start:%s", __FUNCTION__);
     Frontend_Status stfrontendStatus;
     memset(&stfrontendStatus, 0, sizeof(Frontend_Status));
-    if (INVALID_TUNER_ID == gTunerClient) {
-        ALOGD("%s : gTunerClient is invalid", __FUNCTION__);
+    if (INVALID_TUNER_ID == tuner_client) {
+        ALOGD("%s : tuner_client is invalid", __FUNCTION__);
         return stfrontendStatus;
     }
 
@@ -152,7 +147,7 @@ Frontend_Status tuner_getFrontendStatus(int gTunerClient, FRONTEND_STATUS_TYPE D
     FRONTEND_STATUS_TYPE aStatusTypes = DataType;
 
     jintArray jaStatusTypes = TypeChangeUtils::getJNIArray(env, (int*)&aStatusTypes, 1);
-    jobject frontendStatusObject = Am_tuner_getFrontendStatus(gTunerClient, jaStatusTypes);
+    jobject frontendStatusObject = Am_tuner_getFrontendStatus(tuner_client, jaStatusTypes);
     frontend_utils_parseFrontendStatus(env, frontendStatusObject, &stfrontendStatus);
 
     if (attached) {
@@ -162,13 +157,13 @@ Frontend_Status tuner_getFrontendStatus(int gTunerClient, FRONTEND_STATUS_TYPE D
     ALOGD("end:%s", __FUNCTION__);
     return stfrontendStatus;
 }
-bool GetTunerLockStatus(int gTunerClient)
+bool GetTunerLockStatus(int tuner_client)
 {
     ALOGD("start:%s", __FUNCTION__);
     bool ret = FALSE;
-    if (INVALID_TUNER_ID == gTunerClient)
+    if (INVALID_TUNER_ID == tuner_client)
     {
-        ALOGD("%s : gTunerClient is invalid", __FUNCTION__);
+        ALOGD("%s : tuner_client is invalid", __FUNCTION__);
         return FALSE;
     }
     Frontend_Status stfrontendStatus;
@@ -183,7 +178,7 @@ bool GetTunerLockStatus(int gTunerClient)
     int aStatusTypes = FRONTEND_STATUS_TYPE_DEMOD_LOCK;
 
     jintArray jaStatusTypes = TypeChangeUtils::getJNIArray(env, &aStatusTypes, 1);
-    jobject frontendStatusObject = Am_tuner_getFrontendStatus(gTunerClient, jaStatusTypes);
+    jobject frontendStatusObject = Am_tuner_getFrontendStatus(tuner_client, jaStatusTypes);
     frontend_utils_parseFrontendStatus(env, frontendStatusObject, &stfrontendStatus);
 
     if (attached) {
@@ -251,20 +246,18 @@ void PatFilterCallback(jobject filter, jobjectArray filterEventArray, int filter
 void RegisterCallback(SendEvent callback)
 {
      Lock_SendEvent  = callback;
-
 }
 
 void scanCallback(int event) {
     ALOGD("sh1164-->:%s : enter tuner event : %d", __FUNCTION__, event);
-    int gTunerClient = INVALID_TUNER_ID;
-    static int flag = 0;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( curr_path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d ", gTunerClient);
+        ALOGD("tuner_client is invalid: %d ", tuner_client);
         //return;
     }
     //3.test get tuner status
@@ -280,9 +273,66 @@ void scanCallback(int event) {
         ALOGD("scanCallback: tuner unlock");
     }
 
-
     ALOGD("%s : leave tuner event : %d,curr_path=%d", __FUNCTION__, event, curr_path);
 }
+void blindscanCallback(int scanCallbackMessageType, jobjectArray scanCallbackMessage) {
+    ALOGD("start:%s, scanCallbackMessageType :%d ", __FUNCTION__, scanCallbackMessageType);
+    Scan_Callback_Message scanMessage;
+    memset(&scanMessage, 0, sizeof(Scan_Callback_Message));
+    if (NULL != scanCallbackMessage) {
+        bool attached = false;
+        JNIEnv *env = Am_tuner_getJNIEnv(&attached);
+        if (NULL == env) {
+            ALOGD("%s : test fail, env is null", __FUNCTION__);
+            return;
+        }
+        frontend_utils_parseScanCallbackMessage(env, scanCallbackMessageType, scanCallbackMessage, &scanMessage);
+        ALOGD("Scan_Callback_Message scanMessageType : %d", scanMessage.scanMessageType);
+        for (int value : scanMessage.integer_value) {
+            ALOGD("Scan_Callback_Message message : %d", value);
+        }
+    }
+
+    switch (scanMessage.scanMessageType)
+    {
+        case SCAN_MESSAGE_PROGRESS_PERCENT:
+            if (scanMessage.integer_value.size() == 1)
+            {
+                U8BIT progress = scanMessage.integer_value[0];
+                if (blindscan_event_cb != NULL)
+                {
+                    EW_STB_TUNE_BlindEvent_t evt;
+                    evt.status = WRAPPER_AM_FEND_BLIND_UPDATEPROCESS;
+                    evt.process = progress;
+                    blindscan_event_cb(curr_path, &evt, blindscan_cb_user_data);
+                }
+            }
+            break;
+        case SCAN_MESSAGE_FREQUENCY:
+            if (scanMessage.integer_value.size() == 1)
+            {
+                U32BIT freq = scanMessage.integer_value[0];
+                blindscan_tp_freq.push_back(freq);
+
+            }
+            break;
+        case SCAN_MESSAGE_SYMBOL_RATE:
+            if (scanMessage.integer_value.size() == 1)
+            {
+                U32BIT srate = scanMessage.integer_value[0];
+                blindscan_tp_srate.push_back(srate);
+            }
+            break;
+
+        case SCAN_MESSAGE_END:
+            break;
+        default:
+            ALOGD("scanCallback: default");
+            break;
+    }
+    ALOGD("end:%s", __FUNCTION__);
+}
+
 void LnbCallback(jobject lnb, int eventType, jbyteArray diseqcMessage) {
     ALOGD("start:%s, lnb : %p, eventType :%d", __FUNCTION__, lnb, eventType);
 
@@ -320,7 +370,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             Am_tuner_closeFrontend(gTunerClient);
         }
     }
-    int ClientId = Am_tuner_getTunerClientId();
+    int ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
     ALOGD("start:%s  ClientId:%d  gTunerClient:%d", __FUNCTION__, ClientId, gTunerClient);
     //update tuner map
     TUNER_MAP::iterator it = tuner_map.find( path );
@@ -334,6 +384,12 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         tuner_map.erase(it);
         MAP_INSERT_ITEM( tuner_map, path, ClientId );
         ALOGI("%s Already Find ClientId: %d  update from map.", __FUNCTION__, ClientId);
+
+        tuner_lnb = Am_tuner_openLnb(ClientId, (long)LnbCallback);
+        if (tuner_lnb == NULL)
+        {
+            ALOGD("start:%s tuner_lnb is Null", __FUNCTION__);
+        }
     }
     else
     {
@@ -422,16 +478,11 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             return;
         }
         Am_tuner_tune(gTunerClient, dvbsSettingObject);
-        tuner_lnb = Am_tuner_openLnb(ClientId, (long)LnbCallback);
-        if (tuner_lnb == NULL)
-        {
-            ALOGD("start:%s   tuner_lnb is Null", __FUNCTION__);
-        }
         curr_starttune = TRUE;
     }
     curr_tuner = TRUE;
     tuning_params_changed = FALSE;
-    //tuner_getFrontendIds(path); //Ðè·Åµ½³õÊ¼»¯²Ù×÷
+    //tuner_getFrontendIds(path);
     ReleaseEnv(attached);
     ALOGD("end:%s ", __FUNCTION__);
 
@@ -439,47 +490,61 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
 void Wrapper_TuneStopTuner(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
-    int gTunerClient = INVALID_TUNER_ID;
+    int client_id = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        client_id = it->second;
         tuner_map.erase(it);
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("client_id is invalid: %d", client_id);
         return;
     }
-    jint result = Am_tuner_cancelTuning(gTunerClient);
+
+    jint result;
+    if (blindscan_mode)
+    {
+        result = Am_tuner_cancelScanning(client_id);
+        blindscan_mode = FALSE;
+    }
+    else
+    {
+        result = Am_tuner_cancelTuning(client_id);
+        Am_tuner_clearOnTuneEventListener(client_id);
+    }
+
     if (result)
     {
-        ALOGD("%s : StopTuner fail", __FUNCTION__);
+        ALOGD("%s : StopTuner %d fail", __FUNCTION__, client_id);
     }else
     {
-        ALOGD("%s : StopTuner success", __FUNCTION__);
+        ALOGD("%s : StopTuner %d success", __FUNCTION__, client_id);
     }
-    Am_tuner_clearOnTuneEventListener(gTunerClient);
+
     curr_starttune = FALSE;
+    gTunerClient = INVALID_TUNER_ID;
+
     ALOGD("end:%s", __FUNCTION__);
 }
 U8BIT Wrapper_TuneGetSignalStrength(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     U8BIT s_strength = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end()&& curr_starttune == TRUE)
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return 0;
     }
-    ALOGD("gTunerClient : %d", gTunerClient);
+    ALOGD("tuner_client : %d", tuner_client);
     if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
     {
-        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_SIGNAL_STRENGTH);
+        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_STRENGTH);
         s_strength = stfrontendStatus.signal_strength;
     }else
     {
@@ -495,19 +560,19 @@ U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     U8BIT ber = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end()&& curr_starttune == TRUE)
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return 0;
     }
     if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
     {
-        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_BER);
+        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_BER);
         ber = stfrontendStatus.ber;
     }else
     {
@@ -522,19 +587,19 @@ U8BIT Wrapper_TuneGetSignalQuality(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     U8BIT s_quality = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end()&& curr_starttune == TRUE)
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return 0;
     }
     if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
     {
-        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_SIGNAL_QUALITY);
+        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_QUALITY);
 
         s_quality = stfrontendStatus.signal_quality;
     }else
@@ -550,19 +615,19 @@ U32BIT Wrapper_TuneGetActualTerrFrequency(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     U32BIT terr_fre = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end()&& curr_starttune == TRUE)
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return 0;
     }
     if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
     {
-        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_FEC);
+        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_FEC);
 
         terr_fre = stfrontendStatus.inner_fec;
     }else
@@ -578,19 +643,19 @@ S8BIT Wrapper_TuneGetActualTerrFreqOffset(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     S8BIT fre_offset = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end()&& curr_starttune == TRUE)
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return 0;
     }
     if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
     {
-        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_FREQ_OFFSET);
+        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_FREQ_OFFSET);
 
         fre_offset = stfrontendStatus.freq_offset;
     }else
@@ -606,18 +671,17 @@ EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path)
     ALOGD("start:%s", __FUNCTION__);
     EW_TUNER_EVENT lock_st = WRAPPER_TUNER_STATE_UNKNOWN;
     bool event = false;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
-    static int flag = 0;
     if (it != tuner_map.end() && curr_starttune == TRUE)
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return lock_st;
     }
-    Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_DEMOD_LOCK);
+    Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_DEMOD_LOCK);
 
     event = stfrontendStatus.is_demod_locked;
     if (true == event)
@@ -629,7 +693,7 @@ EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path)
         lock_st = WRAPPER_TUNER_STATE_TIMEOUT;
     }
 
-    ALOGD("end:%s event£º%d", __FUNCTION__, event);
+    ALOGD("end:%s event:%d", __FUNCTION__, event);
     return lock_st;
 }
 
@@ -638,7 +702,7 @@ BOOLEAN Wrapper_TuneOpen(U8BIT path)
     ALOGD("start:%s path:%d", __FUNCTION__,path);
     if (INVALID_TUNER_ID == gTunerClient)
     {
-        gTunerClient = Am_tuner_getTunerClientId();
+        gTunerClient = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
     }
     ALOGD("gTunerClient:%d", gTunerClient);
     if (INVALID_TUNER_ID == gTunerClient)
@@ -658,15 +722,15 @@ BOOLEAN Wrapper_TuneIsOpened(U8BIT path)
     BOOLEAN ret = FALSE;
 
     ALOGD("start:%s path:%d", __FUNCTION__,path);
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
         ret = TRUE;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         ret = FALSE;
     }
     ALOGD("end:%s path:%d result:%d", __FUNCTION__,path, ret);
@@ -675,17 +739,17 @@ BOOLEAN Wrapper_TuneIsOpened(U8BIT path)
 
 int Wrapper_GetTunerId(int path)
 {
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return INVALID_TUNER_ID;
     }
-    return gTunerClient;
+    return tuner_client;
 }
 jclass getValueClass(JNIEnv *env, jobject valueObject, const char *name)
 {
@@ -751,18 +815,18 @@ U16BIT Wrapper_TuneGetActualSignalType(U8BIT path)
 {
     ALOGD("start:%s path:%d", __FUNCTION__,path);
 
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return 0;
     }
 
-    jobject frontendInfo = Am_tuner_getFrontendInfo(gTunerClient);
+    jobject frontendInfo = Am_tuner_getFrontendInfo(tuner_client);
     if (NULL == frontendInfo) {
         ALOGD("%s : test fail, FrontendInfo is null", __FUNCTION__);
         return 0;
@@ -832,14 +896,14 @@ U32BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path)
 {
     ALOGD("start:%s  path:%d", __FUNCTION__, path);
     U32BIT fre_min = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return fre_min;
     }
 
@@ -854,7 +918,7 @@ U32BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path)
     for (int frontendId : gFrontendList)
     {
         ALOGD("%s : frontendId : %d", __FUNCTION__, frontendId);
-        jobject frontendInfo = Am_tuner_getFrontendInfoById(gTunerClient, frontendId);
+        jobject frontendInfo = Am_tuner_getFrontendInfoById(tuner_client, frontendId);
         if (NULL == frontendInfo) {
             ALOGD("%s : test fail, FrontendInfo is null", __FUNCTION__);
             testFailLeave(attached);
@@ -913,14 +977,14 @@ U32BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path)
 {
     ALOGD("start:%s  path:%d", __FUNCTION__, path);
     U32BIT fre_max = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return fre_max;
     }
 
@@ -935,7 +999,7 @@ U32BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path)
     for (int frontendId : gFrontendList)
     {
         ALOGD("%s : frontendId : %d", __FUNCTION__, frontendId);
-        jobject frontendInfo = Am_tuner_getFrontendInfoById(gTunerClient, frontendId);
+        jobject frontendInfo = Am_tuner_getFrontendInfoById(tuner_client, frontendId);
         if (NULL == frontendInfo) {
             ALOGD("%s : test fail, FrontendInfo is null", __FUNCTION__);
             testFailLeave(attached);
@@ -994,19 +1058,19 @@ EW_STB_TUNE_TCONST Wrapper_TuneGetActualTerrConstellation(U8BIT path)
 {
     ALOGD("start:%s path:%d", __FUNCTION__,path);
     EW_STB_TUNE_TCONST terr_const = WRAPPER_TUNE_TCONST_UNDEFINED;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return terr_const;
     }
     if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
     {
-        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_MODULATION);
+        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_MODULATION);
         switch (stfrontendStatus.modulation)
         {
             case 0:
@@ -1039,18 +1103,18 @@ EW_STB_TUNE_TCONST Wrapper_TuneGetActualTerrConstellation(U8BIT path)
 EW_STB_TUNE_HIERARCHY Wrapper_TuneGetActualTerrHierarchy(U8BIT path)
 {
     ALOGD("start:%s path:%d", __FUNCTION__,path);
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     EW_STB_TUNE_HIERARCHY hierarchy = WRAPPER_TUNE_HIERARCHY_UNDEFINED;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return hierarchy;
     }
-    Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_HIERARCHY);
+    Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_HIERARCHY);
     int ret = stfrontendStatus.hierarchy;
     switch (ret)
     {
@@ -1094,19 +1158,19 @@ S32BIT STB_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)   // T
 {
     ALOGD("start:%s path:%d", __FUNCTION__,path);
     S32BIT ret_val = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return terr_const;
     }
     if (TUNER_STATE_LOCKED == STB_TuneGetLockStatus(path))
     {
-        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_BER);
+        Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_BER);
         memcpy(plp_list,&stfrontendStatus.plp_id, sizeof(int));
     }else
     {
@@ -1126,17 +1190,17 @@ U8BIT Wrapper_TuneGetPLP(U8BIT path)
 {
     ALOGD("start:%s path:%d", __FUNCTION__,path);
     U8BIT plp_id = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return plp_id;
     }
-    Frontend_Status stfrontendStatus = tuner_getFrontendStatus(gTunerClient, FRONTEND_STATUS_TYPE_BER);
+    Frontend_Status stfrontendStatus = tuner_getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_BER);
     plp_id = stfrontendStatus.plp_id;
 
     ALOGD("end:%s path:%d plp_id=%d", __FUNCTION__, path, plp_id);
@@ -1161,14 +1225,14 @@ U32BIT Wrapper_TuneGetMaxTunerSymbolRate(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     U32BIT rate_max = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return rate_max;
     }
 
@@ -1183,7 +1247,7 @@ U32BIT Wrapper_TuneGetMaxTunerSymbolRate(U8BIT path)
     for (int frontendId : gFrontendList)
     {
         ALOGD("%s : frontendId : %d", __FUNCTION__, frontendId);
-        jobject frontendInfo = Am_tuner_getFrontendInfoById(gTunerClient, frontendId);
+        jobject frontendInfo = Am_tuner_getFrontendInfoById(tuner_client, frontendId);
         if (NULL == frontendInfo) {
             ALOGD("%s : test fail, FrontendInfo is null", __FUNCTION__);
             testFailLeave(attached);
@@ -1299,14 +1363,14 @@ U32BIT Wrapper_TuneGetMinTunerSymbolRate(U8BIT path)
 {
     ALOGD("start:%s", __FUNCTION__);
     U32BIT rate_min = 0;
-    int gTunerClient = INVALID_TUNER_ID;
+    int tuner_client = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        gTunerClient = it->second;
+        tuner_client = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid: %d", gTunerClient);
+        ALOGD("tuner_client is invalid: %d", tuner_client);
         return rate_min;
     }
 
@@ -1321,7 +1385,7 @@ U32BIT Wrapper_TuneGetMinTunerSymbolRate(U8BIT path)
     for (int frontendId : gFrontendList)
     {
         ALOGD("%s : frontendId : %d", __FUNCTION__, frontendId);
-        jobject frontendInfo = Am_tuner_getFrontendInfoById(gTunerClient, frontendId);
+        jobject frontendInfo = Am_tuner_getFrontendInfoById(tuner_client, frontendId);
         if (NULL == frontendInfo) {
             ALOGD("%s : test fail, FrontendInfo is null", __FUNCTION__);
             testFailLeave(attached);
@@ -1381,24 +1445,7 @@ U32BIT Wrapper_TuneGetMinTunerSymbolRate(U8BIT path)
 void Wrapper_TuneInitialise(U8BIT paths)
 {
     ALOGD("start:%s", __FUNCTION__);
-    BOOLEAN ret = FALSE;
-    /*
-    while (TRUE != ret)
-    {
-        if (INVALID_TUNER_ID == gTunerClient)
-        {
-            gTunerClient = Am_tuner_getTunerClientId();
-            if (INVALID_TUNER_ID == gTunerClient)
-                continue;
-        }
 
-        ret = tuner_getFrontendIds(0);
-
-        ALOGD("setout tuner jni");
-
-    } //Ðè·Åµ½³õÊ¼»¯²Ù×÷
-    */
-    //isTvPlatform = Wrapper_IsTVPlatform();
     ALOGD("end:%s ", __FUNCTION__);
 }
 void Wrapper_TuneSetActualTsInputIdx(U8BIT path, S32BIT frontend_fd)  //Tuner Framework ²»Ö§³ÖÌá¹©get·½·¨£¬»ñÈ¡¸Ã²ÎÊý
@@ -1521,52 +1568,16 @@ void Wrapper_TuneAllStart()
 {
     ALOGD("start:%s", __FUNCTION__);
     if (Wrapper_TuneIsTvPlatform() && tuner_state == E_TUNER_EXITED)
-        {
-            tuner_state = E_TUNER_IDLE;
-            tuner_search_mode = FALSE;
-       }
+    {
+        tuner_state = E_TUNER_IDLE;
+        tuner_search_mode = FALSE;
+    }
     ALOGD("end:%s", __FUNCTION__);
 }
 
 void Wrapper_TuneAllStop()
 {
     ALOGD("start:%s", __FUNCTION__);
-    U8BIT i = 0;
-    EE_TUNER_STATE state;
-    /*
-    if (Wrapper_TuneIsTvPlatform())
-    {
-       // if (STB_DPIsAllPathReleased())   //stbpc.c
-       // {
-       //     TUN_DBG("STB_DPIsAllPathReleased [TRUE].");
-      //  }
-
-        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_RESOURCE_BUSY, &i, sizeof(U8BIT));
-    }
-    int gTunerClient = INVALID_TUNER_ID;
-    TUNER_MAP::iterator it = tuner_map.find( curr_path );
-    if (it != tuner_map.end())
-    {
-        gTunerClient = it->second;
-        state = tuner_state;
-        if (state != E_TUNER_IDLE && state != E_TUNER_EXITED)
-            {
-                Wrapper_TuneStopTuner(curr_path);
-            }
-
-            if (tuner_status[i].signal_type == TUNE_SIGNAL_QPSK)
-            {
-                //STB_TuneSetLNBVoltage(i, LNB_VOLTAGE_OFF, FALSE);
-                //STB_TuneSet22kState(i, FALSE, FALSE);
-            }
-    }
-
-    if (Wrapper_TuneIsTvPlatform())
-    {
-        tuner_state = E_TUNER_EXITED;
-        tuner_search_mode = FALSE;
-    }
-    */
     ALOGD("end:%s", __FUNCTION__);
 }
 
@@ -1611,6 +1622,18 @@ void Wrapper_TuneSetLOFrequency(U8BIT tuner, U16BIT lo_freq)
     tuner_lo_freq = lo_freq;
     ALOGD("end:%s lo_freq:%d", __FUNCTION__, lo_freq);
 }
+EW_STB_TUNE_LNB_VOLTAGE Wrapper_TuneGetLNBVoltage(U8BIT path)
+{
+    ALOGD("start:%s  path:%d", __FUNCTION__, path);
+    if (E_TERR_TYPE_DVBS == signal_type)
+    {
+        return tune_voltage;
+    }
+    else
+    {
+        return WRAPPER_LNB_VOLTAGE_OFF;
+    }
+}
 void Wrapper_TuneSetLNBVoltage(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune)
 {
     ALOGD("start:%s  path:%d", __FUNCTION__, path);
@@ -1621,7 +1644,7 @@ void Wrapper_TuneSetLNBVoltage(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage, BOOL
         Client_id = it->second;
     }else
     {
-        ALOGD("end:%s gTunerClient is invalid", __FUNCTION__);
+        ALOGD("end:%s tuner_client is invalid", __FUNCTION__);
         return;
     }
     tuner_lnb = Am_tuner_openLnb(Client_id, (long)LnbCallback);
@@ -1632,15 +1655,15 @@ void Wrapper_TuneSetLNBVoltage(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage, BOOL
     }
     if (E_TERR_TYPE_DVBS == signal_type)
     {
-            if (tune_voltage != voltage)
+        if (tune_voltage != voltage)
+        {
+            tune_voltage = voltage;
+            if (retune)
             {
-                tune_voltage = voltage;
-                if (retune)
-                {
-                    tuning_params_changed = TRUE;
-                }
+                tuning_params_changed = TRUE;
             }
-            Wrapper_TuneSetVoltageInterface(path, voltage);
+        }
+        Wrapper_TuneSetVoltageInterface(path, voltage);
     }
 
     ALOGD("end:%s", __FUNCTION__);
@@ -1662,36 +1685,55 @@ void Wrapper_TuneSetVoltageInterface(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage
     Am_lnb_setVoltage(tuner_lnb, voltage_type);
     ALOGD("end:%s", __FUNCTION__);
 }
-void Wrapper_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune) //¿ØÖÆ22khz ¿ª¹Ø
+BOOLEAN Wrapper_TuneGet22kState(U8BIT path)
 {
     ALOGD("start:%s  path:%d", __FUNCTION__, path);
     if (E_TERR_TYPE_DVBS == signal_type)
     {
-            if (use_22khz != state)
+        return use_22khz;
+    }
+    else
+    {
+        return FALSE;
+    }
+}
+void Wrapper_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune) //控制22khz 开关
+{
+    ALOGD("start:%s  path:%d", __FUNCTION__, path);
+    if (E_TERR_TYPE_DVBS == signal_type)
+    {
+        if (use_22khz != state)
+        {
+            use_22khz = state;
+            if (retune)
             {
-                use_22khz = state;
-                if (retune)
-                {
-                    tuning_params_changed = TRUE;
-                }
+                tuning_params_changed = TRUE;
             }
-            Wrapper_TuneSetTone(path, use_22khz);
+        }
+        Wrapper_TuneSetTone(path, use_22khz);
     }
     ALOGD("end:%s", __FUNCTION__);
 }
 BOOLEAN Wrapper_TuneSetTone(U8BIT path, BOOLEAN use_22khz)
 {
     ALOGD("start:%s", __FUNCTION__);
-    int Client_id = INVALID_TUNER_ID;
+    int client_id = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-        Client_id = it->second;
+        client_id = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid");
+        ALOGD("tuner_client is invalid");
         return FALSE;
     }
+    tuner_lnb = Am_tuner_openLnb(client_id, (long)LnbCallback);
+    if (tuner_lnb == NULL)
+    {
+        ALOGD("end:%s tuner_lnb is NULL", __FUNCTION__);
+        return FALSE;
+    }
+
     if (use_22khz == TRUE)
     {
         Am_lnb_setTone(tuner_lnb, DVBS_LNB_TONE_CONTINUOUS);
@@ -1706,19 +1748,17 @@ BOOLEAN Wrapper_TuneSetTone(U8BIT path, BOOLEAN use_22khz)
     ALOGD("end:%s", __FUNCTION__);
     return TRUE;
 }
-#define haiting
-#ifdef haiting
 void Wrapper_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size) //ÏòÓ²¼þ²ã·¢ËÍDisEqc message
 {
     ALOGD("start:%s", __FUNCTION__);
-    int Client_id = INVALID_TUNER_ID;
+    int client_id = INVALID_TUNER_ID;
     TUNER_MAP::iterator it = tuner_map.find( path );
     if (it != tuner_map.end())
     {
-         Client_id = it->second;
+         client_id = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid");
+        ALOGD("tuner_client is invalid");
          return;
     }
 
@@ -1745,7 +1785,7 @@ void Wrapper_TuneSendBurstMessage(U8BIT path, U8BIT data)  //ÏòÓ²¼þ²ã·�
         Client_id = it->second;
     }else
     {
-        ALOGD("gTunerClient is invalid");
+        ALOGD("tuner_client is invalid");
         return;
     }
 
@@ -1784,30 +1824,121 @@ void Wrapper_TuneSetPulseLimitWest(U8BIT path, U16BIT count)
     ALOGD("end:%s", __FUNCTION__);
 }
 */
-#endif
 //Pr5
-BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, Wrapper_Tnue_BlindCallback_t cb, void *user_data, unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable)
+BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tnue_BlindCallback_t cb, void *user_data,
+                                      unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable)
 {
-    ALOGD("start:%s", __FUNCTION__);
-    ALOGD("end:%s", __FUNCTION__);
+    ALOGD("start:%s path:%d", __FUNCTION__,path);
+
+    blindscan_tp_freq.clear();
+    blindscan_tp_srate.clear();
+
+    int client_id = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
+    ALOGD("start:%s client_id:%d  gTunerClient:%d", __FUNCTION__, client_id, gTunerClient);
+    if (curr_path != path)
+    {
+        MAP_INSERT_ITEM(tuner_map, path, client_id);
+        curr_path = path;
+    }
+    else
+    {
+        TUNER_MAP::iterator it = tuner_map.find(path);
+        if (it != tuner_map.end())
+        {
+            if (client_id != it->second)
+            {
+                Am_lnb_close(tuner_lnb);
+                tuner_lnb = Am_tuner_openLnb(client_id, (long)LnbCallback);
+                if (tuner_lnb == NULL)
+                {
+                    ALOGD("start:%s   tuner_lnb is Null", __FUNCTION__);
+                }
+                it = tuner_map.erase(it);
+                MAP_INSERT_ITEM(tuner_map, path, client_id);
+            }
+        }
+        else
+        {
+            MAP_INSERT_ITEM(tuner_map, path, client_id);
+        }
+    }
+
+    gTunerClient = client_id;
+
+    ALOGD("gTunerClient: %d ", gTunerClient);
+    bool attached = false;
+    JNIEnv *env = Am_tuner_getJNIEnv(&attached);
+    if (NULL == env)
+    {
+        ALOGD("%s : test fail, env is null", __FUNCTION__);
+        return FALSE;
+    }
+
+    long callbackContext = (long)blindscanCallback;
+    ALOGD("%s : signal_type:%d", __FUNCTION__,signal_type);
+    if (signal_type == E_TERR_TYPE_DVBC)
+    {
+        // TODO
+    }
+    else if(signal_type == E_TERR_TYPE_DVBS)
+    {
+        blindscan_event_cb = cb;
+        blindscan_cb_user_data = user_data;
+
+        Dvbs_Frontend_Settings dvbsFrontendSettings;
+        memset(&dvbsFrontendSettings, 0, sizeof(Dvbs_Frontend_Settings));
+        jobject dvbsSettingObject = dvb_utils_getDvbsFrontendSettingsObject(env, dvbsFrontendSettings);
+        if (NULL == dvbsSettingObject) {
+            ALOGD("%s : test fail, dvbs frontend setting not create", __FUNCTION__);
+            testFailLeave(attached);
+            return FALSE;
+        }
+        Am_tuner_scan(gTunerClient, dvbsSettingObject, SCAN_TYPE_BLIND, callbackContext);
+        curr_starttune = TRUE;
+        blindscan_mode = TRUE;
+    }
+
+    tuning_params_changed = FALSE;
+    ReleaseEnv(attached);
+    ALOGD("end:%s ", __FUNCTION__);
+
     return TRUE;
 }
 BOOLEAN Wrapper_Tune_BlindExit(U8BIT path)
 {
-    ALOGD("start:%s", __FUNCTION__);
-    ALOGD("end:%s", __FUNCTION__);
     return TRUE;
 }
 void Wrapper_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)
 {
     ALOGD("start:%s", __FUNCTION__);
+    if (blindscan_tp_freq.size() != blindscan_tp_srate.size())
+    {
+        ALOGE("%s freq size=%d srate size=%d", __FUNCTION__, blindscan_tp_freq.size(), blindscan_tp_srate.size());
+        *count = 0;
+    }
+    else
+    {
+        *count = (U16BIT)(blindscan_tp_freq.size());
+    }
     ALOGD("end:%s", __FUNCTION__);
 }
-BOOLEAN Wrapper_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
+BOOLEAN Wrapper_Tune_BlindGetTPInfo(U8BIT path, U32BIT** freq, U32BIT** srate, U16BIT *count)
 {
     ALOGD("start:%s", __FUNCTION__);
+    if (blindscan_tp_freq.size() != blindscan_tp_srate.size())
+    {
+        ALOGE("%s freq size=%d srate size=%d", __FUNCTION__, blindscan_tp_freq.size(), blindscan_tp_srate.size());
+        *count = 0;
+        return FALSE;
+    }
+    else
+    {
+        *count = (U16BIT)(blindscan_tp_freq.size());
+        *freq = blindscan_tp_freq.data();
+        *srate = blindscan_tp_srate.data();
+    }
+
     ALOGD("end:%s", __FUNCTION__);
     return TRUE;
 }
-
 

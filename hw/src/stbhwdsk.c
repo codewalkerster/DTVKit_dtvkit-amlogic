@@ -1350,6 +1350,7 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
    S_DISK_INFO* disk;
    S_DISK_INFO* next_disk;
    BOOLEAN added = FALSE;
+   BOOLEAN found = FALSE;
 
    STB_OSMutexLock(disk_mutex);
 
@@ -1361,6 +1362,18 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
    }
 
    if (disk != NULL)
+   {
+        void *dir = STB_DSKOpenDirectory(disk->disk_id, "");
+        if (dir != NULL) {
+            STB_DSKCloseDirectory(dir);
+            found = TRUE;
+        }
+        else {
+            RemoveDisk(disk);
+        }
+   }
+
+   if (found)
    {
       if (p_disk_id)
          *p_disk_id = disk->disk_id;

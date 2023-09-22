@@ -4073,16 +4073,14 @@ int AV_CreateTsPlayer_l(U8BIT path,
       } else {
           VID_DBG("Cannot set surface to AML MP, surface(tunnelid) ptr is NULL.");
       }
-      if (window_rect_array[path].w != 0) {
-          int32_t x = window_rect_array[path].x;
-          int32_t y = window_rect_array[path].y;
-          int32_t w = window_rect_array[path].w;
-          int32_t h = window_rect_array[path].h;
-          AV_DBG("SetVideoWindow hdl:%d (%d,%d,%d,%d)", player_handle,x,y,w,h);
-          Aml_MP_Player_SetVideoWindow(player_handle,x,y,w,h);
-      } else {
-          VID_DBG("Cannot set window rect to AML MP, window width is 0.");
-      }
+      //preset widow parameter
+      int32_t x = window_rect_array[path].x;
+      int32_t y = window_rect_array[path].y;
+      int32_t w = window_rect_array[path].w;
+      int32_t h = window_rect_array[path].h;
+      AV_DBG("SetVideoWindow hdl:%d (%d,%d,%d,%d)", player_handle,x,y,w,h);
+      Aml_MP_Player_SetVideoWindow(player_handle,x,y,w,h);
+
 #endif
    }
    else

@@ -29,16 +29,18 @@ using namespace std;
 
 extern "C" {
 #include "stbpvrpr.h"
-//#include "stbhwdef.h"
-//#include "stbhwos.h"
-//#include "stbhwmem.h"
+#include "stbhwos.h"
 #include "stbhwdsk.h"
+#include "stbhwcfg.h"
+//#include "stbhwdef.h"
+//#include "stbhwmem.h"
 //#include "stbhwdmx.h"
-//#include "stbhwcfg.h"
 //#include "stb_utils.h"
 }
 
 #include "wrapper_pvr.h"
+#include "wrapper_player.h"
+#include "JNIASPlayer.h"
 #include "JDvrLib.h"
 
 #ifdef SUPPORT_CAS
@@ -66,6 +68,8 @@ extern "C" {
 #define LOG_LEAVE_EARLY
 #endif
 
+#define LOG_NOT_IMPLEMENTED PVR_DBG("*NOT IMPLEMENTED*")
+
 struct S_REC_STATUS
 {
    BOOLEAN in_use;
@@ -80,9 +84,13 @@ struct S_REC_STATUS
    condition_variable state_cond;    // the condition is signaled when state has a change
    mutex state_mutex;  // the mutex associated with above condition
 
+   am_dvr_recording_progress progress;
+   U8BIT rec_index;
+   U16BIT disk_id;
+
    S_REC_STATUS() : in_use(FALSE), is_timeshift(FALSE), start_mode(START_RUNNING)
       , limit_seconds(0), limit_size(0), dvr_file_handle(NULL), dvr_recorder_handle(NULL)
-      , state(0), state_cond{}, state_mutex{}
+      , state(0), state_cond{}, state_mutex{}, rec_index(INVALID_RES_ID), disk_id(INVALID_RES_ID)
    {
    }
 };
@@ -94,17 +102,24 @@ struct S_RECPLAY_STATUS
    E_STB_PVR_START_MODE start_mode;
    am_dvr_file_handle dvr_file_handle;
    am_dvr_player_handle dvr_player_handle;
+   jni_asplayer_handle asplayer_handle;
 
    U8BIT state;   // Player state
    //condition_variable state_cond;    // the condition is signaled when state has a change
    //mutex state_mutex;  // the mutex associated with above condition
    am_dvr_playback_progress progress;
    S16BIT speed;
+   U8BIT audio_decoder;
+   U8BIT video_decoder;
+
+   U16BIT video_pid;
+   U16BIT audio_pid;
 
    S_RECPLAY_STATUS() : in_use(FALSE), is_timeshift(FALSE), start_mode(START_RUNNING)
-      , dvr_file_handle(NULL), dvr_player_handle(NULL), state(0)
+      , dvr_file_handle(NULL), dvr_player_handle(NULL), asplayer_handle(0), state(0)
       //, state_cond{}, state_mutex{}
-      , speed(0)
+      , speed(0), audio_decoder(INVALID_RES_ID), video_decoder(INVALID_RES_ID)
+      , video_pid(0), audio_pid(0)
    {
    }
 };
@@ -123,6 +138,8 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
 static am_dvr_stream_type type_map1(E_PVR_PID_TYPE type);
 static int video_codec_map1(E_STB_AV_VIDEO_CODEC format);
 static int audio_codec_map1(E_STB_AV_AUDIO_CODEC format);
+static U32BIT getPVRConfigInt(const char *config, U32BIT def);
+static U8BIT to_index(U8BIT video_decoder, U8BIT audio_decoder);
 
 /**
  * @brief   Initialisation for playback
@@ -150,7 +167,7 @@ U8BIT STB_PVRInitRecording(U8BIT num_tuners)
 {
    LOG_ENTER;
 
-   num_recorders = 1;
+   num_recorders = 2;
    const U8BIT ret = num_recorders;
 
    LOG_LEAVE;
@@ -165,21 +182,28 @@ U8BIT STB_PVRInitRecording(U8BIT num_tuners)
  */
 void STB_PVRSetPlayStartMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_PVR_START_MODE mode)
 {
-   LOG_ENTER;
-   const U8BIT play_index = video_decoder;
+   //LOG_ENTER;
+
+   auto itBegin = s_recplay_status;
+   auto itEnd = s_recplay_status + MAX_PLAYERS;
+   auto pred = [](S_RECPLAY_STATUS& s){return s.in_use == FALSE;};
+   auto it = find_if(itBegin,itEnd,pred);
+   const int play_index = distance(itBegin,it);
 
    if ( play_index >= num_players )
    {
-      PVR_ERR("Invalid player index %u is given",(U32BIT)play_index);
+      PVR_ERR("Player index %d is invalid",play_index);
       return;
    }
 
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
    prps->in_use = TRUE;
    prps->start_mode = mode;
-   PVR_INFO("start_mode:%d", (int)prps->start_mode);
+   prps->audio_decoder = audio_decoder;
+   prps->video_decoder = video_decoder;
+   PVR_INFO("play_index:%d, start_mode:%d", play_index, (int)prps->start_mode);
 
-   LOG_LEAVE;
+   //LOG_LEAVE;
 }
 
 /**
@@ -225,8 +249,9 @@ void STB_PVRSetRecordStartMode(U8BIT rec_index, E_STB_PVR_START_MODE mode, U32BI
  */
 void STB_PVRPlayHasVideo(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN has_video)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -238,8 +263,9 @@ void STB_PVRPlayHasVideo(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN has_v
  */
 void STB_PVRSetPlaybackNotifyTime(U8BIT audio_decoder, U8BIT video_decoder, U32BIT notify_time)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -256,18 +282,33 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 {
    LOG_ENTER;
 
-   const U8BIT play_index = video_decoder;
+   const int play_index = to_index(video_decoder,audio_decoder);
    if ( play_index >= num_players )
    {
-      PVR_ERR("Invalid player index %u is given",(U32BIT)play_index);
+      PVR_ERR("Player index %d is invalid",play_index);
       return FALSE;
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
-   if (-1 == Wrapper_PVR_Initialise()) {
-      LOG_LEAVE_EARLY;
+   PVR_DBG("Calling Wrapper_Player_Initialise(WP_TUNER_TYPE_DVR_PLAY)");
+   Wrapper_Player_Initialise(WP_TUNER_TYPE_DVR_PLAY);
+
+   jni_asplayer_handle asplayer_handle;
+   jni_asplayer_init_params asplayer_params;
+   asplayer_params.source = JNI_ASPLAYER_TS_MEMORY;
+   asplayer_params.playback_mode = JNI_ASPLAYER_PLAYBACK_MODE_PASSTHROUGH;
+   asplayer_params.event_mask = 1;
+   PVR_DBG("Calling Wrapper_Player_Create");
+   int ret = Wrapper_Player_Create(asplayer_params, &asplayer_handle);
+   if (ret != 0)
+   {
+      PVR_ERR("Failed to create Wrapper Player");
       return FALSE;
    }
+   PVR_INFO("ASPlayer handle: %p",asplayer_handle);
+   prps->asplayer_handle = asplayer_handle;
+
+   STB_AVSetPlayerHandle(audio_decoder,video_decoder,asplayer_handle);
 
    U8BIT path_prefix[256] = {0};
    BOOLEAN ret1 = STB_DSKFullPathname(disk_id,basename,(PU8BIT)path_prefix,sizeof(path_prefix));
@@ -290,8 +331,10 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    PVR_INFO("file handle for playback: %p",prps->dvr_file_handle);
 
    wrapper_player_init_params params;
+   params.asplayer_handle = asplayer_handle;
    params.jdvrfile_handle = prps->dvr_file_handle;
    params.callback = on_player_evt_cb;
+   params.path = video_decoder;
 
    ret2 = Wrapper_PVR_Player_create(&params,&prps->dvr_player_handle);
    if (ret2 == -1)
@@ -300,14 +343,34 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       LOG_LEAVE_EARLY;
       return FALSE;
    }
-   PVR_INFO("player handle: %p",prps->dvr_player_handle);
+   PVR_INFO("JDvrPlayer handle: %p",prps->dvr_player_handle);
 
-   ret2 = Wrapper_PVR_Player_play(prps->dvr_player_handle);
-   if (ret2 == -1)
+   int32_t video_pid = 0;
+   int32_t audio_pid = 0;
+   Wrapper_PVR_File_getVideoPID(prps->dvr_file_handle,&video_pid);
+   Wrapper_PVR_File_getAudioPID(prps->dvr_file_handle,&audio_pid);
+   prps->video_pid = (U16BIT)video_pid;
+   prps->audio_pid = (U16BIT)audio_pid;
+
+   if (prps->start_mode == START_RUNNING)
    {
-      PVR_ERR("Failed to play recording");
-      LOG_LEAVE_EARLY;
-      return FALSE;
+      ret2 = Wrapper_PVR_Player_play(prps->dvr_player_handle);
+      if (ret2 == -1)
+      {
+         PVR_ERR("Failed to play recording");
+         LOG_LEAVE_EARLY;
+         return FALSE;
+      }
+   }
+   else if (prps->start_mode == START_PAUSED)
+   {
+      ret2 = Wrapper_PVR_Player_pause(prps->dvr_player_handle);
+      if (ret2 == -1)
+      {
+         PVR_ERR("Failed to pause playback");
+         LOG_LEAVE_EARLY;
+         return FALSE;
+      }
    }
 
    LOG_LEAVE;
@@ -323,15 +386,15 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
 {
    //LOG_ENTER;
-   const U8BIT play_index = video_decoder;
+   const int play_index = to_index(video_decoder,audio_decoder);
    if ( play_index >= num_players )
    {
-      PVR_ERR("Invalid player index %u is given",(U32BIT)play_index);
+      PVR_ERR("Player index %d is invalid",play_index);
       return FALSE;
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
-   BOOLEAN ret = ((prps->state >=2 && prps->state <= 5) ? TRUE : FALSE);
+   BOOLEAN ret = ((prps->state >= 2 && prps->state <= 5) ? TRUE : FALSE);
 
    //PVR_DBG(" returns %s",(ret == TRUE ? "TRUE" : "FALSE"));
 
@@ -348,10 +411,10 @@ BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
 BOOLEAN STB_PVRIsPlayStopped(U8BIT audio_decoder, U8BIT video_decoder)
 {
    //LOG_ENTER;
-   const U8BIT play_index = video_decoder;
+   const int play_index = to_index(video_decoder,audio_decoder);
    if ( play_index >= num_players )
    {
-      PVR_ERR("Invalid player index %u is given",(U32BIT)play_index);
+      PVR_ERR("Player index %d is invalid",play_index);
       // In such condition, it is better to assume that play has been stopped
       return TRUE;
    }
@@ -373,9 +436,23 @@ BOOLEAN STB_PVRIsPlayStopped(U8BIT audio_decoder, U8BIT video_decoder)
 BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT position_in_seconds)
 {
    LOG_ENTER;
-   LOG_LEAVE;
 
-   return TRUE;
+   const int play_index = to_index(video_decoder,audio_decoder);
+   if ( play_index >= num_players )
+   {
+      PVR_ERR("Player index %d is invalid",play_index);
+      return FALSE;
+   }
+   S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
+
+   S8BIT ret = Wrapper_PVR_Player_seek(prps->dvr_player_handle, position_in_seconds);
+   if (ret == -1)
+   {
+      PVR_ERR("Failed to seek");
+   }
+
+   LOG_LEAVE;
+   return (ret == 0) ? TRUE : FALSE;
 }
 
 /**
@@ -387,10 +464,10 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 {
    LOG_ENTER;
 
-   const U8BIT play_index = video_decoder;
+   const int play_index = to_index(video_decoder,audio_decoder);
    if ( play_index >= num_players )
    {
-      PVR_ERR("Invalid player index %u is given",(U32BIT)play_index);
+      PVR_ERR("Player index %d is invalid",play_index);
       return;
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
@@ -400,6 +477,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    {
       PVR_ERR("Failed to stop playback");
    }
+   prps->in_use = FALSE;
 
    LOG_LEAVE;
 }
@@ -413,8 +491,9 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
  */
 void STB_PVRPlayEnabled(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN *video, BOOLEAN *audio)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 #ifdef SUPPORT_CAS
@@ -427,8 +506,9 @@ void STB_PVRPlayEnabled(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN *video
  */
 void STB_PVRPlaySetCASStatus(U8BIT audio_decoder, U8BIT video_decoder, S_CAS_STATUS *cas_status)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 #endif
 
@@ -456,6 +536,7 @@ U8BIT STB_PVRAcquireRecorderIndex(U8BIT tuner, U8BIT demux)
       PVR_ERR("cannot get a recorder index and returns 255");
    }
    s_rec_status[rec_index].in_use = TRUE;
+   s_rec_status[rec_index].rec_index = rec_index;
    PVR_INFO("returns rec_index: %d",(int)rec_index);
 
    LOG_LEAVE;
@@ -495,8 +576,9 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
 BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_type,
    E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *key, U8BIT *iv, U16BIT num_pids, S_PVR_PID_INFO *pid_array)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 
    return TRUE;
 }
@@ -504,24 +586,21 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
 BOOLEAN STB_PVRApplyEncryptionKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_type,
                                    E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *key, U8BIT *iv, U16BIT num_pids, S_PVR_PID_INFO *pid_array)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 
    return TRUE;
 }
 
 U32BIT STB_PVRGetRecordingSegmentSizeKB()
 {
-   LOG_ENTER;
-   LOG_LEAVE;
-   return 0;
+   return getPVRConfigInt("vendor.tv.dtv.pvr.segment_size_kb", 100 * 1024/*100MB*/);
 }
 
 U32BIT STB_PVRGetTimeshiftRecordingSegmentSizeKB()
 {
-   LOG_ENTER;
-   LOG_LEAVE;
-   return 0;
+   return getPVRConfigInt("vendor.tv.dtv.pvr.timeshift_segment_size_kb", 100 * 1024/*100MB*/);
 }
 
 /**
@@ -542,7 +621,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    PVR_INFO("disk_id:%d, rec_index:%d, basename:%s, num_pids:%d",
          disk_id,rec_index,basename,num_pids);
 
-   if (-1 == Wrapper_PVR_Initialise()) {
+   if (-1 == Wrapper_PVR_Initialise(prs->is_timeshift ? 1 : 0)) {
       LOG_LEAVE_EARLY;
       return FALSE;
    }
@@ -564,7 +643,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    }
    else
    {
-      ret2 = Wrapper_PVR_File_create2((PU8BIT)path_prefix,prs->limit_size*1024*1024,prs->limit_seconds,0,&prs->dvr_file_handle);
+      ret2 = Wrapper_PVR_File_create2((PU8BIT)path_prefix,prs->limit_size*1024*1024,prs->limit_seconds,TRUE,&prs->dvr_file_handle);
    }
    if (ret2 == -1)
    {
@@ -578,6 +657,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
    params.jdvrfile_handle = prs->dvr_file_handle;
    params.segment_size = 30*1024*1024;
    params.callback = on_recorder_evt_cb;
+   params.is_timeshift = prs->is_timeshift;
 
    ret2 = Wrapper_PVR_Recorder_create(&params,&prs->dvr_recorder_handle);
    if (ret2 == -1)
@@ -633,6 +713,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       LOG_LEAVE_EARLY;
       return FALSE;
    }
+   prs->disk_id = disk_id;
 
    LOG_LEAVE;
    return TRUE;
@@ -689,6 +770,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
    const am_dvr_recorder_handle handle = prs->dvr_recorder_handle;
 
    U8BIT ret = Wrapper_PVR_Recorder_stop(handle);
+   prs->disk_id = INVALID_RES_ID;
 
    LOG_LEAVE;
 }
@@ -701,8 +783,9 @@ void STB_PVRRecordStop(U8BIT rec_index)
  */
 BOOLEAN STB_PVRRecordChangeDesMode(U8BIT rec_index, int mode)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
    return TRUE;
 }
 
@@ -715,8 +798,9 @@ BOOLEAN STB_PVRRecordChangeDesMode(U8BIT rec_index, int mode)
  */
 BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO *pids_array)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
    return TRUE;
 }
 
@@ -729,8 +813,9 @@ BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO
  */
 void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 #endif
 
@@ -742,8 +827,13 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
 BOOLEAN STB_PVRIsRecordStarted(U8BIT rec_index)
 {
    LOG_ENTER;
-   LOG_LEAVE;
+   S_REC_STATUS* prs = &s_rec_status[rec_index];
+   const am_dvr_recorder_handle handle = prs->dvr_recorder_handle;
 
+   BOOLEAN ret = ((prs->state >= 2 && prs->state <= 4) ? TRUE : FALSE);
+   PVR_DBG("rec_index:%d, state:%d, ret:%d",rec_index,prs->state,(int)ret);
+
+   LOG_LEAVE;
    return TRUE;
 }
 
@@ -755,8 +845,9 @@ BOOLEAN STB_PVRIsRecordStarted(U8BIT rec_index)
  */
 void STB_PVRRecordEnabled(U8BIT rec_index, BOOLEAN *video, BOOLEAN *audio)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -768,8 +859,9 @@ void STB_PVRRecordEnabled(U8BIT rec_index, BOOLEAN *video, BOOLEAN *audio)
  */
 void STB_PVRPlayTrickMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_PVR_PLAY_MODE mode, S16BIT speed)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -783,11 +875,24 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
 {
    LOG_ENTER;
 
-   PVR_DBG("speed: %d",(S32BIT)speed);
+   const int play_index = to_index(video_decoder,audio_decoder);
+   if ( play_index >= num_players )
+   {
+      PVR_ERR("Player index %d is invalid",play_index);
+      return FALSE;
+   }
+   S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
+
+   PVR_DBG("input speed: %hd",speed);
+   double speed2 = ((double)speed)/100.0;
+   int ret = Wrapper_PVR_Player_setSpeed(prps->dvr_player_handle,speed2);
+   if (ret == -1)
+   {
+      PVR_ERR("Failed to setSpeed %.2f",speed2);
+   }
 
    LOG_LEAVE;
-
-   return TRUE;
+   return (ret == 0) ? TRUE : FALSE;
 }
 
 /**
@@ -800,10 +905,10 @@ S16BIT STB_PVRGetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder)
 {
    //LOG_ENTER;
 
-   const U8BIT play_index = video_decoder;
+   const int play_index = to_index(video_decoder,audio_decoder);
    if ( play_index >= num_players )
    {
-      PVR_ERR("Invalid player index %u is given",(U32BIT)play_index);
+      PVR_ERR("Player index %d is invalid",play_index);
       return FALSE;
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
@@ -822,8 +927,9 @@ S16BIT STB_PVRGetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder)
  */
 void STB_PVRSaveFrame(U8BIT audio_decoder, U8BIT video_decoder)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -835,10 +941,30 @@ void STB_PVRSaveFrame(U8BIT audio_decoder, U8BIT video_decoder)
  */
 BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
 
-   return TRUE;
+   U8BIT path_prefix[256] = {0};
+   BOOLEAN ret = STB_DSKFullPathname(disk_id,basename,(PU8BIT)path_prefix,sizeof(path_prefix));
+   if (ret == FALSE)
+   {
+      PVR_ERR("Failed to get path prefix based on input disk_id %d and basename %s",disk_id,basename);
+      LOG_LEAVE_EARLY;
+      return FALSE;
+   }
+
+   int64_t recording_duration;
+   ret = Wrapper_PVR_File_duration2(path_prefix,&recording_duration);
+   if (ret == -1)
+   {
+      LOG_LEAVE_EARLY;
+      return FALSE;
+   }
+
+   ret = ((recording_duration>0) ? TRUE : FALSE);
+   PVR_DBG(" checking recording %s, result %s",path_prefix,(ret==TRUE ? "TRUE" : "FALSE"));
+
+   //LOG_LEAVE;
+   return ret;
 }
 
 /**
@@ -850,8 +976,9 @@ BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
  */
 BOOLEAN STB_PVRCanBeUsedForRecording(U16BIT disk_id, U8BIT *basename)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 
    return TRUE;
 }
@@ -885,7 +1012,7 @@ BOOLEAN STB_PVRDeleteRecording(U16BIT disk_id, U8BIT *basename)
    }
 
    LOG_LEAVE;
-   return TRUE;
+   return (ret == 0) ? TRUE : FALSE;
 }
 
 /**
@@ -909,27 +1036,16 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
    }
 
    S8BIT ret2 = 0;
-   am_dvr_file_handle handle;
-   ret2 = Wrapper_PVR_File_create3((PU8BIT)path_prefix,&handle);
-   if (ret2 == -1)
-   {
-      LOG_LEAVE_EARLY;
-      return FALSE;
-   }
-
    int64_t recording_size;
-   ret2 = Wrapper_PVR_File_size(handle,&recording_size);
+   ret2 = Wrapper_PVR_File_size2(path_prefix,&recording_size);
    if (ret2 == -1)
    {
-      Wrapper_PVR_File_destroy(handle);
       LOG_LEAVE_EARLY;
       return FALSE;
    }
 
    *rec_size_kb = recording_size/1024;
-   Wrapper_PVR_File_destroy(handle);
-
-   PVR_DBG(" returns %d kb",*rec_size_kb);
+   //PVR_DBG(" returns %d kb",*rec_size_kb);
 
    //LOG_LEAVE;
    return TRUE;
@@ -945,7 +1061,8 @@ BOOLEAN STB_PVRGetRecordingSize(U16BIT disk_id, U8BIT *basename, U32BIT *rec_siz
  */
 BOOLEAN STB_PVRGetRecordingLength(U16BIT disk_id, U8BIT *basename, U32BIT *rec_length_ms, U32BIT *rec_size_kb)
 {
-   LOG_ENTER;
+   //LOG_ENTER;
+
    U8BIT path_prefix[256] = {0};
    BOOLEAN ret1 = STB_DSKFullPathname(disk_id,basename,(PU8BIT)path_prefix,sizeof(path_prefix));
    if (ret1 == FALSE)
@@ -955,30 +1072,19 @@ BOOLEAN STB_PVRGetRecordingLength(U16BIT disk_id, U8BIT *basename, U32BIT *rec_l
       return FALSE;
    }
 
-   S8BIT ret2 = 0;
-   am_dvr_file_handle handle;
-   ret2 = Wrapper_PVR_File_create3((PU8BIT)path_prefix,&handle);
-   if (ret2 == -1)
-   {
-      LOG_LEAVE_EARLY;
-      return FALSE;
-   }
-
    int64_t recording_size;
-   ret2 = Wrapper_PVR_File_size(handle,&recording_size);
+   S8BIT ret2 = Wrapper_PVR_File_size2(path_prefix,&recording_size);
    if (ret2 == -1)
    {
-      Wrapper_PVR_File_destroy(handle);
       LOG_LEAVE_EARLY;
       return FALSE;
    }
    *rec_size_kb = recording_size/1024;
 
    int64_t recording_duration;
-   ret2 = Wrapper_PVR_File_duration(handle,&recording_duration);
+   ret2 = Wrapper_PVR_File_duration2(path_prefix,&recording_duration);
    if (ret2 == -1)
    {
-      Wrapper_PVR_File_destroy(handle);
       LOG_LEAVE_EARLY;
       return FALSE;
    }
@@ -986,8 +1092,7 @@ BOOLEAN STB_PVRGetRecordingLength(U16BIT disk_id, U8BIT *basename, U32BIT *rec_l
 
    PVR_DBG(" returns %d ms, %d kb",*rec_length_ms,*rec_size_kb);
 
-   Wrapper_PVR_File_destroy(handle);
-   LOG_LEAVE;
+   //LOG_LEAVE;
    return TRUE;
 }
 
@@ -1006,10 +1111,10 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *
 {
    //LOG_ENTER;
 
-   const U8BIT play_index = video_decoder;
+   const int play_index = to_index(video_decoder,audio_decoder);
    if ( play_index >= num_players )
    {
-      PVR_ERR("Invalid player index %u is given",(U32BIT)play_index);
+      PVR_ERR("Player index %d is invalid",play_index);
       return FALSE;
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
@@ -1035,9 +1140,21 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *
  */
 BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *msecs, U32BIT *msecs_truncated)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
 
+   if ( rec_index >= num_recorders )
+   {
+      PVR_ERR("Invalid recorder index %u is given",(U32BIT)rec_index);
+      return FALSE;
+   }
+
+   S_REC_STATUS* prs = &s_rec_status[rec_index];
+
+   const am_dvr_recording_progress progress = prs->progress;
+   *msecs = (U32BIT)progress.endTime;
+   *msecs_truncated = (U32BIT)progress.startTime;
+
+   //LOG_LEAVE;
    return TRUE;
 }
 
@@ -1051,8 +1168,9 @@ BOOLEAN STB_PVRGetRecordingLengthTruncated(U8BIT rec_index, U32BIT *msecs, U32BI
  */
 void STB_PVRSetRecordEncryptionKey(U8BIT rec_index, BOOLEAN state, U8BIT *key, U8BIT *iv, U32BIT key_len)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -1068,8 +1186,9 @@ void STB_PVRSetRecordEncryptionKey(U8BIT rec_index, BOOLEAN state, U8BIT *key, U
 void STB_PVRSetPlaybackDecryptionKey(U8BIT audio_decoder, U8BIT video_decoder, BOOLEAN state,
    U8BIT *key, U8BIT *iv, U32BIT key_len)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -1083,9 +1202,9 @@ void STB_PVRSetPlaybackDecryptionKey(U8BIT audio_decoder, U8BIT video_decoder, B
  */
 BOOLEAN STB_PVRPlayChangeAudio(U8BIT audio_decoder, U8BIT video_decoder, U16BIT pid, U8BIT codec)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
-
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
    return FALSE;
 }
 
@@ -1101,8 +1220,9 @@ BOOLEAN STB_PVRPlayChangeAudio(U8BIT audio_decoder, U8BIT video_decoder, U16BIT 
 void STB_PVRPlaySetRetentionLimit(U8BIT audio_decoder, U8BIT video_decoder, U32BIT retention_limit,
                                   U16BIT rec_date, U8BIT rec_hour, U8BIT rec_min)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
 }
 
 /**
@@ -1127,9 +1247,24 @@ U16BIT STB_PVRGetDefaultDiskForced(void)
 BOOLEAN PVRGetDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT *pcr_pid, U16BIT *video_pid, U16BIT *audio_pid, U16BIT *ad_pid)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
 
+   const int play_index = to_index(video_decoder,audio_decoder);
+   if ( play_index >= num_players )
+   {
+      PVR_ERR("Player index %d is invalid",play_index);
+      return FALSE;
+   }
+   S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
+
+   *pcr_pid = prps->video_pid;
+   *video_pid = prps->video_pid;
+   *audio_pid = prps->audio_pid;
+   *ad_pid = 0;
+   PVR_DBG("video_pid:%hu, audio_pid:%hu, ad_pid:%hu, pcr_pid:%hu",
+         *video_pid,*audio_pid,*ad_pid,*pcr_pid);
+
+   //LOG_LEAVE;
    return TRUE;
 }
 
@@ -1146,8 +1281,9 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid, U16BIT ad_pid,
    U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt, U16BIT audio_presentation_id)
 {
-   LOG_ENTER;
-   LOG_LEAVE;
+   //LOG_ENTER;
+   LOG_NOT_IMPLEMENTED;
+   //LOG_LEAVE;
    return TRUE;
 }
 
@@ -1157,7 +1293,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
  */
 U32BIT STB_PVRGetMinDiskSpace()
 {
-   return 0;
+   return getPVRConfigInt("vendor.tv.dtv.pvr.disk_free_min_to_start_kb", 0);
 }
 
 
@@ -1167,16 +1303,43 @@ U32BIT STB_PVRGetMinDiskSpace()
  */
 U32BIT STB_PVRGetMinDiskSpaceLeft()
 {
-   return 0;
+   return getPVRConfigInt("vendor.tv.dtv.pvr.disk_free_min_to_stop_kb", 10*1024);
 }
 
 void STB_PVRCheckDiskSpace(void)
 {
+   U8BIT index;
+   for (index = 0; index < num_recorders; index++)
+   {
+      if (STB_PVRIsRecordStarted(index))
+      {
+         U16BIT disk_id = s_rec_status[index].disk_id;
+         PVR_DBG("check disk_id [%u] mount[%d]index[%d]", disk_id, STB_DSKIsMounted(disk_id), index);
+         if (disk_id != INVALID_RES_ID && STB_DSKIsMounted(disk_id))
+         {
+            STB_DSKCheckSpace(disk_id);
+         }
+      }
+   }
 }
 
 BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **p_handle)
 {
-    return FALSE;
+   if (p_handle == NULL) {
+      PVR_ERR("Invalid handle pointer");
+      return FALSE;
+   }
+   const int play_index = to_index(video_decoder,audio_decoder);
+   if ( play_index >= num_players )
+   {
+      PVR_ERR("Player index %d is invalid",play_index);
+      return FALSE;
+   }
+   S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
+
+   *p_handle = (void*)prps->asplayer_handle;
+   PVR_DBG("returns asplayer handle: %p",*p_handle);
+   return TRUE;
 }
 
 /**
@@ -1190,6 +1353,7 @@ BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **
  */
 BOOLEAN STB_PVRStoreLibdvrExtParam1InPortingLayer(U8BIT rec_index, U8BIT val)
 {
+   LOG_NOT_IMPLEMENTED;
    return FALSE;
 }
 
@@ -1204,13 +1368,18 @@ static void on_recorder_evt_cb(am_dvr_recorder_handle handle, am_dvr_recorder_ev
       PVR_ERR("Input recorder handle %p is invalid",handle);
       return;
    }
+   U8BIT rec_index = distance(itBegin,it);
 
    if (event == AM_DVR_RECORDER_EVENT_PROGRESS) {
       am_dvr_recording_progress* evt = (am_dvr_recording_progress*) event_data;
       if (evt != NULL) {
+         it->progress = *evt;
+         it->state = (U8BIT)evt->state;
          PVR_DBG("AM_DVR_RECORDER_EVENT_PROGRESS: "
+               "sessionNumber:%d, state:%d, "
                "duration:%lld, startTime:%lld, endTime:%lld, "
                "numberOfSegments:%d, firstSegmentId:%d, lastSegmentId:%d, size:%lld",
+               evt->sessionNumber,evt->state,
                evt->duration,evt->startTime,evt->endTime,
                evt->numberOfSegments,evt->firstSegmentId,evt->lastSegmentId,evt->size);
       }
@@ -1223,12 +1392,22 @@ static void on_recorder_evt_cb(am_dvr_recorder_handle handle, am_dvr_recorder_ev
       it->state_cond.notify_all();
    } else if (event == AM_DVR_RECORDER_EVENT_STARTING_STATE) {
       PVR_DBG("AM_DVR_RECORDER_EVENT_STARTING_STATE");
+      it->state = 2;
    } else if (event == AM_DVR_RECORDER_EVENT_STARTED_STATE) {
       PVR_DBG("AM_DVR_RECORDER_EVENT_STARTED_STATE");
+      if (it->state == 2) {
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,&(it->rec_index),1);
+         PVR_DBG("signal PVR_REC_START");
+      }
+      it->state = 3;
    } else if (event == AM_DVR_RECORDER_EVENT_PAUSED_STATE) {
       PVR_DBG("AM_DVR_RECORDER_EVENT_PAUSED_STATE");
+      it->state = 4;
    } else if (event == AM_DVR_RECORDER_EVENT_STOPPING_STATE) {
       PVR_DBG("AM_DVR_RECORDER_EVENT_STOPPING_STATE");
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,&(it->rec_index),1);
+      PVR_DBG("signal PVR_REC_STOP");
+      it->state = 5;
    } else if (event == AM_DVR_RECORDER_EVENT_NO_DATA_ERROR) {
       PVR_DBG("AM_DVR_RECORDER_EVENT_NO_DATA_ERROR");
    } else if (event == AM_DVR_RECORDER_EVENT_IO_ERROR) {
@@ -1278,15 +1457,29 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       it->state = 2;
    } else if (event == AM_DVR_PLAYER_EVENT_SMOOTH_PLAYING_STATE) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_SMOOTH_PLAYING_STATE");
+      if (it->state == 2) {
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START,&(it->audio_decoder),1);
+         PVR_DBG("signal PVR_PLAY_START");
+      }
       it->state = 3;
    } else if (event == AM_DVR_PLAYER_EVENT_SKIPPING_PLAYING_STATE) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_SKIPPING_PLAYING_STATE");
+      if (it->state == 2) {
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START,&(it->audio_decoder),1);
+         PVR_DBG("signal PVR_PLAY_START");
+      }
       it->state = 4;
    } else if (event == AM_DVR_PLAYER_EVENT_PAUSED_STATE) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_PAUSED_STATE");
+      if (it->state == 2) {
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START,&(it->audio_decoder),1);
+         PVR_DBG("signal PVR_PLAY_START");
+      }
       it->state = 5;
    } else if (event == AM_DVR_PLAYER_EVENT_STOPPING_STATE) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_STOPPING_STATE");
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP,&(it->audio_decoder),1);
+      PVR_DBG("signal PVR_PLAY_STOP");
       it->state = 6;
    } else {
       PVR_DBG("unknown event: %d",event);
@@ -1374,5 +1567,34 @@ static int audio_codec_map1(E_STB_AV_AUDIO_CODEC format)
       default:
          return 0;
    }
+}
+
+static U32BIT getPVRConfigInt(const char *config, U32BIT def)
+{
+    char buf[16]={0};
+
+    if (!STB_Get_Prop(config,buf,sizeof(buf))) {
+        return def;
+    }
+
+    const long int i = strtol(buf,NULL,0);
+    if ((i == LONG_MIN || i == LONG_MAX) && errno == ERANGE) {
+        return def;
+    }
+
+    return (U32BIT)i;
+}
+
+static U8BIT to_index(U8BIT video_decoder, U8BIT audio_decoder)
+{
+   auto itBegin = s_recplay_status;
+   auto itEnd = s_recplay_status + MAX_PLAYERS;
+   auto pred = [video_decoder,audio_decoder](S_RECPLAY_STATUS& s){
+      bool cond1 = (video_decoder != INVALID_RES_ID && video_decoder == s.video_decoder);
+      bool cond2 = (audio_decoder != INVALID_RES_ID && audio_decoder == s.audio_decoder);
+      return cond1 || cond2;
+   };
+   auto it = find_if(itBegin,itEnd,pred);
+   return (it != itEnd) ? (U8BIT)distance(itBegin,it) : 255;
 }
 

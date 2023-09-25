@@ -24,11 +24,10 @@ typedef struct {
 
 /**Player initialization parameters. An input parameter of AmDvr_Player_create*/
 typedef struct {
-    jobject                     tuner;      // should supply android.media.tv.tuner.Tuner
+    jobject                     asplayer;      // should supply com.amlogic.asplayer.api.ASPlayer
     am_dvr_file_handle          jdvrfile_handle;
     jobject                     settings;   // should supply com.droidlogic.jdvrlib.JDvrPlayerSettings
     on_player_event_callback    callback;
-    jobject                     surface;
 } am_dvr_player_init_params;
 
 /**
@@ -117,6 +116,10 @@ am_dvr_result
 AmDvr_File_duration(
         am_dvr_file_handle handle,
         int64_t* pduration);
+am_dvr_result
+AmDvr_File_duration2(
+        const uint8_t* path_prefix,
+        int64_t* pduration);
 
 /**
  * @brief   Get recording size in bytes
@@ -127,6 +130,10 @@ AmDvr_File_duration(
 am_dvr_result
 AmDvr_File_size(
         am_dvr_file_handle handle,
+        int64_t* psize);
+am_dvr_result
+AmDvr_File_size2(
+        const uint8_t* path_prefix,
         int64_t* psize);
 
 /**

@@ -262,7 +262,6 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
 static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ResetDscChannel(U8BIT path, E_STB_DMX_DESC_TRACK track);
-static void STB_SetTsoutSource(BOOLEAN is_cam_plugin);
 static DVB_DemuxSource_t GetDemuxSourceByCfg(U8BIT ts_input_idx);
 static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src);
 static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src);
@@ -2391,7 +2390,6 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       {
          // cam card is unplug.used ori_tsinput_idx to
          // set ts_input_idx for dmx source
-         STB_SetTsoutSource(FALSE);
          aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.tuners[i].ori_tsinput_idx;
          DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.tuners[i].ori_tsinput_idx);
       }
@@ -2406,7 +2404,6 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          {
             // cam card is plug.used camPlug_tssource to
             // set ts_input_idx for dmx source
-            STB_SetTsoutSource(TRUE);
             aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
             DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
          }
@@ -2646,7 +2643,7 @@ E_STB_TS_SOURCE STB_GetDmxTsSource(int dmx_id)
  * @brief   set the tsout source when ts route is "tsin->tsout->tsin"
  * get ts out source from cfg
  */
-static void STB_SetTsoutSource(BOOLEAN is_cam_plugin)
+void STB_SetTsoutSource(BOOLEAN is_cam_plugin)
 {
    FUNCTION_START(STB_SetTsoutSource);
    if (aml_hw_cfg.cam[0].is_set_tsout)

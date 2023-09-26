@@ -3410,6 +3410,18 @@ static void PlayEventHandler(void* userdata, Aml_MP_PlayerEventType eventType, i
             STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_EOF, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
             break;
          }
+         case AML_MP_DVRPLAYER_EVENT_TIMESHIFT_FR_REACHED_BEGIN:
+         {
+            PLAY_DBG("TIMESHIFT_FR_REACHED_BEGIN");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_TIMESHIFT_FR_REACHED_BEGIN, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
+            break;
+         }
+         case AML_MP_DVRPLAYER_EVENT_TIMESHIFT_FF_REACHED_END:
+         {
+            PLAY_DBG("TIMESHIFT_FF_REACHED_END");
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_TIMESHIFT_FF_REACHED_END, &play_status->audio_decoder, sizeof(play_status->audio_decoder));
+            break;
+         }
          case AML_MP_DVRPLAYER_EVENT_ERROR:
          {
             /**< Playback fail*/

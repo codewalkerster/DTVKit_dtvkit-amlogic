@@ -2143,6 +2143,11 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
    FUNCTION_FINISH(PesCallback);
 }
 
+void STB_SetTsoutSource(BOOLEAN is_cam_plugin)
+{
+    //NA
+}
+
 BOOLEAN STB_DMXSetSource(U8BIT dmx_idx, U8BIT src)
 {
     return FALSE ;

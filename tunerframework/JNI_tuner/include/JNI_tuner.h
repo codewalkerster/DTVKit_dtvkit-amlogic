@@ -137,7 +137,8 @@ enum TUNER_TYPE {
     TUNER_TYPE_DVR_TIMESHIFT_RECORD = 3,
     TUNER_TYPE_DVR_PLAY             = 4,
     TUNER_TYPE_SCAN                 = 5,
-    TUNER_TYPE_FCC_TUNE             = 6,
+    TUNER_TYPE_FCC_TUNE_PREV        = 6,
+    TUNER_TYPE_FCC_TUNE_NEXT        = 7,
 };
 
 /*
@@ -183,14 +184,13 @@ jobject Am_tuner_getValidTuner();
 jobject Am_tuner_getRecordTuner();
 
 /**
-  * get dvr tuner object.
-  * @param tunerType see@enmu TUNER_TYPE.
-  * @return dvr tuner jobject or null.
-  */
- jobject Am_tuner_getDvrTunerByType(int tunerType);
+ * get dvr tuner object.
+ * @param tunerType see@enmu TUNER_TYPE.
+ * @return dvr tuner jobject or null.
+ */
+jobject Am_tuner_getDvrTunerByType(int tunerType);
 
- /**
-
+/**
  * register listener to receive tuner jobject life cycle status change.
  * @param listenerContext The listener context.
  * @return null.

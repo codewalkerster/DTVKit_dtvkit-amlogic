@@ -194,8 +194,6 @@ static BOOLEAN av_start_flag = FALSE;
 static U8BIT num_paths = 0;
 static BOOLEAN video_blank_lock = FALSE;
 static BOOLEAN audio_mute_lock = FALSE;
-static BOOLEAN pip_mode_enabled = FALSE;
-static BOOLEAN fcc_mode_enabled = FALSE;
 
 typedef enum
 {
@@ -3173,11 +3171,8 @@ int AV_CreateTsPlayer_l(U8BIT path,
         AV_DBG("Invalid path: %d", path);
         return -1;
     }
-    pip_mode_enabled = STB_Is_PIP_Enabled();
-    fcc_mode_enabled = STB_Is_FCC_Enabled();
-    AV_DBG("path: %d, pip: %d, fcc: %d", path, pip_mode_enabled, fcc_mode_enabled);
 
-    if (pip_mode_enabled)
+    if (STB_Is_PIP_Enabled())
     {
         if (Wrapper_Player_GetPlayerHandleByPath(0) != WRAPPER_PLAYER_INVALID_HANDLE)
         {
@@ -3405,7 +3400,26 @@ int AV_StartVideoDecode_l(U8BIT path, jni_asplayer_handle player_handle,
         return ret;
     }
 
-    if (!STB_Is_FCC_Enabled() || path == STB_AVGetPath(STB_DPGetFCCPlayingPath(), INVALID_RES_ID))
+    if (STB_Is_FCC_Enabled())
+    {
+        jni_asplayer_work_mode work_mode = IS_CACHED(av_paths_status[path].decoding_mode) ? JNI_ASPLAYER_WORK_MODE_CACHING_ONLY : JNI_ASPLAYER_WORK_MODE_NORMAL;
+
+        if (path == STB_AVGetPath(STB_DPGetFCCPlayingPath(), INVALID_RES_ID))
+        {
+            ret = Wrapper_Player_SetSurface(player_handle);
+            if (ret < 0)
+            {
+                VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
+            }
+        }
+
+        ret = Wrapper_Player_SetWorkMode(player_handle, work_mode);
+        if (ret < 0)
+        {
+            VID_DBG("set work mode failed, err:%d, player[0x%u]", ret, player_handle);
+        }
+    }
+    else
     {
         ret = Wrapper_Player_SetSurface(player_handle);
         if (ret < 0)
@@ -3414,11 +3428,6 @@ int AV_StartVideoDecode_l(U8BIT path, jni_asplayer_handle player_handle,
         }
     }
 
-    ret = Wrapper_Player_SetWorkMode(player_handle, av_paths_status[path].decoding_mode);
-    if (ret < 0)
-    {
-        VID_DBG("set work mode failed, err:%d, player[0x%u]", ret, player_handle);
-    }
 
     ret = Wrapper_Player_StartVideoDecoding(player_handle);
     if (ret < 0)

@@ -39,6 +39,7 @@ enum tvin_sig_status_e {
 typedef void (*AM_VDIN_STATUS_Callback_t) (int status);
 
 extern int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb);
+extern int close_vdin_signal_detect();
 extern int stop_vdin_signal_detect();
 extern int set_tvafe(int videoStd, int audioStd, int vfmt);
 extern int set_atv_path();

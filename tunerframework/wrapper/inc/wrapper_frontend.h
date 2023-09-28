@@ -189,11 +189,9 @@ typedef enum
 typedef struct
 {
     EW_STB_TUNE_BlindStatus_t    status; /**< Blindscan status*/
-    union
-    {
-        unsigned int freq;
-        unsigned int process;
-    };
+    unsigned int freq;
+    unsigned int srate;
+    unsigned int process;
 } EW_STB_TUNE_BlindEvent_t;
 
 

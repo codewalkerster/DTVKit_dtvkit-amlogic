@@ -240,6 +240,10 @@ static void* vlfend_thread(void *arg)
             pthread_mutex_unlock(&dev->lock);
             pthread_cond_broadcast(&dev->cond);
         }
+        else
+        {
+            usleep(300);
+        }
     }
 
     DTV_LOGI(TAG, "[%s] EXIT", __FUNCTION__);

@@ -16,12 +16,18 @@ extern "C" {
 
 #define BUFFER_SIZE_SECTION_DEFAULT 1024 * 4L
 #define INVALID_TUNER_ID 0xFFFF
+#define INVALID_TUNER_PATH 0xFF
+
 
 //---Constant and macro definitions for public use-----------------------------
 #define SYMBOL_RATE_AUTO         0
 #define INVALID_FD               -1
 
 #define MAX_PLP_NUMBER      256
+
+#define WRPPER_HW_EV_CLASS_TUNER             3
+#define WRPPER_HW_EV_TYPE_LOCKED             2
+#define WRPPER_HW_EV_TYPE_NOTLOCKED          3
 
 
 //---Enumerations for public use-----------------------------------------------
@@ -243,10 +249,11 @@ typedef enum
     E_TUNER_EXITED
 } EE_TUNER_STATE;
 
-typedef void(*SendEvent) (BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size);
+
+typedef void (* Wrapper_SendEvent) (BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size);
 
 BOOLEAN tuner_getFrontendIds(U8BIT path);
-typedef void (*Wrapper_Tnue_BlindCallback_t) (int dev_no, EW_STB_TUNE_BlindEvent_t *evt, void *user_data);
+typedef void (* Wrapper_Tune_BlindCallback_t) (int dev_no, EW_STB_TUNE_BlindEvent_t *evt, void *user_data);
 
 
 //---Global Function prototypes for public use---------------------------------
@@ -350,8 +357,8 @@ U32BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path);
  * @param   anlg_vtype The type of video for analogue tuner
  */
 void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_FEC fec,
-                        S8BIT freq_off, EW_STB_TUNE_TMODE tmode, EW_STB_TUNE_TBWIDTH tbwidth,
-                        EW_STB_TUNE_CMODE cmode, EW_STB_TUNE_ANALOG_VIDEO_TYPE anlg_vtype);
+                                   EW_STB_TUNE_TMODE tmode, EW_STB_TUNE_TBWIDTH tbwidth,
+                                   EW_STB_TUNE_CMODE cmode);
 
 /**
  * @brief   Restarts tuner and attempts to lock to signal in StartTuner call
@@ -370,7 +377,7 @@ void Wrapper_TuneStopTuner(U8BIT path);
  * @param   path the tuner path to query
  * @return  the signal strength as percentage of maximum (0-100)
  */
-U8BIT Wrapper_TuneGetSignalStrength(U8BIT path);
+U32BIT Wrapper_TuneGetSignalStrength(U8BIT path);
 
 /**
  * @brief   Returns the current data integrity
@@ -385,7 +392,7 @@ U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path);
  * @return  the signal quality
  * @todo     Confirm DVB API BER units
  */
-U8BIT Wrapper_TuneGetSignalQuality(U8BIT path);
+U32BIT Wrapper_TuneGetSignalQuality(U8BIT path);
 
 /**
  * @brief   Returns the actual frequency of the current terrestrial signal
@@ -678,7 +685,8 @@ void Wrapper_TuneAllStop();
 
 EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path);
 
-void RegisterCallback(SendEvent callback);
+void Wrapper_RegisterCallback(Wrapper_SendEvent callback);
+
 
 //BOOLEAN Wrapper_IsTVPlatform(void);
 //dvb-c
@@ -688,7 +696,7 @@ EW_STB_TUNE_CMODE Wrapper_TuneGetActualCableMode(U8BIT path);
 
 EW_STB_TUNE_MODULATION Wrapper_TuneGetModulation(U8BIT path);
 void Wrapper_TuneSetModulation(U8BIT path, EW_STB_TUNE_MODULATION modulation);
-void Wrapper_TuneSetLOFrequency(U8BIT tuner, U16BIT lo_freq);
+void Wrapper_TuneSetLOFrequency(U8BIT path, U16BIT lo_freq);
 EW_STB_TUNE_LNB_VOLTAGE Wrapper_TuneGetLNBVoltage(U8BIT path);
 void Wrapper_TuneSetLNBVoltage(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune);
 void Wrapper_TuneSetVoltageInterface(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage);
@@ -700,7 +708,7 @@ void Wrapper_TuneSendBurstMessage(U8BIT path, U8BIT data);
 void Wrapper_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT timeout);
 
 //Pr5
-BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tnue_BlindCallback_t cb, void *user_data,
+BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindCallback_t cb, void *user_data,
                                       unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable);
 BOOLEAN Wrapper_Tune_BlindExit(U8BIT path);
 void Wrapper_Tune_BlindGetTPCount(U8BIT path, U16BIT *count);

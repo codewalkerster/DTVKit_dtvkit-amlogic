@@ -68,12 +68,10 @@
 #define TUN_INFO(x,...)         STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 /*---local (static) variable declarations for this file----------------------*/
-typedef void (*WrapperSendEvent) (BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size);
-void EventCallback(BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size)
+static void Tuner_EventCallback(BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size)
 {
-    TUN_DBG("EventCallback");
+    TUN_DBG("Tuner_EventCallback");
     STB_OSSendEvent(repeat, event_class, event_type, data, data_size);
-    return;
 }
 
 /*---global function definitions---------------------------------------------*/
@@ -219,12 +217,11 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
     USE_UNWANTED_PARAM(freq_off);
     USE_UNWANTED_PARAM(anlg_vtype);
 
-    TUN_ERR("%s enter", __FUNCTION__);
-
     TUN_DBG("STB_TuneStartTuner enter %d",freq);
-    WrapperSendEvent Register_event = EventCallback;
-    RegisterCallback(Register_event);
-    Wrapper_TuneStartTuner(path, freq, srate, fec,freq_off, tmode, tbwidth, cmode, anlg_vtype);
+
+    Wrapper_SendEvent callback = Tuner_EventCallback;
+    Wrapper_RegisterCallback(callback);
+    Wrapper_TuneStartTuner(path, freq, srate, fec, tmode, tbwidth, cmode);
 
     FUNCTION_FINISH(STB_TuneStartTuner);
 }
@@ -347,7 +344,7 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalStrength);
 
-    retval = Wrapper_TuneGetSignalStrength(path);
+    retval = (U8BIT)Wrapper_TuneGetSignalStrength(path);
 
     FUNCTION_FINISH(STB_TuneGetSignalStrength);
 
@@ -397,7 +394,7 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalQuality);
 
-    retval = Wrapper_TuneGetSignalQuality(path);
+    retval = (U8BIT)Wrapper_TuneGetSignalQuality(path);
 
     FUNCTION_FINISH(STB_TuneGetSignalQuality);
 
@@ -887,11 +884,11 @@ void STB_TuneChangeSkewPosition(U8BIT path, U16BIT count)
  * @brief   Sets the local oscillator frequency used by the LNB
  * @param   path the tuner path to query
  */
-void STB_TuneSetLOFrequency(U8BIT tuner, U16BIT lo_freq)
+void STB_TuneSetLOFrequency(U8BIT path, U16BIT lo_freq)
 {
     FUNCTION_START(STB_TuneSetLOFrequency);
 
-    Wrapper_TuneSetLOFrequency(tuner, lo_freq);
+    Wrapper_TuneSetLOFrequency(path, lo_freq);
 
     FUNCTION_FINISH(STB_TuneSetLOFrequency);
 }
@@ -1193,7 +1190,7 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
     w_unicable.uncommitted = unicable.uncommitted;
     w_unicable.committed = unicable.committed;
 
-    if (!Wrapper_Tune_BlindScan(path, terr_type, (Wrapper_Tnue_BlindCallback_t)cb, user_data, start_freq, stop_freq, w_unicable))
+    if (!Wrapper_Tune_BlindScan(path, terr_type, (Wrapper_Tune_BlindCallback_t)cb, user_data, start_freq, stop_freq, w_unicable))
     {
         E_STB_TUNE_BlindEvent_t evt;
         evt.status = AM_FEND_BLIND_START_FAILED;

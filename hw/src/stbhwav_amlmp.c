@@ -1469,12 +1469,6 @@ void STB_AVStartVideoDecoding(U8BIT path)
                 VID_DBG("-->Show video");
         }
 
-        Aml_MP_PlayerWorkMode work_mode =
-              IS_CACHED(av_paths_status[av_path].decoding_mode) ? AML_MP_PLAYER_MODE_CACHING_ONLY : AML_MP_PLAYER_MODE_NORMAL;
-         ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void*)&work_mode);
-         if (ret < 0) {
-             VID_DBG("Cannot set decoding mode, video path:(%d, %d)", av_path, av_paths_status[av_path].video_decoder);
-         }
          switch (AV_GetDecoderState_l(player_handle, VIDEO_DECODER))
          {
          case DECODER_STATE_STARTED:
@@ -4168,7 +4162,7 @@ int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_
 
          ret = AV_CreateTsPlayer_l(av_path, mode, av_paths_status[av_path].demux, 0);
 
-         if (ret != AML_MP_OK && IS_CACHED(av_paths_status[av_path].decoding_mode))
+         if (IS_CACHED(av_paths_status[av_path].decoding_mode))
          {
             Aml_MP_PlayerWorkMode work_mode = AML_MP_PLAYER_MODE_CACHING_ONLY;
             int result = Aml_MP_Player_SetParameter(av_paths_status[av_path].player_handle, AML_MP_PLAYER_PARAMETER_WORK_MODE, (void *)(&work_mode));

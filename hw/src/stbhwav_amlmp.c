@@ -900,6 +900,12 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
 
    FUNCTION_FINISH(STB_AVBlankVideo);
 }
+
+U32BIT STB_AVGetBlankFlag(U8BIT path)
+{
+   return av_paths_status[path].video_out_control;
+}
+
 /**
  * @brief   clearlastframe or unclearlastframe the video display
  * @param   path video path

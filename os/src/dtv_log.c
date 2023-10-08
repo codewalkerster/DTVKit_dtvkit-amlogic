@@ -200,7 +200,7 @@ void DTV_LOG(U32BIT loglevel, const char* module, const char* format, ...)
 
         SYSTEMTIME localSysTime;
         GetLocalTime(&localSysTime);
-        sprintf(msg, "[%2d-%2d-%2d:%3d] <tid:%u>\tDTV_LOG: %s",
+        snprintf(msg, sizeof(msg), "[%2d-%2d-%2d:%3d] <tid:%u>\tDTV_LOG: %s",
                         localSysTime.wHour, localSysTime.wMinute,
                         localSysTime.wSecond, localSysTime.wMilliseconds,
                         pthread_getw32threadid_np(tid), dtv_log_buff);
@@ -225,7 +225,7 @@ void DTV_LOG(U32BIT loglevel, const char *module, const char *format, ...)
             /* For Custom, The lowest log level that can be output is ANDROID LOG INFO. */
             loglevel = ANDROID_LOG_INFO;
         }
-        sprintf(exformat,"<%s> %s", module, format);
+        snprintf(exformat, sizeof(exformat), "<%s> %s", module, format);
 
         va_start(vparams, format);
         vsnprintf(dtv_log_buff, sizeof(dtv_log_buff), exformat, vparams);

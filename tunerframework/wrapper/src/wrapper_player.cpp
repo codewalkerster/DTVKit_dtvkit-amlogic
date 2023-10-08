@@ -39,7 +39,7 @@ typedef struct
 
 static WRAPPER_PLAYER_AV_STATUS *wp_player_av_status = NULL;
 
-static int player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, int audioStreamType, jni_asplayer_handle handle);
+static int player_GetAVFilterId(BOOLEAN isAudio, int pid, int videoStreamType, int audioStreamType, jni_asplayer_handle handle);
 static int player_GetAvSyncHwId(jni_asplayer_handle handle);
 static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
 static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
@@ -622,9 +622,9 @@ jni_asplayer_handle Wrapper_Player_GetPlayerHandleByPath(U16BIT av_path)
     return wp_player_av_status[av_path].player_handle;
 }
 
-static int player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, int audioStreamType, jni_asplayer_handle handle)
+static int player_GetAVFilterId(BOOLEAN isAudio, int pid, int videoStreamType, int audioStreamType, jni_asplayer_handle handle)
 {
-    ALOGD("start:%s, isAudio : %d, pid :%d, vidoeStreamType : %d, audioStreamType : %d ", __FUNCTION__, isAudio, pid, vidoeStreamType, audioStreamType);
+    ALOGD("start:%s, isAudio : %d, pid :%d, videoStreamType : %d, audioStreamType : %d ", __FUNCTION__, isAudio, pid, videoStreamType, audioStreamType);
 
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -635,8 +635,8 @@ static int player_GetAVFilterId(BOOLEAN isAudio, int pid, int vidoeStreamType, i
     jobject avFilter;
     U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
     if (true == isAudio) {
-        Am_filter_callback vidoefilterCallback = player_VideoFilterCallback;
-        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT, (long)vidoefilterCallback);
+        Am_filter_callback videofilterCallback = player_VideoFilterCallback;
+        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT, (long)videofilterCallback);
     } else {
         Am_filter_callback audioCallback = player_AudioFilterCallback;
         avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_VIDEO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioCallback);
@@ -701,7 +701,7 @@ static int player_GetAvSyncHwId(jni_asplayer_handle handle)
     U16BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
     int avSyncHwId = Am_tuner_getAvSyncHwId(wp_player_av_status[av_path].playerClient,
         wp_player_av_status[av_path].playerWeakRefVideoFilter != NULL ? wp_player_av_status[av_path].playerWeakRefVideoFilter : wp_player_av_status[av_path].playerWeakRefAudioFilter);
-    ALOGD("end:%s, AV SyncHwId : %d", __FUNCTION__, avSyncHwId);
+    ALOGD("end:%s, playerClient: %d, AV SyncHwId : %d", __FUNCTION__, wp_player_av_status[av_path].playerClient, avSyncHwId);
     return avSyncHwId;
 }
 

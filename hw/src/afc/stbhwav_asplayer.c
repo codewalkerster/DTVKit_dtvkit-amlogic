@@ -2860,15 +2860,20 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
             ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
             if (ret == 0) {
                 jni_asplayer_work_mode work_mode = IS_CACHED(mode) ? JNI_ASPLAYER_WORK_MODE_CACHING_ONLY : JNI_ASPLAYER_WORK_MODE_NORMAL;
+                BOOLEAN fcc_enabled = STB_Is_FCC_Enabled();
 
-                ret = Wrapper_Player_SetWorkMode(player_handle, work_mode);
+                if (fcc_enabled)
+                {
+                    ret = Wrapper_Player_SetWorkMode(player_handle, work_mode);
+                }
 
-                AV_DBG("set work mode: %d:[%d:%d] work_mode = %d, ret = %d, player_handle= %u",
+                AV_DBG("set work mode: %d:[%d:%d] work_mode = %d, ret = %d, fcc = %d, player_handle= %u",
                     av_path,
                     av_paths_status[av_path].video_decoder,
                     av_paths_status[av_path].audio_decoder,
                     work_mode,
                     ret,
+                    fcc_enabled,
                     player_handle);
             } else {
                 AV_DBG("failed to get player handle, %d[%d:%d]",
@@ -3139,7 +3144,8 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
     status = (AV_PATH_STATUS *)user_data;
     info.flags = 0;
     jni_asplayer_event_type eventType  = event->type;
-    AV_DBG("[evt] eventType: %d", eventType);
+    if (eventType > 0)
+        AV_DBG("[evt] eventType: %d", eventType);
 
     switch (eventType)
     {

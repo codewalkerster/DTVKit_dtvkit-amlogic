@@ -4,6 +4,13 @@
 include $(CURDIR)/../../android-rpcservice/FuncCfg.mk
 
 include ../Config.mk
+
+ifdef DTVKIT_INCLUDE_TEMI
+    ifeq ($(DTVKIT_INCLUDE_TEMI),1)
+        DEFINES += TEMI_TIMELINES
+    endif
+endif
+
 INCLUDES = ./inc \
           $(DTVKIT_DVBCORE_ROOT)/inc \
           $(DTVKIT_DVBCORE_ROOT)/platform/inc \

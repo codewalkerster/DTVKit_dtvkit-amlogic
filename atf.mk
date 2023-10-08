@@ -184,6 +184,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/systemcontrol.cpp \
     hw/src/stbhwtun_ex.c \
     hw/src/fsm_base.c \
+    hw/src/afd_ctrl.c \
     hw/atv/linux_v4l2.c \
     hw/atv/atv_vlfend.c \
     hw/atv/atv_vlfend_test.c \
@@ -236,6 +237,10 @@ endif
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_VENDOR_MODULE := true
     LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION
+endif
+
+ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK),true)
+    LOCAL_CFLAGS += -DUSE_AFD_DEVICE
 endif
 
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice

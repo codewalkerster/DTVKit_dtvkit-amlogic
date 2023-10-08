@@ -42,6 +42,7 @@
 #include "stbhwdef.h"
 #include "stb_utils.h"
 #include "stbhwdemux_usb.h"
+#include "afd_ctrl.h"
 
 #ifdef SUPPORT_CAS
 #include "ca_glue.h"
@@ -1179,7 +1180,6 @@ void  STB_AVResumeVideoDecoding(U8BIT path)
 void STB_AVStopVideoDecoding(U8BIT path)
 {
     int ret;
-    char afd_cmd[16];
     S_STB_AV_VIDEO_INFO info;
     jni_asplayer_handle player_handle;
     FUNCTION_START(STB_AVStopVideoDecoding);
@@ -3252,11 +3252,8 @@ int AV_CreateTsPlayer_l(U8BIT av_path,
         };
         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
 
-        char afd_cmd[16];
-        snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", av_path, decoder_id);
-        AV_DBG("[AFD] [%d:%d] enable afd for player created.", av_path, decoder_id);
-        if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-            AV_DBG("[AFD] (%d:%d) enable afd failed when player created.", av_path, decoder_id);
+        //create afd context
+        afd_create_context(av_path, decoder_id);
     }
     else
     {
@@ -3269,7 +3266,6 @@ int AV_CreateTsPlayer_l(U8BIT av_path,
 int AV_ReleaseTsPlayer_l(U8BIT av_path)
 {
     int ret = 0;
-    char afd_cmd[16];
 
     if (av_path >= num_paths)
     {
@@ -3280,10 +3276,7 @@ int AV_ReleaseTsPlayer_l(U8BIT av_path)
     AV_DBG("Will Release Ts player");
 
     //release afd context
-    snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", av_path);
-    AV_DBG("[AFD] [%d] disable afd for tsplayer released.", av_path);
-    if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-       AV_DBG("[AFD] [%d] disable afd failed when player stopped.", av_path);
+    afd_release_context(av_path);
 
     if (IS_INVALID_PLAYER_HANDLE(av_path))
     {

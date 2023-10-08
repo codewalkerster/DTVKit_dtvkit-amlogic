@@ -44,6 +44,7 @@
 #include "stbhwdef.h"
 #include "stb_utils.h"
 #include "stbhwdemux_usb.h"
+#include "afd_ctrl.h"
 
 /* third party header files */
 /*#define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP*/
@@ -1585,7 +1586,6 @@ void  STB_AVResumeVideoDecoding(U8BIT path)
 void STB_AVStopVideoDecoding(U8BIT path)
 {
    int ret;
-   char afd_cmd[16];
    S_STB_AV_VIDEO_INFO info;
    AML_MP_PLAYER player_handle;
    FUNCTION_START(STB_AVStopVideoDecoding);
@@ -1687,10 +1687,8 @@ void STB_AVStopVideoDecoding(U8BIT path)
                {
                   av_paths_status[av_path].video_pid = video_pid;
                   if (AV_GetDecoderState_l(player_handle, AUDIO_DECODER) == DECODER_STATE_STOPPED) {
-                     snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", av_path);
-                     AV_DBG("[AFD] [%d] disable afd for stop decoding.", av_path);
-                     if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-                        AV_DBG("[AFD] [%d] disable afd failed when player stopped.", av_path);
+                     //release afd context
+                     afd_release_context(av_path);
                   } else {
                      VID_DBG("av-pvr: A NOW: A_START");
                   }
@@ -4062,12 +4060,8 @@ int AV_CreateTsPlayer_l(U8BIT path,
              };
          STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
       }
-
-      char afd_cmd[16];
-      snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", path, decoder_id);
-      AV_DBG("[AFD] [%d:%d] enable afd for player created.", path, decoder_id);
-      if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-         AV_DBG("[AFD] (%d:%d) enable afd failed when player created.", path, decoder_id);
+      //create afd context
+      afd_create_context(path, decoder_id);
 
       bool useTif = true;
       Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_USE_TIF, &useTif);
@@ -4102,7 +4096,6 @@ int AV_CreateTsPlayer_l(U8BIT path,
 int AV_ReleaseTsPlayer_l(U8BIT path)
 {
    int ret = 0;
-   char afd_cmd[16];
 
    if (path >= num_paths)
    {
@@ -4113,10 +4106,7 @@ int AV_ReleaseTsPlayer_l(U8BIT path)
    AV_DBG("Will Release Ts player");
 
    //release afd context
-   snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", path);
-   AV_DBG("[AFD] [%d] disable afd for tsplayer released.", path);
-   if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-      AV_DBG("[AFD] [%d] disable afd failed when player stopped.", path);
+   afd_release_context(path);
 
    if (IS_INVALID_PLAYER_HANDLE(path))
    {

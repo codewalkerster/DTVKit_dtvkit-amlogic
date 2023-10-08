@@ -36,6 +36,7 @@ extern "C" {
 //#include "stbhwmem.h"
 //#include "stbhwdmx.h"
 //#include "stb_utils.h"
+#include "afd_ctrl.h"
 }
 
 #include "wrapper_pvr.h"
@@ -319,6 +320,10 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    PVR_INFO("ASPlayer handle: %p",asplayer_handle);
    prps->asplayer_handle = asplayer_handle;
 
+   //create afd context
+   uint32_t decoder_id = Wrapper_Player_GetInstanceNo(asplayer_handle);
+   afd_create_context(av_path, decoder_id);
+
    STB_AVSetPlayerHandle(audio_decoder,video_decoder,asplayer_handle);
 
    U8BIT path_prefix[256] = {0};
@@ -489,6 +494,9 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
       PVR_ERR("Failed to stop playback");
    }
    prps->in_use = FALSE;
+
+   //release afd context
+   afd_release_context(play_index);
 
    LOG_LEAVE;
 }

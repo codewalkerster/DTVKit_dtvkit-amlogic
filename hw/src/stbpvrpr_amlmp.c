@@ -47,7 +47,7 @@
 #include "stbhwcfg.h"
 #include "stb_utils.h"
 #include "stbca.h"
-
+#include "afd_ctrl.h"
 
 /* third party header files */
 #define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP
@@ -788,7 +788,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       }
       {
          PLAY_DBG("ready to start play..........");
-#if SC2_USBCAM_ENABLE 
+#if SC2_USBCAM_ENABLE
          if ((STB_DMXGetModel() == STB_DMX_MODEL_SC2) && (s_recplay_status[play_index].clearkey.enabled == TRUE))
          {
             sc2_playback_setkey(play_index, PLAYBACK_AUDIO_CHANNEL);
@@ -925,7 +925,6 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
 void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 {
    int error;
-   char afd_cmd[16];
    U8BIT play_index;
 
    FUNCTION_START(STB_PVRPlayStop);
@@ -971,10 +970,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 #endif
          error = Aml_MP_DVRPlayer_Destroy(s_recplay_status[play_index].player);
 
-         snprintf(afd_cmd, sizeof(afd_cmd), "%d 0 0", play_index);
-         PLAY_DBG("[AFD] [%d] disable afd for dvr player stopped.", play_index);
-         if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-            PLAY_DBG("[AFD] [%d] disable afd failed when dvr player stopped.", play_index);
+         //release afd context
+         afd_release_context(play_index);
 #if 0
          {
             /*release TsPlayer*/
@@ -3114,7 +3111,6 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       {
          {
             U32BIT decoder_id;
-            char afd_cmd[16];
             int ret = Aml_MP_DVRPlayer_GetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
             if (ret != 0)
                decoder_id = -1;
@@ -3128,10 +3124,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
                 };
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
 
-            snprintf(afd_cmd, sizeof(afd_cmd), "%d %d 1", play_index, decoder_id);
-            PLAY_DBG("[AFD] [%d:%d] enable afd for dvr player created.", play_index, decoder_id);
-            if (!STB_File_Echo("/sys/class/afd_module/enable", afd_cmd))
-               PLAY_DBG("[AFD] [%d:%d] enable afd failed when dvr player created.", play_index, decoder_id);
+            //create afd context
+            afd_create_context(play_index, decoder_id);
          }
 
 #ifdef RDK_COMPILE

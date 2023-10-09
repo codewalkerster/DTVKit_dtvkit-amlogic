@@ -21,8 +21,8 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libbase
 
-ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include/JNI_tuner.h),)
-$(warning "build jni")
+ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
+$(warning "build jni => $(PRODUCT_SUPPORT_TUNER_FRAMEWORK)")
     LOCAL_C_INCLUDES += vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include
     LOCAL_C_INCLUDES += vendor/amlogic/reference/apps/JDvrLib/jni/include
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include

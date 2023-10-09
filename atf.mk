@@ -127,16 +127,14 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
     bionic/libc/stdio \
     bionic/libc/include \
     bionic/libc/../libm/include
-ifneq ($(wildcard $(LOCAL_PATH)/../../../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include/JNI_tuner.h),)
+ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
     LOCAL_C_INCLUDES += \
         vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
-        vendor/amlogic/reference/apps/JDvrLib/jni/include \
-        $(LOCAL_PATH)/../android-inputsource/logicdtvkit/src/logictuner/tuner_jni/include
+        vendor/amlogic/reference/apps/JDvrLib/jni/include
 else
     LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
-        $(LOCAL_PATH)/tunerframework/JNI_dvr/include \
-        $(LOCAL_PATH)/tunerframework/JNI_tuner/include
+        $(LOCAL_PATH)/tunerframework/JNI_dvr/include
 endif
 LOCAL_CFLAGS += \
     -Wno-unused-function \

@@ -300,16 +300,31 @@ extern "C" int SC_setATVVideoColor(int forceColor, int setColor, int freq)
             color = setColor;
         }
         SCDBG(" color: %d freq: %d!\n", color, freq);
-        switch (freq) {
-            case 4://VIDEO_LAYER_COLOR_SHOW_ONCE
-                sws->setVideoScreenColorByVT(0,color,4);
-                break;
-            case 5://VIDEO_LAYER_COLOR_SHOW_ALWAYES
-                sws->setVideoScreenColorByVT(0,color,5);
-                break;
-            case 6://VIDEO_LAYER_COLOR_SHOW_DISABLE
-                sws->setVideoScreenColorByVT(0,color,6);
-                break;
+        if (STB_IsNewHW())
+        {
+            switch (freq) {
+                case 4://VIDEO_LAYER_COLOR_SHOW_ONCE
+                    sws->setVideoScreenColorByVT(0,color,4);
+                    break;
+                case 5://VIDEO_LAYER_COLOR_SHOW_ALWAYES
+                    sws->setVideoScreenColorByVT(0,color,5);
+                    break;
+                case 6://VIDEO_LAYER_COLOR_SHOW_DISABLE
+                    sws->setVideoScreenColorByVT(0,color,6);
+                    break;
+            }
+        }
+        else
+        {
+            if (freq == 6)
+            {
+                sws->setVideoScreenColor(VIDEO_LAYER_COLOR_MAX);
+            }
+            else
+            {
+                sws->setVideoScreenColor(color);
+            }
+
         }
         SC_WriteSysfs("/sys/class/video/test_screen", "0x108080");
     }

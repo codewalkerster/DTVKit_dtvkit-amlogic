@@ -1820,7 +1820,7 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN r
 {
     FUNCTION_START(STB_TuneSetLNBVoltage);
 
-    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    if (path < num_paths)
     {
         if (tuner_status[path].u.sat.lnb_voltage != voltage)
         {
@@ -1962,7 +1962,7 @@ void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
 {
     FUNCTION_START(STB_TuneSet22kState);
 
-    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QPSK))
+    if (path < num_paths)
     {
         if (tuner_status[path].u.sat.use_22khz != state)
         {
@@ -2870,7 +2870,8 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
     {
         TUN_DBG("path %u: close tuner frontend_fd:%d", tstatus->path,tstatus->frontend_fd);
 
-        if (tstatus->signal_type == TUNE_SIGNAL_QPSK)
+        // !!! Not check QPSK since signal type may be set to none before closed
+        // if (tstatus->signal_type == TUNE_SIGNAL_QPSK)
         {
             TUN_DBG("path %u: lnb power and 22khz off frontend_fd:%d", tstatus->path,tstatus->frontend_fd);
             STB_TuneSetLNBVoltage(tstatus->path, LNB_VOLTAGE_OFF, FALSE);

@@ -144,7 +144,7 @@ void STB_CADescrambleServiceStop(UINTPTR handle)
  * @brief   This function will be called when set CA descramble ioctl
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CADescrambleIoctl(UINTPTR handle, const char* inJson, char* outJson, U32BIT outLen)
+void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session,  const char* inJson, char* outJson, U32BIT outLen)
 {
 }
 

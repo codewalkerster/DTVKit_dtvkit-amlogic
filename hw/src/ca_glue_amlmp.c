@@ -46,6 +46,7 @@
 #include "stbheap.h"
 #include "ca_glue.h"
 #include "stbhwcfg.h"
+#include "stberc.h"
 
 #ifdef SUPPORT_CAS
 #include "stbsiflt.h"
@@ -409,7 +410,6 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
         }
     }
     cJSON_AddNumberToObject(data, "session", (UINTPTR)session);
-    cJSON_PrintPreallocated(data, cas_event_data.data_str, CAS_MSG_LEN, 0);
 
     if (cJSON_IsNumber(pathType))
         cas_event_data.pathType = (U8BIT)(pathType->valuedouble);
@@ -425,8 +425,32 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
     }
 
     cas_event_data.path = cas_path;
-    CA_DBG("%s:%s", __func__, cas_event_data.data_str);
-    STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, HW_EV_TYPE_CAS_MSG, &cas_event_data, sizeof(cas_event_data));
+
+    U32BIT data_len = strlen(json);
+    if (data_len + 1 < CAS_MSG_LEN)
+    {
+        cJSON_PrintPreallocated(data, cas_event_data.data_str, CAS_MSG_LEN, 0);
+        CA_DBG("%s:%s", __func__, cas_event_data.data_str);
+        STB_ERSendEvent(FALSE, FALSE, EV_CLASS_CAS, EV_TYPE_CAS, &cas_event_data, sizeof(cas_event_data));
+    }
+    else
+    {
+        CAS_EVENT_LONG_DATA_t *cas_event_long_data = (CAS_EVENT_LONG_DATA_t *)STB_GetMemory(sizeof(CAS_EVENT_LONG_DATA_t));
+        cas_event_long_data->long_data_str = (char *)STB_GetMemory((data_len + 1) * sizeof(char));
+        cJSON_PrintPreallocated(data, cas_event_long_data->long_data_str, data_len + 1, 0);
+        cas_event_long_data->pathType = cas_event_data.pathType;
+        cas_event_long_data->path = cas_event_data.path;
+        CA_DBG("%s: data is too long data_len %d \n", __func__, data_len);
+        CA_DBG("%s:%s", __func__, cas_event_long_data->long_data_str);
+        STB_ERSendEvent(FALSE, FALSE, EV_CLASS_CAS, EV_TYPE_CAS_LONG, &cas_event_long_data, sizeof(void *));
+    }
+
+    if (data)
+    {
+        cJSON_Delete(data);
+        data = NULL;
+    }
+
     return 0;
 }
 
@@ -912,43 +936,40 @@ void STB_CADescrambleServiceStop(UINTPTR handle)
  * @brief   This function will be called when set CA descramble ioctl
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CADescrambleIoctl(UINTPTR handle, const char* inJson, char* outJson, U32BIT outLen)
+void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session,  const char* inJson, char* outJson, U32BIT outLen)
 {
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADescrambleIoctl);
 
     ASSERT(handle);
-
-    CA_DBG("%s(0x%lx) [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, handle, inJson, outJson, outLen);
-
     STB_OSMutexLock(g_ca_mutex);
-    if (handle == 0)
+
+    if (0 != session)
     {
-        Aml_MP_CAS_Ioctl(NULL, inJson, outJson, outLen);
+        if (Aml_MP_CAS_Ioctl((AML_MP_CASSESSION)(session), inJson, outJson, outLen))
+        {
+            CA_DBG("CA  descrambling Ioctl failed.");
+        }
     }
-    else
+    else if (0 != handle)
     {
         if (Aml_MP_CAS_Ioctl(((STB_CA_Glue_t *)handle)->session_info->cas_session, inJson, outJson, outLen))
         {
             CA_DBG("CA  descrambling Ioctl failed.");
         }
     }
+    else
+    {
+        Aml_MP_CAS_Ioctl(NULL, inJson, outJson, outLen);
+    }
+    CA_DBG("%shandle : (0x%lx)  session (0x%lx)  [inJson: %s] [outJson: %s] [outLen: %d]", __FUNCTION__, handle, session , inJson, outJson, outLen);
     FUNCTION_FINISH(STB_CADescrambleIoctl);
 
     STB_OSMutexUnlock(g_ca_mutex);
 #endif
 }
 
-/*!**************************************************************************
- * @brief   This function will be called when set CA descramble ioctl
- * @param   session - CA descrambler session
- ****************************************************************************/
-void STB_CADescrambleSessionIoctl(UINTPTR session, const char* inJson, char* outJson, U32BIT outLen)
-{
-#ifdef SUPPORT_CAS
 
-#endif
-}
 /*!**************************************************************************
  * @brief   When there's an update to the PMT for a service, the updated PMT
  *          will be reported to the CA system using this function.

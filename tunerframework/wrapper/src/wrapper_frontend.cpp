@@ -39,6 +39,7 @@ typedef struct
     EE_TUNER_STATE tuner_state  = E_TUNER_IDLE;
     EW_STB_TUNE_CMODE cable_mode = WRAPPER_TUNE_MODE_QAM_UNDEFINED;
     EW_STB_TUNE_MODULATION tune_modulation = WRAPPER_TUNE_MOD_AUTO;
+    std::vector<U8BIT> t2_plp_list;
 
     EW_STB_TUNE_LNB_VOLTAGE tune_voltage = WRAPPER_LNB_VOLTAGE_OFF;
     jobject tuner_lnb;
@@ -62,7 +63,6 @@ typedef struct
 typedef map<U8BIT/*path*/, WRAPPER_TUNER_STATUS/*tuner status*/> TUNER_STATUS_MAP;
 
 static TUNER_STATUS_MAP tuner_status_map;
-static U8BIT current_search_path = 0;
 static std::vector<int> frontend_list;
 static Wrapper_SendEvent lock_SendEvent;
 
@@ -104,7 +104,6 @@ static U8BIT getTunerPath(U16BIT tuner_client)
 
 static TUNER_TYPE getTunerType(U8BIT path)
 {
-    TUNER_TYPE tuner_type = TUNER_TYPE_DEFAULT;
     switch (path)
     {
         case 0:
@@ -384,8 +383,8 @@ static DVBT_TRANSMISSION_MODE getTransmissionMode(EW_STB_TUNE_TMODE tmode)
     return mode;
 }
 
-static void lnbCallback(jobject lnb, int eventType, jbyteArray diseqcMessage) {
-    ALOGD("%s: lnb: %p eventType: %d", __FUNCTION__, lnb, eventType);
+static void lnbCallback(jobject lnb, int tuner_client, int eventType, jbyteArray diseqcMessage) {
+    ALOGD("%s: lnb: %p tuner_client:%d eventType:%d", __FUNCTION__, lnb, tuner_client, eventType);
 
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -455,16 +454,15 @@ static void setLnbTone(jobject lnb, BOOLEAN use_22khz)
     }
 }
 
-static void tuneCallback(/*int tuner_client,*/int event) {
-/*
+static void tuneCallback(int tuner_client, int event) {
     ALOGD("%s: tuner_client:%d event:%d", __FUNCTION__, tuner_client, event);
 
     if (INVALID_TUNER_ID == tuner_client) {
         ALOGE("%s: tuner_client is invalid", __FUNCTION__);
         return;
     }
-*/
-    U8BIT tuner_path = current_search_path; // getTunerPath(tuner_client);
+
+    U8BIT tuner_path = getTunerPath(tuner_client);
     if (INVALID_TUNER_PATH == tuner_path) {
         ALOGE("%s: tuner_path is invalid", __FUNCTION__);
         return;
@@ -482,10 +480,89 @@ static void tuneCallback(/*int tuner_client,*/int event) {
     lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, event_type, &tuner_path, sizeof(U8BIT));
 }
 
-static void blindscanCallback(int scanCallbackMessageType, jobjectArray scanCallbackMessage) {
-    U16BIT tuner_client = findTunerClient(current_search_path);
+static void scanCallback(int tuner_client, int scanCallbackMessageType, jobjectArray scanCallbackMessage) {
+    ALOGD("%s: tuner_client:%d scanCallbackMessageType:%d", __FUNCTION__, tuner_client, scanCallbackMessageType);
+
     if (INVALID_TUNER_ID == tuner_client) {
-        ALOGE("%s: tuner_client(%d) is invalid", __FUNCTION__, current_search_path);
+        ALOGE("%s: tuner_client is invalid", __FUNCTION__);
+        return;
+    }
+
+    U8BIT tuner_path = getTunerPath(tuner_client);
+    if (INVALID_TUNER_PATH == tuner_path) {
+        ALOGE("%s: tuner_path is invalid", __FUNCTION__);
+        return;
+    }
+
+    Scan_Callback_Message scanMessage;
+    memset(&scanMessage, 0, sizeof(Scan_Callback_Message));
+    if (NULL != scanCallbackMessage) {
+        bool attached = false;
+        JNIEnv *env = Am_tuner_getJNIEnv(&attached);
+        if (NULL == env) {
+            ALOGE("%s: env is null", __FUNCTION__);
+            return;
+        }
+        frontend_utils_parseScanCallbackMessage(env, scanCallbackMessageType, scanCallbackMessage, &scanMessage);
+        ALOGD("Scan_Callback_Message scanMessageType : %d", scanMessage.scanMessageType);
+    }
+
+    switch (scanCallbackMessageType)
+    {
+        case SCAN_MESSAGE_LOCKED:
+            lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_LOCKED, &tuner_path, sizeof(U8BIT));
+            ALOGD("%s: tuner lock");
+            break;
+        case SCAN_MESSAGE_UNLOCK:
+            lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_NOTLOCKED, &tuner_path, sizeof(U8BIT));
+            ALOGD("%s: tuner lock");
+            break;
+        case SCAN_MESSAGE_END:
+            break;
+        case SCAN_MESSAGE_PROGRESS_PERCENT:
+            break;
+        case SCAN_MESSAGE_FREQUENCY:
+            break;
+        case SCAN_MESSAGE_SYMBOL_RATE:
+            break;
+        case SCAN_MESSAGE_PLP_IDS:
+            for (int value : scanMessage.integer_value) {
+                tuner_status_map[tuner_path].t2_plp_list.push_back(static_cast<U8BIT>(value));
+            }
+            break;
+        case SCAN_MESSAGE_GROUP_IDS:
+            break;
+        case SCAN_MESSAGE_INPUT_STREAM_IDS:
+            break;
+        case SCAN_MESSAGE_DVBS_STANDARD:
+            break;
+        case SCAN_MESSAGE_DVBT_STANDARD:
+            break;
+        case SCAN_MESSAGE_ANALOG_TYPE:
+            break;
+        case SCAN_MESSAGE_HIERARCHY:
+            break;
+        case SCAN_MESSAGE_SIGNAL_TYPE:
+            break;
+        case SCAN_MESSAGE_DVBT_CELL_IDS:
+            break;
+        default:
+            ALOGD("%s: message default");
+        break;
+    }
+}
+
+static void blindscanCallback(int tuner_client, int scanCallbackMessageType, jobjectArray scanCallbackMessage) {
+    ALOGD("%s: tuner_client:%d scanCallbackMessageType:%d", __FUNCTION__, tuner_client, scanCallbackMessageType);
+
+    if (INVALID_TUNER_ID == tuner_client) {
+        ALOGE("%s: tuner_client is invalid", __FUNCTION__);
+        return;
+    }
+
+    U8BIT tuner_path = getTunerPath(tuner_client);
+    if (INVALID_TUNER_PATH == tuner_path) {
+        ALOGE("%s: tuner_path is invalid", __FUNCTION__);
         return;
     }
 
@@ -518,13 +595,13 @@ static void blindscanCallback(int scanCallbackMessageType, jobjectArray scanCall
             if (scanMessage.integer_value.size() == 1)
             {
                 U8BIT progress = scanMessage.integer_value[0];
-                if (tuner_status_map[current_search_path].blindscan_event_cb != NULL)
+                if (tuner_status_map[tuner_path].blindscan_event_cb != NULL)
                 {
                     EW_STB_TUNE_BlindEvent_t evt;
                     evt.status = WRAPPER_AM_FEND_BLIND_UPDATEPROCESS;
                     evt.process = progress;
-                    tuner_status_map[current_search_path].blindscan_event_cb(
-                        current_search_path, &evt, tuner_status_map[current_search_path].blindscan_cb_user_data);
+                    tuner_status_map[tuner_path].blindscan_event_cb(
+                        tuner_path, &evt, tuner_status_map[tuner_path].blindscan_cb_user_data);
                 }
             }
             break;
@@ -532,7 +609,7 @@ static void blindscanCallback(int scanCallbackMessageType, jobjectArray scanCall
             if (scanMessage.integer_value.size() == 1)
             {
                 U32BIT freq = scanMessage.integer_value[0];
-                tuner_status_map[current_search_path].blindscan_tp_freq.push_back(freq);
+                tuner_status_map[tuner_path].blindscan_tp_freq.push_back(freq);
 
             }
             break;
@@ -540,7 +617,7 @@ static void blindscanCallback(int scanCallbackMessageType, jobjectArray scanCall
             if (scanMessage.integer_value.size() == 1)
             {
                 U32BIT srate = scanMessage.integer_value[0];
-                tuner_status_map[current_search_path].blindscan_tp_srate.push_back(srate);
+                tuner_status_map[tuner_path].blindscan_tp_srate.push_back(srate);
             }
             break;
 
@@ -578,7 +655,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
     }
 
     long callbackContext = (long)tuneCallback;
-    Am_tuner_setOnTuneEventListener(client_id, callbackContext);
+
     tuner_status_map[path].frequency = freq;
     tuner_status_map[path].tmode = tmode;
     tuner_status_map[path].tbwidth = tbwidth;
@@ -586,18 +663,19 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
     tuner_status_map[path].cable_mode = cmode;
 
     if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBT) {
+        Am_tuner_setOnTuneEventListener(client_id, callbackContext);
+
         Dvbt_Frontend_Settings dvbtFrontendSettings;
         memset(&dvbtFrontendSettings, 0, sizeof(Dvbt_Frontend_Settings));
         dvbtFrontendSettings.frequency = freq;
         dvbtFrontendSettings.transmissionMode = getTransmissionMode(tmode);
         dvbtFrontendSettings.bandwidth = getTerrBwidth(tbwidth);
-        if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT)
-        {
+        if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT) {
             dvbtFrontendSettings.standard = DVBT_STANDARD_T;
         }
-        else if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2)
-        {
+        else if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2) {
             dvbtFrontendSettings.standard = DVBT_STANDARD_T2;
+            dvbtFrontendSettings.plpId = Wrapper_TuneGetPLP(path);
         }
 
         ALOGD("%s: dvbt frequency=%d", __FUNCTION__, dvbtFrontendSettings.frequency);
@@ -611,9 +689,18 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             }
             return;
         }
-        Am_tuner_tune(client_id, dvbtSettingObject);
+
+        if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT) {
+            Am_tuner_tune(client_id, dvbtSettingObject);
+        }
+        else if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2) {
+            long scancallbackContext = (long)scanCallback;
+            Am_tuner_scan(client_id, dvbtSettingObject, SCAN_TYPE_AUTO, scancallbackContext);
+        }
     }
     else if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBC) {
+        Am_tuner_setOnTuneEventListener(client_id, callbackContext);
+
         Dvbc_Frontend_Settings dvbcFrontendSettings;
         memset(&dvbcFrontendSettings, 0, sizeof(Dvbc_Frontend_Settings));
         dvbcFrontendSettings.frequency = freq;
@@ -639,6 +726,8 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             ALOGE("%s: open lnb failed", __FUNCTION__);
             return;
         }
+
+        Am_tuner_setOnTuneEventListener(client_id, callbackContext);
 
         Dvbs_Frontend_Settings dvbsFrontendSettings;
         memset(&dvbsFrontendSettings, 0, sizeof(Dvbs_Frontend_Settings));
@@ -909,7 +998,7 @@ BOOLEAN Wrapper_TuneOpen(U8BIT path)
 
     BOOLEAN ret = getFrontendIds(path);
 
-    return TRUE;
+    return ret;
 }
 BOOLEAN Wrapper_TuneIsOpened(U8BIT path)
 {
@@ -990,9 +1079,7 @@ U16BIT Wrapper_TuneGetActualSignalType(U8BIT path)
         return 0;
     }
     //2.show Frontend info
-    jfieldID fId = env->GetFieldID(fe_info_class, "mId", "I"); //
     jfieldID fType = env->GetFieldID(fe_info_class, "mType", "I");
-
     U16BIT type = env->GetIntField(frontendInfo, fType);
 
     ALOGD("%s: frontend type: %d", __FUNCTION__, type);
@@ -1187,6 +1274,22 @@ U8BIT Wrapper_TuneGetPLP(U8BIT path)
     ALOGD("%s: path:%d plp: %d", __FUNCTION__, path, plp_id);
     return plp_id;
 }
+
+S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
+{
+    if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
+        ALOGE("%s: path %d is invalid", __FUNCTION__, path);
+        return 0;
+    }
+
+    plp_list = tuner_status_map[path].t2_plp_list.data();
+
+    S32BIT length = (S32BIT)tuner_status_map[path].t2_plp_list.size();
+    ALOGD("%s: path:%d plp len: %d", __FUNCTION__, path, length);
+
+    return length;
+}
+
 
 U32BIT Wrapper_TuneGetActualSymbolRate(U8BIT path)
 {
@@ -1600,8 +1703,6 @@ BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindC
         ALOGE("%s: open lnb failed", __FUNCTION__);
         return FALSE;
     }
-
-    current_search_path = path;
 
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);

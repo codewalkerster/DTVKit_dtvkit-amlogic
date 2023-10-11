@@ -190,7 +190,7 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
 
     FUNCTION_START(STB_TuneSetSignalType);
 
-    Wrapper_TuneSetSignalType(path, type);
+    Wrapper_TuneSetSignalType(path, (EW_STB_TUNE_SIGNAL_TYPE)type);
 
     FUNCTION_FINISH(STB_TuneSetSignalType);
 }
@@ -221,7 +221,9 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
     Wrapper_SendEvent callback = Tuner_EventCallback;
     Wrapper_RegisterCallback(callback);
-    Wrapper_TuneStartTuner(path, freq, srate, fec, tmode, tbwidth, cmode);
+    Wrapper_TuneStartTuner(path, freq, srate,
+                           (EW_STB_TUNE_FEC)fec, (EW_STB_TUNE_TMODE)tmode,
+                           (EW_STB_TUNE_TBWIDTH)tbwidth, (EW_STB_TUNE_CMODE)cmode);
 
     FUNCTION_FINISH(STB_TuneStartTuner);
 }
@@ -270,7 +272,7 @@ U32BIT STB_TuneGetMaxTunerSymbolRate(U8BIT path)
     FUNCTION_START(STB_TuneGetMaxTunerSymbolRate);
 
     //symbol_rate = Wrapper_TuneGetMaxTunerSymbolRate(path);
-    symbol_rate = 99999999*1000;
+    symbol_rate = 0xFFFFFFFF;
 
     FUNCTION_FINISH(STB_TuneGetMaxTunerSymbolRate);
 
@@ -309,7 +311,7 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
     FUNCTION_START(STB_TuneGetMaxTunerFreqKHz);
 
     //max_freq = Wrapper_TuneGetMaxTunerFreqKHz(path);
-    max_freq = 1000000*10000;
+    max_freq = 0xFFFFFFFF;
 
     FUNCTION_FINISH(STB_TuneGetMaxTunerFreqKHz);
 
@@ -478,7 +480,7 @@ E_STB_TUNE_TMODE STB_TuneGetActualTerrMode(U8BIT path)
 
     FUNCTION_START(STB_TuneGetActualTerrMode);
 
-    mode = Wrapper_TuneGetActualTerrMode(path);
+    mode = (E_STB_TUNE_TMODE)Wrapper_TuneGetActualTerrMode(path);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrMode);
 
@@ -495,7 +497,7 @@ E_STB_TUNE_TBWIDTH STB_TuneGetActualTerrBwidth(U8BIT path)
     FUNCTION_START(STB_TuneGetActualTerrBwidth);
     E_STB_TUNE_TBWIDTH bwidth;
 
-    bwidth = Wrapper_TuneGetActualTerrBwidth(path);
+    bwidth = (E_STB_TUNE_TBWIDTH)Wrapper_TuneGetActualTerrBwidth(path);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrBwidth);
 
@@ -513,7 +515,7 @@ E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
 
     FUNCTION_START(STB_TuneGetActualTerrConstellation);
 
-    t_modu = Wrapper_TuneGetActualTerrConstellation(path);
+    t_modu = (E_STB_TUNE_TCONST)Wrapper_TuneGetActualTerrConstellation(path);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrConstellation);
 
@@ -531,7 +533,7 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
 
     FUNCTION_START(STB_TuneGetActualTerrHierarchy);
 
-    retval = Wrapper_TuneGetActualTerrHierarchy(tuner_id);
+    retval = (E_STB_TUNE_THIERARCHY)Wrapper_TuneGetActualTerrHierarchy(tuner_id);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrHierarchy);
 
@@ -551,6 +553,8 @@ S32BIT STB_TuneGetMPLPIDList(U8BIT tuner_id, U8BIT *plp_list, U16BIT listlen)
 
     FUNCTION_START(STB_TuneGetMPLPIDList);
 
+    retval = Wrapper_TuneGetMPLPIDList(tuner_id, plp_list, listlen);
+
     FUNCTION_FINISH(STB_TuneGetMPLPIDList);
 
     return retval;
@@ -567,7 +571,7 @@ E_STB_TUNE_TCODERATE STB_TuneGetActualTerrLpCodeRate(U8BIT path)
 
     FUNCTION_START(STB_TuneGetActualTerrLpCodeRate);
 
-    t_rc = Wrapper_TuneGetActualTerrLpCodeRate(path);
+    t_rc = (E_STB_TUNE_TCODERATE)Wrapper_TuneGetActualTerrLpCodeRate(path);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrLpCodeRate);
 
@@ -585,7 +589,7 @@ E_STB_TUNE_TCODERATE STB_TuneGetActualTerrHpCodeRate(U8BIT path)
 
     FUNCTION_START(STB_TuneGetActualTerrHpCodeRate);
 
-    t_rc = Wrapper_TuneGetActualTerrHpCodeRate(path);
+    t_rc = (E_STB_TUNE_TCODERATE)Wrapper_TuneGetActualTerrHpCodeRate(path);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrHpCodeRate);
 
@@ -630,7 +634,7 @@ U16BIT STB_TuneGetActualTerrCellId(U8BIT path)
 E_STB_TUNE_TBWIDTH STB_TuneGetActualIsdbtBwidth(U8BIT path)
 {
     FUNCTION_START(STB_TuneGetActualIsdbtBwidth);
-    E_STB_TUNE_TBWIDTH bwidth;
+    E_STB_TUNE_TBWIDTH bwidth = TUNE_TBWIDTH_8MHZ;
 
     //bwidth = Wrapper_TuneGetActualIsdbtBwidth(path);
 
@@ -706,7 +710,7 @@ void STB_TuneSetModulation(U8BIT path, E_STB_TUNE_MODULATION modulation)
 {
     FUNCTION_START(STB_TuneSetModulation);
 
-    Wrapper_TuneSetModulation(path,modulation);
+    Wrapper_TuneSetModulation(path, (EW_STB_TUNE_MODULATION)modulation);
 
     FUNCTION_FINISH(STB_TuneSetModulation);
 }
@@ -924,7 +928,7 @@ void STB_TuneSetSystemType(U8BIT path, E_STB_TUNE_SYSTEM_TYPE type)
 {
     FUNCTION_START(STB_TuneSetSystemType);
 
-    Wrapper_TuneSetSystemType(path, type);
+    Wrapper_TuneSetSystemType(path, (EW_STB_TUNE_SYSTEM_TYPE)type);
 
     FUNCTION_FINISH(STB_TuneSetSystemType);
 }
@@ -941,7 +945,7 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetSystemType(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSystemType);
 
-    type = Wrapper_TuneGetSystemType(path);
+    type = (E_STB_TUNE_SYSTEM_TYPE)Wrapper_TuneGetSystemType(path);
 
     FUNCTION_FINISH(STB_TuneGetSystemType);
 
@@ -1262,7 +1266,7 @@ E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path)
     E_TUNER_EVENT tuner_event = TUNER_STATE_UNKNOW;
     FUNCTION_START(STB_TuneGetLockStatus);
 
-    tuner_event = Wrapper_TuneGetLockStatus(path);
+    tuner_event = (E_TUNER_EVENT)Wrapper_TuneGetLockStatus(path);
 
     FUNCTION_FINISH(STB_TuneGetLockStatus);
     return tuner_event;

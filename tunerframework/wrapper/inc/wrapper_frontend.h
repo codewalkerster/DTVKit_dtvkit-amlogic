@@ -501,6 +501,8 @@ void Wrapper_TuneSetPLP(U8BIT path, U8BIT plp);
  */
 U8BIT Wrapper_TuneGetPLP(U8BIT path);
 
+S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen);
+
 /**
  * @brief   Enables/disables aerial power for DVB-T
  * @param   path tuner path

@@ -53,7 +53,7 @@ S8BIT Wrapper_Player_AVInit(U8BIT player_paths)
     if (wp_player_av_status == NULL)
     {
         wp_player_av_status = (WRAPPER_PLAYER_AV_STATUS *)wrapper_MEMGetSysRAM((sizeof(WRAPPER_PLAYER_AV_STATUS) * player_paths));
-        memset(wp_player_av_status, 0, WP_TUNER_TYPE_MAX * sizeof(WRAPPER_PLAYER_AV_STATUS));
+        memset(wp_player_av_status, 0, player_paths * sizeof(WRAPPER_PLAYER_AV_STATUS));
         num_paths = player_paths;
 
         if (wp_player_av_status != NULL)

@@ -15,8 +15,8 @@
 #include "cJSON.h"
 #include "techtype.h"
 #include "dbgfuncs.h"
-#include "ap_cfg.h"
-#include "app_cfg.h"
+//#include "app_cfg.h"
+#include "stbpathcfg.h"
 #include "dtv_log.h"
 #define TAG  "STBSWCFG"
 
@@ -171,10 +171,10 @@ void STB_LoadSwConfigJsonDB()
 
     if (0 != strcmp(g_config_json_file, TV_JSONFILE))
     {
-        ACFG_GetFullPathForDtvKitDataFile(strDataPath,128,TV_JSONFILE);
+        STB_GetFullPathForDtvKitDataFile(strDataPath,128,TV_JSONFILE);
         if ((access(strDataPath, F_OK)) != 0)
         {
-            ACFG_GetFullPathForDtvKitConfigFile(strCfgPath,128,CONFIG_JSONFILE);
+            STB_GetFullPathForDtvKitConfigFile(strCfgPath,128,CONFIG_JSONFILE);
             CFG_DBG("%s:: %s isn't found and restore it from %s", __FUNCTION__,strCfgPath, CONFIG_JSONFILE);
             g_config_file_parse_state = TvConfigSyncCacheFromJsonDB(&tv_config, strCfgPath);
             if (g_config_file_parse_state == TRUE)
@@ -219,7 +219,7 @@ int  STB_SetSystemStartingMode(char* system_starting_mode)
     pthread_rwlock_wrlock(&g_config_lock);
     memset(tv_config.system_start_mode, 0, sizeof(tv_config.system_start_mode));
     memcpy(tv_config.system_start_mode, system_starting_mode, strlen(system_starting_mode));
-    ACFG_GetFullPathForDtvKitDataFile(strDataPath,128,g_config_json_file);
+    STB_GetFullPathForDtvKitDataFile(strDataPath,128,g_config_json_file);
     TvConfigSyncJsonDBFromCache(strDataPath, &tv_config);
 
     pthread_rwlock_unlock(&g_config_lock);

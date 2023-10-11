@@ -12,19 +12,20 @@
 #include <string.h>
 #include <limits.h>
 #include <unistd.h>
-#include "dtv_log.h"
-#define TAG  "STBHWCFG"
 
 #include "techtype.h"
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
-#include "ap_cfg.h"
+//#include "app_cfg.h"
 #include "cert_log.h"
 #include "stbheap.h"
 #include "stb_utils.h"
 #include "stbhwcfg.h"
 #include "stbhwmem.h"
+#include "stbpathcfg.h"
+#include "dtv_log.h"
+#define TAG  "STBHWCFG"
 
 #ifdef DTVKIT_IN_VENDOR_PARTITION
 #include <cutils/properties.h>
@@ -678,7 +679,7 @@ static BOOLEAN getDtvKitConfigXmlFile(char *strPathBuf,U16BIT u16PathBufLen)
         return bRet;
     }
 
-    bRet = ACFG_GetFullPathForDtvKitConfigFile(strPathBuf, u16PathBufLen, DTVKIT_CONFIG_XML_FILE);
+    bRet = STB_GetFullPathForDtvKitConfigFile(strPathBuf, u16PathBufLen, DTVKIT_CONFIG_XML_FILE);
 
     STB_SPDebugWrite("%s %d strPathBuf = %s", __FUNCTION__, __LINE__, strPathBuf);
 
@@ -692,10 +693,10 @@ void STB_CfgInitialise(void)
     FILE           *fp = NULL;
     int             i;
 
-    char strCfgPath[APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH];
+    char strCfgPath[PATH_MAX_LENGTH];
 
-    memset(strCfgPath, 0, APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
-    getDtvKitConfigXmlFile(strCfgPath,APCFG_DTVKIT_CONFIG_PATH_MAX_LENGTH);
+    memset(strCfgPath, 0, PATH_MAX_LENGTH);
+    getDtvKitConfigXmlFile(strCfgPath,PATH_MAX_LENGTH);
     fp = fopen(strCfgPath, "rb");
     if (!fp) {
         CFG_ERR("cannot open \"%s\"", strCfgPath);

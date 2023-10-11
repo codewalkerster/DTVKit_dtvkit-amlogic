@@ -24,11 +24,12 @@
 
 #include "techtype.h"
 #include "dbgfuncs.h"
-#include "ap_cfg.h"
 #include "dtv_log.h"
+#include "stbpathcfg.h"
 
 #define TAG         "dtvkit-amlogic:Logcfg"
 #define BUFFSIZE    512
+#define PROFILENAME "dtv_logfilter"
 
 #define LOGCFG_LOGD(...)    DTV_LOG(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
 #define LOGCFG_LOGI(...)    DTV_LOG(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
@@ -89,7 +90,7 @@ U8BIT DTV_GetLogFilterConfig(void)
     char filecontent[32];
     char filepath[128];
 
-    ACFG_GetFullPathForDtvKitDataFile(filepath,sizeof(filepath),"dtv_logfilter");
+    STB_GetFullPathForDtvKitDataFile(filepath,sizeof(filepath),PROFILENAME);
     LOGCFG_LOGI("dtv_logfilter filepath: %s", filepath);
 
     fp = fopen(filepath, "r");

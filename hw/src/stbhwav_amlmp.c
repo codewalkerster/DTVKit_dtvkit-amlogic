@@ -3884,6 +3884,14 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
          FLAGS = VIDEO_SIGNAL_STABLE;
          break;
       }
+      case AML_MP_PLAYER_EVENT_AUDIO_DECODE_FIRST_FRAME:
+      {
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_DECODE_FIRST_FRAME!\n", status->decoder);
+         //STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_AUDIO_FIRST_FRAME, &status->decoder, sizeof(U8BIT));
+         AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_DECODE_FIRST_FRAME: ## AUDIO_AVAILABLE ##\n", status->decoder);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &status->decoder, sizeof(U8BIT));
+         break;
+      }
       case AML_MP_PLAYER_EVENT_DATA_LOSS:
       {
          AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_DATA_LOSS!\n", status->decoder);

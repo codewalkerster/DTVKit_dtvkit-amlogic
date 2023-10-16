@@ -47,6 +47,8 @@
 #include "ca_glue.h"
 #include "stbhwcfg.h"
 #include "stberc.h"
+#include "stbca.h"
+
 
 #ifdef SUPPORT_CAS
 #include "stbsiflt.h"
@@ -1649,13 +1651,6 @@ void STB_CAPVRPlayStop(void)
         g_checkpin_status = PIN_MAX;
     }
 
-#endif
-}
-
-void STB_CADscReset(void)
-{
-#ifdef SUPPORT_CAS
-    CA_DBG("%s reserve", __FUNCTION__);
 #endif
 }
 

@@ -174,6 +174,16 @@ U8BIT STB_PVRInitRecording(U8BIT num_tuners)
    return ret;
 }
 
+int STB_PVRRecord_Encrypt(void *crypto_inf, void *cb_param)
+{
+    return 0;
+}
+
+int STB_PVRPlay_Decrypt(void *crypto_inf, void *cb_param)
+{
+    return 0;
+}
+
 /**
  * @brief   Set startup mode for playback
  * @param   audio_decoder audio decoder being used for playback

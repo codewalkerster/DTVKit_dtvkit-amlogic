@@ -19,7 +19,7 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
-#include "app_cfg.h"
+#include "ap_cfg.h"
 #include "cert_log.h"
 #include "stbheap.h"
 #include "stb_utils.h"

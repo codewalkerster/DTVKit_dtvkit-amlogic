@@ -15,6 +15,7 @@
 #include "cJSON.h"
 #include "techtype.h"
 #include "dbgfuncs.h"
+#include "ap_cfg.h"
 #include "app_cfg.h"
 #include "dtv_log.h"
 #define TAG  "STBSWCFG"

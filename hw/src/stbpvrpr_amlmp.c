@@ -46,6 +46,8 @@
 #include "stbhwdmx.h"
 #include "stbhwcfg.h"
 #include "stb_utils.h"
+#include "stbca.h"
+
 
 /* third party header files */
 #define  AV_AUDIO_STEREO        AV_AUDIO_STEREO_TSP
@@ -412,6 +414,26 @@ static void sc2_playback_freekey(int play_index, E_PLAYBACK_CHANNEL channel)
          break;
    }
    //ca_dump_channel();//Improper function call
+}
+
+int STB_PVRRecord_Encrypt(void *crypto_inf, void *cb_param)
+{
+    void *ca_handle = cb_param;
+
+    //STB_PVR_PRINT(("CAS encrypt callback"));
+    STB_CAPVRRecodingEncrypt(ca_handle, crypto_inf);
+    //STB_PVR_PRINT(("CAS encrypt callback done"));
+    return 0;
+}
+
+int STB_PVRPlay_Decrypt(void *crypto_inf, void *cb_param)
+{
+    void *ca_handle = cb_param;
+
+    //STB_PVR_PRINT(("CAS decrypt callback"));
+    STB_CAPVRPlayDecrypt(ca_handle, crypto_inf);
+    //STB_PVR_PRINT(("CAS decrypt callback done"));
+    return 0;
 }
 
 /**
@@ -989,6 +1011,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          PLAY_DBG("Timeshift playback isn't started");
       }
    }
+
+   STB_CAPVRPlayStop();
 
    FUNCTION_FINISH(STB_PVRPlayStop);
 }

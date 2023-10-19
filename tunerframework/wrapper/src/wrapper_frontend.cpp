@@ -578,7 +578,7 @@ static void scanCallback(int tuner_client, int scanCallbackMessageType, jobjectA
         case SCAN_MESSAGE_DVBT_CELL_IDS:
             break;
         default:
-            ALOGD("%s: message default");
+            //ALOGD("%s: message default");
         break;
     }
 }

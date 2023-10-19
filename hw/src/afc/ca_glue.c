@@ -46,6 +46,7 @@
 #include "stbheap.h"
 #include "ca_glue.h"
 #include "stbhwcfg.h"
+#include "stbca.h"
 
 #ifdef SUPPORT_CAS
 #include "stbsiflt.h"

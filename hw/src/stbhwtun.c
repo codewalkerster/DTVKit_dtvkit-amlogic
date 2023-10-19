@@ -876,12 +876,6 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                     if (StartTune(tstatus))
                     {
                         STB_OSSemaphoreSignal(tstatus->tune_sem);
-                        TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
-                        if (0 == STB_GetFccPipCfgStatus())
-                        {
-                            STB_OSSemaphoreWait(tstatus->tune_sem_lock);
-                        }
-                        TUN_DBG("%u: tune sem_receive:%p", tstatus->path, tstatus->tune_sem_lock);
                     }
                     else
                     {
@@ -906,12 +900,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                 {
                     tstatus->lock_flags |= FEND_FL_LOCK;
                     STB_OSSemaphoreSignal(tstatus->tune_sem);
-                    TUN_DBG("%u: tune sem_wait:%p", tstatus->path, tstatus->tune_sem_lock);
-                    if (0 == STB_GetFccPipCfgStatus())
-                    {
-                        STB_OSSemaphoreWait(tstatus->tune_sem_lock);
-                    }
-                    TUN_DBG("%u: tune sem_receive:%p", tstatus->path, tstatus->tune_sem_lock);
+
                 }
 
                 STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
@@ -3617,10 +3606,7 @@ static void* TunerTask(void *param)
                     STB_OSMutexUnlock(tstatus->mutex);
                     tstatus->lock_flags &= ~FEND_FL_LOCK;
                     TUN_INFO("##### %u: Already_Tuned fd:%d #####", tstatus->path, tstatus->frontend_fd);
-                    if (0 == STB_GetFccPipCfgStatus())
-                    {
-                        STB_OSSemaphoreSignal(tstatus->tune_sem_lock);
-                    }
+
                     STB_TimeConsumeDebug("Tune lock end");
                     goto Already_Tuned;
                 }
@@ -3745,10 +3731,7 @@ static void* TunerTask(void *param)
                                         sizeof(U8BIT));
                     }
 
-                    if (0 == STB_GetFccPipCfgStatus())
-                    {
-                        STB_OSSemaphoreSignal(tstatus->tune_sem_lock);
-                    }
+
                     TUN_INFO("path:%u: sem_signal:%p", tstatus->path, tstatus->tune_sem_lock);
                 }
             }

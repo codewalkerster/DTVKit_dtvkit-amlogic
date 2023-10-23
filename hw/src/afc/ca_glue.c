@@ -198,11 +198,11 @@ void STB_CAReportBAT(UINTPTR handle, U8BIT *bat_data, U16BIT data_len)
  * @brief   When there's an update to the NIT, the updated NIT will be reported
  *          to the CA system using this function. The data is provided a section
  *          at a time, rather than as a complete table.
- * @param   handle - CA descrambler handle
+ * @param   path - the decoder path
  * @param   nit_data - raw NIT section data
  * @param   data_len - number of bytes in the NIT section
  ****************************************************************************/
-void STB_CAReportNIT(UINTPTR handle, U8BIT *nit_data, U16BIT data_len)
+void STB_CAReportNIT(U8BIT path, U8BIT *nit_data, U16BIT data_len)
 {
 }
 

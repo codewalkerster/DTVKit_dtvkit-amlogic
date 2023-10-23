@@ -1228,21 +1228,35 @@ void STB_CAReportBAT(UINTPTR handle, U8BIT *bat_data, U16BIT data_len)
  * @brief   When there's an update to the NIT, the updated NIT will be reported
  *          to the CA system using this function. The data is provided a section
  *          at a time, rather than as a complete table.
- * @param   handle - CA descrambler handle
+ * @param   path - the decoder path
  * @param   nit_data - raw NIT section data
  * @param   data_len - number of bytes in the NIT section
  ****************************************************************************/
-void STB_CAReportNIT(UINTPTR handle, U8BIT *nit_data, U16BIT data_len)
+void STB_CAReportNIT(U8BIT path, U8BIT *nit_data, U16BIT data_len)
 {
+#ifdef SUPPORT_CAS
+    int dmx_dev;
+    U16BIT ca_pid;
     FUNCTION_START(STB_CAReportNIT);
 
-    CA_DBG("%s(handle=0x%lx, nit_data=%p, data_len=%u)", __FUNCTION__, handle, nit_data, data_len);
+    CA_DBG("%s(path=0x%lx, nit_data=%p, data_len=%u)", __FUNCTION__, path, nit_data, data_len);
 
-    USE_UNWANTED_PARAM(handle);
-    USE_UNWANTED_PARAM(nit_data);
-    USE_UNWANTED_PARAM(data_len);
+    STB_OSMutexLock(g_ca_mutex);
+
+    if (Aml_MP_CAS_IsNeedWholeSection())
+    {
+        Aml_MP_CASSectionReportAttr attr;
+
+        memset(&attr, 0, sizeof(attr));
+        attr.dmxDev = (Aml_MP_DemuxId)STB_DPGetPathDemux(path);
+        attr.sectionType = AML_MP_CAS_SECTION_NIT;
+        Aml_MP_CAS_ReportSection(&attr, nit_data, data_len);
+    }
 
     FUNCTION_FINISH(STB_CAReportNIT);
+
+    STB_OSMutexUnlock(g_ca_mutex);
+#endif
 }
 
 /*!**************************************************************************

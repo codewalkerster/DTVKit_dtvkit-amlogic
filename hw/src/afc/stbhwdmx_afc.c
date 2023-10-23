@@ -443,7 +443,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
    FUNCTION_START(STB_DMXChangeDecodePIDs);
    USE_UNWANTED_PARAM(data_pid);
 
-   DMX_DBG("%u: pcr=%u, video=%u, audio=%u, text=%u, ad=%u, preselection_id=%u", path, pcr_pid, video_pid, audio_pid,
+   DMX_INFO("%u: pcr=%u, video=%u, audio=%u, text=%u, ad=%u, preselection_id=%u", path, pcr_pid, video_pid, audio_pid,
       text_pid, ad_pid, preselection_id);
 
    if ((path < num_paths) && (demux_status[path].config_mutex != NULL))

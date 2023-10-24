@@ -894,7 +894,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             {
                 /* Already tuned to the required transport */
                 TUN_DBG("%u: Already tuned", tstatus->path);
-                #if EMUTUNNER_ENABLE
+                #ifdef EMUTUNNER_ENABLE
                 if (EmuTunerGetState(path))
                 {
                     EmuTunerReset(path);

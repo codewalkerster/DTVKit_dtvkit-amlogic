@@ -61,7 +61,7 @@ SRCS +=  emu_tuner.c \
 		emu_dmx.c \
 		emu_config.c
 
-LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
+DEFINES += EMUTUNNER_ENABLE
 endif
 
 #SRCS = $(notdir $(wildcard ./src/*.c))

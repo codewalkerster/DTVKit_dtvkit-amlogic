@@ -53,7 +53,8 @@ SRCS = stbhwplatform.c \
     stbhwdemux_usb.c \
     stbhwtun_ex.c \
     fsm_base.c \
-    stbpathcfg.c
+    stbpathcfg.c \
+    afd_ctrl.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
 SRCS +=  emu_tuner.c \

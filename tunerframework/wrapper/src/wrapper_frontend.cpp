@@ -663,7 +663,6 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
     tuner_status_map[path].cable_mode = cmode;
 
     if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBT) {
-        Am_tuner_setOnTuneEventListener(client_id, callbackContext);
 
         Dvbt_Frontend_Settings dvbtFrontendSettings;
         memset(&dvbtFrontendSettings, 0, sizeof(Dvbt_Frontend_Settings));
@@ -675,7 +674,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         }
         else if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2) {
             dvbtFrontendSettings.standard = DVBT_STANDARD_T2;
-            dvbtFrontendSettings.plpId = Wrapper_TuneGetPLP(path);
+            dvbtFrontendSettings.plpId = tuner_status_map[path].tuner_plp;
         }
 
         ALOGD("%s: dvbt frequency=%d", __FUNCTION__, dvbtFrontendSettings.frequency);
@@ -691,11 +690,19 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         }
 
         if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT) {
+            Am_tuner_setOnTuneEventListener(client_id, callbackContext);
             Am_tuner_tune(client_id, dvbtSettingObject);
         }
         else if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2) {
-            long scancallbackContext = (long)scanCallback;
-            Am_tuner_scan(client_id, dvbtSettingObject, SCAN_TYPE_AUTO, scancallbackContext);
+            if (tuner_status_map[path].tuner_search_mode)
+            {
+                long scancallbackContext = (long)scanCallback;
+                Am_tuner_scan(client_id, dvbtSettingObject, SCAN_TYPE_AUTO, scancallbackContext);
+            }else
+            {
+                Am_tuner_setOnTuneEventListener(client_id, callbackContext);
+                Am_tuner_tune(client_id, dvbtSettingObject);
+            }
         }
     }
     else if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBC) {
@@ -1277,16 +1284,20 @@ U8BIT Wrapper_TuneGetPLP(U8BIT path)
 
 S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
 {
+    ALOGD("start:%s ", __FUNCTION__);
+
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
         return 0;
     }
-
-    plp_list = tuner_status_map[path].t2_plp_list.data();
-
-    S32BIT length = (S32BIT)tuner_status_map[path].t2_plp_list.size();
+    S32BIT length = tuner_status_map[path].t2_plp_list.size();
+    ALOGD("%s: length = %d list_size=%d", __FUNCTION__,length);
+    if (length <= listlen && length > 0)
+    {
+        U8BIT *list = tuner_status_map[path].t2_plp_list.data();
+        memcpy(plp_list, list, length);
+    }
     ALOGD("%s: path:%d plp len: %d", __FUNCTION__, path, length);
-
     return length;
 }
 
@@ -1436,9 +1447,33 @@ void Wrapper_TuneRestartTuner(U8BIT path)
 }
 void Wrapper_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
 {
-    if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
-        ALOGE("%s: path %d is invalid", __FUNCTION__, path);
-        return;
+    U16BIT tuner_client = INVALID_TUNER_ID;
+    if (KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
+        ALOGD("%s: path:%d is contained in map", __FUNCTION__, path);
+        tuner_client = findTunerClient(path);
+        if (INVALID_TUNER_ID == tuner_client) {
+            tuner_client = Am_tuner_getTunerClientIdByType(getTunerType(path));
+            if (INVALID_TUNER_ID == tuner_client)
+            {
+                ALOGE("%s: tuner_client is invalid", __FUNCTION__);
+                return ;
+            }
+
+            ALOGD("%s: path:%d client:%d", __FUNCTION__, path, tuner_client);
+            tuner_status_map[path].tuner_client = tuner_client;
+        }
+    }
+    else {
+        tuner_client = Am_tuner_getTunerClientIdByType(getTunerType(path));
+        if (INVALID_TUNER_ID == tuner_client)
+        {
+            ALOGE("%s: tuner_client is invalid", __FUNCTION__);
+            return ;
+        }
+        WRAPPER_TUNER_STATUS tuner_status;
+        tuner_status.tuner_client = tuner_client;
+        ALOGD("%s: insert path:%d client:%d into map", __FUNCTION__, path, tuner_client);
+        MAP_INSERT_ITEM(tuner_status_map, path, tuner_status);
     }
 
     if (Wrapper_TuneIsTvPlatform()) {

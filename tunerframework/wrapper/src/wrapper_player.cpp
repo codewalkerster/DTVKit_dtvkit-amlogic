@@ -413,7 +413,11 @@ S8BIT Wrapper_Player_StopVideoDecoding(jni_asplayer_handle handle)
         U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
         if (av_path != WRAPPER_PLAYER_INVALID_RES_ID)
         {
-            Am_filter_close(wp_player_av_status[av_path].playerWeakRefVideoFilter);
+            if (wp_player_av_status[av_path].playerWeakRefVideoFilter != NULL)
+            {
+                Am_filter_close(wp_player_av_status[av_path].playerWeakRefVideoFilter);
+                wp_player_av_status[av_path].playerWeakRefVideoFilter = NULL;
+            }
         }
         ALOGD("%s : av_path = %d, handle = %u", __FUNCTION__, av_path, handle);
     }
@@ -448,7 +452,11 @@ S8BIT Wrapper_Player_StopAudioDecoding(jni_asplayer_handle handle)
         U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
         if (av_path != WRAPPER_PLAYER_INVALID_RES_ID)
         {
-            Am_filter_close(wp_player_av_status[av_path].playerWeakRefAudioFilter);
+            if (wp_player_av_status[av_path].playerWeakRefAudioFilter != NULL)
+            {
+                Am_filter_close(wp_player_av_status[av_path].playerWeakRefAudioFilter);
+                wp_player_av_status[av_path].playerWeakRefAudioFilter = NULL;
+            }
         }
         ALOGD("%s : av_path = %d, handle = %u", __FUNCTION__, av_path, handle);
     }
@@ -508,7 +516,11 @@ S8BIT Wrapper_Player_DisableADMix(jni_asplayer_handle handle)
         U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
         if (av_path != WRAPPER_PLAYER_INVALID_RES_ID)
         {
-            Am_filter_close(wp_player_av_status[av_path].playerWeakRefADFilter);
+            if (wp_player_av_status[av_path].playerWeakRefADFilter != NULL)
+            {
+                Am_filter_close(wp_player_av_status[av_path].playerWeakRefADFilter);
+                wp_player_av_status[av_path].playerWeakRefADFilter = NULL;
+            }
         }
         ALOGD("%s : av_path = %d, handle = %u", __FUNCTION__, av_path, handle);
     }

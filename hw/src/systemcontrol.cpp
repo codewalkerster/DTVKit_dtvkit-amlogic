@@ -175,9 +175,12 @@ frequency:  4: only show once,will recovery when receive new frame.
                 SCDBG("@@@@@@@@@@@@@ UNMUTE");
                 if (STB_IsNewHW())
                 {
+                    if (4 == SC_getDisplayMode())
+                    {
+                        s32Ret = sws->setVideoScreenColorByVT(window,0,6);
+                        SCDBG("@@@@@@@@@@@@@ no need UNMUTE6[%d]",window);
+                    }
                     //no need
-                    s32Ret = sws->setVideoScreenColorByVT(window,0,6);
-                    SCDBG("@@@@@@@@@@@@@ no need UNMUTE6[%d]",s32Ret);
                 }
                 else
                 {

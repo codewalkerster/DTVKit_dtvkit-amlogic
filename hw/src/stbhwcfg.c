@@ -45,6 +45,7 @@
 #define CFG_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 stb_hardware_cfg aml_hw_cfg = {
+.prop_htab_ok = FALSE,
 .tuners = {
 	{
 	.ts_input_idx  = 2,
@@ -695,24 +696,6 @@ void STB_CfgInitialise(void)
 
     char strCfgPath[PATH_MAX_LENGTH];
 
-    memset(strCfgPath, 0, PATH_MAX_LENGTH);
-    getDtvKitConfigXmlFile(strCfgPath,PATH_MAX_LENGTH);
-    fp = fopen(strCfgPath, "rb");
-    if (!fp) {
-        CFG_ERR("cannot open \"%s\"", strCfgPath);
-        return;
-    }
-
-
-    parser = XML_ParserCreate(NULL);
-    if (!parser) {
-        CFG_ERR("XML_ParserCreate failed");
-        fclose(fp);
-        return;
-    }
-
-    XML_SetElementHandler(parser, elem_start_handler, elem_end_handler);
-
     aml_hw_cfg.tuner_num    = 0;
     aml_hw_cfg.demux_num    = 0;
     aml_hw_cfg.recorder_num = 0;
@@ -729,8 +712,29 @@ void STB_CfgInitialise(void)
     if(0==hcreate_r(100,&(aml_hw_cfg.prop_htab)))
     {
         CFG_ERR("Hash table, failed to create hash table");
+        //return;
+    }
+    else
+    {
+        aml_hw_cfg.prop_htab_ok = TRUE;
+    }
+
+    memset(strCfgPath, 0, PATH_MAX_LENGTH);
+    getDtvKitConfigXmlFile(strCfgPath,PATH_MAX_LENGTH);
+    fp = fopen(strCfgPath, "rb");
+    if (!fp) {
+        CFG_ERR("cannot open \"%s\"", strCfgPath);
         return;
     }
+
+    parser = XML_ParserCreate(NULL);
+    if (!parser) {
+        CFG_ERR("XML_ParserCreate failed");
+        fclose(fp);
+        return;
+    }
+
+    XML_SetElementHandler(parser, elem_start_handler, elem_end_handler);
 
     while (1) {
         char    buf[CFG_PARSER_BUF_SIZE];
@@ -994,7 +998,9 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
     }
 
     e.key = (char*)name;
-    search_ret = hsearch_r(e,FIND,&ep,&(cfg->prop_htab));
+    if (cfg->prop_htab_ok) {
+        search_ret = hsearch_r(e,FIND,&ep,&(cfg->prop_htab));
+    }
 #ifdef DTVKIT_IN_VENDOR_PARTITION
     get_ret = property_get(name, buf, (search_ret!=0?ep->data:NULL));
 #endif

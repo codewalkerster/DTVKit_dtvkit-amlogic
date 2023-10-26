@@ -160,27 +160,27 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
     }
     else
     {
-        TUNER_TYPE object_id = TUNER_TYPE_DEFAULT;
+        TUNER_TYPE object_id = TUNER_TYPE_LIVE_0;
         switch (path)
         {
             case 0:
             {
-                object_id = TUNER_TYPE_DEFAULT;
+                object_id = TUNER_TYPE_LIVE_0;
                 break ;
             }
             case 1:
             {
-                object_id = TUNER_TYPE_FCC_TUNE_PREV;
+                object_id = TUNER_TYPE_LIVE_1;
                 break ;
             }
             case 2 :
             {
-                object_id = TUNER_TYPE_FCC_TUNE_NEXT;
+                object_id = TUNER_TYPE_LIVE_2;
                 break ;
             }
             default:
             {
-                object_id = TUNER_TYPE_DEFAULT;
+                object_id = TUNER_TYPE_LIVE_0;
                 break ;
             }
         }

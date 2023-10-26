@@ -107,16 +107,16 @@ static TUNER_TYPE getTunerType(U8BIT path)
     switch (path)
     {
         case 0:
-            return TUNER_TYPE_DEFAULT;
+            return TUNER_TYPE_LIVE_0;
         case 1:
-            return TUNER_TYPE_FCC_TUNE_PREV;
+            return TUNER_TYPE_LIVE_1;
         case 2:
-            return TUNER_TYPE_FCC_TUNE_NEXT;
+            return TUNER_TYPE_LIVE_2;
         default:
-            return TUNER_TYPE_DEFAULT;
+            return TUNER_TYPE_LIVE_0;
     }
 
-    return TUNER_TYPE_DEFAULT;
+    return TUNER_TYPE_LIVE_0;
 }
 
 static jclass getValueClass(JNIEnv *env, jobject valueObject, const char *name)

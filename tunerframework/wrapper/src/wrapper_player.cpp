@@ -106,30 +106,27 @@ S8BIT Wrapper_Player_Initialise(U8BIT av_path, WRAPPER_TUNER_TYPE tunerType)
     }
     else
     {
-        if (tunerType != WP_TUNER_TYPE_PIP)
+        switch (wp_player_av_status[av_path].player_no)
         {
-            switch (wp_player_av_status[av_path].player_no)
+            case 0:
             {
-                case 0:
-                {
-                    tunerType = WP_TUNER_TYPE_DEFAULT;
-                    break ;
-                }
-                case 1:
-                {
-                    tunerType = WP_TUNER_TYPE_FCC_TUNE_PREV;
-                    break ;
-                }
-                case 2 :
-                {
-                    tunerType = WP_TUNER_TYPE_FCC_TUNE_NEXT;
-                    break ;
-                }
-                default:
-                {
-                    tunerType = WP_TUNER_TYPE_DEFAULT;
-                    break;
-                }
+                tunerType = WP_TUNER_TYPE_LIVE_0;
+                break ;
+            }
+            case 1:
+            {
+                tunerType = WP_TUNER_TYPE_LIVE_1;
+                break ;
+            }
+            case 2 :
+            {
+                tunerType = WP_TUNER_TYPE_LIVE_2;
+                break ;
+            }
+            default:
+            {
+                tunerType = WP_TUNER_TYPE_LIVE_0;
+                break;
             }
         }
         wp_player_av_status[av_path].playerClient = Am_tuner_getTunerClientIdByType((int)tunerType);
@@ -350,11 +347,8 @@ S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle)
     jobject surface = Am_tuner_getSurfaceByTunerClient(wp_player_av_status[av_path].playerClient);
     if (JniASPlayer_setSurface(handle, (void *)surface) == JNI_ASPLAYER_OK)
     {
+        ret = JNI_ASPLAYER_OK;
         ALOGD("%s : handle = %u", __FUNCTION__, handle);
-        if (wp_player_av_status[av_path].tunerType == WP_TUNER_TYPE_PIP)
-            ret = Wrapper_Player_SetPIPMode(handle, JNI_ASPLAYER_PIP_MODE_PIP);
-        else
-            ret = JNI_ASPLAYER_OK;
     }
     else
     {
@@ -601,9 +595,9 @@ S8BIT Wrapper_Player_ResetWorkMode(void)
 
     for (i = 0; i < num_paths; i++)
     {
-        if (wp_player_av_status[i].tunerType == WP_TUNER_TYPE_DEFAULT ||
-            wp_player_av_status[i].tunerType == WP_TUNER_TYPE_FCC_TUNE_PREV ||
-            wp_player_av_status[i].tunerType == WP_TUNER_TYPE_FCC_TUNE_NEXT)
+        if (wp_player_av_status[i].tunerType == WP_TUNER_TYPE_LIVE_0 ||
+            wp_player_av_status[i].tunerType == WP_TUNER_TYPE_LIVE_1 ||
+            wp_player_av_status[i].tunerType == WP_TUNER_TYPE_LIVE_2)
         {
             if (JniASPlayer_resetWorkMode(wp_player_av_status[i].player_handle) == JNI_ASPLAYER_OK)
             {

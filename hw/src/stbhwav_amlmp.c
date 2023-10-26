@@ -2229,6 +2229,14 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
             av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_MPEG4;
             VID_DBG("MPEG4");
             break;
+        case AV_VIDEO_CODEC_DVES_AVC:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_DVES_AVC;
+            VID_DBG("DVES AVC");
+            break;
+        case AV_VIDEO_CODEC_DVES_HEVC:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_DVES_HEVC;
+            VID_DBG("DVES HEVC");
+            break;
         default:
             VID_DBG("Unrecognised video codec %u", codec);
             success = FALSE;

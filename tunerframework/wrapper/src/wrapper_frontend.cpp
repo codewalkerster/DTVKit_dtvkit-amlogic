@@ -52,6 +52,7 @@ typedef struct
     BOOLEAN tuning_params_changed = FALSE;
     BOOLEAN curr_starttune = FALSE;
     BOOLEAN auto_relock= FALSE;
+    BOOLEAN tune_lock = FALSE;
 
     BOOLEAN blindscan_mode = FALSE;
     Wrapper_Tune_BlindCallback_t blindscan_event_cb = NULL;
@@ -470,10 +471,12 @@ static void tuneCallback(int tuner_client, int event) {
 
     U16BIT event_type = WRPPER_HW_EV_TYPE_NOTLOCKED;
     if (0 == event) {
-        ALOGD("%s: tuner lock", __FUNCTION__);
         event_type = WRPPER_HW_EV_TYPE_LOCKED;
+        tuner_status_map[tuner_path].tune_lock = TRUE;
+        ALOGD("%s: tuner lock", __FUNCTION__);
     }
     else {
+        tuner_status_map[tuner_path].tune_lock = FALSE;
         ALOGD("%s: tuner unlock", __FUNCTION__);
     }
 
@@ -511,11 +514,13 @@ static void scanCallback(int tuner_client, int scanCallbackMessageType, jobjectA
     {
         case SCAN_MESSAGE_LOCKED:
             lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_LOCKED, &tuner_path, sizeof(U8BIT));
-            ALOGD("%s: tuner lock");
+            tuner_status_map[tuner_path].tune_lock = TRUE;
+            ALOGD("%s: tuner lock", __FUNCTION__);
             break;
         case SCAN_MESSAGE_UNLOCK:
             lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_NOTLOCKED, &tuner_path, sizeof(U8BIT));
-            ALOGD("%s: tuner lock");
+            tuner_status_map[tuner_path].tune_lock = FALSE;
+            ALOGD("%s: tuner unlock", __FUNCTION__);
             break;
         case SCAN_MESSAGE_END:
             break;
@@ -696,6 +701,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         else if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2) {
             if (tuner_status_map[path].tuner_search_mode)
             {
+                tuner_status_map[path].t2_plp_list.clear();
                 long scancallbackContext = (long)scanCallback;
                 Am_tuner_scan(client_id, dvbtSettingObject, SCAN_TYPE_AUTO, scancallbackContext);
             }else
@@ -959,8 +965,8 @@ EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path)
     ALOGD("%s: tuner_client: %d", __FUNCTION__, tuner_client);
 
     EW_TUNER_EVENT lock_st = WRAPPER_TUNER_STATE_UNKNOWN;
-    Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_DEMOD_LOCK);
-    if (TRUE == stfrontendStatus.is_demod_locked) {
+
+    if (TRUE == tuner_status_map[path].tune_lock) {
         lock_st = WRAPPER_TUNER_STATE_LOCKED;
     }
     else {
@@ -1291,7 +1297,7 @@ S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
         return 0;
     }
     S32BIT length = tuner_status_map[path].t2_plp_list.size();
-    ALOGD("%s: length = %d list_size=%d", __FUNCTION__,length);
+    ALOGD("%s: length = %d", __FUNCTION__,length);
     if (length <= listlen && length > 0)
     {
         U8BIT *list = tuner_status_map[path].t2_plp_list.data();

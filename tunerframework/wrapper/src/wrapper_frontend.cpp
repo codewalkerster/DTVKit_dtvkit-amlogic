@@ -42,7 +42,7 @@ typedef struct
     std::vector<U8BIT> t2_plp_list;
 
     EW_STB_TUNE_LNB_VOLTAGE tune_voltage = WRAPPER_LNB_VOLTAGE_OFF;
-    jobject tuner_lnb;
+    jobject tuner_lnb = NULL;
     U8BIT tuner_plp = 0;
     U8BIT frontend_usage = 0;
     U16BIT tuner_lo_freq = 0;
@@ -66,6 +66,7 @@ typedef map<U8BIT/*path*/, WRAPPER_TUNER_STATUS/*tuner status*/> TUNER_STATUS_MA
 static TUNER_STATUS_MAP tuner_status_map;
 static std::vector<int> frontend_list;
 static Wrapper_SendEvent lock_SendEvent;
+
 
 
 static inline U16BIT findTunerClient(U8BIT path)
@@ -415,16 +416,41 @@ static BOOLEAN openLnb(U8BIT path)
         return FALSE;
     }
 
-    if (tuner_status_map[path].tuner_lnb != NULL) {
-        Am_lnb_close(tuner_status_map[path].tuner_lnb);
+    ALOGD("%s: path:%d tuner_client:%d", __FUNCTION__, path, client_id);
+
+    if (tuner_status_map[path].tuner_lnb == NULL) {
+        ALOGD("%s: path:%d open lnb", __FUNCTION__, path);
+        tuner_status_map[path].tuner_lnb = Am_tuner_openLnb(client_id, (long)lnbCallback);
+        if (tuner_status_map[path].tuner_lnb == NULL) {
+            ALOGE("%s: tuner_lnb is open failed", __FUNCTION__);
+            return FALSE;
+        }
+    }
+    else
+    {
+        ALOGD("%s: path:%d lnb is open", __FUNCTION__, path);
+    }
+
+    return TRUE;
+}
+
+static BOOLEAN closeLnb(U8BIT path)
+{
+    U16BIT client_id = findTunerClient(path);
+    if (INVALID_TUNER_ID == client_id) {
+        ALOGE("%s: path(%d) is invalid", __FUNCTION__, path);
+        return FALSE;
     }
 
     ALOGD("%s: path:%d tuner_client:%d", __FUNCTION__, path, client_id);
 
-    tuner_status_map[path].tuner_lnb = Am_tuner_openLnb(client_id, (long)lnbCallback);
-    if (tuner_status_map[path].tuner_lnb == NULL) {
-        ALOGE("%s: tuner_lnb is Null", __FUNCTION__);
-        return FALSE;
+    if (tuner_status_map[path].tuner_lnb != NULL) {
+        Am_lnb_close(tuner_status_map[path].tuner_lnb);
+        tuner_status_map[path].tuner_lnb = NULL;
+    }
+    else
+    {
+        ALOGD("%s: path:%d lnb is closed", __FUNCTION__, path);
     }
 
     return TRUE;
@@ -734,12 +760,6 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         Am_tuner_tune(client_id, dvbcSettingObject);
     }
     else if(tuner_status_map[path].signal_type == E_TERR_TYPE_DVBS) {
-        if (!openLnb(path))
-        {
-            ALOGE("%s: open lnb failed", __FUNCTION__);
-            return;
-        }
-
         Am_tuner_setOnTuneEventListener(client_id, callbackContext);
 
         Dvbs_Frontend_Settings dvbsFrontendSettings;
@@ -808,6 +828,8 @@ void Wrapper_TuneStopTuner(U8BIT path)
     else {
         ALOGD("%s: StopTuner %d success", __FUNCTION__, client_id);
     }
+
+    closeLnb(path);
 
     tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
     tuner_status_map[path].current_tuning = FALSE;
@@ -1128,6 +1150,7 @@ void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type)
                 Am_tuner_cancelScanning(tuner_client);
                 Am_tuner_closeFrontend(tuner_client);
             }
+            closeLnb(path);
        }
     }
     else {
@@ -1290,8 +1313,6 @@ U8BIT Wrapper_TuneGetPLP(U8BIT path)
 
 S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
 {
-    ALOGD("start:%s ", __FUNCTION__);
-
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
         return 0;
@@ -1425,22 +1446,25 @@ void Wrapper_TuneUpdateFeUsage(U8BIT path, BOOLEAN use)
     ALOGD("start:%s", __FUNCTION__);
     if (KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGD("%s: path:%d is contained in map", __FUNCTION__, path);
-        U8BIT usage = tuner_status_map[path].frontend_usage;
-        if (use) {
-            usage++;
-        }
-        else if (usage > 0) {
-            usage--;
-        }
-        else {
-            ALOGE("%s: usage is 0", __FUNCTION__);
-        }
-        tuner_status_map[path].frontend_usage = usage;
-        ALOGD("%s: frontend_usage:%d use:%d", __FUNCTION__, tuner_status_map[path].frontend_usage, use);
     }
     else {
-        ALOGE("%s: path %d is invalid", __FUNCTION__, path);
+        WRAPPER_TUNER_STATUS tuner_status;
+        ALOGD("%s: insert path:%d into map", __FUNCTION__, path);
+        MAP_INSERT_ITEM(tuner_status_map, path, tuner_status);
     }
+
+    U8BIT usage = tuner_status_map[path].frontend_usage;
+    if (use) {
+        usage++;
+    }
+    else if (usage > 0) {
+        usage--;
+    }
+    else {
+        ALOGE("%s: usage is 0", __FUNCTION__);
+    }
+    tuner_status_map[path].frontend_usage = usage;
+    ALOGD("%s: frontend_usage:%d use:%d", __FUNCTION__, tuner_status_map[path].frontend_usage, use);
 }
 BOOLEAN Wrapper_TuneIsTvPlatform()
 {

@@ -204,10 +204,9 @@ static void *cimodule_media_read_task(void *args)
     while (thread_running)
     {
         read_len = read(media_read_fd, media_readbuf, USB_CIMODULE_MEDIA_MAX_SIZE);
-        DMX_USB_DBG("read ret %d", read_len);
         if (read_len < 0) {
-            DMX_USB_DBG("read command error: read_len = %d, [%d]%s", read_len, -errno, strerror(errno));
-            if ((-errno) == USBCAM_UNPLUG)
+            DMX_USB_DBG("read error: read_len = %d, [%d]%s", read_len, -errno, strerror(errno));
+            if (((-errno) == USBCAM_UNPLUG) || ((-errno) == USBCAM_NODEVICE))
                 goto EXIT;
         }
         if (read_len > 0)
@@ -364,7 +363,8 @@ static void *cimodule_media_write_task(void *args)
                 }
                 else if (ret < 0)
                 {
-                    if ((-errno) == USBCAM_UNPLUG)
+                    DMX_USB_DBG("write error: ret = %d, [%d]%s", ret, -errno, strerror(errno));
+                    if (((-errno) == USBCAM_UNPLUG) || ((-errno) == USBCAM_NODEVICE))
                         goto EXIT;
                 }
             }
@@ -501,7 +501,7 @@ int STB_CIUsbOpen()
         return TRUE;
     }
 
-    if (0 == access(cmd_node, F_OK && 0 == access(media_node, F_OK)) ) {
+    if (0 == access(cmd_node, F_OK) && 0 == access(media_node, F_OK)) {
             cmd_r_fd = open(cmd_node, O_RDONLY | O_NONBLOCK);
             cmd_w_fd = open(cmd_node, O_WRONLY);
             if (cmd_r_fd < 0 || cmd_w_fd < 0) {

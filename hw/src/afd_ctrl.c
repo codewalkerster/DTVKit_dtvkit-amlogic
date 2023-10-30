@@ -74,6 +74,13 @@ void afd_setMhegScalling(int path, int x, int y, int w, int h, int res_x, int re
 {
     AFD_DBG("enable afd mheg scalling %d - (%d,%d,%d,%d,(%d,%d))",
         path, x, y, w, h, res_x, res_y);
+
+    if (w >= res_x || h >= res_y)
+    {
+        AFD_DBG("Consider as disable scaling");
+        afd_disableScalling(path);
+        return;
+    }
 #ifdef USE_AFD_DEVICE
     if (afd_open_device() != -1)
     {
@@ -103,6 +110,14 @@ void afd_setAppScalling(int path, int x, int y, int w, int h, int res_x, int res
 {
     AFD_DBG("enable afd app scalling %d - (%d,%d,%d,%d,(%d,%d))",
         path, x, y, w, h, res_x, res_y);
+
+    if (w >= res_x || h >= res_y)
+    {
+        AFD_DBG("Consider as disable scaling");
+        afd_disableScalling(path);
+        return;
+    }
+
 #ifdef USE_AFD_DEVICE
     if (afd_open_device() != -1)
     {

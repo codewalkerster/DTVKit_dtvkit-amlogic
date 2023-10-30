@@ -2091,6 +2091,12 @@ BOOLEAN STB_AVStoreVideoWindow(U8BIT path, U16BIT x, U16BIT y, U16BIT w, U16BIT 
 {
    BOOLEAN success = TRUE;
    FUNCTION_START(STB_AVStoreVideoWindow);
+
+   if (INVALID_RES_ID == path)
+   {
+       path = 0;
+   }
+
    window_rect_array[path].x=x;
    window_rect_array[path].y=y;
    window_rect_array[path].w=w;

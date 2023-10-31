@@ -131,16 +131,14 @@ enum TUNER_LIFECYCLE_STATUS {
 };
 
 enum TUNER_TYPE {
-    TUNER_TYPE_DEFAULT              = 0,
-    TUNER_TYPE_PIP                  = 1,
+    TUNER_TYPE_LIVE_0               = 0,
+    TUNER_TYPE_LIVE_1               = 1,
     TUNER_TYPE_DVR_RECORD           = 2,
     TUNER_TYPE_DVR_TIMESHIFT_RECORD = 3,
     TUNER_TYPE_DVR_PLAY             = 4,
     TUNER_TYPE_SCAN                 = 5,
-    TUNER_TYPE_FCC_TUNE_PREV        = 6,
-    TUNER_TYPE_FCC_TUNE_NEXT        = 7,
+    TUNER_TYPE_LIVE_2               = 6,
 };
-
 /*
 struct AMTuner : public RefBase {
     AMTuner(JNIEnv *env, jobject thiz);
@@ -590,7 +588,7 @@ void Am_descrambler_close(jobject descrambler);
  *
  * @param event the tuner status.
  */
-typedef void (*Am_tuner_notifyTunerEvent) (int event);
+typedef void (*Am_tuner_notifyTunerEvent) (int tunerClientId, int event);
 
 /**
  * scan callback function
@@ -598,7 +596,7 @@ typedef void (*Am_tuner_notifyTunerEvent) (int event);
  * @param scanMessageType the scan callback message type.
  * @param scanMessage the scan callback message.
  */
-typedef void (*Am_tuner_notifyScanCallbackEvent) (int scanMessageType, jobjectArray scanMessage);
+typedef void (*Am_tuner_notifyScanCallbackEvent) (int tunerClientId, int scanMessageType, jobjectArray scanMessage);
 
 /**
  * Filter event callback function
@@ -616,7 +614,7 @@ typedef void (*Am_filter_callback) (jobject filter, jobjectArray filterEvent, in
  * @param messageType the lnb callback event.
  * @param diseqcMessage the lnb callback diseqc message.
  */
-typedef void (*Am_lnb_callback) (jobject lnb, int eventType, jbyteArray diseqcMessage);
+typedef void (*Am_lnb_callback) (jobject lnb, int tunerClientId, int eventType, jbyteArray diseqcMessage);
 
 /**
  * Tuner instance status listener

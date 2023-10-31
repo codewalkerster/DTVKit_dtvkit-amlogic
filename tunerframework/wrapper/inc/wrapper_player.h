@@ -58,14 +58,13 @@ typedef enum {
 }WRAPPER_PLAYER_AUDIO_STREAM_TYPE;
 
 typedef enum {
-    WP_TUNER_TYPE_DEFAULT              = 0,
-    WP_TUNER_TYPE_PIP                  = 1,
+    WP_TUNER_TYPE_LIVE_0               = 0,
+    WP_TUNER_TYPE_LIVE_1               = 1,
     WP_TUNER_TYPE_DVR_RECORD           = 2,
     WP_TUNER_TYPE_DVR_TIMESHIFT_RECORD = 3,
     WP_TUNER_TYPE_DVR_PLAY             = 4,
     WP_TUNER_TYPE_SCAN                 = 5,
-    WP_TUNER_TYPE_FCC_TUNE_PREV        = 6,
-    WP_TUNER_TYPE_FCC_TUNE_NEXT        = 7,
+    WP_TUNER_TYPE_LIVE_2               = 6,
     WP_TUNER_TYPE_MAX                  = 255
 }WRAPPER_TUNER_TYPE;
 

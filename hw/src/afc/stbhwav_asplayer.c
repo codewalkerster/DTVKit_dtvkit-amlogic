@@ -2860,8 +2860,8 @@ void STB_AVSetDecodingMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_DECOD
             ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
             if (ret == 0) {
                 jni_asplayer_work_mode work_mode = IS_CACHED(mode) ? JNI_ASPLAYER_WORK_MODE_CACHING_ONLY : JNI_ASPLAYER_WORK_MODE_NORMAL;
-                BOOLEAN fcc_enabled = STB_Is_FCC_Enabled();
 
+                BOOLEAN fcc_enabled = STB_Is_FCC_Enabled();
                 if (fcc_enabled)
                 {
                     ret = Wrapper_Player_SetWorkMode(player_handle, work_mode);
@@ -3212,20 +3212,12 @@ int AV_CreateTsPlayer_l(U8BIT av_path,
     int ret;
     jni_asplayer_init_params parm;
     jni_asplayer_handle player_handle;
-    WRAPPER_TUNER_TYPE tunerType = WP_TUNER_TYPE_DEFAULT;
+    WRAPPER_TUNER_TYPE tunerType = WP_TUNER_TYPE_LIVE_0;
 
     if (av_path >= num_paths)
     {
         AV_DBG("Invalid path: %d", av_path);
         return -1;
-    }
-
-    if (STB_Is_PIP_Enabled())
-    {
-        if (av_paths_status[av_path].pip_index == 1)
-        {
-            tunerType = WP_TUNER_TYPE_PIP;
-        }
     }
 
     Wrapper_Player_Initialise(av_path, tunerType);
@@ -3445,7 +3437,7 @@ int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle,
     {
         jni_asplayer_work_mode work_mode = IS_CACHED(av_paths_status[av_path].decoding_mode) ? JNI_ASPLAYER_WORK_MODE_CACHING_ONLY : JNI_ASPLAYER_WORK_MODE_NORMAL;
 
-        if (av_path == STB_AVGetPath(STB_DPGetFCCPlayingPath(), INVALID_RES_ID))
+        if (work_mode == JNI_ASPLAYER_WORK_MODE_NORMAL)
         {
             ret = Wrapper_Player_SetSurface(player_handle);
             if (ret < 0)
@@ -3458,6 +3450,27 @@ int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle,
         if (ret < 0)
         {
             VID_DBG("set work mode failed, err:%d, player[0x%u]", ret, player_handle);
+        }
+    }
+    else if (STB_Is_PIP_Enabled())
+    {
+        ret = Wrapper_Player_SetSurface(player_handle);
+        if (ret < 0)
+        {
+            VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
+        }
+
+        if (av_paths_status[av_path].pip_index == 1)
+        {
+            ret = Wrapper_Player_SetPIPMode(player_handle, JNI_ASPLAYER_PIP_MODE_PIP);
+        }
+        else
+        {
+            ret = Wrapper_Player_SetPIPMode(player_handle, JNI_ASPLAYER_PIP_MODE_NORMAL);
+        }
+        if (ret < 0)
+        {
+            VID_DBG("set PIP mode failed, err:%d, player[0x%u]", ret, player_handle);
         }
     }
     else

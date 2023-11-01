@@ -3168,7 +3168,7 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
         case JNI_ASPLAYER_EVENT_TYPE_DATA_LOSS:
         {
             AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DATA_LOSS!\n", status->decoder);
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_INPUT_DATA_LOSS, &status->decoder, sizeof(U8BIT));
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
             break;
         }
         case JNI_ASPLAYER_EVENT_TYPE_DATA_RESUME:
@@ -3481,7 +3481,6 @@ int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle,
             VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
         }
     }
-
 
     ret = Wrapper_Player_StartVideoDecoding(player_handle);
     if (ret < 0)

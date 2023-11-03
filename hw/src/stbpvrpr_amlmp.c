@@ -2211,6 +2211,7 @@ BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
       {
          ret = TRUE;
       }
+      STB_MEMFreeSysRAM(p_ids);
    }
 
    REC_DBG("disk 0x%04x, name %s, segs/seg[0] %d/%zd, valid %d",

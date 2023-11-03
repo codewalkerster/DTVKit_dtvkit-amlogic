@@ -3168,13 +3168,25 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
         case JNI_ASPLAYER_EVENT_TYPE_DATA_LOSS:
         {
             AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DATA_LOSS!\n", status->decoder);
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_INPUT_DATA_LOSS, &status->decoder, sizeof(U8BIT));
             break;
         }
         case JNI_ASPLAYER_EVENT_TYPE_DATA_RESUME:
         {
             AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DATA_RESUME\n", status->decoder);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_INPUT_DATA_RESUME, &status->decoder, sizeof(U8BIT));
+            break;
+        }
+        case JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS:
+        {
+            AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS!\n", status->decoder);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
+            break;
+        }
+        case JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_RESUME:
+        {
+            AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_RESUME\n", status->decoder);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_DATA_RESUME, &status->decoder, sizeof(U8BIT));
             break;
         }
         case JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_VIDEO:

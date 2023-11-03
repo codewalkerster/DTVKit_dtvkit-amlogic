@@ -178,6 +178,9 @@ typedef struct
     U32BIT               audio_out_control;
     U16BIT               audio_presentation_id;
     U8BIT                pip_index;
+#ifdef SUPPORT_CAS
+    E_STB_DRM_TYPE       drm_mode;
+#endif
 } AV_PATH_STATUS;
 
 typedef struct
@@ -291,7 +294,7 @@ static int AV_CreatePlayer_l(U8BIT av_path, jni_asplayer_input_source_type sourc
 static int AV_ReleasePlayer_l(U8BIT av_path);
 static int AV_GetPlayerHandleByPath_l(U8BIT video, U8BIT audio, jni_asplayer_handle* player_handle, BOOLEAN recreat_handle); //return jni_asplayer_handle or am_tsplayer_handle
 static int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle);
-static int AV_StartAudioDecode_l(jni_asplayer_handle player_handle, U16BIT a_pid, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
+static int AV_StartAudioDecode_l(U8BIT av_path,jni_asplayer_handle player_handle, U16BIT a_pid, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
 static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle, U16BIT v_pid, U16BIT pcr_pid, WRAPPER_PLAYER_VIDEO_STREAM_TYPE format);
 
 //for PVR
@@ -356,6 +359,9 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].display_info.screen_width = 1920;
             av_paths_status[av_path].display_info.screen_height = 1080;
             av_paths_status[av_path].display_info.screen_aspect_ratio = ASPECT_RATIO_16_9;
+#ifdef SUPPORT_CAS
+            av_paths_status[av_path].drm_mode           = DRM_NONE;
+#endif
             av_paths_status[av_path].audio_presentation_id = INVALID_PID;
             av_paths_status[av_path].pip_index = 0;
             pthread_rwlock_init(&av_paths_status[av_path].lock, NULL);
@@ -1108,8 +1114,18 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
  */
 void STB_AVSetDrmMode(U8BIT path, E_STB_DRM_TYPE mode)
 {
-    USE_UNWANTED_PARAM(path);
-    USE_UNWANTED_PARAM(mode);
+    VID_DBG("path=%u", path);
+    if (path < num_paths) {
+      U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+      if (av_path == INVALID_RES_ID) {
+          AUD_DBG("STB_AVSetDrmMode error video=%u av_path=%u", path, av_path);
+          return;
+      }
+      av_paths_status[av_path].drm_mode = mode;
+    } else {
+      VID_DBG("path=%u is error,not set drm mode", path);
+    }
 }
 #endif
 
@@ -1302,7 +1318,7 @@ void STB_AVStartAudioDecoding(U8BIT path)
     if (audio_pid != 0 && audio_pid != INVALID_PID)
     {
         AUD_DBG("start audio pid= %u format:%d", audio_pid, audio_format);
-        ret = AV_StartAudioDecode_l(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
+        ret = AV_StartAudioDecode_l(av_path,player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
         if (ret == 0)
         {
             av_paths_status[av_path].audio_pid = audio_pid;
@@ -1887,6 +1903,18 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
         ad_param.mimeType = audio_mime_types[av_paths_status[path].ad_format].MIME;
         ad_param.sampleRate = 8000;
         ad_param.channelCount = 1;
+#ifdef SUPPORT_CAS
+        if (av_paths_status[av_path].drm_mode == DRM_NONE)
+        {
+            ad_param.scrambled = FALSE;
+        }
+        else
+        {
+            ad_param.scrambled = TRUE;
+        }
+        AUD_DBG("scrambled = %d", ad_param.scrambled);
+#endif
+
         err = Wrapper_Player_SetADParams(player_handle, &ad_param, av_paths_status[av_path].ad_format);
         if (err < 0) {
             ret = FALSE;
@@ -3377,6 +3405,7 @@ int AV_CreatePlayer_l(U8BIT av_path,
     parm.event_mask= av_path;
     parm.source = source_type;
     parm.playback_mode = JNI_ASPLAYER_PLAYBACK_MODE_PASSTHROUGH;
+
     ret = Wrapper_Player_Create(parm, &player_handle, av_path);
     if (ret == 0)
     {
@@ -3497,7 +3526,7 @@ int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle)
     return INVALID_RES_ID;
 }
 
-int AV_StartAudioDecode_l(jni_asplayer_handle player_handle, U16BIT a_pid,
+int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handle, U16BIT a_pid,
                         WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId)
 {
     int ret;
@@ -3509,7 +3538,17 @@ int AV_StartAudioDecode_l(jni_asplayer_handle player_handle, U16BIT a_pid,
     audio_param.sampleRate = 8000;
     audio_param.channelCount = 1;
     audio_param.mimeType = audio_mime_types[format].MIME;
-
+#ifdef SUPPORT_CAS
+    if (av_paths_status[av_path].drm_mode == DRM_NONE)
+    {
+        audio_param.scrambled = FALSE;
+    }
+    else
+    {
+        audio_param.scrambled = TRUE;
+    }
+    AUD_DBG("scrambled = %d", audio_param.scrambled);
+#endif
     AUD_DBG("=========> Set audio params start, pid:%d MIME:%s  filterId %d avSyncHwId %d ", a_pid, audio_param.mimeType,audio_param.filterId,audio_param.avSyncHwId);
     ret = Wrapper_Player_SetAudioParams(player_handle, &audio_param, format);
     if (ret < 0)
@@ -3583,6 +3622,17 @@ int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle,
     video_param.mimeType = video_mime_types[format].MIME;
     video_param.height = 1080;
     video_param.width = 1920;
+#ifdef SUPPORT_CAS
+    if (av_paths_status[av_path].drm_mode == DRM_NONE)
+    {
+        video_param.scrambled = FALSE;
+    }
+    else
+    {
+        video_param.scrambled = TRUE;
+    }
+    VID_DBG("scrambled = %d", video_param.scrambled);
+#endif
 
     VID_DBG(" Set video params start(%d), v_pid:%d MIME:%s avSyncHwId:%d  filterId %d", av_path, v_pid, video_param.mimeType, video_param.avSyncHwId ,video_param.filterId );
     ret = Wrapper_Player_SetVideoParams(player_handle, &video_param, format);

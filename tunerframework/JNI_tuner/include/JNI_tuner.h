@@ -170,10 +170,12 @@ int Am_tuner_getTunerClientIdByType(int tunerType);
 jobject Am_tuner_getTunerObjectByClientId(int clientId);
 
 /**
- * get valid tuner object.
+ * get original tuner object.
+ * @param tunerClientId the current open tuner clientId.
  * @return tuner jobject or null.
  */
-jobject Am_tuner_getValidTuner();
+jobject Am_tuner_getOriginalTuner(int tunerClientId);
+
 
 /**
  * get record tuner object.

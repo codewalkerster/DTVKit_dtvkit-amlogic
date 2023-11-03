@@ -31,7 +31,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "dtv_log.h"
-#define TAG  "CA_GLUE_AMLMP"
+#define TAG  "CA_GLUE"
 #ifdef ANDROID
 #include <cutils/properties.h>
 #endif
@@ -55,6 +55,9 @@
 #endif
 #include "cJSON.h"
 
+#include "JNICasTypes.h"
+#include "JNICasWrapper.h"
+#include "wrapper_dmx.h"
 /*---constant definitions for this file----------------------------------------*/
 
 #ifdef CA_GLUE_DEBUG
@@ -63,8 +66,40 @@
 #define CA_DBG(X)
 #endif
 
-/*---global function definitions-----------------------------------------------*/
 
+static void *cas_mutex;
+
+typedef struct es_pid_entry
+{
+    struct es_pid_entry *next;
+    U16BIT es_pid;
+    int ecm_pid;
+    U16BIT private_data_length;
+    U8BIT private_data[512];
+} ES_PID_INFO;
+
+typedef struct
+{
+    BOOLEAN has_global_ca;
+    BOOLEAN has_component_ca;
+    U8BIT scramble_algo;
+    ES_PID_INFO *ca_pid_list;
+    ES_PID_INFO *last_pid_entry;
+} CA_PMT_INFO;
+
+typedef struct
+{
+    U8BIT path;
+    U16BIT service_id;
+    CA_PMT_INFO pmt_info;
+    BOOLEAN start_descrambling;
+    CasHandle ca_handle;
+    CasHandle ca_session_handle;
+    AM_CasPluginInfo plug_info;
+    int match_ca_id;
+} CA_HANDLE;
+
+/*---global function definitions-----------------------------------------------*/
 /*!**************************************************************************
  * @brief   Called once on system startup to allow initialisation of the CA systems
  * @return  TRUE if initialisation is successful, FALSE otherwise
@@ -93,6 +128,49 @@ BOOLEAN STB_CAIsTSEMode()
     return FALSE;
 }
 
+static void STB_FreePidList(UINTPTR handle)
+{
+    //free pid info list
+    ES_PID_INFO *head = ((CA_HANDLE *)handle)->pmt_info.ca_pid_list;
+    ES_PID_INFO *pid_entry = head;
+
+    while (pid_entry != NULL)
+    {
+        head = pid_entry->next;
+        STB_FreeMemory(pid_entry);
+        pid_entry = head;
+    }
+
+    ((CA_HANDLE *)handle)->pmt_info.ca_pid_list = NULL;
+}
+
+static void DebugPrintBuffer(U8BIT *buff, U32BIT len)
+{
+   #define LINE_LEN  (16 * 3)
+   const char hexdigits[] = "0123456789abcdef";
+   char printline[LINE_LEN + 2];
+   U32BIT ii, jj;
+   printline[LINE_LEN] = '\n';
+   printline[LINE_LEN + 1] = '\0';
+   for (ii = 0, jj = 0; jj != len; ++jj)
+   {
+      printline[ii++] = ' ';
+      printline[ii++] = hexdigits[(buff[jj] >> 4) & 0xF];
+      printline[ii++] = hexdigits[buff[jj] & 0xF];
+      if (ii == LINE_LEN)
+      {
+         STB_SPDebugWrite(printline);
+         ii = 0;
+      }
+   }
+   if (ii != LINE_LEN)
+   {
+      printline[ii++] = '\n';
+      printline[ii] = '\0';
+      STB_SPDebugWrite(printline);
+   }
+}
+
 /*!**************************************************************************
  * @brief   This function is used by the resource manager to acquire a CA descrambler
  *          that's able to descramble a service that uses one of the CA systems
@@ -111,9 +189,79 @@ BOOLEAN STB_CAIsTSEMode()
 BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16BIT num_ca_ids,
                                  UINTPTR *handle)
 {
-    return FALSE;
-}
+    U8BIT j;
+    U32BIT ret = 0;
+    static int init_flag = 0;
 
+    CA_DBG("%s(path=%u, serv_id=%u, ca_ids=%p, num_ca_ids=%u, init_flag=%d)",
+            __FUNCTION__, path, serv_id, ca_ids, num_ca_ids, init_flag);
+    ASSERT(handle);
+
+    if (init_flag == 0)
+    {
+        ret = MediaCAS_Init();
+        init_flag = 1;
+        if (ret)
+        {
+            CA_DBG("am cas init failed [%d]", ret);
+        }
+
+        cas_mutex = (void *)STB_OSCreateMutex();
+    }
+
+    if (num_ca_ids == 0)
+    {
+        CA_DBG("Free channel, no need descrambler");
+        return FALSE;
+    }
+
+    STB_OSMutexLock(cas_mutex);
+
+    *handle = (UINTPTR)STB_GetMemory(sizeof(CA_HANDLE));
+    ASSERT(*handle);
+    memset((void *)*handle, 0x0, sizeof(CA_HANDLE));
+    ((CA_HANDLE *)(*handle))->path = path;
+    ((CA_HANDLE *)(*handle))->service_id = serv_id;
+    CA_DBG("%s handle[%#x]", __FUNCTION__, *handle);
+
+    memset(&(((CA_HANDLE *)(*handle))->plug_info), 0, sizeof(AM_CasPluginInfo));
+    for (j = 0; j < num_ca_ids; j++)
+    {
+        CA_DBG("%s CA Id[%#x]", __FUNCTION__, ca_ids[j]);
+        ((CA_HANDLE *)(*handle))->plug_info.tisSessionId = path;
+        ((CA_HANDLE *)(*handle))->plug_info.tisUseCase = LIVE;
+        if (MediaCAS_IsSystemIdSupported(ca_ids[j]))
+        {
+            ((CA_HANDLE *)(*handle))->plug_info.caSystemId = ca_ids[j];
+            ((CA_HANDLE *)(*handle))->match_ca_id  = ca_ids[j];
+            CA_DBG("%s Found supported CA Id[%#x]", __FUNCTION__, ((CA_HANDLE *)(*handle))->match_ca_id);
+            break;
+        }
+        else
+        {
+            CA_DBG("%s Not supported CA Id",__FUNCTION__);
+        }
+    }
+
+    if (j >= num_ca_ids)
+    {
+        CA_DBG("%s Not found supported CA Id",__FUNCTION__);
+        STB_OSMutexUnlock(cas_mutex);
+        return FALSE;
+    }
+
+    ret = MediaCAS_CreatePlugin(path, &(((CA_HANDLE *)(*handle))->plug_info), &(((CA_HANDLE *)(*handle))->ca_handle));
+    if (ret)
+    {
+        CA_DBG("%s MediaCAS_CreatePlugin failed,ret=%d",__FUNCTION__,ret);
+        STB_OSMutexUnlock(cas_mutex);
+        return FALSE;
+    }
+
+    STB_OSMutexUnlock(cas_mutex);
+
+    return TRUE;
+}
 /*!**************************************************************************
  * @brief   Will be called when a CA descrambler is no longer required.
  * @param   handle - CA descrambler handle being released
@@ -121,7 +269,48 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
  ****************************************************************************/
 BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
 {
-    return FALSE;
+    //AM_CloseCasSession
+    //AM_DestroyCasPlugin
+    U32BIT ret = 0;
+
+    ASSERT(handle);
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+
+    STB_OSMutexLock(cas_mutex);
+
+    ret =  MediaCAS_DestroyCasPlugin(((CA_HANDLE *)handle)->ca_handle);
+    if (ret)
+    {
+        CA_DBG("MediaCAS_CloseCasSession failed,ret=[%d]",ret);
+    }
+#if 0
+    ret = MediaCAS_CasManagerTerm();
+    if (ret)
+    {
+        CA_DBG("MediaCAS_CloseCasSession failed,ret=[%d]",ret);
+    }
+#endif
+
+    if (0 != ((CA_HANDLE *)handle)->ca_handle)
+    {
+        ((CA_HANDLE *)handle)->ca_handle = 0;
+    }
+
+    if (0 != ((CA_HANDLE *)handle)->ca_session_handle)
+    {
+        ((CA_HANDLE *)handle)->ca_session_handle = 0;
+    }
+
+    if (((CA_HANDLE *)handle)->pmt_info.ca_pid_list)
+    {
+        STB_FreePidList(handle);
+    }
+
+    STB_FreeMemory((void *)handle);
+
+    STB_OSMutexUnlock(cas_mutex);
+
+    return TRUE;
 }
 
 /*!**************************************************************************
@@ -131,6 +320,90 @@ BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
  ****************************************************************************/
 void STB_CADescrambleServiceStart(UINTPTR handle)
 {
+    AM_CasSessionInfo ca_session_info ;
+    U32BIT ret = 0;
+    ES_PID_INFO *pid_entry;
+    U32BIT i = 0;
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+
+    ASSERT(handle);
+
+    STB_OSMutexLock(cas_mutex);
+
+    //only support descrambling of global ca descriptor for now.
+    //For component level descramble stream, irdeto cas plugin will process
+    //cat and pmt by itself, don't need dtvkit to do extra things.
+    //it is not suitable for other CAS.
+    if (((CA_HANDLE *)handle)->pmt_info.has_global_ca == FALSE &&
+        ((CA_HANDLE *)handle)->pmt_info.has_component_ca == FALSE)
+    {
+        CA_DBG("%s Warning: DO*NOT have ca descriptor", __FUNCTION__);
+        //STB_OSMutexUnlock(cas_mutex);
+        //return;
+    }
+
+    if (((CA_HANDLE *)handle)->start_descrambling == TRUE)
+    {
+        CA_DBG("%s CA glue service has started.", __FUNCTION__);
+        //STB_OSMutexUnlock(cas_mutex);
+        //return;
+    }
+
+    //AM_StartDescrambling
+    memset(&ca_session_info, 0, sizeof(AM_CasSessionInfo));
+    ca_session_info.casPluginInfo = ((CA_HANDLE *)handle)->plug_info;
+    CA_DBG("%s caSystemId=[%#x]", __FUNCTION__, ca_session_info.casPluginInfo.caSystemId);
+    ca_session_info.scramblingMode = 0;
+    ca_session_info.isProgramLevel = FALSE;
+
+    pid_entry = ((CA_HANDLE *)handle)->pmt_info.ca_pid_list;
+
+    while (pid_entry != NULL)
+    {
+        ca_session_info.ecmPid = pid_entry->ecm_pid;
+        ca_session_info.scrambledEsPids[ca_session_info.scrambledEsNum++] = pid_entry->es_pid;
+        CA_DBG("Descrambling es pid [%#x], ecm_pid [%#x]", pid_entry->es_pid, pid_entry->ecm_pid);
+        ca_session_info.privateDataLen = pid_entry->private_data_length;
+        if (pid_entry->private_data_length != 0)
+        {
+            for (i=0; i<pid_entry->private_data_length; i++)
+            {
+                ca_session_info.privateData[i] = pid_entry->private_data[i];
+            }
+            DebugPrintBuffer(ca_session_info.privateData, ca_session_info.privateDataLen);
+        }
+
+        pid_entry = pid_entry->next;
+    }
+
+    if (ca_session_info.scrambledEsNum <= 0)
+    {
+        CA_DBG("%s Not found scrambled es", __FUNCTION__);
+        //STB_OSMutexUnlock(cas_mutex);
+        //return;
+    }
+
+    ret = MediaCAS_OpenCasSession(((CA_HANDLE *)handle)->ca_handle, &ca_session_info,\
+                                  &(((CA_HANDLE *)handle)->ca_session_handle));
+    if (ret)
+    {
+        CA_DBG("MediaCAS_OpenCasSession failed,ret=[%d]",ret);
+        //STB_OSMutexUnlock(cas_mutex);
+        //return;
+    }
+
+    CA_DBG("%s ca_handle:ca_session_handle=[%#x]:[%#x]",__FUNCTION__, ((CA_HANDLE *)handle)->ca_handle,\
+            ((CA_HANDLE *)handle)->ca_session_handle);
+    ret = MediaCAS_StartDescrambling(((CA_HANDLE *)handle)->ca_handle, ((CA_HANDLE *)handle)->ca_session_handle);
+    if (ret)
+    {
+        CA_DBG("CAS start descrambling failed,ret=[%d]",ret);
+        //STB_OSMutexUnlock(cas_mutex);
+        //return;
+    }
+    ((CA_HANDLE *)handle)->start_descrambling = TRUE;
+
+    STB_OSMutexUnlock(cas_mutex);
 }
 
 /*!**************************************************************************
@@ -139,6 +412,42 @@ void STB_CADescrambleServiceStart(UINTPTR handle)
  ****************************************************************************/
 void STB_CADescrambleServiceStop(UINTPTR handle)
 {
+    U32BIT ret = 0;
+    ASSERT(handle);
+
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+
+    STB_OSMutexLock(cas_mutex);
+
+    //AM_StopDescrambling
+    if (0 != handle)
+    {
+        if (((CA_HANDLE *)handle)->start_descrambling == FALSE)
+        {
+            CA_DBG("CA glue service not started.");
+            STB_OSMutexUnlock(cas_mutex);
+            return;
+        }
+    }
+
+    CA_DBG("%s ca_handle:ca_session_handle=[%#x]:[%#x]",__FUNCTION__, ((CA_HANDLE *)handle)->ca_handle,\
+            ((CA_HANDLE *)handle)->ca_session_handle);
+    ret = MediaCAS_StopDescrambling(((CA_HANDLE *)handle)->ca_handle, ((CA_HANDLE *)handle)->ca_session_handle);
+    if (ret)
+    {
+        CA_DBG("CAS stop descrambling failed.");
+        //return;
+    }
+
+    ret = MediaCAS_CloseCasSession(((CA_HANDLE *)handle)->ca_handle, ((CA_HANDLE *)handle)->ca_session_handle);
+    if (ret)
+    {
+        CA_DBG("MediaCAS_CloseCasSession failed,ret=[%d]",ret);
+    }
+
+    ((CA_HANDLE *)handle)->start_descrambling = FALSE;
+
+    STB_OSMutexUnlock(cas_mutex);
 }
 
 /*!**************************************************************************
@@ -150,11 +459,88 @@ void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session,  const char* inJson, 
 }
 
 /*!**************************************************************************
- * @brief   This function will be called when set CA descramble ioctl
- * @param   session - CA descrambler session
+ * @brief   When there's an update to the PMT for a service, the updated PMT
+ *          will be reported to the CA system using this function.
+ * @param   handle - CA descrambler handle
+ * @param   pmt_data - raw PMT section data
+ * @param   data_len - number of bytes in the PMT
  ****************************************************************************/
-void STB_CADescrambleSessionIoctl(UINTPTR session, const char* inJson, char* outJson, U32BIT outLen)
+static void STB_CollectPmtStreamsCaInfo(UINTPTR handle, CA_PMT_INFO *pmt_info, SI_PMT_TABLE *pmt_table,U16BIT global_ecm_pid, U8BIT *private_data, U16BIT private_data_length)
 {
+    SI_PMT_STREAM_ENTRY *stream_entry;
+    ES_PID_INFO *ca_pid_info;
+    int i;
+
+    stream_entry = pmt_table->stream_list;
+
+    while (stream_entry != NULL)
+    {
+        ca_pid_info = (ES_PID_INFO *)STB_GetMemory(sizeof(ES_PID_INFO));
+        memset(ca_pid_info, 0, sizeof(ES_PID_INFO));
+
+        if (pmt_info->has_global_ca)
+        {
+            ca_pid_info->ecm_pid = global_ecm_pid;
+            ca_pid_info->es_pid = stream_entry->pid;
+            if ((private_data_length < 512) && (private_data != NULL))
+            {
+                ca_pid_info->private_data_length = private_data_length;
+                memcpy(ca_pid_info->private_data, private_data, private_data_length);
+            }
+
+            if (pmt_info->last_pid_entry == NULL)
+            {
+                pmt_info->ca_pid_list = ca_pid_info;
+            }
+            else
+            {
+                pmt_info->last_pid_entry->next = ca_pid_info;
+            }
+
+            pmt_info->last_pid_entry = ca_pid_info;
+            stream_entry = stream_entry->next;
+            continue;
+        }
+
+
+        for (i = 0; i < stream_entry->num_ca_entries; i++)
+        {
+            if (((CA_HANDLE *)handle)->match_ca_id == stream_entry->ca_desc_array[i].ca_id)
+            {
+                ca_pid_info->es_pid = stream_entry->pid;
+                ca_pid_info->ecm_pid = stream_entry->ca_desc_array[i].ca_pid;
+                CA_DBG("%s Descrambling es pid [%#x], ecm_pid [%#x]",__FUNCTION__, ca_pid_info->es_pid, ca_pid_info->ecm_pid);
+
+                if ((stream_entry->ca_desc_array[i].private_data_length < 512) && (stream_entry->ca_desc_array[i].private_data != NULL))
+                {
+                    memcpy(ca_pid_info->private_data,stream_entry->ca_desc_array[i].private_data ,\
+                        stream_entry->ca_desc_array[i].private_data_length);
+                    ca_pid_info->private_data_length = stream_entry->ca_desc_array[i].private_data_length;
+                    DebugPrintBuffer(ca_pid_info->private_data,ca_pid_info->private_data_length);
+                }
+
+                if (pmt_info->last_pid_entry == NULL)
+                {
+                    pmt_info->ca_pid_list = ca_pid_info;
+                }
+                else
+                {
+                    pmt_info->last_pid_entry->next = ca_pid_info;
+                }
+
+                pmt_info->last_pid_entry = ca_pid_info;
+                pmt_info->has_component_ca = TRUE;
+
+                CA_DBG("%s supported component CA desc found", __FUNCTION__);
+                break;
+            }
+        }
+
+        stream_entry = stream_entry->next;
+    }
+
+    /* record the scramble algorithm */
+    pmt_info->scramble_algo = pmt_table->scramble_algo;
 }
 
 /*!**************************************************************************
@@ -167,6 +553,108 @@ void STB_CADescrambleSessionIoctl(UINTPTR session, const char* inJson, char* out
 
 void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
 {
+    U8BIT i;
+    CA_PMT_INFO pmt_info;
+    SI_PMT_TABLE *pmt_table=NULL;
+    SI_SECTION_RECORD *sect=NULL;
+    SI_TABLE_RECORD table_rec;
+    U16BIT section_size;
+    U16BIT global_ecm_pid = 0x1fff;
+    U16BIT private_data_length = 0;
+    U8BIT *private_data = NULL;
+
+    FUNCTION_START(STB_CAReportPMT);
+
+    CA_DBG("%s(handle=0x%lx, pmt_data=%p, data_len=%u)", __FUNCTION__, handle, pmt_data, data_len);
+
+    /*if PMT update when playback, we need re-start descrambling with
+    **the new es pid.but now we try to handle that in Video/Audio decoding
+    **status notify function. And not support ecm pid update for now.
+    */
+
+    ASSERT(handle);
+    if (NULL == pmt_data || data_len <= 3)
+    {
+        return;
+    }
+
+    STB_OSMutexLock(cas_mutex);
+
+    memset(&table_rec, 0x0, sizeof(SI_TABLE_RECORD));
+    section_size = ((pmt_data[1] & 0xf) << 8) + pmt_data[2] + 3;
+
+    CA_DBG("%s %d, section_size=%u)", __FUNCTION__, __LINE__, section_size);
+    if (section_size <= data_len)
+    {
+        sect = (SI_SECTION_RECORD *)STB_GetMemory(sizeof(SI_SECTION_RECORD) + section_size);
+
+        if (sect != NULL)
+        {
+            sect->next = NULL;
+            sect->sect_num = pmt_data[6];
+            sect->data_len = section_size;
+            memcpy(&sect->data_start, pmt_data, section_size);
+
+            table_rec.num_sect++;
+            table_rec.path = INVALID_RES_ID;
+            table_rec.tid = pmt_data[0];
+            table_rec.version = (pmt_data[5] >> 1) & 0x1f;
+            table_rec.xtid = (pmt_data[3] << 8) + pmt_data[4];
+            table_rec.section_list = sect;
+            pmt_table = STB_SIParsePmtTable(&table_rec);
+            STB_FreeMemory(sect);
+            sect = NULL;
+        }
+
+        if (NULL != pmt_table)
+        {
+            CA_DBG("%s svc_id[%#x], num_ca_entries[%d], num_streams[%d]",
+                    __FUNCTION__, pmt_table->serv_id, pmt_table->num_ca_entries, pmt_table->num_streams);
+
+            memset(&pmt_info, 0, sizeof(CA_PMT_INFO));
+            for (i = 0; i < pmt_table->num_ca_entries; i++)
+            {
+                if (((CA_HANDLE *)handle)->match_ca_id == pmt_table->ca_desc_array[i].ca_id)
+                {
+                    CA_DBG("Found supported global CA Id[%#x]", pmt_table->ca_desc_array[i].ca_id);
+                    pmt_info.has_global_ca = TRUE;
+                    global_ecm_pid = pmt_table->ca_desc_array[i].ca_pid;
+                    if (pmt_table->ca_desc_array[i].private_data != NULL)
+                    {
+                        private_data_length = pmt_table->ca_desc_array[i].private_data_length;
+                        private_data = pmt_table->ca_desc_array[i].private_data;
+                        DebugPrintBuffer(private_data, private_data_length);
+                    }
+                    break;
+                }
+                else
+                {
+                    CA_DBG("ca_id not match CA Id[%#x]",pmt_table->ca_desc_array[i].ca_id);
+                }
+            }
+
+            if (i >= pmt_table->num_ca_entries)
+            {
+                CA_DBG("%s not found supported global CA desc", __FUNCTION__);
+            }
+
+            if (((CA_HANDLE *)handle)->pmt_info.ca_pid_list)
+            {
+                CA_DBG("%s free previous pmt pid list", __FUNCTION__);
+                STB_FreePidList(handle);
+            }
+
+            STB_CollectPmtStreamsCaInfo(handle, &pmt_info, pmt_table, global_ecm_pid, private_data, private_data_length);
+            memcpy(&(((CA_HANDLE *)handle)->pmt_info), &pmt_info, sizeof(CA_PMT_INFO));
+            ((CA_HANDLE *)handle)->service_id = pmt_table->serv_id;
+            STB_SIReleasePmtTable(pmt_table);
+       }
+    }
+
+    STB_OSMutexUnlock(cas_mutex);
+
+    FUNCTION_FINISH(STB_CAReportPMT);
+
 }
 
 
@@ -244,17 +732,6 @@ void STB_CANotifyRunningStatus(UINTPTR handle, U8BIT status)
 {
 }
 
-/*!**************************************************************************
- * @brief   This function specifies whether a CA descrambler is required
- *          a recording with one of the given CA system IDs.
- * @param   ca_ids - array of CA system IDs
- * @param   num_ca_ids - number of CA system IDs in the array
- * @return  TRUE if a CA descrambler is required, FALSE otherwise
- ****************************************************************************/
-BOOLEAN STB_CADescramblerRequired(U16BIT *ca_ids, U16BIT num_ca_ids)
-{
-    return FALSE;
-}
 
 /*!**************************************************************************
  * @brief   This function specifies whether a CA descrambler is required to playback
@@ -307,36 +784,7 @@ U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
     return(num_pids);
 }
 
-void STB_CAPVRRecodingEncrypt(void *handle, void *param)
-{
-}
 
-void STB_CAPVRPlayDecrypt(void *handle, void *param)
-{
-}
-
-
-int STB_CAPVRGetPlaySection(AML_MP_CASSESSION *sec)
-{
-    return -1;
-}
-
-int STB_CAPVRGetDvrSection(UINTPTR handle, AML_MP_CASSESSION *sec)
-{
-    return -1;
-}
-
-void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeShift)
-{
-}
-
-void STB_CAPVRPlayStop(void)
-{
-}
-
-void STB_CADscReset(void)
-{
-}
 
 /*!**************************************************************************
  * @brief   Called to free the array of PIDs allocated by STB_CAGetRecordingPids.
@@ -367,15 +815,6 @@ void STB_CAPVRRecordStop(UINTPTR handle)
 }
 
 /*!**************************************************************************
- * @brief   This function is called when in timeshift state
- * @param   handle - CA descrambler handle
- * @param   On - TRUE in timeshfit, FALSE normal record or replay
- ****************************************************************************/
-void STB_CASetTimeShiftOn(UINTPTR handle, BOOLEAN On)
-{
-}
-
-/*!**************************************************************************
  * @brief   This function is called when a recording starts and when it stops
  * @param   handle - CA descrambler handle
  * @param   status - TRUE when a recording starts, FALSE when it stops
@@ -387,23 +826,3 @@ void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status)
 /******************************************************************************
 ** End of file
 ******************************************************************************/
-#if 0
-// porting layer only API
-BOOLEAN STB_CAIsTSEMode();
-void STB_CASetTimeShiftOn(UINTPTR handle, BOOLEAN On);
-int STB_CAPVRGetPlaySection(AML_MP_CASSESSION *sec);
-int STB_CAPVRGetDvrSection(UINTPTR handle, AML_MP_CASSESSION *sec);
-
-//cross use API 1
-void STB_CAPVRRecodingEncrypt(void *handle, void *param);
-void STB_CAPVRPlayDecrypt(void *handle, void *param);
-void STB_CADscReset(void);
-
-//cross use API 2
-void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeShift);
-void STB_CAPVRPlayStop(void);
-
-//cross use API 3
-int STB_CAPVRRecordStart(UINTPTR handle);
-void STB_CAPVRRecordStop(UINTPTR handle);
-#endif

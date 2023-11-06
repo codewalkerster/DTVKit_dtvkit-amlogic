@@ -325,6 +325,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    afd_create_context(av_path, decoder_id);
 
    STB_AVSetPlayerHandle(audio_decoder,video_decoder,asplayer_handle);
+   STB_AVNotifyEventHandler(audio_decoder, video_decoder, NULL, 0);
 
    U8BIT path_prefix[256] = {0};
    BOOLEAN ret1 = STB_DSKFullPathname(disk_id,basename,(PU8BIT)path_prefix,sizeof(path_prefix));

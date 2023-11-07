@@ -2960,19 +2960,24 @@ void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
 
 void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event, int64_t param)
 {
-//   Aml_MP_PlayerEventType evt = AML_MP_EVENT_UNKNOWN;
    FUNCTION_START(STB_AVNotifyEventHandler);
    U8BIT av_path = STB_AVGetPath(video_path, audio_path);
    if (av_path == INVALID_RES_ID) {
-      VID_DBG("get av_path error video codec path=%u audio codec:%u av_path = %u", audio_path, video_path, av_path);
+      VID_DBG("get av_path error, %d(%d:%d)", av_path, video_path, audio_path);
       return;
    }
 
-   if (event)
+   Wrapper_Player_RegisterEventCallBack(av_paths_status[av_path].player_handle, AVEventHandler, &av_paths_status[av_path]);
+
+   U32BIT decoder_id = Wrapper_Player_GetInstanceNo(av_paths_status[av_path].player_handle);
+   S_VIDEO_DECODER_PRIV_DATA priv =
    {
-//      evt = *(Aml_MP_PlayerEventType*)event;
-//      AVEventHandler(&av_paths_status[av_path], evt, param);
-   }
+       .decoder = av_paths_status[av_path].decoder,
+       .decoder_id = decoder_id,
+       .decoder_id_valid = TRUE,
+       .sync_id_valid = FALSE,
+   };
+   STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_DECODER_PRIV_DATA, &priv, sizeof(priv));
 
    FUNCTION_FINISH(STB_AVNotifyEventHandler);
 }
@@ -3139,10 +3144,8 @@ BOOLEAN STB_AVSetPlayIndex(U8BIT path, U8BIT index)
 static void AVEventHandler(void *user_data, jni_asplayer_event *event)
 {
     AV_PATH_STATUS *status;
-    S_STB_AV_VIDEO_INFO info;
 
     status = (AV_PATH_STATUS *)user_data;
-    info.flags = 0;
     jni_asplayer_event_type eventType  = event->type;
     if (eventType > 0)
         AV_DBG("[evt] eventType: %d", eventType);
@@ -3151,6 +3154,7 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
     {
         case JNI_ASPLAYER_EVENT_TYPE_VIDEO_CHANGED:
         {
+            AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_VIDEO_CHANGED!\n", status->decoder);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_CHANGED, &status->decoder, sizeof(U8BIT));
             break;
         }
@@ -3194,7 +3198,7 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
             AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_VIDEO: ## VIDEO_AVAILABLE ##\n", status->decoder);
             STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &status->decoder, sizeof(U8BIT));
 
-            int sync_id = Wrapper_Player_GetSyncInstanceNo(status->player_handle);
+            U32BIT sync_id = Wrapper_Player_GetSyncInstanceNo(status->player_handle);
 
             S_VIDEO_DECODER_PRIV_DATA priv =
                 {
@@ -3246,7 +3250,7 @@ int AV_CreateTsPlayer_l(U8BIT av_path,
         Wrapper_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[av_path]);
         AV_DBG("Create asplayer success. path= %d, player_handle= %u, dxm_id:%d", av_path, player_handle, dmx_dev_id);
 
-        uint32_t decoder_id = Wrapper_Player_GetInstanceNo(player_handle);
+        U32BIT decoder_id = Wrapper_Player_GetInstanceNo(player_handle);
         S_VIDEO_DECODER_PRIV_DATA priv =
         {
             .decoder = av_paths_status[av_path].decoder,

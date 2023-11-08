@@ -603,12 +603,50 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
  * @param   path video path
  * @param   blank TRUE to blank, FALSE to unblank
  * @param   force_black_color  set blank AV color
- * @param   TRUE to force on all window, regardless of the path
 */
-void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank,BOOLEAN is_black_color, BOOLEAN force_all)
+void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color, BOOLEAN force_all)
 {
-    FUNCTION_START(STB_AVSetVideoColor);
-    FUNCTION_FINISH(STB_AVSetVideoColor);
+    //this function is only supported for CVTE/CTV bluescreen feature
+    if (video_blank_lock)
+    {
+        VID_DBG("video path[%d] Video blank locked, can not change", path);
+        return;
+    }
+
+#if 0
+    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+    if (av_path != INVALID_RES_ID || force_all)
+    {
+        long surface = -1;
+        int win = 0;
+
+        if (!force_all)
+        {
+            surface = (long)video_surface[av_path];
+            win = (surface < 0)? -1 : (surface + 1);
+        }
+        else
+        {
+            win = 1;
+        }
+        VID_DBG("%d:[%d:-] surface:%ld, win:%d, force_all:%d", av_path, path, surface, win, force_all);
+
+        if (win > 0)
+        {
+            int color = VIDEO_LAYER_COLOR_MAX;
+            VID_DBG("===========>blank=%u force_black_color %d", blank, is_black_color);
+            if (blank == TRUE)
+            {
+                color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
+                SC_setVideoColor(win, color);
+            }
+            else
+            {
+                SC_setVideoColor(win, VIDEO_LAYER_COLOR_MAX);
+            }
+        }
+    }
+#endif
 }
 
 /**
@@ -619,8 +657,41 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank,BOOLEAN is_black_color, BOOLE
 */
 void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOLEAN force_all)
 {
-    FUNCTION_START(STB_AVSetWindowColor);
-    FUNCTION_FINISH(STB_AVSetWindowColor);
+    //this function is only supported for CVTE/CTV bluescreen feature
+    if (video_blank_lock)
+    {
+        VID_DBG("Video blank locked, can not change");
+        return;
+    }
+
+    VID_DBG("window:%d, force_all:%d blank:%d force_black:%d",
+        window, force_all, blank, force_black);
+
+#if 0
+    if (window > 0)
+    {
+        U8BIT win = window;
+        U8BIT win_max = window;
+
+        if (force_all)
+        {
+            win = 1;
+            win_max = 2;
+        }
+
+        for (; win <= win_max; win++)
+        {
+            if (blank == TRUE)
+            {
+                SC_setVideoColor(win, force_black? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting());
+            }
+            else
+            {
+                SC_setVideoColor(win, VIDEO_LAYER_COLOR_MAX);
+            }
+        }
+    }
+#endif
 }
 
 /**
@@ -630,7 +701,13 @@ BOOLEAN STB_AVGetStaticFrameEnable()
 {
    BOOLEAN ret = FALSE;
    FUNCTION_START(STB_AVGetStaticFrameEnable);
+
+#if 0
+   ret = SC_getStaticFrameEnable();
+#endif
+
    FUNCTION_FINISH(STB_AVGetStaticFrameEnable);
+
    return ret;
 }
 

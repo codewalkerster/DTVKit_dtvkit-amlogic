@@ -21,16 +21,9 @@
 //!JNI
 #include <jni.h>
 
-#define LOG_TAG "DTVKIT_LOG"
-
-typedef struct s_pid_hal
-{
-    jobject Jfilter;
-    filter_callback cb;
-    void* user_data;
-} S_HAL;
+#define LOG_TAG "DMX_HAL"
 using namespace std;
-
+//=========================================
 typedef struct
 {
     pthread_mutex_t dmx_mutex;
@@ -45,7 +38,15 @@ typedef struct
 }PID_TASK_PACKAGE;
 
 DMX_THREAD_PARA gDMXTaskLocked;
+//=========================================
 
+typedef struct s_pid_hal
+{
+    jobject Jfilter;
+    filter_callback cb;
+    U16BIT pid ;
+    void* user_data;
+} S_HAL;
 
 typedef map<int, S_HAL*> FILTER_MAP;
 #define MAP_INSERT_ITEM(__MAP__, __KEY__, __VALUE__) __MAP__.insert(std::make_pair(__KEY__, __VALUE__))
@@ -64,7 +65,11 @@ static void FilterTask(void *param)
         {
             ALOGD("%s read pid_queue failure", __FUNCTION__);
         }
-        package.cb(&package.para);
+        if (package.cb != NULL)
+        {
+            package.cb(&package.para);
+            delete[] package.para.pun8_buffer;
+        }
         //ALOGD("%s pidcallback is %d", __FUNCTION__, package.para.un32filterID);
     }
     ALOGD("end:%s", __FUNCTION__);
@@ -78,11 +83,6 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
         ALOGD("%s : test fail, env is null", __FUNCTION__);
         return;
     }
-    //show filter status
-    //ALOGD("filterStatus : %d", filterStatus);
-
-    //handle Filter Event
-    //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     if (NULL != filterEventArray) {
         int eventSize = env->GetArrayLength(filterEventArray);
         for (int index = 0; index < eventSize; index++) {
@@ -91,14 +91,11 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
             Section_Event stSectionEvent;
             memset(&stSectionEvent, 0, sizeof(Section_Event));
             filter_utils_getSectionEvent(env, filterEvent, &stSectionEvent);
-
-            //ALOGD("tableId :%d, version :%d, section num :%d, data length :%d", stSectionEvent.tableId, stSectionEvent.version,
-            //    stSectionEvent.sectionNum, stSectionEvent.dataLength);
-
             //3.read section data
             char *buffer = new char[stSectionEvent.dataLength];
             int readSize = Am_filter_read(filter, buffer, 0, stSectionEvent.dataLength);
 
+            pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
             FILTER_MAP::iterator it = filter_map.find( Am_filter_getId(filter) );
             if (it != filter_map.end())
             {
@@ -122,28 +119,17 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
                     }
                 }
             }
-            //ALOGD("read callback data size :%d ", readSize);
-            if (readSize > stSectionEvent.dataLength) {
-                ALOGD("%s : test fail, read data too long than real data size", __FUNCTION__);
-            } else {
-                /*for (int i = 0; i < readSize; i++) {
-                    //ALOGD("0X%x ", buffer[i]);
-                }*/
-
-            }
-            delete[] buffer;
+            pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
         }
     }
     if (attached) {
         Am_tuner_detachJNIEnv();
     }
-    //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
-    //ALOGD("end:%s", __FUNCTION__);
 }
 
 int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
 {
-    ALOGD("start:%s", __FUNCTION__);
+
     int ClientId = 0xFF;
     if (!gDMXTaskLocked.initDmxLocked )
     {
@@ -152,11 +138,10 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
         pthread_mutex_init( &gDMXTaskLocked.dmx_mutex, NULL);
     }
 
-    //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     if (type != 0)
     {
         ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
-        ALOGD("===start DMX_CAPS_PLAYBACK filter:%s  ClientId 0x%x", __FUNCTION__,ClientId);
+        ALOGD("start DMX_CAPS_PLAYBACK filter ClientId 0x%x",ClientId);
     }
     else
     {
@@ -185,8 +170,7 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
             }
         }
         ClientId = Am_tuner_getTunerClientIdByType(object_id);
-        //ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DEFAULT);
-        ALOGD("===%s start DMX_CAPS_Live filtertuner_path [%d] ClientId[%d] ClientId[%d]", __FUNCTION__,path,ClientId,object_id);
+        ALOGD("start DMX_CAPS_Live filtertuner_path [%d] ClientId[%d] ClientId[%d]",path,ClientId,object_id);
     }
     Am_filter_callback filterCallback = FilterCallback;
     S_HAL *filerInfo;
@@ -195,19 +179,20 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
     filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, 8 * 4096, (long)filterCallback);
     filerInfo->user_data  = user_data;
     int filterId = Am_filter_getId(filerInfo->Jfilter);
+
+    pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     FILTER_MAP::iterator it = filter_map.find(filterId);
     if (it != filter_map.end())
     {
-        filter_map.erase(it);
-        MAP_INSERT_ITEM( filter_map, filterId, filerInfo );
-        ALOGI("%s Already Find filterId: %d  update from map.", __FUNCTION__, filterId);
+        ALOGI("%s -----------------Already Find filterId: %d  update from map.", __FUNCTION__, filterId);
     }
     else
     {
         MAP_INSERT_ITEM( filter_map, filterId, filerInfo );
-        ALOGI("%s instert new filerInfo filterId: %d.", __FUNCTION__, filterId);
+        ALOGI("Insert new filerInfo filterId: %d.", filterId);
     }
-    ALOGI("==%s  filerInfo %p filerInfo.Jfilter %p, filerInfo->user_data %p", __FUNCTION__, filerInfo, filerInfo->Jfilter, filerInfo->user_data);
+    pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
+    ALOGI("DMX_HAL_%s  filerInfo %p filterId 0x%x Jfilter %p, user_data %p", __FUNCTION__, filerInfo, filterId , filerInfo->Jfilter, filerInfo->user_data);
     if (symbol_open == 0)
     {
         if (pid_queue == NULL)
@@ -224,41 +209,40 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
         }
         symbol_open = 1;
     }
-    //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
-    ALOGD("end:%s", __FUNCTION__);
     return filterId ;
 }
 
 BOOLEAN DMX_CloseFilter(int un32filterID)
 {
-    ALOGD("start:%s", __FUNCTION__);
-    //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     BOOLEAN ret = FALSE;
+    pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     FILTER_MAP::iterator it = filter_map.find( un32filterID );
+    pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
     if (it != filter_map.end())
     {
-        ALOGD("DMX_CloseFilter:%d %p", un32filterID,it->second);
+        ALOGD("DMX_HAL_%s  filerInfo %p filterId 0x%x Jfilter %p pid [0x%x]",  __FUNCTION__,  it->second , un32filterID, it->second->Jfilter, it->second->pid);
         Am_filter_close(it->second->Jfilter);
+
+        pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
         if (it->second != NULL)
          {
             delete it->second;
             it->second = NULL;
         }
         filter_map.erase( un32filterID );
+        pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
         ret =  TRUE;
     }
-    ALOGD("end:%s", __FUNCTION__);
-    //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
     return ret ;
 }
 
 BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO* params )
 {
-    ALOGD("start:%s", __FUNCTION__);
     BOOLEAN ret = FALSE;
     char mode[3] = {0, 0, 0};
-    //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
+    pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     FILTER_MAP::iterator it = filter_map.find( un32filterID );
+    pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
     if (it != filter_map.end())
     {
         TS_Filter_Configuration tsFilterConfiguration;
@@ -314,6 +298,8 @@ BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO* para
         jobject tsFilterConfigurationObject = filter_utils_getSectionTsFilterConfiguration(env, tsFilterConfiguration);
         if (tsFilterConfigurationObject)
         {
+            ALOGD("DMX_HAL_%s  Jfilter %p pid [0x%x]",  __FUNCTION__, it->second->Jfilter, pid);
+            it->second->pid = pid ;
             int result = Am_filter_configure((it->second->Jfilter), tsFilterConfigurationObject);
             ret = TRUE;
         }
@@ -322,46 +308,42 @@ BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO* para
         delete[] tsFilterConfiguration.setting.section_setting.mode;
         ReleaseEnv(attached);
     }
-    //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
-    ALOGD("end:%s", __FUNCTION__);
     return ret;
 }
 
 BOOLEAN DMX_StartFilter(int un32filterID )
 {
-    ALOGD("start:%s", __FUNCTION__);
     BOOLEAN ret = FALSE;
-    //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
+    pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     FILTER_MAP::iterator it = filter_map.find( un32filterID );
+    pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
     if (it != filter_map.end())
     {
         if (it->second != NULL)
         {
+            ALOGD("DMX_HAL_%s  filerInfo %p filterId 0x%x Jfilter %p pid [0x%x]",  __FUNCTION__,  it->second , un32filterID, it->second->Jfilter,it->second->pid);
             jint result = Am_filter_start(it->second->Jfilter);
             ret =  TRUE;
         }
     }
-    //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
-    ALOGD("end:%s", __FUNCTION__);
     return ret ;
 }
 
 BOOLEAN  DMX_StopFilter(int un32filterID )
 {
-    ALOGD("start:%s", __FUNCTION__);
     BOOLEAN ret = FALSE;
-    //pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
+    pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     FILTER_MAP::iterator it = filter_map.find( un32filterID );
+    pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
     if (it != filter_map.end())
     {
        if (it->second != NULL)
        {
+           ALOGD("DMX_HAL_%s  filerInfo %p filterId 0x%x Jfilter %p pid [0x%x]",  __FUNCTION__,  it->second , un32filterID, it->second->Jfilter ,it->second->pid);
            jint result = Am_filter_stop(it->second->Jfilter);
            ret =  TRUE;
        }
     }
-    //pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
-    ALOGD("end:%s", __FUNCTION__);
     return ret ;
 }
 

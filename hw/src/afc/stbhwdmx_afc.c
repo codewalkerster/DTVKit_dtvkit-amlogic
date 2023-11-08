@@ -767,7 +767,7 @@ U16BIT  STB_DMXGrabPIDFilter(U8BIT path, U16BIT pid, FILTER_CALLBACK func_ptr)
 
          pfilt_id = (filter_index << 8);
 #ifdef FILTER_PRINTS
-DMX_DBG(">> %s(%u): pid=%u, fd=%d, func=%p, 0x%04x - NEW\n", __FUNCTION__, path, pid, filter_ptr->filter_fd, func_ptr, pfilt_id);
+//DMX_DBG(">> %s(%u): pid=%u, fd=%d, func=%p, 0x%04x - NEW\n", __FUNCTION__, path, pid, filter_ptr->filter_fd, func_ptr, pfilt_id);
 #endif
       }
       else
@@ -914,7 +914,7 @@ U16BIT STB_DMXGrabSectFilter(U8BIT path, U16BIT pfilt_id)
           * than 16 section filters for each PID filter */
          sfilt_id += pfilt_id;
 //#ifdef FILTER_PRINTS
-DMX_DBG(">> %s(%u, 0x%04x): pid=%u, sfilt=0x%04x\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, sfilt_id);
+DMX_INFO(">> %s(%u, 0x%04x): pid=%u, sfilt=0x%04x\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, sfilt_id);
 //#endif
       }
 
@@ -952,7 +952,7 @@ void STB_DMXReleaseSectFilter(U8BIT path, U16BIT sfilt_id)
       STB_OSMutexLock(demux_status[path].config_mutex);
 
 //#ifdef FILTER_PRINTS
-DMX_DBG(">> %s(%u, 0x%04x): in_use=%u\n", __FUNCTION__, path, sfilt_id, sect_filter->in_use);
+DMX_INFO(">> %s(%u, 0x%04x): in_use=%u\n", __FUNCTION__, path, sfilt_id, sect_filter->in_use);
 //#endif
       if (sect_filter->in_use)
       {
@@ -1005,7 +1005,7 @@ void STB_DMXSetupSectFilter(U8BIT path, U16BIT sfilt_id, U8BIT *match_ptr, U8BIT
       STB_OSMutexLock(demux_status[path].config_mutex);
 
 #ifdef FILTER_PRINTS
-printf(">> %s(%u, 0x%04x, crc=%u)\n", __FUNCTION__, path, sfilt_id, crc);
+DMX_INFO(">> %s(%u, 0x%04x, crc=%u)\n", __FUNCTION__, path, sfilt_id, crc);
 #endif
 
       /* Save the match and mask data so that the correct section filter
@@ -1126,6 +1126,8 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
 
       if (!pid_filter->started)
       {
+             DMX_INFO("STB_DMXStartPIDFilter filter_index [0x%x]",filter_index);
+
              if (pid_filter->fhandle != -1)
              {
                    am_result = DMX_StartFilter(pid_filter->fhandle);
@@ -1210,9 +1212,8 @@ printf(" - STOP");
             DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
             DMX_FreeFilter(path, pid_filter->fhandle);
 #endif
+            DMX_INFO("STB_DMXStopPIDFilter filter_index [0x%x]",filter_index);
             DMX_StopFilter(pid_filter->fhandle);
-            DMX_CloseFilter(pid_filter->fhandle);
-            pid_filter->fhandle = -1;
             pid_filter->started = FALSE;
 
             demux_status[path].num_pid_filters_started--;
@@ -1829,7 +1830,7 @@ void PidCallback(ST_CALLBACK_T* param)
                            {
                               func_ptr = pid_filter->func_ptr[j];
                               //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
-                               DMX_INFO("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
+                              // DMX_INFO("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(pid_filter->path, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(0, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                            }
@@ -1883,9 +1884,6 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    U16BIT source_type = 0;
    U8BIT source_path = 0;
    FUNCTION_START(UpdateSectionFilter);
-   DMX_INFO("UpdateSectionFilter Start path: [%d] filter_index[%d] source[0x%x] source_param[0x%x]",path,filter_index,\
-    demux_status[path].source,\
-    demux_status[path].source_param);
 
    pid_filter = &demux_status[path].filter_info[filter_index];
    source_type = demux_status[path].source;
@@ -2067,10 +2065,10 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 
         if (pid_filter->fhandle != -1)
         {
-          /*setup*/
-          //BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,SECTION_FILTER_INFO params )
-          /////
-          ////
+          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] filter_index[%d] source[0x%x] source_param[0x%x] PID[0x%x]",path,filter_index,\
+           demux_status[path].source,\
+           demux_status[path].source_param,pid_filter->pid);
+
           DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, sect_filter);
           if (pid_filter->started)
           {
@@ -2078,9 +2076,15 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
              DMX_StartFilter(pid_filter->fhandle);
           }
         }
-
    }
-
+    else
+    {
+        DMX_INFO("STB_DMX UpdateSectionFilter -@-> close path: [%d] filter_index[%d] source[0x%x] source_param[0x%x] PID[0x%x]",path,filter_index,\
+         demux_status[path].source,\
+         demux_status[path].source_param,pid_filter->pid);
+        DMX_CloseFilter(pid_filter->fhandle);
+        pid_filter->fhandle = -1;
+    }
    FUNCTION_FINISH(UpdateSectionFilter);
    DMX_DBG("UpdateSectionFilter end");
 

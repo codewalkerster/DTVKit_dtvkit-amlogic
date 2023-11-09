@@ -75,6 +75,33 @@ static void FilterTask(void *param)
     ALOGD("end:%s", __FUNCTION__);
 }
 
+static void DebugPrintBuffer(U8BIT *buff, U32BIT len)
+{
+#define LINE_LEN (16 * 3)
+    const char hexdigits[] = "0123456789abcdef";
+    char printline[LINE_LEN + 2];
+    U32BIT ii, jj;
+    printline[LINE_LEN] = '\n';
+    printline[LINE_LEN + 1] = '\0';
+    for (ii = 0, jj = 0; jj != len; ++jj)
+    {
+        printline[ii++] = ' ';
+        printline[ii++] = hexdigits[(buff[jj] >> 4) & 0xF];
+        printline[ii++] = hexdigits[buff[jj] & 0xF];
+        if (ii == LINE_LEN)
+        {
+            ALOGD("%s", printline);
+            ii = 0;
+        }
+    }
+    if (ii != LINE_LEN)
+    {
+        printline[ii++] = '\n';
+        printline[ii] = '\0';
+        ALOGD("%s", printline);
+    }
+}
+
 void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus) {
     //ALOGD("start:%s", __FUNCTION__);
     bool attached = false;
@@ -106,6 +133,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
                 para.un32filterID = Am_filter_getId(filter) ;
                 para.pun8_buffer = (uint8_t *)buffer ;
                 para.un32_length =  readSize;
+                // DebugPrintBuffer((U8BIT *)buffer, (U32BIT)readSize);
                 user_data->fhandle = Am_filter_getId(filter);
                 para.un32_userdata = user_data;
                 if ( it->second!= NULL && it->second->cb != NULL )
@@ -259,7 +287,7 @@ BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO* para
 
         tsFilterConfiguration.pid = pid;
         tsFilterConfiguration.type = MAIN_TYPE_TS;
-        tsFilterConfiguration.setting.section_setting.crc_enable = params->check_crc;
+        tsFilterConfiguration.setting.section_setting.crc_enable = true;
         tsFilterConfiguration.setting.section_setting.is_repeat = true;
         tsFilterConfiguration.setting.section_setting.is_raw = false;
         tsFilterConfiguration.setting.section_setting.filter[0] = params->match[0];

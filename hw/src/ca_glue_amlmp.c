@@ -736,9 +736,27 @@ BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
 
     ASSERT(handle);
 
-    CA_DBG("%s(0x%lx)", __FUNCTION__, handle);
+    CA_DBG(("%s(0x%lx)", __FUNCTION__, handle));
 
     STB_OSMutexLock(g_ca_mutex);
+    CA_DBG(("%s->CAS_HAL_LOCK", __func__));
+    if (((STB_CA_Glue_t *)handle)->session_info &&
+        ((STB_CA_Glue_t *)handle)->session_info->cas_session)
+    {
+        if (((STB_CA_Glue_t *)handle)->is_descrambling)
+        {
+            Aml_MP_CAS_StopDescrambling(((STB_CA_Glue_t *)handle)->session_info->cas_session);
+            Aml_MP_CAS_CloseSession(((STB_CA_Glue_t *)handle)->session_info->cas_session);
+            ((STB_CA_Glue_t *)handle)->is_descrambling = FALSE;
+        }
+        else
+        {
+            Aml_MP_CAS_StopDVRRecord(((STB_CA_Glue_t *)handle)->session_info->cas_session);
+            Aml_MP_CAS_CloseSession(((STB_CA_Glue_t *)handle)->session_info->cas_session);
+        }
+        ((STB_CA_Glue_t *)handle)->session_info->cas_session = NULL;
+        CA_DBG(("CA glue close cas session"));
+    }
 
     if (((STB_CA_Glue_t *)handle)->session_info)
     {
@@ -921,6 +939,7 @@ void STB_CADescrambleServiceStop(UINTPTR handle)
 
     //free_sess_list(handle);
 
+    ((STB_CA_Glue_t *)handle)->session_info->cas_session = NULL;
     ((STB_CA_Glue_t *)handle)->is_descrambling = FALSE;
 
     FUNCTION_FINISH(STB_CADescrambleServiceStop);
@@ -1796,8 +1815,14 @@ void STB_CAPVRRecordStop(UINTPTR handle)
             return;
         }
 
+        if (!(((STB_CA_Glue_t *)handle)->session_info->cas_session))
+        {
+            CA_DBG(("CA glue stop recording status cas session is null"));
+            return;
+        }
         Aml_MP_CAS_StopDVRRecord(((STB_CA_Glue_t *)handle)->session_info->cas_session);
         Aml_MP_CAS_CloseSession(((STB_CA_Glue_t *)handle)->session_info->cas_session);
+        ((STB_CA_Glue_t *)handle)->session_info->cas_session=NULL;
         return;
     }
 

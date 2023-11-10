@@ -1798,6 +1798,10 @@ void STB_PVRRecordStop(U8BIT rec_index)
 
          Aml_MP_DVRRecorder_Destroy(s_rec_status[rec_index].recorder);
          s_rec_status[rec_index].recorder = NULL;
+         if (s_rec_status[rec_index].cas_status.cb_param != 0)
+         {
+            STB_CAPVRRecordStop(s_rec_status[rec_index].cas_status.cb_param);
+         }
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
                         &rec_index, sizeof(U8BIT));
          s_rec_status[rec_index].rec_state = REC_STOPPED;

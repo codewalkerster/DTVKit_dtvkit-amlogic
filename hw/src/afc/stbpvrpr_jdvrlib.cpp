@@ -212,6 +212,7 @@ void STB_PVRSetPlayStartMode(U8BIT audio_decoder, U8BIT video_decoder, E_STB_PVR
    prps->start_mode = mode;
    prps->audio_decoder = audio_decoder;
    prps->video_decoder = video_decoder;
+   fill_n((uint8_t*)&prps->progress,sizeof(am_dvr_playback_progress),0);
    PVR_INFO("play_index:%d, start_mode:%d", play_index, (int)prps->start_mode);
 
    //LOG_LEAVE;
@@ -494,6 +495,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    {
       PVR_ERR("Failed to stop playback");
    }
+   fill_n((uint8_t*)&prps->progress,sizeof(am_dvr_playback_progress),0);
    prps->in_use = FALSE;
 
    //release afd context
@@ -846,14 +848,14 @@ void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
  */
 BOOLEAN STB_PVRIsRecordStarted(U8BIT rec_index)
 {
-   LOG_ENTER;
+   //LOG_ENTER;
    S_REC_STATUS* prs = &s_rec_status[rec_index];
    const am_dvr_recorder_handle handle = prs->dvr_recorder_handle;
 
    BOOLEAN ret = ((prs->state >= 2 && prs->state <= 4) ? TRUE : FALSE);
-   PVR_DBG("rec_index:%d, state:%d, ret:%d",rec_index,prs->state,(int)ret);
+   //PVR_DBG("rec_index:%d, state:%d, ret:%d",rec_index,prs->state,(int)ret);
 
-   LOG_LEAVE;
+   //LOG_LEAVE;
    return TRUE;
 }
 
@@ -1334,7 +1336,7 @@ void STB_PVRCheckDiskSpace(void)
       if (STB_PVRIsRecordStarted(index))
       {
          U16BIT disk_id = s_rec_status[index].disk_id;
-         PVR_DBG("check disk_id [%u] mount[%d]index[%d]", disk_id, STB_DSKIsMounted(disk_id), index);
+         //PVR_DBG("check disk_id [%u] mount[%d]index[%d]", disk_id, STB_DSKIsMounted(disk_id), index);
          if (disk_id != INVALID_RES_ID && STB_DSKIsMounted(disk_id))
          {
             STB_DSKCheckSpace(disk_id);

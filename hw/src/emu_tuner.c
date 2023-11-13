@@ -20,6 +20,7 @@
 
 #include "stbhwos.h"
 #include "stbhwdmx.h"
+#include "stbhwmem.h"
 #include "stbdpc.h"
 
 #include "dmx.h"

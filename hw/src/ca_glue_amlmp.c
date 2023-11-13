@@ -76,7 +76,6 @@
 #define ITEM_CHECK_PIN          "checkPin"
 #define ITEM_ERROR_CODE         "errcode"
 #define VMX_CAS_STRING          "Verimatrix"
-#define ITEM_GET_CAS_MODE       "getCasMode"
 #define ITEM_CMD                "cmd"
 #define MAX_JSON_LEN            (1024)
 #define ITEM_DVR_CAS_MODE       "casMode"
@@ -106,6 +105,7 @@ static void *g_ca_mutex;
 static BOOLEAN is_enable_cicam = FALSE;
 static E_CAS_TYPE g_cas_type = CAS_TYPE_NONE;
 static BOOLEAN is_enable_fta = FALSE;
+static const char* IOCTRL_INVOKE_GET_CAS_MODE = "{\"InvokeID\":3}";
 
 typedef enum {
     CAS_MODE_NONE,
@@ -460,19 +460,13 @@ static void get_cas_mode(AML_MP_CASSESSION session)
 {
     cJSON *input = NULL;
     cJSON *item = NULL;
-    char in_json[MAX_JSON_LEN];
     char out_json[MAX_JSON_LEN];
 
     if (g_cas_mode != CAS_MODE_NONE)
         return ;
 
-    input = cJSON_CreateObject();
-    item = cJSON_CreateString(ITEM_GET_CAS_MODE);
-    cJSON_AddItemToObject(input, ITEM_CMD, item);
-    cJSON_PrintPreallocated(input, in_json, MAX_JSON_LEN, 1);
     if (session)
-        Aml_MP_CAS_Ioctl(session, in_json, out_json, MAX_JSON_LEN);
-    cJSON_Delete(input);
+        Aml_MP_CAS_Ioctl(session, IOCTRL_INVOKE_GET_CAS_MODE, out_json, MAX_JSON_LEN);
 
     input = cJSON_Parse(out_json);
     item = cJSON_GetObjectItemCaseSensitive(input, ITEM_DVR_CAS_MODE);

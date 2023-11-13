@@ -226,13 +226,19 @@ static void* EmuTunerThread(void* arg)
     S_EMU_TUNER_DATA *tuner = (S_EMU_TUNER_DATA *)arg;
     int infd = tuner->ifd;
     int fd   = tuner->ofd;
-    char buf[REGION_BUFFER_SIZE];
     int send, ret;
 
     struct timeval start_tv;
     struct timeval now_tv;
     long diff_time;
     long BURST_US = (1000000 / (tuner->config.bitrate / (REGION_BUFFER_SIZE * 8)));
+
+    char *buf = (char *)STB_MEMGetSysRAM(REGION_BUFFER_SIZE);
+    if (!buf)
+    {
+        EMU_DBG("emu thread malloc failed\n");
+        return NULL;
+    }
 
     DTV_LOGI(TAG, "emu thread start\n");
     usleep(300*1000); //wait for av init
@@ -278,6 +284,7 @@ static void* EmuTunerThread(void* arg)
     }
 
     DTV_LOGI(TAG, "emu thread end\n");
+    STB_MEMFreeSysRAM(buf);
     tuner->running = EMU_THREAD_STOPPING;
     return NULL;
 }

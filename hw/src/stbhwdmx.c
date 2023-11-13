@@ -591,7 +591,7 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
    if (r != 0)
       DMX_DBG("set %s source failed: %s", dev_name, strerror(errno));
 #ifdef COMMON_INTERFACE
-      DvbEnableCIPlus(TRUE);
+   DvbEnableCIPlus(TRUE);
 #endif
 }
 
@@ -788,7 +788,8 @@ static void
 dsc_set_aes_output(BOOLEAN enable)
 {
    S_DSC_DEV_INFO *dsc;
-   U8BIT i, r;
+   U8BIT r;
+   int i;
    U32BIT flag = 0;
    U8BIT dev_name[256];
    U8BIT dst_name[32];
@@ -1177,7 +1178,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
 void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 {
    BOOLEAN am_result = FALSE;
-   U16BIT i;
+   int i;
    U16BIT j;
 
    char buf[128];

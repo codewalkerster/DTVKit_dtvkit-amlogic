@@ -4422,9 +4422,10 @@ static BOOLEAN AM_FEND_IBlindScanAPI_Exit(U8BIT path)
     /*driver need to set in demod mode*/
     ret = dvb_blindscan_cancel(path);
 
+    pthread_mutex_unlock(&tuner_status[path].lock);
+
     usleep(10 * 1000);
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
     return ret;
 }
 

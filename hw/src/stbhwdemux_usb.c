@@ -182,6 +182,7 @@ static void *cimodule_media_read_task(void *args)
     if (ret < 0)
     {
         DMX_USB_DBG("(handle: %d),get device info error,error code:%d", media_read_fd, ret);
+        STB_MEMFreeSysRAM(usbdata_buf);
         return NULL;
     }
 
@@ -197,6 +198,7 @@ static void *cimodule_media_read_task(void *args)
         if (MEDIA_OUTPUT_ENABLE != media_output_ctrl)
         {
             DMX_USB_DBG("can not read media from usb ci module in this mode");
+            STB_MEMFreeSysRAM(usbdata_buf);
             return NULL;
         }
     }
@@ -231,6 +233,8 @@ static void *cimodule_media_read_task(void *args)
                 if (usbdata_len >= USB_CIMODULE_MEDIA_MAX_SIZE)
                 {
                     inj_len = inject_usbcam_source_demux(usbdata_buf, usbdata_len);
+                    if (inj_len < 0)
+                        continue;
                     usbdata_len -= inj_len;
                     if (usbdata_len > 0)
                         memmove(usbdata_buf, usbdata_buf + inj_len, usbdata_len);
@@ -257,8 +261,7 @@ static void *cimodule_media_read_task(void *args)
 EXIT:
     DMX_USB_DBG("usbcam unplug, media read task exit.");
     module_inserted = FALSE;
-    if (usbdata_buf)
-        free(usbdata_buf);
+    STB_MEMFreeSysRAM(usbdata_buf);
 
     return NULL;
 }
@@ -287,6 +290,7 @@ static void *cimodule_media_write_task(void *args)
     if (ret < 0)
     {
         DMX_USB_DBG("(handle: %d),get device info error,error code:%d", media_write_fd, ret);
+        STB_MEMFreeSysRAM(buffer);
         return NULL;
     }
 
@@ -302,6 +306,7 @@ static void *cimodule_media_write_task(void *args)
         if (MEDIA_INPUT_ENABLE != media_input_ctrl)
         {
             DMX_USB_DBG("can not write media to usb ci module in this mode");
+            STB_MEMFreeSysRAM(buffer);
             return NULL;
         }
     }

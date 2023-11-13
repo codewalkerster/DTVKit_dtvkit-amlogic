@@ -618,11 +618,15 @@ BOOLEAN DMX_Close(int dev_no)
 
     if (open_count == 0)
     {
-       dev->running = 0;
-       pthread_join(dev->thread, NULL);
-       pthread_mutex_destroy(&dev->lock);
+        dev->running = 0;
+        pthread_join(dev->thread, NULL);
+        pthread_mutex_unlock(&dev->lock);
+        pthread_mutex_destroy(&dev->lock);
+    }
+    else
+    {
+        pthread_mutex_unlock(&dev->lock);
     }
 
-    pthread_mutex_unlock(&dev->lock);
     return ret;
 }

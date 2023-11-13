@@ -682,7 +682,7 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
                                  UINTPTR *handle)
 {
 #ifdef SUPPORT_CAS
-    U8BIT i;
+    U16BIT i;
 
     FUNCTION_START(STB_CAAcquireDescrambler);
     ASSERT(handle);
@@ -1049,7 +1049,7 @@ static void collect_pmt_streams_ca_info(UINTPTR handle, PMT_INFO *pmt_info, SI_P
 void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
 {
 #ifdef SUPPORT_CAS
-    U8BIT i;
+    U16BIT i;
     PMT_INFO pmt_info;
     FUNCTION_START(STB_CAReportPMT);
     SI_PMT_TABLE *pmt_table=NULL;
@@ -1343,7 +1343,7 @@ void STB_CANotifyRunningStatus(UINTPTR handle, U8BIT status)
 BOOLEAN STB_CADescramblerRequired(U16BIT *ca_ids, U16BIT num_ca_ids)
 {
 #ifdef SUPPORT_CAS
-    U8BIT i;
+    U16BIT i;
     BOOLEAN ret = FALSE;
 
     FUNCTION_START(STB_CADescramblerRequired);

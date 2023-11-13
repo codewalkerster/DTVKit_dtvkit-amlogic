@@ -3521,17 +3521,17 @@ void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
 
    AUD_DBG("set spdif protection: scms:[0x%x ] scms_set:[0x%x ] ", copy_protection->scms, copy_protection->scms_set);
 
-   if(copy_protection->scms_set== TRUE)
+   if (copy_protection->scms_set== TRUE)
    {
-       if(copy_protection->scms == 2)
+        if (copy_protection->scms == 2)
         {
             type = AMP_TSPLAYER_KEY_SPDIF_MODE_NONE;
         }
-        else if(copy_protection->scms == 0)
+        else if (copy_protection->scms == 0)
         {
             type = AMP_TSPLAYER_KEY_SPDIF_MODE_ONCE;
         }
-        else if(copy_protection->scms == 1)
+        else if (copy_protection->scms == 1)
         {
             type = AMP_TSPLAYER_KEY_SPDIF_MODE_NEVER;
         }

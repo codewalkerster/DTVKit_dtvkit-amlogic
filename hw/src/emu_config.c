@@ -140,6 +140,7 @@ static void ElemStartHandler (void *userData, const XML_Char *name, const XML_Ch
             else if (!strcmp(an, "filename"))
             {
                 strncpy(pConfig->name, av, sizeof(pConfig->name));
+                pConfig->name[sizeof(pConfig->name) - 1] = '\0';
             }
             else if (!strcmp(an, "bitrate"))
             {

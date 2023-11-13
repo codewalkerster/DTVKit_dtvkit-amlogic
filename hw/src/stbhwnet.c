@@ -160,7 +160,6 @@ E_NW_INTERFACE STB_NWGetSelectedInterface(void)
 BOOLEAN STB_IPGetIPAddress(U8BIT ip_addr[4])
 {
    int fd;
-   struct sockaddr_in sin;
    struct ifreq ifr;
    U32BIT ip_addr_int;
    char *ipaddr_str;
@@ -208,7 +207,6 @@ BOOLEAN STB_IPGetIPAddress(U8BIT ip_addr[4])
 BOOLEAN STB_IPGetSubnetMask(U8BIT subnet_mask[4])
 {
    int fd;
-   struct sockaddr_in sin;
    struct ifreq ifr;
    U32BIT ip_addr_int;
    char *ipaddr_str;
@@ -280,11 +278,10 @@ BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
    U32BIT dns;
 
    FUNCTION_START(STB_IPGetDnsServerIPAddress);
-   U8BIT *pointer;
    //snprintf(dns_prop_name, sizeof(dns_prop_name), "net.dns%d", 1);
-   snprintf(dns_prop_name, sizeof(dns_prop_name), "vendor.tv.dtv.net.dns%d", 1);
-   property_get(dns_prop_name, dns_buff, "");
-   dns = inet_addr(dns_buff);
+   snprintf((char *)dns_prop_name, sizeof(dns_prop_name), "vendor.tv.dtv.net.dns%d", 1);
+   property_get((const char *)dns_prop_name, (char *)dns_buff, "");
+   dns = inet_addr((const char *) dns_buff);
    DBGPRINT("DNS: %s %d", dns_buff, dns);
 
    dns_addr[0] = (dns)&0xFF;
@@ -382,6 +379,7 @@ BOOLEAN STB_NWGetMACAddress(E_NW_INTERFACE interface, U8BIT *mac_addr)
  */
 void STB_IPSetIPAddress(const U8BIT *ip_addr)
 {
+   USE_UNWANTED_PARAM(ip_addr);
    FUNCTION_START(STB_IPSetIPAddress);
    NET_ERR("enter");
    FUNCTION_FINISH(STB_IPSetIPAddress);
@@ -394,6 +392,7 @@ void STB_IPSetIPAddress(const U8BIT *ip_addr)
  */
 void STB_IPSetSubnetMask(const U8BIT *subnet_mask)
 {
+   USE_UNWANTED_PARAM(subnet_mask);
    FUNCTION_START(STB_IPSetSubnetMask);
    NET_ERR("enter");
    FUNCTION_FINISH(STB_IPSetSubnetMask);
@@ -406,6 +405,7 @@ void STB_IPSetSubnetMask(const U8BIT *subnet_mask)
  */
 void STB_IPSetGatewayIPAddress(const U8BIT *gateway_addr)
 {
+   USE_UNWANTED_PARAM(gateway_addr);
    FUNCTION_START(STB_IPSetGatewayIPAddress);
    NET_ERR("enter");
    FUNCTION_FINISH(STB_IPSetGatewayIPAddress);
@@ -418,6 +418,7 @@ void STB_IPSetGatewayIPAddress(const U8BIT *gateway_addr)
  */
 void STB_IPSetDnsServerIPAddress(const U8BIT *dns_addr)
 {
+   USE_UNWANTED_PARAM(dns_addr);
    FUNCTION_START(STB_IPSetDnsServerIPAddress);
    FUNCTION_FINISH(STB_IPSetDnsServerIPAddress);
 }
@@ -444,50 +445,73 @@ void STB_IPGetIPByDhcp(BOOLEAN wait_for_completion)
  */
 U16BIT STB_NWLookupAddress(U8BIT *name, S_NW_ADDR_INFO **nw_addrs)
 {
-   struct hostent *hptr = NULL;
-   char **pptr;
-   int nw_addr_count = 0;
-   int i;
+   U16BIT num_addrs;
+   struct addrinfo *addrs;
+   struct addrinfo *ra;
+   U16BIT i;
 
    FUNCTION_START(STB_NWLookupAddress);
 
-   if (name)
-      hptr = gethostbyname(name);
-   if (!hptr)
+   if (getaddrinfo((char *)name, NULL, NULL, &addrs) == 0)
    {
-      NET_ERR("Lookup address failed %s reason %s", name, strerror((errno)));
-      return 0;
-   }
-   for (pptr = hptr->h_addr_list; *pptr != NULL; pptr++)
-      nw_addr_count++;
-
-   *nw_addrs = (S_NW_ADDR_INFO *)STB_MEMGetSysRAM(sizeof(S_NW_ADDR_INFO) * nw_addr_count);
-   if (NULL == *nw_addrs)
-      return 0;
-
-   for (i = 0, pptr = hptr->h_addr_list; *pptr != NULL; pptr++, i++)
-   {
-      nw_addrs[i]->af = hptr->h_addrtype;
-      switch (hptr->h_addrtype)
+      /* Count the number of returned addresses */
+      for (ra = addrs, num_addrs = 0; ra != NULL; ra = ra->ai_next)
       {
-      case AF_INET:
-         nw_addrs[i]->af = NW_AF_INET;
-         break;
-      case AF_INET6:
-         nw_addrs[i]->af = NW_AF_INET6;
-         break;
-      default:
-         STB_SPDebugWrite("%s: AF %d invalid", __FUNCTION__, hptr->h_addrtype);
-         break;
+         if (((ra->ai_family == AF_INET) || (ra->ai_family == AF_INET6)) &&
+             ((ra->ai_socktype == SOCK_DGRAM) || (ra->ai_socktype == SOCK_STREAM)) &&
+             ((ra->ai_protocol == IPPROTO_UDP) || (ra->ai_protocol == IPPROTO_TCP) || (ra->ai_protocol == IPPROTO_IP)))
+         {
+            num_addrs++;
+         }
       }
-      nw_addrs[i]->type = NW_SOCK_STREAM; //The caller need this. dont no why.
-      inet_ntop(hptr->h_addrtype, *pptr, nw_addrs[i]->addr, sizeof(nw_addrs[i]->addr));
-      NET_ERR("No.%d total %d af %d addr %s", i, nw_addr_count, nw_addrs[i]->af, nw_addrs[i]->addr);
+
+      if (num_addrs > 0)
+      {
+         /* Allocate array to be returned */
+         if ((*nw_addrs = (S_NW_ADDR_INFO *)STB_MEMGetSysRAM(num_addrs * sizeof(S_NW_ADDR_INFO))) != NULL)
+         {
+            for (ra = addrs, i = 0; ra != NULL; ra = ra->ai_next)
+            {
+               if (((ra->ai_family == AF_INET) || (ra->ai_family == AF_INET6)) &&
+                   ((ra->ai_socktype == SOCK_DGRAM) || (ra->ai_socktype == SOCK_STREAM)) &&
+                   ((ra->ai_protocol == IPPROTO_UDP) || (ra->ai_protocol == IPPROTO_TCP) || (ra->ai_protocol == IPPROTO_IP)))
+               {
+                  (*nw_addrs)[i].af = (ra->ai_family == AF_INET6) ? NW_AF_INET6 : NW_AF_INET;
+                  (*nw_addrs)[i].type = (ra->ai_socktype == SOCK_DGRAM) ? NW_SOCK_DGRAM : NW_SOCK_STREAM;
+                  (*nw_addrs)[i].protocol = (ra->ai_protocol == IPPROTO_UDP) ? NW_PROTOCOL_UDP : NW_PROTOCOL_TCP;
+                  if (ra->ai_family == AF_INET)
+                  {
+                     if (inet_ntop(ra->ai_family, (void *)&((struct sockaddr_in *)ra->ai_addr)->sin_addr,
+                            (char *)(*nw_addrs)[i].addr, sizeof((*nw_addrs)[i].addr)) == NULL)
+                     {
+                        NET_ERR("%s: inet_ntop failed, errno %d", __FUNCTION__, errno);
+                     }
+                  }
+                  else
+                  {
+                     if (inet_ntop(ra->ai_family, (void *)&((struct sockaddr_in6 *)ra->ai_addr)->sin6_addr,
+                            (char *)(*nw_addrs)[i].addr, sizeof((*nw_addrs)[i].addr)) == NULL)
+                     {
+                        NET_ERR("%s: inet_ntop failed, errno %d", __FUNCTION__, errno);
+                     }
+                  }
+                  i++;
+               }
+            }
+         }
+      }
+
+      freeaddrinfo(addrs);
+   }
+   else
+   {
+      NET_ERR("STB_NWLookupAddress: Failed to lookup address for \"%s\", errno %d", name, errno);
+      num_addrs = 0;
    }
 
    FUNCTION_FINISH(STB_NWLookupAddress);
 
-   return (nw_addr_count);
+   return(num_addrs);
 }
 
 /**
@@ -500,7 +524,6 @@ U16BIT STB_NWLookupAddress(U8BIT *name, S_NW_ADDR_INFO **nw_addrs)
 void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLEAN nonblock)
 {
    int s_domain = 0;
-   int s_protocol;
    int s_type = 0;
    int sock;
    S_SOCKET_CTX *ctx = (S_SOCKET_CTX *)STB_MEMGetSysRAM(sizeof(S_SOCKET_CTX));
@@ -570,14 +593,36 @@ BOOLEAN STB_NWCloseSocket(void *socket)
  */
 BOOLEAN STB_NWBind(void *socket, U8BIT *address, U32BIT port)
 {
-   S_SOCKET_CTX *ctx = socket;
-   FUNCTION_START(STB_NWBind);
-   USE_UNWANTED_PARAM(socket);
-   USE_UNWANTED_PARAM(address);
-   USE_UNWANTED_PARAM(port);
-   FUNCTION_FINISH(STB_NWBind);
+   S_SOCKET_CTX *socket_desc;
+   struct sockaddr_in addr;
+   BOOLEAN retval = FALSE;
 
-   return FALSE;
+   FUNCTION_START(STB_NWBind);
+
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+      memset(&addr, 0, sizeof(struct sockaddr_in));
+      addr.sin_family = AF_INET;
+      if (address == NULL)
+      {
+         NET_DBG("Binding, address ANY");
+         addr.sin_addr.s_addr = INADDR_ANY;
+      }
+      else
+      {
+         NET_DBG("Binding with address %s", address);
+         addr.sin_addr.s_addr = inet_addr((char *)address);
+      }
+      NET_DBG("Binding port %d", port);
+      addr.sin_port = htons(port);
+      if (bind(socket_desc->sock, (struct sockaddr *)&addr, sizeof(struct sockaddr)) >= 0)
+      {
+         retval = TRUE;
+      }
+   }
+   FUNCTION_FINISH(STB_NWBind);
+   return retval;
 }
 
 /**
@@ -589,14 +634,26 @@ BOOLEAN STB_NWBind(void *socket, U8BIT *address, U32BIT port)
  */
 BOOLEAN STB_NWSetReuseaddr(void *socket, BOOLEAN state)
 {
-   FUNCTION_START(STB_NWSetReuseaddr);
-   USE_UNWANTED_PARAM(socket);
-   USE_UNWANTED_PARAM(state);
-   FUNCTION_FINISH(STB_NWSetReuseaddr);
-   NET_ERR("enter\n");
-   return TRUE;
-}
+   S_SOCKET_CTX *socket_desc;
+   BOOLEAN retval = FALSE;
+   int optval;
 
+   FUNCTION_START(STB_NWSetReuseaddr);
+
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+      optval = state ? 1 : 0;
+      if (setsockopt(socket_desc->sock, SOL_SOCKET, SO_REUSEADDR, (char *)&optval, 4) == 0)
+      {
+         retval = TRUE;
+      }
+   }
+
+   FUNCTION_FINISH(STB_NWSetReuseaddr);
+
+   return retval;
+}
 /**
  * @brief    Gets the socket option SO_REUSEADDR
  * @param    socket - the handle of the socket
@@ -605,13 +662,27 @@ BOOLEAN STB_NWSetReuseaddr(void *socket, BOOLEAN state)
  */
 BOOLEAN STB_NWGetReuseaddr(void *socket, BOOLEAN *state)
 {
+   S_SOCKET_CTX *socket_desc;
+   BOOLEAN retval = FALSE;
+   int optval;
+   socklen_t option_len;
+
    FUNCTION_START(STB_NWGetReuseaddr);
-   USE_UNWANTED_PARAM(socket);
-   USE_UNWANTED_PARAM(state);
+
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+      if (getsockopt(socket_desc->sock, SOL_SOCKET, SO_REUSEADDR, (char *)&optval,
+             &option_len) == 0)
+      {
+         *state = (optval > 0) ? TRUE : FALSE;
+         retval = TRUE;
+      }
+   }
+
    FUNCTION_FINISH(STB_NWGetReuseaddr);
 
-   NET_ERR("enter\n");
-   return TRUE;
+   return retval;
 }
 
 /**
@@ -622,12 +693,30 @@ BOOLEAN STB_NWGetReuseaddr(void *socket, BOOLEAN *state)
  */
 BOOLEAN STB_NWAddMembership(void *socket, U8BIT *group_address)
 {
+   S_SOCKET_CTX *socket_desc;
+   struct ip_mreq imr;
+   BOOLEAN retval = FALSE;
+
    FUNCTION_START(STB_NWAddMembership);
-   USE_UNWANTED_PARAM(socket);
-   USE_UNWANTED_PARAM(group_address);
+
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+
+      /* This block configures the socket for multicast */
+      memset(&imr, 0, sizeof(struct ip_mreq));
+      imr.imr_multiaddr.s_addr = inet_addr((char *)group_address);
+      imr.imr_interface.s_addr = INADDR_ANY;
+      if (setsockopt(socket_desc->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
+             sizeof(struct ip_mreq)) == 0)
+      {
+         retval = TRUE;
+      }
+   }
+
    FUNCTION_FINISH(STB_NWAddMembership);
-   NET_ERR("enter\n");
-   return TRUE;
+
+   return retval;
 }
 
 /**
@@ -638,13 +727,28 @@ BOOLEAN STB_NWAddMembership(void *socket, U8BIT *group_address)
  */
 BOOLEAN STB_NWDropMembership(void *socket, U8BIT *group_address)
 {
+   S_SOCKET_CTX *socket_desc;
+   struct ip_mreq imr;
+   BOOLEAN retval = FALSE;
+
    FUNCTION_START(STB_NWDropMembership);
-   USE_UNWANTED_PARAM(socket);
-   USE_UNWANTED_PARAM(group_address);
-   NET_ERR("enter\n");
+
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+
+      imr.imr_multiaddr.s_addr = inet_addr((char *)group_address);
+      imr.imr_interface.s_addr = INADDR_ANY;
+      if (setsockopt(socket_desc->sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr,
+             sizeof(struct ip_mreq)) == 0)
+      {
+         retval = TRUE;
+      }
+   }
+
    FUNCTION_FINISH(STB_NWDropMembership);
 
-   return TRUE;
+   return retval;
 }
 
 /**
@@ -705,7 +809,7 @@ E_NW_ERROR STB_NWConnect(void *socket, U8BIT *address, U32BIT port)
       goto ERR;
    }
    in_addr.sin_port = htons(port);
-   in_addr.sin_addr.s_addr = inet_addr(address);
+   in_addr.sin_addr.s_addr = inet_addr((const char *)address);
    NET_ERR("sock %d family %d port %d addr %s", ctx->sock, in_addr.sin_family, port, address);
    ret = connect(ctx->sock, (struct sockaddr *)&in_addr, sizeof(in_addr));
    if (ret < 0)
@@ -756,6 +860,8 @@ BOOLEAN STB_NWListen(void *socket, S32BIT backlog)
  */
 void *STB_NWAccept(void *socket, U8BIT *address, U32BIT *port)
 {
+   USE_UNWANTED_PARAM(address);
+   USE_UNWANTED_PARAM(port);
    FUNCTION_START(STB_NWAccept);
    NET_ERR("enter");
    S_SOCKET_CTX *ctx = socket;
@@ -812,19 +918,32 @@ S32BIT STB_NWSend(void *socket, U8BIT *buf, U32BIT num_bytes)
  */
 S32BIT STB_NWReceive(void *socket, U8BIT *buf, U32BIT max_bytes)
 {
-   S_SOCKET_CTX *ctx = socket;
-   NET_ERR("enter");
-   int ret;
+   S_SOCKET_CTX *socket_desc;
+   S32BIT retval = 0;
 
    FUNCTION_START(STB_NWReceive);
-   if (!ctx)
-      return -1;
 
-   ret = recv(ctx->sock, buf, max_bytes, 0);
-   NET_ERR("recv %d data", ret);
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+      retval = recv(socket_desc->sock, buf, (size_t)max_bytes, MSG_DONTWAIT);
+#ifdef NETWORK_ERROR
+      if (retval < 0)
+      {
+         NET_ERR("STB_NWReceive: Receive failed errno = %d", errno);
+      }
+#endif
+   }
+#ifdef NETWORK_ERROR
+   else
+   {
+      NET_ERR("STB_NWReceive: socket id NULL");
+   }
+#endif
+
    FUNCTION_FINISH(STB_NWReceive);
 
-   return (ret);
+   return(retval);
 }
 
 /**
@@ -840,16 +959,58 @@ S32BIT STB_NWReceive(void *socket, U8BIT *buf, U32BIT max_bytes)
  */
 S32BIT STB_NWReceiveFrom(void *socket, U8BIT *buf, U32BIT max_bytes, U8BIT *address, U32BIT *port)
 {
+   S_SOCKET_CTX *socket_desc;
+   S32BIT retval = -1;
+   struct sockaddr_in addr;
+   struct sockaddr_in *addr_p;
+   socklen_t addr_len;
+   ssize_t r;
+   char *a;
+
    FUNCTION_START(STB_NWReceiveFrom);
-   NET_ERR("enter");
-   USE_UNWANTED_PARAM(socket);
-   USE_UNWANTED_PARAM(buf);
-   USE_UNWANTED_PARAM(max_bytes);
-   USE_UNWANTED_PARAM(address);
-   USE_UNWANTED_PARAM(port);
+
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+
+      if ((address == NULL) || (port == NULL))
+      {
+         /* Receive for a connected socket */
+         addr_p = NULL;
+      }
+      else
+      {
+         addr_p = &addr;
+      }
+
+      r = recvfrom(socket_desc->sock, (void *)buf, (size_t)max_bytes, 0, (struct sockaddr *)addr_p,
+            &addr_len);
+      retval = (S32BIT)r;
+      if (r >= 0)
+      {
+         if (addr_p != NULL)
+         {
+            a = inet_ntoa(addr.sin_addr);
+            if (a != NULL)
+            {
+               strcpy((char *)address, a);
+            }
+            *port = ntohs(addr.sin_port);
+         }
+      }
+      else
+      {
+         NET_ERR("STB_NWReceiveFrom: recvfrom error, errno = %d", errno);
+      }
+   }
+   else
+   {
+      NET_ERR("STB_NWReceiveFrom: socket id NULL");
+   }
+
    FUNCTION_FINISH(STB_NWReceiveFrom);
 
-   return -1;
+   return retval;
 }
 
 /**
@@ -865,16 +1026,27 @@ S32BIT STB_NWReceiveFrom(void *socket, U8BIT *buf, U32BIT max_bytes, U8BIT *addr
 S32BIT STB_NWSendTo(void *socket, U8BIT *buf, U32BIT num_bytes,
                     U8BIT *address, U32BIT port)
 {
+   S_SOCKET_CTX *socket_desc;
+   S32BIT retval = -1;
+   struct sockaddr_in addr;
+
    FUNCTION_START(STB_NWSendTo);
-   NET_ERR("enter");
-   USE_UNWANTED_PARAM(socket);
-   USE_UNWANTED_PARAM(buf);
-   USE_UNWANTED_PARAM(num_bytes);
-   USE_UNWANTED_PARAM(address);
-   USE_UNWANTED_PARAM(port);
+
+   if (socket != NULL)
+   {
+      socket_desc = (S_SOCKET_CTX *)socket;
+
+      memset(&addr, 0, sizeof(struct sockaddr_in));
+      addr.sin_family = AF_INET;
+      addr.sin_addr.s_addr = inet_addr((char *)address);
+      addr.sin_port = htons(port);
+      retval = sendto(socket_desc->sock, buf, num_bytes, 0,
+            (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
+   }
+
    FUNCTION_FINISH(STB_NWSendTo);
 
-   return -1;
+   return retval;
 }
 
 /**
@@ -886,27 +1058,29 @@ S32BIT STB_NWSendTo(void *socket, U8BIT *buf, U32BIT num_bytes,
  */
 BOOLEAN STB_NWSockIsSet(void *socket, S_NW_SOCKSET *socks)
 {
-   int i;
-   FUNCTION_START(STB_NWSockIsSet);
-   if (!socks || !socket || (socks->sock_count == 0))
-   {
-      NET_ERR("STB_NWSockIsSet parameter invalid");
-      return FALSE;
-   }
+   BOOLEAN retval = FALSE;
+   U16BIT i = 0;
 
-   for (i=0; i<socks->sock_count; i++)
+   FUNCTION_START(STB_NWSockIsSet);
+
+   if ((socket != NULL) && (socks != NULL))
    {
-      if (socks->sock_array[i] == socket)
+      while (!retval && (i < socks->sock_count))
       {
-         //NET_ERR("given sock is set, fd %d\n", ctx->sock);
-         if (socks->sockset_array[i] == 1)
-            return TRUE;
+         if (socks->sock_array[i] == socket)
+         {
+            retval = TRUE;
+         }
+         else
+         {
+            i++;
+         }
       }
    }
-   //NET_ERR("given sock is not set, fd %d\n", ctx->sock);
+
    FUNCTION_FINISH(STB_NWSockIsSet);
 
-   return FALSE;
+   return retval;
 }
 
 /**
@@ -916,12 +1090,12 @@ BOOLEAN STB_NWSockIsSet(void *socket, S_NW_SOCKSET *socks)
 void STB_NWSockZero(S_NW_SOCKSET *socks)
 {
    FUNCTION_START(STB_NWSockZero);
-   if (socks)
+
+   if (socks != NULL)
    {
       socks->sock_count = 0;
-      memset(socks->sock_array, 0, SOCK_SETSIZE * sizeof(void*));
-      memset(socks->sockset_array, 0, SOCK_SETSIZE * sizeof(U8BIT));
    }
+
    FUNCTION_FINISH(STB_NWSockZero);
 }
 
@@ -932,26 +1106,27 @@ void STB_NWSockZero(S_NW_SOCKSET *socks)
  */
 void STB_NWSockClear(void *socket, S_NW_SOCKSET *socks)
 {
-   int i;
-   FUNCTION_START(STB_NWSockClear);
-   if (!socks || !socks->sock_count)
-   {
-      NET_ERR("socks sets is empty");
-      return;
-   }
+   U16BIT i = 0;
 
-   for (i=0; i<socks->sock_count; i++)
+   FUNCTION_START(STB_NWSockClear);
+
+   if ((socket != NULL) && (socks != NULL))
    {
-      if (socks->sock_array[i] == socket)
+      for (i = 0; i < socks->sock_count; ++i)
       {
-         socks->sock_array[i] = socks->sock_array[socks->sock_count-1];
-         socks->sockset_array[i] = socks->sockset_array[socks->sock_count-1];
-         socks->sock_count--;
-         NET_ERR("Found socket to clear");
-         return;
+         if (socks->sock_array[i] == socket)
+         {
+            while (i < socks->sock_count - 1)
+            {
+               socks->sock_array[i] = socks->sock_array[i + 1];
+               ++i;
+            }
+            --socks->sock_count;
+            break;
+         }
       }
    }
-   NET_ERR("given socket is not found");
+
    FUNCTION_FINISH(STB_NWSockClear);
 }
 
@@ -963,14 +1138,16 @@ void STB_NWSockClear(void *socket, S_NW_SOCKSET *socks)
 void STB_NWSockSet(void *socket, S_NW_SOCKSET *socks)
 {
    FUNCTION_START(STB_NWSockSet);
-   if (!socks || !socket)
+
+   if ((socket != NULL) && (socks != NULL))
    {
-      NET_ERR("STB_NWSockSet parameter invalid");
-      return;
+      if (socks->sock_count < SOCK_SETSIZE)
+      {
+         socks->sock_array[socks->sock_count] = socket;
+         ++socks->sock_count;
+      }
    }
-   socks->sock_array[socks->sock_count] = socket;
-   socks->sockset_array[socks->sock_count] = 0;
-   socks->sock_count++;
+
    FUNCTION_FINISH(STB_NWSockSet);
 }
 
@@ -989,131 +1166,143 @@ void STB_NWSockSet(void *socket, S_NW_SOCKSET *socks)
 S32BIT STB_NWSelect(S_NW_SOCKSET *read_sockets, S_NW_SOCKSET *write_sockets,
                     S_NW_SOCKSET *except_sockets, S32BIT timeout_ms)
 {
+   S_SOCKET_CTX *socket_desc;
+   S32BIT retval = -1;
+   U16BIT i;
+   struct timeval *timeout_p;
+   struct timeval timeout;
+   fd_set readfds;
+   fd_set *readfds_p = NULL;
+   fd_set writefds;
+   fd_set *writefds_p = NULL;
+   fd_set exceptfds;
+   fd_set *exceptfds_p = NULL;
+   S_SOCKET_CTX *temp_socket;
+   int nfds;
+
    FUNCTION_START(STB_NWSelect);
-   fd_set read_fds;
-   fd_set write_fds;
-   fd_set exception_fds;
-   int max_fd = 0;
-   int ret = -1;
-   int i;
-   struct timeval time = {0};
-   S_SOCKET_CTX *ctx;
 
-#if 0
-   if (read_sockets)
-      NET_ERR("read socket %d", read_sockets->sock_count);
-   if (write_sockets)
-      NET_ERR("write socket %d", write_sockets->sock_count);
-   if (except_sockets)
-      NET_ERR("except socket %d", except_sockets->sock_count);
-#endif
-
-   FD_ZERO(&read_fds);
-   FD_ZERO(&write_fds);
-   FD_ZERO(&exception_fds);
-
-   if (read_sockets)
+   if (timeout_ms >= 0)
    {
-      for (i=0; i<read_sockets->sock_count; i++)
-      {
-         ctx = read_sockets->sock_array[i];
-         if (!ctx)
-         {
-            NET_ERR("Found null ctx in read socks set");
-            continue;
-         }
-         FD_SET(ctx->sock, &read_fds);
-         max_fd = (max_fd > ctx->sock) ? max_fd : ctx->sock;
-      }
+      timeout.tv_sec = timeout_ms / 1000;
+      timeout.tv_usec = (timeout_ms % 1000) * 1000;
+      timeout_p = &timeout;
    }
-   if (write_sockets)
-   {
-      for (i = 0; i < write_sockets->sock_count; i++)
-      {
-         ctx = write_sockets->sock_array[i];
-         if (!ctx)
-         {
-            NET_ERR("Found null ctx in write socks set");
-            continue;
-         }
-         FD_SET(ctx->sock, &write_fds);
-         max_fd = (max_fd > ctx->sock) ? max_fd : ctx->sock;
-      }
-   }
-   if (except_sockets)
-   {
-      for (i = 0; i < except_sockets->sock_count; i++)
-      {
-         ctx = except_sockets->sock_array[i];
-         if (!ctx)
-         {
-            NET_ERR("Found null ctx in exception socks set");
-            continue;
-         }
-         FD_SET(ctx->sock, &exception_fds);
-         max_fd = (max_fd > ctx->sock) ? max_fd : ctx->sock;
-      }
-   }
-   //NET_ERR("select timeout %d", timeout_ms);
-   if (timeout_ms == -1)
-      ret = select(max_fd + 1, &read_fds, &write_fds, &exception_fds, NULL);
    else
    {
-      time.tv_sec = timeout_ms / 1000;
-      time.tv_usec = (timeout_ms%1000)*1000;
-      ret = select(max_fd + 1, &read_fds, &write_fds, &exception_fds, &time);
+      timeout_p = NULL;
    }
 
-   if (read_sockets)
+   nfds = 0;
+
+   /* remap the set of sockets from the OBS API to sets for the socket API */
+   FD_ZERO(&readfds);
+   if (read_sockets != NULL)
    {
       for (i = 0; i < read_sockets->sock_count; i++)
       {
-         ctx = read_sockets->sock_array[i];
-         if (ctx)
+         socket_desc = (S_SOCKET_CTX *)read_sockets->sock_array[i];
+         FD_SET(socket_desc->sock, &readfds);
+         if (socket_desc->sock > nfds)
          {
-            STB_SPDebugWrite("%s: No.%d ctx->sock %d", __FUNCTION__, i, ctx->sock);
-            if (FD_ISSET(ctx->sock, &read_fds))
-               read_sockets->sockset_array[i] = 1;
-            else
-               read_sockets->sockset_array[i] = 0;
+            nfds = socket_desc->sock;
          }
-
       }
+      readfds_p = &readfds;
    }
 
-   if (write_sockets)
+   FD_ZERO(&writefds);
+   if (write_sockets != NULL)
    {
       for (i = 0; i < write_sockets->sock_count; i++)
       {
-         ctx = write_sockets->sock_array[i];
-         if (ctx)
+         socket_desc = (S_SOCKET_CTX *)write_sockets->sock_array[i];
+         FD_SET(socket_desc->sock, &writefds);
+         if (socket_desc->sock > nfds)
          {
-            if(FD_ISSET(ctx->sock, &write_fds))
-               write_sockets->sockset_array[i] = 1;
-            else
-               write_sockets->sockset_array[i] = 0;
+            nfds = socket_desc->sock;
          }
       }
+      writefds_p = &writefds;
    }
 
-   if (except_sockets)
+   FD_ZERO(&exceptfds);
+   if (except_sockets != NULL)
    {
       for (i = 0; i < except_sockets->sock_count; i++)
       {
-         ctx = except_sockets->sock_array[i];
-         if (ctx)
+         socket_desc = (S_SOCKET_CTX *)except_sockets->sock_array[i];
+         FD_SET(socket_desc->sock, &exceptfds);
+         if (socket_desc->sock > nfds)
          {
-            if(FD_ISSET(ctx->sock, &exception_fds))
-               except_sockets->sockset_array[i] = 1;
-            else
-               except_sockets->sockset_array[i] = 0;
+            nfds = socket_desc->sock;
+         }
+      }
+      exceptfds_p = &exceptfds;
+   }
+
+   retval = select(nfds + 1, readfds_p, writefds_p, exceptfds_p, timeout_p);
+
+   if (retval != -1)
+   {
+      retval = 0;
+
+      /* remove all the socket handles from the OBS API sets that select did not report as ready */
+      if (read_sockets != NULL)
+      {
+         retval = read_sockets->sock_count;
+
+         for (i = 0; i < read_sockets->sock_count; i++)
+         {
+            temp_socket = (S_SOCKET_CTX *)read_sockets->sock_array[i];
+            if (!FD_ISSET(temp_socket->sock, &readfds))
+            {
+               SOCK_CLR(temp_socket, read_sockets);
+               retval--;
+            }
+         }
+      }
+
+      if (write_sockets != NULL)
+      {
+         retval += write_sockets->sock_count;
+
+         for (i = 0; i < write_sockets->sock_count; i++)
+         {
+            temp_socket = (S_SOCKET_CTX *)write_sockets->sock_array[i];
+            if (!FD_ISSET(temp_socket->sock, &writefds))
+            {
+               SOCK_CLR(temp_socket, write_sockets);
+               retval--;
+            }
+         }
+      }
+
+      if (except_sockets != NULL)
+      {
+         retval += except_sockets->sock_count;
+
+         for (i = 0; i < except_sockets->sock_count; i++)
+         {
+            temp_socket = (S_SOCKET_CTX *)except_sockets->sock_array[i];
+            if (!FD_ISSET(temp_socket->sock, &exceptfds))
+            {
+               SOCK_CLR(temp_socket, except_sockets);
+               retval--;
+            }
          }
       }
    }
+#ifdef NETWORK_ERROR
+   else
+   {
+      NET_ERR("STB_NWSelect: select failed, errno %d", errno);
+   }
+#endif
 
    FUNCTION_FINISH(STB_NWSelect);
 
-   return ret;
+   return retval;
 }
 
 /**

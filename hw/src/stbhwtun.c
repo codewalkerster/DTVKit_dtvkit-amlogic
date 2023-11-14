@@ -2554,7 +2554,7 @@ void STB_TuneChangeSkewPosition(U8BIT path, U16BIT count)
  * @brief   Sets the local oscillator frequency used by the LNB
  * @param   path the tuner path to query
  */
-void STB_TuneSetLOFrequency(U8BIT path, U16BIT lo_freq)
+void STB_TuneSetLOFrequency(U8BIT path, S32BIT lo_freq)
 {
     FUNCTION_START(STB_TuneSetLOFrequency);
 

@@ -437,15 +437,6 @@ EW_STB_TUNE_TCONST Wrapper_TuneGetActualTerrConstellation(U8BIT path);
 EW_STB_TUNE_HIERARCHY Wrapper_TuneGetActualTerrHierarchy(U8BIT path);
 
 /**
- * @brief   Returns the hierarchy of the current terrestrial signal.
- * @param   path the tuner path to query
- * @param   plp_list, out param, to store all the pip id in the current freq
- * @param   listlen,  in  param, the max numbers of pipid that can be stored in the list
- * @return  the pip number of the current frequency.
- */
-//S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen);
-
-/**
  * @brief   Returns the LP code rate of the current terrestrial signal
  * @param   path the tuner path to query
  * @return  The LP code rate
@@ -474,20 +465,6 @@ EW_STB_TUNE_TGUARDINT Wrapper_TuneGetActualTerrGuardInt(U8BIT path);
 U16BIT Wrapper_TuneGetActualTerrCellId(U8BIT path);
 
 /**
- * @brief   Returns the actual bandwidth of the current isdbt signal
- * @param   path the tuner path to query
- * @return  the signal bandwidth
- */
-//E_STB_TUNE_TBWIDTH Wrapper_TuneGetActualIsdbtBwidth(U8BIT path);
-
-/**
- * @brief   Returns the type of modulation for the specified tuner
- * @param   path tuner path
- * @return  the type of modulation
- */
-//E_STB_TUNE_MODULATION Wrapper_TuneGetModulation(U8BIT path);
-
-/**
  * @brief   Sets the Physical Layer Pipe to be acquired
  * @param   path the tuner path to set up
  * @param   plp Physical Layer Pipe to be acquired
@@ -504,139 +481,11 @@ U8BIT Wrapper_TuneGetPLP(U8BIT path);
 S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen);
 
 /**
- * @brief   Enables/disables aerial power for DVB-T
- * @param   path tuner path
- * @param   enabled TRUE to enable
- */
-//void Wrapper_TuneActiveAerialPower(U8BIT path, BOOLEAN enabled);
-
-/**
- * @brief   Sets the local oscillator frequency used by the LNB
- * @param   path the tuner path to query
- */
-//void Wrapper_TuneSetLOFrequency(U8BIT tuner, U16BIT lo_freq);
-
-/**
- * @brief   Sets the type of modulation for the specified tuner
- * @param   path tuner path
- * @param   modulation type of modulation
- */
-//void Wrapper_TuneSetModulation(U8BIT path, E_STB_TUNE_MODULATION modulation);
-
-/**
- * @brief   Sets the LNB voltage for the given tuner
- * @param   path tuner path
- * @param   voltage voltage setting
- */
-//void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune);
-
-/**
- * @brief   Sets the voltage for the diseqc
- * @param   path tuner path
- * @param   voltage voltage setting
- */
-//void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage);
-
-/**
- * @brief   Turns the 22 kHz tone on or off
- * @param   path tuner path
- * @param   state TRUE to turn the tone on, FALSE to turn it off
- */
-//oid STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune);
-
-/**
- * @brief   Sets the 12V switch for the given tuner
- * @param   path tuner path
- * @param   state TRUE for on
- */
-//void STB_TuneSet12VSwitch(U8BIT path, BOOLEAN state);
-
-/**
- * @brief   Receives a DisEqc reply
- * @param   path tuner path
- * @param   data pointer to the received data
- * @param   timeout maximum number of milliseconds to wait for a reply
- * @return  The number of bytes received
- */
-//U8BIT STB_TuneGetDISEQCReply(U8BIT path, U8BIT *data, U32BIT timeout);
-
-/**
- * @brief   Sends the DisEqc message
- * @param   path - tuner path
- * @param   data - message data
- * @param   size - number of bytes in message data
- */
-//void STB_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size);
-
-/**
- * @brief   Sends the Burst message
- * @param   path - tuner path
- * @param   data - message data
- */
-//void STB_TuneSendBurstMessage(U8BIT path, U8BIT data);
-
-/**
- * @brief   Receives the DisEqc reply
- * @param   path - tuner path
- * @param   data - message data
- * @param   size - number of bytes in message data
- * @param   timneout - ioctl timeout
- */
-//void STB_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT timeout);
-
-/**
- * @brief   Sets the pulse limit for the east
- * @param   path tuner path
- * @param   count east limit count
- */
-//void STB_TuneSetPulseLimitEast(U8BIT path, U16BIT count);
-
-/**
- * @brief   Sets the pulse limit for the west
- * @param   path tuner path
- * @param   count west limit count
- */
-//void STB_TuneSetPulseLimitWest(U8BIT path, U16BIT count);
-
-//void STB_TuneChangePulsePosition(U8BIT path, U16BIT count);
-
-/**
- * @brief   Returns the current pulse position
- * @param   path tuner path
- * @return  Current puls position
- */
-//U16BIT STB_TuneGetPulsePosition(U8BIT path);
-
-//void STB_TuneAtPulsePosition(U8BIT path, U16BIT position);
-
-/**
- * @brief Changes the value of skew position count
- * @param path tuner path
- * @param count skew position count
- */
-//void STB_TuneChangeSkewPosition(U8BIT path, U16BIT count);
-
-/**
- * @brief   Returns the carrier signal strength as a percentage
- * @param   path tuner path
- * @param   freq carrier frequency
- * @return  Strength as a percentage
- */
-//U8BIT STB_TuneSatGetCarrierStrength(U8BIT path, U32BIT freq);
-
-/**
  * @brief   Returns the actual symbol rate when a tuner has locked
  * @param   path tuner path
  * @return  Symbol rate in symbols per second
 */
 U32BIT Wrapper_TuneGetActualSymbolRate(U8BIT path);
-
-/**
- * @brief   Returns the cable mode when the tuner has locked
- * @param   path tuner path
- * @return  QAM mode
- */
-//E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path);
 
 /**
  * @brief   Returns the system type supported by the path. This function
@@ -676,29 +525,15 @@ void Wrapper_TuneAllStart();
 
 void Wrapper_TuneAllStop();
 
-//void STB_TuneSetFrontendFd(U8BIT path, U32BIT fe_fd);
-
-
-//BOOLEAN STB_Tune_BlindExit(U8BIT path);
-
-//void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count);
-
-//BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count);
-
 EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path);
 
 void Wrapper_RegisterCallback(Wrapper_SendEvent callback);
 
-
-//BOOLEAN Wrapper_IsTVPlatform(void);
-//dvb-c
 EW_STB_TUNE_CMODE Wrapper_TuneGetActualCableMode(U8BIT path);
-
-//dvb-s
 
 EW_STB_TUNE_MODULATION Wrapper_TuneGetModulation(U8BIT path);
 void Wrapper_TuneSetModulation(U8BIT path, EW_STB_TUNE_MODULATION modulation);
-void Wrapper_TuneSetLOFrequency(U8BIT path, U16BIT lo_freq);
+void Wrapper_TuneSetLOFrequency(U8BIT path, S32BIT lo_freq);
 EW_STB_TUNE_LNB_VOLTAGE Wrapper_TuneGetLNBVoltage(U8BIT path);
 void Wrapper_TuneSetLNBVoltage(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune);
 void Wrapper_TuneSetVoltageInterface(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage);
@@ -709,7 +544,6 @@ void Wrapper_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size);
 void Wrapper_TuneSendBurstMessage(U8BIT path, U8BIT data);
 void Wrapper_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT timeout);
 
-//Pr5
 BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindCallback_t cb, void *user_data,
                                       unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable);
 BOOLEAN Wrapper_Tune_BlindExit(U8BIT path);

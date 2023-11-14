@@ -69,7 +69,7 @@ typedef struct
 {
     U32BIT srate;
     E_STB_TUNE_FEC fec;
-    U16BIT lo_freq;
+    S32BIT lo_freq;
     E_STB_TUNE_LNB_VOLTAGE lnb_voltage;
     E_STB_TUNE_MODULATION modulation;
     BOOLEAN use_22khz;

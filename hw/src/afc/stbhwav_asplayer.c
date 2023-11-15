@@ -287,8 +287,8 @@ static AUDIO_MIME_MAP audio_mime_types[] =
 
 /*---local function prototypes for this file---------------------------------*/
 static void AVEventHandler(void *user_data, jni_asplayer_event *event);
-static int AV_CreateTsPlayer_l(U8BIT av_path, jni_asplayer_input_source_type source_type, int32_t dmx_dev_id, int32_t event_mask);
-static int AV_ReleaseTsPlayer_l(U8BIT av_path);
+static int AV_CreatePlayer_l(U8BIT av_path, jni_asplayer_input_source_type source_type, int32_t dmx_dev_id, int32_t event_mask);
+static int AV_ReleasePlayer_l(U8BIT av_path);
 static int AV_GetPlayerHandleByPath_l(U8BIT video, U8BIT audio, jni_asplayer_handle* player_handle, BOOLEAN recreat_handle); //return jni_asplayer_handle or am_tsplayer_handle
 static int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle);
 static int AV_StartAudioDecode_l(jni_asplayer_handle player_handle, U16BIT a_pid, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
@@ -1289,7 +1289,7 @@ void STB_AVStopVideoDecoding(U8BIT path)
     if (ret == 0) {
         if (av_paths_status[av_path].audio_pid == INVALID_PID)
         {
-            AV_ReleaseTsPlayer_l(av_path);
+            AV_ReleasePlayer_l(av_path);
         }
         else {
             av_paths_status[av_path].video_pid = INVALID_PID;
@@ -1357,7 +1357,7 @@ void STB_AVStopAudioDecoding(U8BIT path)
         if (ret == 0) {
             if (av_paths_status[av_path].video_pid == INVALID_PID)
             {
-                AV_ReleaseTsPlayer_l(av_path);
+                AV_ReleasePlayer_l(av_path);
             }
             else {
                 av_paths_status[av_path].audio_pid = INVALID_PID;
@@ -3298,7 +3298,7 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
     }
 }
 
-int AV_CreateTsPlayer_l(U8BIT av_path,
+int AV_CreatePlayer_l(U8BIT av_path,
                        jni_asplayer_input_source_type source_type, int32_t dmx_dev_id, int32_t event_mask)
 {
     U32BIT decoder_id;
@@ -3348,7 +3348,7 @@ int AV_CreateTsPlayer_l(U8BIT av_path,
     return ret;
 }
 
-int AV_ReleaseTsPlayer_l(U8BIT av_path)
+int AV_ReleasePlayer_l(U8BIT av_path)
 {
     int ret = 0;
 
@@ -3358,14 +3358,22 @@ int AV_ReleaseTsPlayer_l(U8BIT av_path)
         return -1;
     }
 
-    AV_DBG("Will Release Ts player");
+    AV_DBG("Will Release Asplayer");
 
     //release afd context
     afd_release_context(av_path);
 
     if (IS_INVALID_PLAYER_HANDLE(av_path))
     {
-        AV_DBG("Release Ts player alreadly.");
+        AV_DBG("Release Asplayer already.");
+    }
+    else if (STB_PVRIsPlayStarted(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+    {
+        av_paths_status[av_path].audio_pid = INVALID_PID;
+        av_paths_status[av_path].audio_presentation_id = INVALID_PID;
+        av_paths_status[av_path].video_pid = INVALID_PID;
+        av_paths_status[av_path].pcr_pid = INVALID_PID;
+        AV_DBG("Stop PVR, player_handle[%d]:0x%u", av_path, av_paths_status[av_path].player_handle);
     }
     else
     {
@@ -3373,7 +3381,6 @@ int AV_ReleaseTsPlayer_l(U8BIT av_path)
         av_paths_status[av_path].audio_presentation_id = INVALID_PID;
         av_paths_status[av_path].video_pid = INVALID_PID;
         av_paths_status[av_path].pcr_pid = INVALID_PID;
-        ret = Wrapper_Player_RegisterEventCallBack(av_paths_status[av_path].player_handle, NULL, NULL);
         ret = Wrapper_Player_Destroy(av_paths_status[av_path].player_handle);
         if (ret < 0)
         {
@@ -3410,7 +3417,7 @@ int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, jni_asp
     }
     else if (recreat_handle && av_path != INVALID_RES_ID)
     {
-        ret = AV_CreateTsPlayer_l(av_path, JNI_ASPLAYER_TS_DEMOD, av_paths_status[av_path].demux, 0);
+        ret = AV_CreatePlayer_l(av_path, JNI_ASPLAYER_TS_DEMOD, av_paths_status[av_path].demux, 0);
     }
 
     *player_handle = av_paths_status[av_path].player_handle;

@@ -907,6 +907,7 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
 
    PVR_DBG("input speed: %hd",speed);
    double speed2 = ((double)speed)/100.0;
+   prps->speed = speed;
    int ret = Wrapper_PVR_Player_setSpeed(prps->dvr_player_handle,speed2);
    if (ret == -1)
    {
@@ -1458,7 +1459,7 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       if (evt != NULL) {
          it->progress = *evt;
          it->state = (U8BIT)evt->state;
-         it->speed = (S16BIT)(100*evt->speed);
+         //it->speed = (S16BIT)(100*evt->speed);
          PVR_DBG("AM_DVR_PLAYER_EVENT_PROGRESS: "
                "sessionNumber:%d, state:%d, speed:%.2f, "
                "currTime:%lld, startTime:%lld, endTime:%lld, duration:%lld, "

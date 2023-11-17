@@ -245,6 +245,7 @@ typedef struct {
     uint32_t height;                       // Video frame height
     uint32_t framerate;                    // Video frame rate
     uint32_t aspectRatio;                  // Video aspect ratio
+    uint32_t vfType;                       // Video vf type
 } jni_asplayer_video_info;
 
 /*Video qos information*/

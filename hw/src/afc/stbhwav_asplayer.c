@@ -324,7 +324,6 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
    {
       num_paths = video_paths;
       AV_DBG("video paths=%u demux = %d", num_paths, aml_hw_cfg.demux + 5);
-      //Wrapper_Player_Initialise();
 
       av_paths_status = (AV_PATH_STATUS*) STB_MEMGetSysRAM(sizeof(AV_PATH_STATUS) * num_paths);
       video_surface = (void**) STB_MEMGetSysRAM(sizeof(void*) * num_paths);
@@ -371,8 +370,6 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
          Wrapper_Player_AVInit(num_paths);
 
          const char* version = NULL;
-         //Aml_MP_GetVersion(&version);
-         AV_DBG("Aml_MP version:%s", version);
       }
       else
       {
@@ -2866,19 +2863,19 @@ U8BIT STB_AVGetVideoScanType(U8BIT path)
     pthread_rwlock_rdlock(_l);
     ret = AV_GetPlayerHandleByPath_l(path, INVALID_RES_ID, &player_handle, FALSE);
     if (ret == 0) {
-    //        Aml_MP_VdecStat info;
+        jni_asplayer_video_info info;
 
-    //        ret = Aml_MP_Player_GetParameter(player_handle, AML_MP_PLAYER_PARAMETER_VIDEO_DECODE_STAT, &info);
-    //        if (ret == 0) {
-    //            if ((info.vf_type & 0x01) == 0x01 ||
-    //                (info.vf_type & 0x03) == 0x03 ||
-    //                (info.vf_type & 0x08) == 0x08)
-    //            {
-    //                scan_type = 0;
-    //            } else {
-    //                scan_type = 1;
-    //            }
-    //        }
+        ret = Wrapper_Player_GetVideoInfo(player_handle, &info);
+        if (ret == 0) {
+            if ((info.vfType & 0x01) == 0x01 ||
+                (info.vfType & 0x03) == 0x03 ||
+                (info.vfType & 0x08) == 0x08)
+            {
+                scan_type = 0;
+            } else {
+                scan_type = 1;
+            }
+        }
     }
     pthread_rwlock_unlock(_l);
 

@@ -111,7 +111,7 @@ typedef struct
 
 
     // B: Mutex & Semaphore
-    pthread_mutex_t    lock;
+    void *lock;
 
     void *mutex;
     void *tune_sem;

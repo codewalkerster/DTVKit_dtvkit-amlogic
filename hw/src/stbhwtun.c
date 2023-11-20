@@ -75,8 +75,6 @@ static BOOLEAN resm_adc_requested = FALSE;
 static BOOLEAN isTvPlatform = FALSE;
 static U32BIT real_srate = SYMBOL_RATE_AUTO;
 static E_STB_TUNE_CMODE real_cmode = TUNE_MODE_QAM_UNDEFINED;
-void *tune_interface_sem = NULL;
-
 
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
@@ -110,6 +108,7 @@ static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
 static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz);
 static BOOLEAN GetRealParamFromDriver(U8BIT path);
+static void TuneStopTuner(S_TUNER_STATUS *tstatus);
 
 /*---global function definitions---------------------------------------------*/
 
@@ -247,7 +246,7 @@ void STB_TuneInitialise(U8BIT paths)
                 tuner_status[i].frontend_usage = 0;
                 tuner_status[i].lock_flags = 0;
                 tuner_status[i].search_mode = FALSE;
-                pthread_mutex_init(&tuner_status[i].lock, NULL);
+                tuner_status[i].lock = STB_OSCreateMutex();
 
                 #if 0
                 if (STB_OSCreateTask(TunerTask, (void *)&tuner_status[i], TUNE_TASK_STACK_SIZE,
@@ -278,15 +277,6 @@ void STB_TuneInitialise(U8BIT paths)
     {
         TUN_ERR("No tuners found!");
         CERT_Log_StartingUp("No tuners found!");
-    }
-    if (NULL == tune_interface_sem)
-    {
-        tune_interface_sem= STB_OSCreateSemaphore();
-    }
-
-    if (NULL == tune_interface_sem)
-    {
-        CERT_Log_StartingUp("tune_interface_sem create error");
     }
 
     FUNCTION_FINISH(STB_TuneInitialise);
@@ -493,7 +483,7 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
     if (path < num_paths)
     {
         tstatus = &tuner_status[path];
-        pthread_mutex_lock(&tstatus->lock);
+        STB_OSMutexLock(tstatus->lock);
         TUN_DBG("%u: current type=%u, new type=%u frontend_fd:%d", path, tstatus->signal_type, type, tstatus->frontend_fd);
 
         if (tstatus->signal_type != type)
@@ -506,7 +496,7 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
 
                 if (state != TUNER_IDLE && state != TUNER_EXITED)
                 {
-                    STB_TuneStopTuner(path);
+                    TuneStopTuner(tstatus);
 
                     /* after search and if have no channel, need release FE. */
                     if (STB_TuneIsTvPlatform() && type == TUNE_SIGNAL_NONE && STB_TuneIsSearchMode(path))
@@ -524,7 +514,7 @@ void STB_TuneSetSignalType(U8BIT path, E_STB_TUNE_SIGNAL_TYPE type)
             }
         }
 
-        pthread_mutex_unlock(&tstatus->lock);
+        STB_OSMutexUnlock(tstatus->lock);
     }
 
     FUNCTION_FINISH(STB_TuneSetSignalType);
@@ -637,6 +627,10 @@ static BOOLEAN SetBlindScanFeProperty(int fe_fd, E_STB_TUNE_SYSTEM_TYPE tuned_sy
     {
         TUN_DBG( "set fe prop cmd error");
     }
+    else
+    {
+        TUN_DBG("FE_SET_PROPERTY, fe_mode:%d", fe_mode);
+    }
 
     if (property != NULL)
     {
@@ -685,10 +679,10 @@ static void TuneStopTuner(S_TUNER_STATUS *tstatus)
         state = tstatus->state;
         STB_OSMutexUnlock(tstatus->mutex);
 
+        TUN_DBG("%u: Stopping tuning...", tstatus->path);
+
         if (state != TUNER_IDLE && state != TUNER_EXITED)
         {
-            TUN_DBG("%u: Stopping tuning...", tstatus->path);
-
             STB_OSMutexLock(tstatus->mutex);
             tstatus->stop = TRUE;
             STB_OSMutexUnlock(tstatus->mutex);
@@ -758,7 +752,6 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
             goto EXIT;
         }
 
-        STB_OSSemaphoreWait(tune_interface_sem);
         tstatus = &tuner_status[path];
 
         while (STB_TuneIsTvPlatform() && tstatus->state == TUNER_EXITED && !STB_TuneIsSearchMode(path))
@@ -843,10 +836,11 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                     break;
             }
 
-            pthread_mutex_lock(&tstatus->lock); //Keep serial operation that tune on the same path.
             STB_OSMutexLock(tstatus->mutex);
             state = tstatus->state;
             STB_OSMutexUnlock(tstatus->mutex);
+
+            STB_OSMutexLock(tstatus->lock); //Keep serial operation that tune on the same path.
 
             if (start_tuning || tstatus->tuning_params_changed || GetTunerLockStatus(tstatus->frontend_fd) != TUNER_STATE_LOCKED)
             {
@@ -906,7 +900,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                 STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
             }
 
-            pthread_mutex_unlock(&tstatus->lock);
+            STB_OSMutexUnlock(tstatus->lock);
         }
         else
         {
@@ -918,12 +912,13 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
             if (state != TUNER_IDLE && state != TUNER_EXITED)
             {
+                STB_OSMutexLock(tstatus->lock);
                 TuneStopTuner(tstatus);
+                STB_OSMutexUnlock(tstatus->lock);
             }
 
             STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path, sizeof(U8BIT));
         }
-        STB_OSSemaphoreSignal(tune_interface_sem);
     }
 
 EXIT:
@@ -952,7 +947,6 @@ void STB_TuneStopTuner(U8BIT path)
             stb_tune_stop_tuner(&tuner_status[path]);
         }
 
-        STB_OSSemaphoreWait(tune_interface_sem);
         tstatus = &tuner_status[path];
 
         #ifdef EMUTUNNER_ENABLE
@@ -961,8 +955,9 @@ void STB_TuneStopTuner(U8BIT path)
         STB_OSMutexUnlock(tstatus->mutex);
         #endif
 
+        STB_OSMutexLock(tstatus->lock);
         TuneStopTuner(tstatus);
-        STB_OSSemaphoreSignal(tune_interface_sem);
+        STB_OSMutexUnlock(tstatus->lock);
     }
 
     TUN_ERR("%s out",__FUNCTION__);
@@ -2793,9 +2788,9 @@ BOOLEAN STB_TuneOpen(U8BIT path)
                     tuner_status[path].path, tuner_status[path].tunertask_sem, sem_ret, tuner_status[path].state);
         }
 
-        pthread_mutex_lock(&tuner_status[path].lock);
+        STB_OSMutexLock(tuner_status[path].lock);
         ret = OpenTuner(&tuner_status[path]);
-        pthread_mutex_unlock(&tuner_status[path].lock);
+        STB_OSMutexUnlock(tuner_status[path].lock);
     }
 
     FUNCTION_FINISH(STB_TuneOpen);
@@ -2820,7 +2815,7 @@ void STB_TuneUpdateFeUsage(U8BIT path, BOOLEAN use)
 
     if (path < num_paths)
     {
-        pthread_mutex_lock(&tuner_status[path].lock);
+        STB_OSMutexLock(tuner_status[path].lock);
 
         if (use)
             tuner_status[path].frontend_usage ++;
@@ -2828,7 +2823,7 @@ void STB_TuneUpdateFeUsage(U8BIT path, BOOLEAN use)
             tuner_status[path].frontend_usage --;
 
         TUN_DBG("%u: fe_useage[%s]: %d", path, use?"Add":"Remove", tuner_status[path].frontend_usage);
-        pthread_mutex_unlock(&tuner_status[path].lock);
+        STB_OSMutexUnlock(tuner_status[path].lock);
     }
 
     FUNCTION_FINISH(STB_TuneUpdateFeUsage);
@@ -2843,7 +2838,7 @@ void STB_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
 {
     if (path < num_paths && STB_TuneIsTvPlatform())
     {
-        pthread_mutex_lock(&tuner_status[path].lock);
+        STB_OSMutexLock(tuner_status[path].lock);
         STB_OSMutexLock(tuner_status[path].mutex);
         TUN_DBG("tune path[%d] [state: %d].", path, tuner_status[path].state);
 
@@ -2864,7 +2859,7 @@ void STB_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
         }
 
         STB_OSMutexUnlock(tuner_status[path].mutex);
-        pthread_mutex_unlock(&tuner_status[path].lock);
+        STB_OSMutexUnlock(tuner_status[path].lock);
     }
 }
 
@@ -2889,7 +2884,7 @@ void STB_TuneAllStart()
 
     for (i = 0; i != num_paths; i++)
     {
-        pthread_mutex_lock(&tuner_status[i].lock);
+        STB_OSMutexLock(tuner_status[i].lock);
 
         //OpenTuner(&tuner_status[i]);
         if (STB_TuneIsTvPlatform() && tuner_status[i].state == TUNER_EXITED)
@@ -2902,7 +2897,7 @@ void STB_TuneAllStart()
         }
 
         TUN_DBG("tune path[%d] state:%d", i, tuner_status[i].state);
-        pthread_mutex_unlock(&tuner_status[i].lock);
+        STB_OSMutexUnlock(tuner_status[i].lock);
     }
 }
 
@@ -2923,7 +2918,7 @@ void STB_TuneAllStop()
 
     for (i = 0; i != num_paths; i++)
     {
-        pthread_mutex_lock(&tuner_status[i].lock);
+        STB_OSMutexLock(tuner_status[i].lock);
 
         if (tuner_status[i].frontend_fd != INVALID_FD)
         {
@@ -2933,7 +2928,7 @@ void STB_TuneAllStop()
 
             if (state != TUNER_IDLE && state != TUNER_EXITED)
             {
-                STB_TuneStopTuner(i);
+                TuneStopTuner(&tuner_status[i]);
             }
         }
 
@@ -2948,7 +2943,7 @@ void STB_TuneAllStop()
             STB_OSMutexUnlock(tuner_status[i].mutex);
         }
 
-        pthread_mutex_unlock(&tuner_status[i].lock);
+        STB_OSMutexUnlock(tuner_status[i].lock);
     }
 }
 
@@ -3050,7 +3045,7 @@ BOOLEAN STB_Tune_BlindExit(U8BIT path)
 
 void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)
 {
-    pthread_mutex_lock(&tuner_status[path].lock);
+    STB_OSMutexLock(tuner_status[path].lock);
 
     *count = 0;
 
@@ -3059,7 +3054,7 @@ void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)
         *count = (unsigned int)(tuner_status[path].bs_setting.m_uiChannelCount);
     }
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
+    STB_OSMutexUnlock(tuner_status[path].lock);
 
 }
 
@@ -3074,7 +3069,7 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
         return FALSE;
     }
 
-    pthread_mutex_lock(&tuner_status[path].lock);
+    STB_OSMutexLock(tuner_status[path].lock);
 
     if((*count) > tuner_status[path].bs_setting.m_uiChannelCount)
     {
@@ -3083,7 +3078,7 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
 
     memcpy(para, tuner_status[path].bs_setting.channels, (*count) * sizeof(struct dvb_frontend_parameters));
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
+    STB_OSMutexUnlock(tuner_status[path].lock);
     return ret;
 }
 
@@ -3742,10 +3737,10 @@ static void* TunerTask(void *param)
 
                 if (tune_idle_timer >= TUNER_USELESS_TIMEOUT && tstatus->frontend_usage == 0)
                 {
-                    pthread_mutex_lock(&tstatus->lock);
+                    STB_OSMutexLock(tstatus->lock);
                     CloseTuner(tstatus);
                     tune_idle_timer = 0;
-                    pthread_mutex_unlock(&tstatus->lock);
+                    STB_OSMutexUnlock(tstatus->lock);
                 }
             }
         }
@@ -4339,14 +4334,14 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_Start(U8BIT path)
 {
     BOOLEAN ret = FALSE;
 
-    pthread_mutex_lock(&tuner_status[path].lock);
+    STB_OSMutexLock(tuner_status[path].lock);
     struct dvbsx_singlecable_parameters * psinglecablePara = &(tuner_status[path].bs_setting.singlecablePara);
     if (psinglecablePara && psinglecablePara->version != 0)
     {
         ret = dvbsx_blindscan_setsinglecable(tuner_status[path].frontend_fd, psinglecablePara);
         if (!ret)
         {
-            pthread_mutex_unlock(&tuner_status[path].lock);
+            STB_OSMutexUnlock(tuner_status[path].lock);
             return ret;
         }
     }
@@ -4355,7 +4350,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_Start(U8BIT path)
     /*driver need to set in blindscan mode*/
     ret = dvb_blindscan_scan(tuner_status[path].frontend_fd, pbsPara);
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
+    STB_OSMutexUnlock(tuner_status[path].lock);
     return ret;
 }
 
@@ -4364,7 +4359,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
 {
     BOOLEAN ret = FALSE;
 
-    pthread_mutex_lock(&tuner_status[path].lock);
+    STB_OSMutexLock(tuner_status[path].lock);
     struct dvbsx_blindscanevent * pbsEvent = &(tuner_status[path].bs_setting.bsEvent);
 
     /*Query the internal blind scan procedure information.*/
@@ -4373,7 +4368,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
     if(!ret)
     {
         ret = FALSE;
-        pthread_mutex_unlock(&tuner_status[path].lock);
+        STB_OSMutexUnlock(tuner_status[path].lock);
         return ret;
     }
 
@@ -4392,7 +4387,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
             {
                 TUN_INFO("channel freq(%lu) is duplicated the index [%d]\n",
                          pbsEvent->u.parameters.frequency, i);
-                pthread_mutex_unlock(&tuner_status[path].lock);
+                STB_OSMutexUnlock(tuner_status[path].lock);
                 return ret;
             }
         }
@@ -4400,7 +4395,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
         if (tuner_status[path].bs_setting.m_uiChannelCount == FEND_BS_MAX_CHANNEL) {
             TUN_ERR("channel count(%d) reaches the limit(%d)\n",
                     tuner_status[path].bs_setting.m_uiChannelCount, FEND_BS_MAX_CHANNEL);
-            pthread_mutex_unlock(&tuner_status[path].lock);
+            STB_OSMutexUnlock(tuner_status[path].lock);
             return ret;
         }
 
@@ -4409,7 +4404,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
         tuner_status[path].bs_setting.m_uiChannelCount++;
     }
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
+    STB_OSMutexUnlock(tuner_status[path].lock);
     return ret;
 }
 
@@ -4418,11 +4413,11 @@ static BOOLEAN AM_FEND_IBlindScanAPI_Exit(U8BIT path)
 {
     BOOLEAN ret = TRUE;
 
-    pthread_mutex_lock(&tuner_status[path].lock);
+    STB_OSMutexLock(tuner_status[path].lock);
     /*driver need to set in demod mode*/
     ret = dvb_blindscan_cancel(path);
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
+    STB_OSMutexUnlock(tuner_status[path].lock);
 
     usleep(10 * 1000);
 
@@ -4435,14 +4430,14 @@ static BOOLEAN AM_FEND_BlindDump(U8BIT path)
     int i = 0;
 
     TUN_DBG( "AM_FEND_BlindDump start %d--------------------\n", tuner_status[path].bs_setting.m_uiChannelCount);
-    pthread_mutex_lock(&tuner_status[path].lock);
+    STB_OSMutexLock(tuner_status[path].lock);
 
     for(i = 0; i < (tuner_status[path].bs_setting.m_uiChannelCount); i++)
     {
         TUN_DBG( "num:%d freq:%d symb:%d\n", i, tuner_status[path].bs_setting.channels[i].frequency, tuner_status[path].bs_setting.channels[i].u.qpsk.symbol_rate);
     }
 
-    pthread_mutex_unlock(&tuner_status[path].lock);
+    STB_OSMutexUnlock(tuner_status[path].lock);
     TUN_DBG( "AM_FEND_BlindDump end--------------------\n");
 
     return ret;

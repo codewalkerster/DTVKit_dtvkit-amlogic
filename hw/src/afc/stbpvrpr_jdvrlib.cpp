@@ -21,6 +21,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <vector>
+#include <sstream>
 using namespace std;
 
 // Ocean Blue header files
@@ -88,11 +90,13 @@ struct S_REC_STATUS
    am_dvr_recording_progress progress;
    U8BIT rec_index;
    U16BIT disk_id;
+   vector<S_PVR_PID_INFO> pids_array;
 
    S_REC_STATUS() : in_use(FALSE), is_timeshift(FALSE), start_mode(START_RUNNING)
       , limit_seconds(0), limit_size(0), dvr_file_handle(NULL), dvr_recorder_handle(NULL)
       , state(0), state_cond{}, state_mutex{}, rec_index(INVALID_RES_ID), disk_id(INVALID_RES_ID)
    {
+      pids_array.clear();
    }
 };
 
@@ -141,6 +145,10 @@ static int video_codec_map1(E_STB_AV_VIDEO_CODEC format);
 static int audio_codec_map1(E_STB_AV_AUDIO_CODEC format);
 static U32BIT getPVRConfigInt(const char *config, U32BIT def);
 static U8BIT to_index(U8BIT video_decoder, U8BIT audio_decoder);
+
+typedef vector<S_PVR_PID_INFO> PID_VECTOR;
+static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR& to_add, PID_VECTOR& to_remove);
+static ostream& operator<<(ostream& os, const S_PVR_PID_INFO& info);
 
 /**
  * @brief   Initialisation for playback
@@ -698,7 +706,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       LOG_LEAVE_EARLY;
       return FALSE;
    }
-   const am_dvr_recorder_handle handle = prs->dvr_recorder_handle;
+   const auto& handle = prs->dvr_recorder_handle;
    PVR_INFO("recorder handle: %p",prs->dvr_recorder_handle);
 
    {
@@ -717,26 +725,30 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       }
    }
 
-   for (int i=0; i<num_pids; i++)
-   {
-      E_PVR_PID_TYPE type = pid_array[i].type;
+   auto& curr = prs->pids_array;
+   PID_VECTOR given(pid_array,pid_array+num_pids);
+   PID_VECTOR to_add;
+   PID_VECTOR to_remove;
+
+   get_outstanding_pids(curr,given,to_add,to_remove);
+
+   for_each(to_remove.begin(),to_remove.end(),[&handle](auto info){
+      Wrapper_PVR_Recorder_removeStream(handle,info.pid);
+   });
+
+   for_each(to_add.begin(),to_add.end(),[&handle](auto info){
       int format = 0;
-      if (type == PVR_PID_TYPE_VIDEO)
+      if (info.type == PVR_PID_TYPE_VIDEO)
       {
-         format = video_codec_map1(pid_array[i].u.video_codec);
+         format = video_codec_map1(info.u.video_codec);
       }
-      else if (type == PVR_PID_TYPE_AUDIO)
+      else if (info.type == PVR_PID_TYPE_AUDIO)
       {
-         format = audio_codec_map1(pid_array[i].u.audio_codec);
+         format = audio_codec_map1(info.u.audio_codec);
       }
-      else if (type == PVR_PID_TYPE_PCR)
-      {
-         // JDvrLib is designed to automatically determine PCR PID,
-         // so there is no need to indicate it.
-         continue;
-      }
-      Wrapper_PVR_Recorder_addStream(handle,pid_array[i].pid,type_map1(type),format);
-   }
+      Wrapper_PVR_Recorder_addStream(handle,info.pid,type_map1(info.type),format);
+   });
+   swap(curr,given);
 
    ret2 = Wrapper_PVR_Recorder_start(handle);
    if (ret2 == -1)
@@ -801,8 +813,11 @@ void STB_PVRRecordStop(U8BIT rec_index)
    PVR_INFO("rec_index:%d", rec_index);
    const am_dvr_recorder_handle handle = prs->dvr_recorder_handle;
 
-   U8BIT ret = Wrapper_PVR_Recorder_stop(handle);
-   prs->disk_id = INVALID_RES_ID;
+   // Don't call stop() if JDvrRecorder is in STOPPING or INITIAL state.
+   if (prs->state > 1 && prs->state < 5) {
+      U8BIT ret = Wrapper_PVR_Recorder_stop(handle);
+      prs->disk_id = INVALID_RES_ID;
+   }
 
    LOG_LEAVE;
 }
@@ -830,9 +845,36 @@ BOOLEAN STB_PVRRecordChangeDesMode(U8BIT rec_index, int mode)
  */
 BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO *pids_array)
 {
-   //LOG_ENTER;
-   LOG_NOT_IMPLEMENTED;
-   //LOG_LEAVE;
+   LOG_ENTER;
+   S_REC_STATUS* prs = &s_rec_status[rec_index];
+   const auto& handle = prs->dvr_recorder_handle;
+
+   auto& curr = prs->pids_array;
+   PID_VECTOR given(pids_array,pids_array+num_pids);
+   PID_VECTOR to_add;
+   PID_VECTOR to_remove;
+
+   get_outstanding_pids(curr,given,to_add,to_remove);
+
+   for_each(to_remove.begin(),to_remove.end(),[&handle](auto info){
+      Wrapper_PVR_Recorder_removeStream(handle,info.pid);
+   });
+
+   for_each(to_add.begin(),to_add.end(),[&handle](auto info){
+      int format = 0;
+      if (info.type == PVR_PID_TYPE_VIDEO)
+      {
+         format = video_codec_map1(info.u.video_codec);
+      }
+      else if (info.type == PVR_PID_TYPE_AUDIO)
+      {
+         format = audio_codec_map1(info.u.audio_codec);
+      }
+      Wrapper_PVR_Recorder_addStream(handle,info.pid,type_map1(info.type),format);
+   });
+   swap(curr,given);
+
+   LOG_LEAVE;
    return TRUE;
 }
 
@@ -1629,5 +1671,50 @@ static U8BIT to_index(U8BIT video_decoder, U8BIT audio_decoder)
    };
    auto it = find_if(itBegin,itEnd,pred);
    return (it != itEnd) ? (U8BIT)distance(itBegin,it) : 255;
+}
+
+static ostream& operator<<(ostream& os, const S_PVR_PID_INFO& info)
+{
+   os << "(" << (int)info.pid << "," << (int)info.type << ")";
+   return os;
+}
+
+static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR& to_add, PID_VECTOR& to_remove)
+{
+   auto pred1 = [](const S_PVR_PID_INFO i1,const S_PVR_PID_INFO i2){return i1.pid < i2.pid;};
+   auto pred2 = [](const S_PVR_PID_INFO i1,const S_PVR_PID_INFO i2){return i1.pid == i2.pid;};
+   auto pred3 = [](const S_PVR_PID_INFO info){return info.type==PVR_PID_TYPE_PCR;};
+   stringstream log_buf;
+
+   sort(curr.begin(),curr.end(),pred1);
+   sort(given.begin(),given.end(),pred1);
+
+   log_buf << "curr (pid,type): ";
+   copy(curr.begin(),curr.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
+   PVR_INFO("STB_PVR %s",log_buf.str().c_str());
+   log_buf.str(""); log_buf.clear();
+
+   log_buf << "given (pid,type): ";
+   copy(given.begin(),given.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
+   PVR_INFO("STB_PVR %s",log_buf.str().c_str());
+   log_buf.str(""); log_buf.clear();
+
+   auto newEndIt = remove_if(given.begin(),given.end(),pred3);
+   given.erase(newEndIt,given.end());
+
+   to_add.clear();
+   to_remove.clear();
+   set_difference(curr.begin(),curr.end(),given.begin(),given.end(),back_inserter(to_remove),pred1);
+   set_difference(given.begin(),given.end(),curr.begin(),curr.end(),back_inserter(to_add),pred1);
+
+   log_buf << "to_add (pid,type): ";
+   copy(to_add.begin(),to_add.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
+   PVR_INFO("STB_PVR %s",log_buf.str().c_str());
+   log_buf.str(""); log_buf.clear();
+
+   log_buf << "to_remove (pid,type): ";
+   copy(to_remove.begin(),to_remove.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
+   PVR_INFO("STB_PVR %s",log_buf.str().c_str());
+   log_buf.str(""); log_buf.clear();
 }
 

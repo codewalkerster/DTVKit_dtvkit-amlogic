@@ -506,16 +506,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    fill_n((uint8_t*)&prps->progress,sizeof(am_dvr_playback_progress),0);
    prps->in_use = FALSE;
 
-   ret = Wrapper_Player_Destroy(prps->asplayer_handle);
-   if (ret < 0)
-   {
-       PVR_INFO("Destroy player failed, err:%d", ret);
-   }
-   else
-   {
-       PVR_INFO("Destroy player, player_handle[%d]:0x%u", play_index, prps->asplayer_handle);
-       STB_AVSetPlayerHandle(audio_decoder,video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
-   }
+   STB_AVSetPlayerHandle(audio_decoder,video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
+
    //release afd context
    afd_release_context(play_index);
 

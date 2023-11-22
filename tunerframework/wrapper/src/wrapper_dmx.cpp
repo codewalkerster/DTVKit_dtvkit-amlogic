@@ -121,20 +121,20 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
             //3.read section data
             char *buffer = new char[stSectionEvent.dataLength];
             int readSize = Am_filter_read(filter, buffer, 0, stSectionEvent.dataLength);
-
+            int filterid = Am_filter_getId(filter);
             pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
-            FILTER_MAP::iterator it = filter_map.find( Am_filter_getId(filter) );
+            FILTER_MAP::iterator it = filter_map.find( filterid );
             if (it != filter_map.end())
             {
                 S_PID_FILTER_INFO* user_data = (S_PID_FILTER_INFO*)it->second->user_data;
                 //ALOGD("user_data.index = %d, user_data.pid = %d, handle =%d,user_data = %p", user_data->index, user_data->pid, user_data->fhandle, user_data);
                 //filter_callback callback = it->second->cb;
                 ST_CALLBACK_T para;
-                para.un32filterID = Am_filter_getId(filter) ;
+                para.un32filterID = filterid;
                 para.pun8_buffer = (uint8_t *)buffer ;
                 para.un32_length =  readSize;
                 // DebugPrintBuffer((U8BIT *)buffer, (U32BIT)readSize);
-                user_data->fhandle = Am_filter_getId(filter);
+                user_data->fhandle = filterid;
                 para.un32_userdata = user_data;
                 if ( it->second!= NULL && it->second->cb != NULL )
                 {

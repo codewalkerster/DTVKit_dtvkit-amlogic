@@ -1712,9 +1712,8 @@ void Wrapper_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
 
 void Wrapper_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
 {
-    jobject tuner_lnb = getTunerLnb(path);
-    if (tuner_lnb == NULL) {
-        ALOGE("%s: path %d is invalid", __FUNCTION__, path);
+    if (!openLnb(path)) {
+        ALOGE("%s: open lnb failed", __FUNCTION__);
         return;
     }
 
@@ -1724,16 +1723,15 @@ void Wrapper_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
             ALOGD("%s: [0x%02x]", __FUNCTION__, data[i]);
             message.push_back(static_cast<char>(data[i]));
         }
-        Am_lnb_sendDiseqcMessage(tuner_lnb, message);
+        Am_lnb_sendDiseqcMessage(tuner_status_map[path].tuner_lnb, message);
     }
 
     ALOGD("end:%s", __FUNCTION__);
 }
 void Wrapper_TuneSendBurstMessage(U8BIT path, U8BIT data)
 {
-    jobject tuner_lnb = getTunerLnb(path);
-    if (tuner_lnb == NULL) {
-        ALOGE("%s: path %d is invalid", __FUNCTION__, path);
+    if (!openLnb(path)) {
+        ALOGE("%s: open lnb failed", __FUNCTION__);
         return;
     }
 
@@ -1747,7 +1745,7 @@ void Wrapper_TuneSendBurstMessage(U8BIT path, U8BIT data)
         else {
             pos = DVBS_LNB_POSITION_POSITION_B;
         }
-        Am_lnb_setSatellitePosition(tuner_lnb, pos);
+        Am_lnb_setSatellitePosition(tuner_status_map[path].tuner_lnb, pos);
     }
 }
 

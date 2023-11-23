@@ -49,7 +49,7 @@ typedef struct s_pid_filter_info
    U8BIT start_count[MAX_FILTERS_PER_PID];
 } S_PID_FILTER_INFO;
 
-int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type);
+int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_source,U16BIT demux_cap);
 
 BOOLEAN DMX_CloseFilter(int un32filterID);
 BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO *params );

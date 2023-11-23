@@ -155,9 +155,8 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
     }
 }
 
-int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
+int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_source,U16BIT demux_cap)
 {
-
     int ClientId = 0xFF;
     if (!gDMXTaskLocked.initDmxLocked )
     {
@@ -166,59 +165,81 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT type)
         pthread_mutex_init( &gDMXTaskLocked.dmx_mutex, NULL);
     }
 
-    if (type != 0)
+    /*
+    typedef enum
+    {
+        DMX_TUNER,
+        DMX_1394,
+        DMX_MEMORY
+    } E_STB_DMX_DEMUX_SOURCE;
+    */
+    if (demux_source != 0)
     {
         ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
         ALOGD("start DMX_CAPS_PLAYBACK filter ClientId 0x%x",ClientId);
     }
     else
     {
-        TUNER_TYPE object_id = TUNER_TYPE_LIVE_0;
-        switch (path)
+        TUNER_TYPE tuner_type = TUNER_TYPE_LIVE_0;
+        /*
+        USE_DMX_LIVE_REC_TIMESHIFT = 0x02,
+        USE_DMX_LIVE_REC_RECORDING = 0x04,
+        */
+        if (demux_cap == 0x04)
         {
-            case 0:
+            tuner_type = TUNER_TYPE_DVR_RECORD;
+        }
+        else if (demux_cap == 0x02)
+        {
+           tuner_type = TUNER_TYPE_DVR_TIMESHIFT_RECORD;
+        }
+        else
+        {
+            switch (path)
             {
-                object_id = TUNER_TYPE_LIVE_0;
-                break ;
-            }
-            case 1:
-            {
-                object_id = TUNER_TYPE_LIVE_1;
-                break ;
-            }
-            case 2 :
-            {
-                object_id = TUNER_TYPE_LIVE_2;
-                break ;
-            }
-            default:
-            {
-                object_id = TUNER_TYPE_LIVE_0;
-                break ;
+                case 0:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_0;
+                    break ;
+                }
+                case 1:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_1;
+                    break ;
+                }
+                case 2 :
+                {
+                    tuner_type = TUNER_TYPE_LIVE_2;
+                    break ;
+                }
+                default:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_0;
+                    break ;
+                }
             }
         }
-        ClientId = Am_tuner_getTunerClientIdByType(object_id);
-        ALOGD("start DMX_CAPS_Live filtertuner_path [%d] ClientId[%d] ClientId[%d]",path,ClientId,object_id);
+        ClientId = Am_tuner_getTunerClientIdByType(tuner_type);
+        ALOGD("start DMX_CAPS_Live filter path [%d] demux_cap [0x%x] ClientId[%d] tuner_type[%d]",path,demux_cap ,ClientId,tuner_type);
     }
     Am_filter_callback filterCallback = FilterCallback;
     S_HAL *filerInfo;
     filerInfo = new S_HAL();
     filerInfo->cb = cb ;
-    filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, 8 * 4096, (long)filterCallback);
+    /*8 *8* 4096 from OTA feature request*/
+    filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, 8 *8* 4096, (long)filterCallback);
     filerInfo->user_data  = user_data;
     int filterId = Am_filter_getId(filerInfo->Jfilter);
 
     pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
     FILTER_MAP::iterator it = filter_map.find(filterId);
     if (it != filter_map.end())
-    {
-        ALOGI("%s -----------------Already Find filterId: %d  update from map.", __FUNCTION__, filterId);
+    {    /* this flow may happen: case 1 tuner object release before player.stop, case 2 monitor flow bug*/
+         filter_map.erase( filterId );
+        ALOGI("%s -----------------Already Find filterId: 0x%x  update from map.", __FUNCTION__, filterId);
     }
-    else
-    {
-        MAP_INSERT_ITEM( filter_map, filterId, filerInfo );
-        ALOGI("Insert new filerInfo filterId: %d.", filterId);
-    }
+    MAP_INSERT_ITEM( filter_map, filterId, filerInfo );
+    ALOGI("Insert new filerInfo filterId: %d.", filterId);
     pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
     ALOGI("DMX_HAL_%s  filerInfo %p filterId 0x%x Jfilter %p, user_data %p", __FUNCTION__, filerInfo, filterId , filerInfo->Jfilter, filerInfo->user_data);
     if (symbol_open == 0)

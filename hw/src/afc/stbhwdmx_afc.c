@@ -1341,11 +1341,11 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
 void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
 {
    FUNCTION_START(STB_DMXSetDemuxSource);
-   DMX_DBG("path [%u], source[%u]  param[%0x] ,demux_cap[%0x] ",path,source,param,demux_cap);
+   DMX_INFO("path [%u], source[%u]  param[%0x] ,demux_cap[%0x] ",path,source,param,demux_cap);
    if ((path < num_paths) &&
        ((source != demux_status[path].source) || (param != demux_status[path].source_param)||(demux_cap != demux_status[path].demux_cap)))
    {
-      DMX_DBG("path %u: new:  [%u], [%u]  [%0x];   old:  [%u], [%u]  [%0x];", path, source, param,demux_cap,
+      DMX_INFO("path [%u]: new:  [%u], [%u]  [%0x];   old:  [%u], [%u]  [%0x];", path, source, param,demux_cap,
          demux_status[path].source, demux_status[path].source_param, demux_status[path].demux_cap);
 
       demux_status[path].source = source;
@@ -1881,13 +1881,9 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    struct dmx_sct_filter_params dvb_filt_p;
    U16BIT num_filters;
    BOOLEAN am_result;
-   U16BIT source_type = 0;
-   U8BIT source_path = 0;
    FUNCTION_START(UpdateSectionFilter);
 
    pid_filter = &demux_status[path].filter_info[filter_index];
-   source_type = demux_status[path].source;
-   source_path = demux_status[path].source_param;
    success = FALSE;
 
    /* Find new mask/match and CRC status
@@ -2060,14 +2056,20 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
         if (pid_filter->fhandle == -1)
         {
            //alloc
-           pid_filter->fhandle = DMX_OpenFilter(source_path, PidCallback, (void*)pid_filter,source_type);
+           U16BIT source_type = demux_status[path].source;
+           /*source_param means which tuner path attach*/
+           U8BIT source_path = demux_status[path].source_param;
+           U16BIT demux_cap = demux_status[path].demux_cap;
+           pid_filter->fhandle = DMX_OpenFilter(source_path, PidCallback, (void*)pid_filter,source_type,demux_cap);
         }
 
         if (pid_filter->fhandle != -1)
         {
-          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] filter_index[%d] source[0x%x] source_param[0x%x] PID[0x%x]",path,filter_index,\
+          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x]",path,pid_filter->fhandle , filter_index,\
            demux_status[path].source,\
-           demux_status[path].source_param,pid_filter->pid);
+           demux_status[path].source_param,\
+          demux_status[path].demux_cap,\
+           pid_filter->pid);
 
           DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, sect_filter);
           if (pid_filter->started)
@@ -2079,9 +2081,12 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    }
     else
     {
-        DMX_INFO("STB_DMX UpdateSectionFilter -@-> close path: [%d] filter_index[%d] source[0x%x] source_param[0x%x] PID[0x%x]",path,filter_index,\
+        DMX_INFO("STB_DMX UpdateSectionFilter -@-> close path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x]  PID[0x%x]",path,pid_filter->fhandle  ,filter_index,\
          demux_status[path].source,\
-         demux_status[path].source_param,pid_filter->pid);
+             demux_status[path].source_param,\
+            demux_status[path].demux_cap,\
+             pid_filter->pid);
+
         DMX_CloseFilter(pid_filter->fhandle);
         pid_filter->fhandle = -1;
     }

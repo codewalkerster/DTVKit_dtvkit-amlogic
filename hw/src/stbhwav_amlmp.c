@@ -4000,64 +4000,30 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
   }
 }
 
-BOOLEAN AV_StartInjection(U8BIT path)
-{
-   if (path >= num_paths)
-   {
-      AV_DBG("Invalid path: %d", path);
-      return FALSE;
-   }
-   av_paths_status[path].injecting = TRUE;
-
-   return TRUE;
-}
-
-BOOLEAN AV_StopInjection(U8BIT path)
-{
-   if (path >= num_paths)
-   {
-      AV_DBG("Invalid path: %d", path);
-      return FALSE;
-   }
-   av_paths_status[path].injecting = FALSE;
-
-   return TRUE;
-}
-
 void AV_InjectData(U8BIT path,U8BIT *data, U32BIT size)
 {
+#if 0
    U8BIT *buffer = data;
    U32BIT left = size;
    U32BIT sent;
-   int ret;
-   AML_MP_PLAYER player_handle;
+   AM_ErrorCode_t retval = AM_SUCCESS;
 
-   ret = AV_GetPlayerHandleByPath_l(path, INVALID_RES_ID, &player_handle, FALSE);
-   if (ret < 0)
+   if (!av_paths_status[path].injecting)
    {
-       VID_DBG("Cannot get player handle video[%d]", path);
-       return;
+      AV_StartInjection(path);
    }
-   pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
-   if (_l == NULL) {
-       VID_DBG("Can't get lock, path[%d]", path);
-       return;
-   }
-
-   pthread_rwlock_wrlock(_l);
-   //while (left > 0 && ret >= 0)
+   while (left > 0 && retval == AM_SUCCESS)
    {
       sent = left;
-      //retval = AM_AV_InjectData(path, AM_AV_INJECT_MULTIPLEX , buffer, &sent, -1);
-      ret = Aml_MP_Player_WriteData(player_handle, buffer, sent);
+      retval = AM_AV_InjectData(path, AM_AV_INJECT_MULTIPLEX , buffer, &sent, -1);
       buffer += sent;
       left -= sent;
    }
-   pthread_rwlock_unlock(_l);
-   if (/*ret < 0 ||*/ ret != (int) size)
+   if (retval != AM_SUCCESS)
    {
-      VID_DBG("Aml_MP_Player_WriteData failed, err %d", ret);
+      ERR_DBG("AM_AV_InjectData failed, err %d", retval-AM_AV_ERROR_BASE);
    }
+#endif
 }
 
 int AV_CreateTsPlayer_l(U8BIT path,
@@ -4205,8 +4171,6 @@ int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_
             mode = AML_MP_INPUT_SOURCE_USBCAM;
          else
             mode = AML_MP_INPUT_SOURCE_TS_DEMOD;
-         if (av_paths_status[av_path].injecting)
-            mode = AML_MP_INPUT_SOURCE_TS_MEMORY;
 
          ret = AV_CreateTsPlayer_l(av_path, mode, av_paths_status[av_path].demux, 0);
 

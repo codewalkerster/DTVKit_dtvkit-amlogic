@@ -2317,7 +2317,6 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
 
       if (source == DMX_TUNER)
       {
-         AV_StopInjection(path);
          ret = DvbSetDemuxSource(path, dmx_src_cfg);
          if (ret == -1)
          {
@@ -2327,7 +2326,6 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
       else if(source == DMX_MEMORY)
       {
          DMX_DBG("setting source to MEMORY");
-         AV_StartInjection(path);
          if (dmx_src_cur != _GetDmxDMASourceById(path))
          {
             ret = DvbSetDemuxSource(path, _GetDmxDMASourceById(path));

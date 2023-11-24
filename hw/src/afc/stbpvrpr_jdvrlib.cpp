@@ -119,12 +119,13 @@ struct S_RECPLAY_STATUS
 
    U16BIT video_pid;
    U16BIT audio_pid;
+   U32BIT seek_position;
 
    S_RECPLAY_STATUS() : in_use(FALSE), is_timeshift(FALSE), start_mode(START_RUNNING)
       , dvr_file_handle(NULL), dvr_player_handle(NULL), asplayer_handle(0), state(0)
       //, state_cond{}, state_mutex{}
       , speed(0), audio_decoder(INVALID_RES_ID), video_decoder(INVALID_RES_ID)
-      , video_pid(0), audio_pid(0)
+      , video_pid(0), audio_pid(0), seek_position(0)
    {
    }
 };
@@ -378,6 +379,13 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    prps->video_pid = (U16BIT)video_pid;
    prps->audio_pid = (U16BIT)audio_pid;
 
+   if (prps->seek_position > 0)
+   {
+      PVR_INFO("Pre-seek to position %u sec before playback",prps->seek_position);
+      Wrapper_PVR_Player_seek(prps->dvr_player_handle, prps->seek_position);
+      prps->seek_position = 0;
+   }
+
    if (prps->start_mode == START_RUNNING)
    {
       ret2 = Wrapper_PVR_Player_play(prps->dvr_player_handle);
@@ -471,10 +479,19 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
-   S8BIT ret = Wrapper_PVR_Player_seek(prps->dvr_player_handle, position_in_seconds);
-   if (ret == -1)
+   S8BIT ret = 0;
+   if (prps->state >= 2 && prps->state <= 5)
    {
-      PVR_ERR("Failed to seek");
+      ret = Wrapper_PVR_Player_seek(prps->dvr_player_handle, position_in_seconds);
+      if (ret == -1)
+      {
+         PVR_ERR("Failed to seek");
+      }
+   }
+   else
+   {
+      prps->seek_position = position_in_seconds;
+      PVR_INFO("Keep pre-seek position %u in S_RECPLAY_STATUS",prps->seek_position);
    }
 
    LOG_LEAVE;

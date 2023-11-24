@@ -1449,6 +1449,7 @@ static void on_recorder_evt_cb(am_dvr_recorder_handle handle, am_dvr_recorder_ev
                evt->sessionNumber,evt->state,
                evt->duration,evt->startTime,evt->endTime,
                evt->numberOfSegments,evt->firstSegmentId,evt->lastSegmentId,evt->size);
+         STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STORE, &it->rec_index, sizeof(U8BIT));
       }
    } else if (event == AM_DVR_RECORDER_EVENT_INITIAL_STATE) {
       PVR_DBG("AM_DVR_RECORDER_EVENT_INITIAL_STATE");

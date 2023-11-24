@@ -3,6 +3,7 @@
 #include <jni.h>
 #include "techtype.h"
 #include "wrapper_os.h"
+#include "dmx.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -52,7 +53,7 @@ typedef struct s_pid_filter_info
 int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_source,U16BIT demux_cap);
 
 BOOLEAN DMX_CloseFilter(int un32filterID);
-BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO *params );
+BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filter_params *params);
 BOOLEAN DMX_StartFilter(int un32filterID );
 BOOLEAN DMX_StopFilter(int un32filterID );
 

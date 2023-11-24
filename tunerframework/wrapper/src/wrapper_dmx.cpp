@@ -285,7 +285,7 @@ BOOLEAN DMX_CloseFilter(int un32filterID)
     return ret ;
 }
 
-BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO* params )
+BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filter_params* params)
 {
     BOOLEAN ret = FALSE;
     char mode[3] = {0, 0, 0};
@@ -308,29 +308,29 @@ BOOLEAN DMX_SetupFilter(int un32filterID ,U16BIT pid,S_SECTION_FILTER_INFO* para
 
         tsFilterConfiguration.pid = pid;
         tsFilterConfiguration.type = MAIN_TYPE_TS;
-        tsFilterConfiguration.setting.section_setting.crc_enable = true;
+        tsFilterConfiguration.setting.section_setting.crc_enable = params->flags;
         tsFilterConfiguration.setting.section_setting.is_repeat = true;
         tsFilterConfiguration.setting.section_setting.is_raw = false;
-        tsFilterConfiguration.setting.section_setting.filter[0] = params->match[0];
-        tsFilterConfiguration.setting.section_setting.filter[3] = params->match[1];
-        tsFilterConfiguration.setting.section_setting.filter[4] = params->match[2];
-        tsFilterConfiguration.setting.section_setting.filter[5] = params->match[3];
-        tsFilterConfiguration.setting.section_setting.filter[6] = params->match[4];
-        tsFilterConfiguration.setting.section_setting.filter[7] = params->match[5];
-        tsFilterConfiguration.setting.section_setting.filter[8] = params->match[6];
-        tsFilterConfiguration.setting.section_setting.filter[9] = params->match[7];
+        tsFilterConfiguration.setting.section_setting.filter[0] = params->filter.filter[0];
+        tsFilterConfiguration.setting.section_setting.filter[3] = params->filter.filter[1];
+        tsFilterConfiguration.setting.section_setting.filter[4] = params->filter.filter[2];
+        tsFilterConfiguration.setting.section_setting.filter[5] = params->filter.filter[3];
+        tsFilterConfiguration.setting.section_setting.filter[6] = params->filter.filter[4];
+        tsFilterConfiguration.setting.section_setting.filter[7] = params->filter.filter[5];
+        tsFilterConfiguration.setting.section_setting.filter[8] = params->filter.filter[6];
+        tsFilterConfiguration.setting.section_setting.filter[9] = params->filter.filter[7];
         tsFilterConfiguration.setting.section_setting.filter[1] = 0xFF;
         tsFilterConfiguration.setting.section_setting.filter[2] = 0xFF;
 
         tsFilterConfiguration.setting.section_setting.filter_length = DEMUX_SECTION_FILTER_LENGTH+2;
-        tsFilterConfiguration.setting.section_setting.mask[0] = params->mask[0];
-        tsFilterConfiguration.setting.section_setting.mask[3] = params->mask[1];
-        tsFilterConfiguration.setting.section_setting.mask[4] = params->mask[2];
-        tsFilterConfiguration.setting.section_setting.mask[5] = params->mask[3];
-        tsFilterConfiguration.setting.section_setting.mask[6] = params->mask[4];
-        tsFilterConfiguration.setting.section_setting.mask[7] = params->mask[5];
-        tsFilterConfiguration.setting.section_setting.mask[8] = params->mask[5];
-        tsFilterConfiguration.setting.section_setting.mask[9] = params->mask[7];
+        tsFilterConfiguration.setting.section_setting.mask[0] = params->filter.mask[0];
+        tsFilterConfiguration.setting.section_setting.mask[3] = params->filter.mask[1];
+        tsFilterConfiguration.setting.section_setting.mask[4] = params->filter.mask[2];
+        tsFilterConfiguration.setting.section_setting.mask[5] = params->filter.mask[3];
+        tsFilterConfiguration.setting.section_setting.mask[6] = params->filter.mask[4];
+        tsFilterConfiguration.setting.section_setting.mask[7] = params->filter.mask[5];
+        tsFilterConfiguration.setting.section_setting.mask[8] = params->filter.mask[5];
+        tsFilterConfiguration.setting.section_setting.mask[9] = params->filter.mask[7];
         tsFilterConfiguration.setting.section_setting.mask[1] = 0xFF;
         tsFilterConfiguration.setting.section_setting.mask[2] = 0xFF;
 

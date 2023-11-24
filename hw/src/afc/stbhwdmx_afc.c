@@ -1832,7 +1832,6 @@ void PidCallback(ST_CALLBACK_T* param)
                               //DebugPrintBuffer((U8BIT *)pid_filter->data_packet,pid_filter->data_packet_size);
                               // DMX_INFO("pid_filter->path [0x%x] pid[0x%x ]  SIZE[0x%x ]  pfilt_id[0x%x] ",pid_filter->path , pid_filter->pid,(U16BIT)pid_filter->data_packet_size,((pid_filter->index << 8) + (j << 4)));
                               (*func_ptr)(pid_filter->path, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
-                              (*func_ptr)(0, (U16BIT)pid_filter->data_packet_size, ((pid_filter->index << 8) + (j << 4)));
                            }
                         }
                      }
@@ -2065,13 +2064,14 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 
         if (pid_filter->fhandle != -1)
         {
-          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x]",path,pid_filter->fhandle , filter_index,\
+          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x] crc %d",path,pid_filter->fhandle , filter_index,\
            demux_status[path].source,\
            demux_status[path].source_param,\
           demux_status[path].demux_cap,\
-           pid_filter->pid);
+           pid_filter->pid,\
+           dvb_filt_p.flags);
 
-          DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, sect_filter);
+          DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, &dvb_filt_p);
           if (pid_filter->started)
           {
              /* Restart the filter */

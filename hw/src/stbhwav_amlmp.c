@@ -3791,6 +3791,24 @@ BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_
     return TRUE;
 }
 
+BOOLEAN STB_AVResetWorkMode(void)
+{
+    FUNCTION_START(STB_AVResetWorkMode);
+    //for tuner framework
+    FUNCTION_FINISH(STB_AVResetWorkMode);
+    return TRUE;
+}
+
+BOOLEAN STB_AVSetPlayIndex(U8BIT path, U8BIT index)
+{
+    FUNCTION_START(STB_AVSetPlayIndex);
+    //for tuner framework
+    USE_UNWANTED_PARAM(path);
+    USE_UNWANTED_PARAM(index);
+    FUNCTION_FINISH(STB_AVSetPlayIndex);
+    return TRUE;
+}
+
 /*---local function definitions----------------------------------------------*/
 //Dtvkit will check int and pointer convert, need convert to intptr_t or uintptr_t first
 static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, int64_t param)

@@ -1273,6 +1273,19 @@ BOOLEAN STB_Is_FCC_Enabled()
    return FALSE;
 }
 
+BOOLEAN STB_Is_TunerFramework_Enabled()
+{
+   char prop_buf[16] = {0};
+   if (TRUE == STB_Get_Prop("vendor.tv.dtv.tuner.framework.enable",prop_buf,16))
+   {
+      if (strcmp(prop_buf,"true") == 0 || strcmp(prop_buf,"yes") == 0)
+      {
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+
 BOOLEAN STB_GetPlatformOui(int *oui)
 {
     if (oui == NULL) {

@@ -147,14 +147,17 @@ U16BIT STB_TuneGetSignalType(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalType);
 
-    //sig_type = Wrapper_TuneGetSignalType(path);
-    if (path < aml_hw_cfg.tuner_num)
+    sig_type = (E_STB_TUNE_SIGNAL_TYPE)Wrapper_TuneGetSignalType(path);
+    if (sig_type == TUNE_SIGNAL_NONE)
     {
-        sig_type = aml_hw_cfg.tuners[path].signal_types;
-    }
-    else
-    {
-        sig_type = TUNE_SIGNAL_NONE;
+        if (path < aml_hw_cfg.tuner_num)
+        {
+            sig_type = aml_hw_cfg.tuners[path].signal_types;
+        }
+        else
+        {
+            sig_type = TUNE_SIGNAL_NONE;
+        }
     }
 
     FUNCTION_FINISH(STB_TuneGetSignalType);
@@ -168,7 +171,7 @@ U16BIT STB_TuneGetActualSignalType(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalType);
 
-    sig_type = Wrapper_TuneGetActualSignalType(path);
+    sig_type = (U16BIT)Wrapper_TuneGetActualSignalType(path);
 
     FUNCTION_FINISH(STB_TuneGetSignalType);
 

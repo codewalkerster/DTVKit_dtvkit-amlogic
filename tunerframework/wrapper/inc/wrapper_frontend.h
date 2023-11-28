@@ -237,7 +237,8 @@ typedef enum ew_tune_terr_type
     E_TERR_TYPE_ISDBS,
     E_TERR_TYPE_ISDBS3,
     E_TERR_TYPE_ISDBT,
-    E_TERR_TYPE_DTMB
+    E_TERR_TYPE_DTMB,
+    E_TERR_TYPE_IPTV
 } E_TTYPE;
 
 typedef enum
@@ -316,8 +317,8 @@ void Wrapper_TuneAutoRelock(U8BIT path, BOOLEAN state);
  * @param   path tuner path
  * @return  the signal types supported by the given tuner
  */
-U16BIT Wrapper_TuneGetSignalType(U8BIT path);
-U16BIT Wrapper_TuneGetActualSignalType(U8BIT path);
+EW_STB_TUNE_SIGNAL_TYPE Wrapper_TuneGetSignalType(U8BIT path);
+E_TTYPE Wrapper_TuneGetActualSignalType(U8BIT path);
 
 /**
  * @brief   This function is only relevant for tuners that support more than one signal type;

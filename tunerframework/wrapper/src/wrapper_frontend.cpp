@@ -42,6 +42,7 @@ typedef struct
     std::vector<U8BIT> t2_plp_list;
 
     EW_STB_TUNE_LNB_VOLTAGE tune_voltage = WRAPPER_LNB_VOLTAGE_OFF;
+    EW_STB_TUNE_FEC fec = WRAPPER_TUNE_FEC_AUTOMATIC;
     jobject tuner_lnb = NULL;
     U8BIT tuner_plp = 0;
     U8BIT frontend_usage = 0;
@@ -85,12 +86,6 @@ static inline E_TTYPE getSignalType(U8BIT path)
 {
     return KEY_CONTAINED_IN_MAP(tuner_status_map, path) ? tuner_status_map[path].signal_type
                                                         : E_TERR_TYPE_UNKNOWN;
-}
-
-static inline jobject getTunerLnb(U8BIT path)
-{
-    return KEY_CONTAINED_IN_MAP(tuner_status_map, path) ? tuner_status_map[path].tuner_lnb
-                                                        : NULL;
 }
 
 static U8BIT getTunerPath(U16BIT tuner_client)
@@ -592,6 +587,106 @@ static void scanCallback(int tuner_client, int scanCallbackMessageType, jobjectA
     }
 }
 
+
+static BOOLEAN IsAlreadyTuned(U8BIT path, U16BIT client_id,
+    U32BIT freq, U32BIT srate, EW_STB_TUNE_FEC fec, EW_STB_TUNE_TMODE tmode, EW_STB_TUNE_TBWIDTH tbwidth, EW_STB_TUNE_CMODE cmode)
+{
+    if (tuner_status_map[path].tuner_client != client_id) {
+        ALOGD("%s: Tuner client(%u) is different(%u %u)", __FUNCTION__, path, tuner_status_map[path].tuner_client, client_id);
+        return FALSE;
+    }
+
+    if (!tuner_status_map[path].tune_lock) {
+        ALOGD("%s: path:%d tuner is unlock", __FUNCTION__, path);
+        return FALSE;
+    }
+
+    if (tuner_status_map[path].tuning_params_changed) {
+        ALOGD("%s: path:%d tuning_params_changed is true", __FUNCTION__, path);
+        return FALSE;
+    }
+
+    E_TTYPE signal_type = tuner_status_map[path].signal_type;
+    EW_STB_TUNE_SYSTEM_TYPE sys_type = tuner_status_map[path].sys_type;
+    EW_STB_TUNE_SIGNAL_TYPE required_signal = WRAPPER_TUNE_SIGNAL_NONE;
+
+    if (signal_type == E_TERR_TYPE_DVBT &&
+        (sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT || sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2)) {
+        required_signal = WRAPPER_TUNE_SIGNAL_COFDM;
+    }
+    else if (signal_type == E_TERR_TYPE_DVBS &&
+             (sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBS || sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBS2)) {
+        required_signal = WRAPPER_TUNE_SIGNAL_QPSK;
+    }
+    else if (signal_type == E_TERR_TYPE_DVBC && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBC) {
+        required_signal = WRAPPER_TUNE_SIGNAL_QAM;
+    }
+    else if (signal_type == E_TERR_TYPE_ISDBT && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_ISDBT) {
+        required_signal = WRAPPER_TUNE_SIGNAL_ISDBT;
+    }
+
+    E_TTYPE fe_signal = Wrapper_TuneGetActualSignalType(path);
+    if ((required_signal == WRAPPER_TUNE_SIGNAL_COFDM && fe_signal == E_TERR_TYPE_DVBT) ||
+        (required_signal == WRAPPER_TUNE_SIGNAL_QPSK && fe_signal == E_TERR_TYPE_DVBS) ||
+        (required_signal == WRAPPER_TUNE_SIGNAL_QAM && fe_signal == E_TERR_TYPE_DVBC) ||
+        (required_signal == WRAPPER_TUNE_SIGNAL_ISDBT && fe_signal == E_TERR_TYPE_ISDBT)) {
+        // nothing
+    }
+    else {
+        ALOGD("%s: Signal type(%u) is different(%u %u)", __FUNCTION__, path, required_signal, fe_signal);
+        return FALSE;
+    }
+
+    if (tuner_status_map[path].frequency != freq)
+    {
+        ALOGD("%s: Frequency(%u) is different(%u %u)", __FUNCTION__, path, tuner_status_map[path].frequency, freq);
+        return FALSE;
+    }
+
+    switch (required_signal)
+    {
+        case WRAPPER_TUNE_SIGNAL_COFDM:
+            if (tuner_status_map[path].tmode != tmode || tuner_status_map[path].tbwidth != tbwidth)
+            {
+                ALOGD("%s: tmode or tbwidth(%u) is different(%u %u, %u %u)", __FUNCTION__, path,
+                      tuner_status_map[path].tmode, tmode, tuner_status_map[path].tbwidth, tbwidth);
+                return FALSE;
+            }
+            break;
+        case WRAPPER_TUNE_SIGNAL_QAM:
+            if (tuner_status_map[path].cable_mode != cmode || tuner_status_map[path].tuner_srate != srate)
+            {
+                ALOGD("%s: cmode or srate(%u) is different(%u %u, %u %u)", __FUNCTION__, path,
+                      tuner_status_map[path].cable_mode, cmode, tuner_status_map[path].tuner_srate, srate);
+                return FALSE;
+            }
+            break;
+        case WRAPPER_TUNE_SIGNAL_QPSK:
+            if (tuner_status_map[path].fec != fec || tuner_status_map[path].tuner_srate != srate)
+            {
+                ALOGD("%s: fec or srate(%u) is different(%u %u, %u %u)", __FUNCTION__, path,
+                      tuner_status_map[path].fec, fec, tuner_status_map[path].tuner_srate, srate);
+                return FALSE;
+            }
+            break;
+        case WRAPPER_TUNE_SIGNAL_ISDBT:
+            if (tuner_status_map[path].tbwidth != tbwidth)
+            {
+                ALOGD("%s: tbwidth(%u) is different(%u %u)", __FUNCTION__, path,
+                      tuner_status_map[path].tbwidth, tbwidth);
+                return FALSE;
+            }
+            break;
+        default:
+            {
+                return FALSE;
+            }
+            break;
+    }
+
+    return TRUE;
+}
+
 static void blindscanCallback(int tuner_client, int scanCallbackMessageType, jobjectArray scanCallbackMessage) {
     ALOGD("%s: tuner_client:%d scanCallbackMessageType:%d", __FUNCTION__, tuner_client, scanCallbackMessageType);
 
@@ -675,12 +770,20 @@ void Wrapper_RegisterCallback(Wrapper_SendEvent callback)
 
 void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_FEC fec, EW_STB_TUNE_TMODE tmode, EW_STB_TUNE_TBWIDTH tbwidth, EW_STB_TUNE_CMODE cmode)
 {
-    U16BIT client_id = Am_tuner_getTunerClientIdByType(getTunerType(path));
-
-    ALOGD("start:%s path:%d client_id:%d freq:%d cmode:%d srate:%d", __FUNCTION__, path, client_id, freq, cmode, srate);
-
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
-        ALOGE("%s: path:%d isn't contained in map, client_id:%d", __FUNCTION__, path, client_id);
+        ALOGE("%s: path:%d isn't contained in map", __FUNCTION__, path);
+        return;
+    }
+
+    U16BIT client_id = Am_tuner_getTunerClientIdByType(getTunerType(path));
+    ALOGD("%s path:%d client_id:%d freq:%d cmode:%d srate:%d", __FUNCTION__, path, client_id, freq, cmode, srate);
+
+    if (IsAlreadyTuned(path, client_id, freq, srate, fec, tmode, tbwidth, cmode)) {
+        ALOGD("%s path:%d Already_tuned", __FUNCTION__, path);
+        tuner_status_map[path].current_tuning = TRUE;
+        tuner_status_map[path].tuning_params_changed = FALSE;
+        tuner_status_map[path].tune_lock = TRUE;
+        lock_SendEvent(FALSE, WRPPER_HW_EV_CLASS_TUNER, WRPPER_HW_EV_TYPE_LOCKED, &path, sizeof(U8BIT));
         return;
     }
 
@@ -699,6 +802,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
     tuner_status_map[path].tbwidth = tbwidth;
     tuner_status_map[path].tuner_srate = srate;
     tuner_status_map[path].cable_mode = cmode;
+    tuner_status_map[path].fec = fec;
 
     if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBT) {
 
@@ -779,6 +883,12 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         dvbsFrontendSettings.code_rate.isLinear = FALSE;
         dvbsFrontendSettings.code_rate.isShortFrames = true;
         dvbsFrontendSettings.code_rate.bitsPer1000Symbol = 0;
+        if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBS) {
+            dvbsFrontendSettings.standard = DVBS_STANDARD_S;
+        }
+        else if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBS2) {
+            dvbsFrontendSettings.standard = DVBS_STANDARD_S2;
+        }
 
         ALOGD("%s: dvbs frequency=%d srate=%d",
               __FUNCTION__, dvbsFrontendSettings.frequency, dvbsFrontendSettings.symbol_rate);
@@ -803,42 +913,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
 }
 void Wrapper_TuneStopTuner(U8BIT path)
 {
-    U16BIT client_id = INVALID_TUNER_ID;
-
-    if (KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
-        client_id = tuner_status_map[path].tuner_client;
-    }
-    else {
-        ALOGD("%s: path %d is invalid", __FUNCTION__, path);
-        return;
-    }
-
-    if (client_id == INVALID_TUNER_ID) {
-        ALOGD("%s: client_id is invalid", __FUNCTION__);
-        return;
-    }
-
-    jint result;
-    if (tuner_status_map[path].blindscan_mode) {
-        result = Am_tuner_cancelScanning(client_id);
-        tuner_status_map[path].blindscan_mode = FALSE;
-    }
-    else {
-        result = Am_tuner_cancelTuning(client_id);
-        Am_tuner_clearOnTuneEventListener(client_id);
-    }
-
-    if (result) {
-        ALOGD("%s: StopTuner(client_id %d) fail", __FUNCTION__, client_id);
-    }
-    else {
-        ALOGD("%s: StopTuner(client_id %d) success", __FUNCTION__, client_id);
-    }
-
-    closeLnb(path);
-
-    tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
-    tuner_status_map[path].current_tuning = FALSE;
+    ALOGD("%s: do nothing", __FUNCTION__);
 }
 U32BIT Wrapper_TuneGetSignalStrength(U8BIT path)
 {
@@ -1048,12 +1123,12 @@ BOOLEAN Wrapper_TuneIsOpened(U8BIT path)
     return (INVALID_TUNER_ID != tuner_client);
 }
 
-U16BIT Wrapper_TuneGetSignalType(U8BIT path)
+EW_STB_TUNE_SIGNAL_TYPE Wrapper_TuneGetSignalType(U8BIT path)
 {
     E_TTYPE signal_type = getSignalType(path);
     ALOGD("%s: path:%d signal:%d", __FUNCTION__, path, signal_type);
 
-    U16BIT s_type = WRAPPER_TUNE_SIGNAL_NONE;
+    EW_STB_TUNE_SIGNAL_TYPE s_type = WRAPPER_TUNE_SIGNAL_NONE;
     switch (signal_type) {
         case E_TERR_TYPE_ANALOG:
             {
@@ -1089,25 +1164,25 @@ U16BIT Wrapper_TuneGetSignalType(U8BIT path)
 
     return s_type;
 }
-U16BIT Wrapper_TuneGetActualSignalType(U8BIT path)
+E_TTYPE Wrapper_TuneGetActualSignalType(U8BIT path)
 {
     U16BIT tuner_client = findTunerClient(path);
     if (tuner_client == INVALID_TUNER_ID) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
-        return 0;
+        return E_TERR_TYPE_UNKNOWN;
     }
 
     jobject frontendInfo = Am_tuner_getFrontendInfo(tuner_client);
     if (NULL == frontendInfo) {
         ALOGE("%s: FrontendInfo is null", __FUNCTION__);
-        return 0;
+        return E_TERR_TYPE_UNKNOWN;
     }
 
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
     if (NULL == env) {
         ALOGE("%s: env is null", __FUNCTION__);
-        return 0;
+        return E_TERR_TYPE_UNKNOWN;
     }
 
     //1.Test jobject class
@@ -1117,7 +1192,7 @@ U16BIT Wrapper_TuneGetActualSignalType(U8BIT path)
         if (attached) {
             Am_tuner_detachJNIEnv();
         }
-        return 0;
+        return E_TERR_TYPE_UNKNOWN;
     }
     //2.show Frontend info
     jfieldID fType = env->GetFieldID(fe_info_class, "mType", "I");
@@ -1131,7 +1206,7 @@ U16BIT Wrapper_TuneGetActualSignalType(U8BIT path)
 
     env->DeleteWeakGlobalRef(frontendInfo);
 
-    return type;
+    return (E_TTYPE)type;
 }
 void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type)
 {
@@ -1151,12 +1226,17 @@ void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type)
               __FUNCTION__, path, tuner_status_map[path].signal_type, signal_type);
         if (tuner_status_map[path].signal_type != signal_type) {
             tuner_status_map[path].signal_type = signal_type;
+            tuner_status_map[path].tuning_params_changed = TRUE;
             U16BIT tuner_client = findTunerClient(path);
             if (tuner_client != INVALID_TUNER_ID) {
-                Am_tuner_cancelScanning(tuner_client);
+                Am_tuner_cancelTuning(tuner_client);
+                Am_tuner_clearOnTuneEventListener(tuner_client);
                 Am_tuner_closeFrontend(tuner_client);
             }
-            closeLnb(path);
+
+            if (E_TERR_TYPE_DVBS == tuner_status_map[path].signal_type) {
+                closeLnb(path);
+            }
        }
     }
     else {
@@ -1297,9 +1377,13 @@ void Wrapper_TuneSetPLP(U8BIT path, U8BIT plp)
         return;
     }
 
-    ALOGD("%s: path:%d plp:%d", __FUNCTION__, path, plp);
+    ALOGD("%s: path:%d curr_tuner_plp:%d plp:%d",
+          __FUNCTION__, path, tuner_status_map[path].tuner_plp, plp);
 
-    tuner_status_map[path].tuner_plp = plp;
+    if (tuner_status_map[path].tuner_plp != plp) {
+        tuner_status_map[path].tuner_plp = plp;
+        tuner_status_map[path].tuning_params_changed = TRUE;
+    }
 }
 
 U8BIT Wrapper_TuneGetPLP(U8BIT path)
@@ -1389,6 +1473,7 @@ void Wrapper_TuneSetSystemType(U8BIT path, EW_STB_TUNE_SYSTEM_TYPE type)
               __FUNCTION__, path, tuner_status_map[path].sys_type, type);
         if (tuner_status_map[path].sys_type != type) {
             tuner_status_map[path].sys_type = type;
+            tuner_status_map[path].tuning_params_changed = TRUE;
         }
     }
     else {
@@ -1418,6 +1503,7 @@ void Wrapper_TuneAutoRelock(U8BIT path, BOOLEAN state)
 
         if (tuner_status_map[path].auto_relock != state) {
             tuner_status_map[path].auto_relock = state;
+            tuner_status_map[path].tuning_params_changed = TRUE;
         }
     }
     else {
@@ -1608,6 +1694,7 @@ void Wrapper_TuneSetModulation(U8BIT path, EW_STB_TUNE_MODULATION modulation)
 
     if (tuner_status_map[path].tune_modulation != modulation) {
         tuner_status_map[path].tune_modulation = modulation;
+        tuner_status_map[path].tuning_params_changed = TRUE;
     }
 }
 void Wrapper_TuneSetLOFrequency(U8BIT path, S32BIT lo_freq)
@@ -1622,6 +1709,7 @@ void Wrapper_TuneSetLOFrequency(U8BIT path, S32BIT lo_freq)
 
     if (tuner_status_map[path].tuner_lo_freq != lo_freq) {
         tuner_status_map[path].tuner_lo_freq = lo_freq;
+        tuner_status_map[path].tuning_params_changed = TRUE;
     }
 }
 EW_STB_TUNE_LNB_VOLTAGE Wrapper_TuneGetLNBVoltage(U8BIT path)

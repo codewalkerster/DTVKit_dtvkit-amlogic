@@ -135,7 +135,8 @@ stb_custom_config aml_custom_config = {
     .deu_sort_lcn_after_last = FALSE,
     .deu_use_invisible_flag = TRUE,
     .disable_automatic_update = FALSE,
-    .a_a_1 = FALSE
+    .a_a_1 = FALSE,
+    .scrambled_flag_control = 2
 };
 
 static void DVR_Get_Prop(const char *name, char *buf, int len);
@@ -632,6 +633,20 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             av = att[1];
             if (!strcmp(an, "disable_automatic_update") && !strcmp(av, "yes")) {
                 aml_custom_config.disable_automatic_update = TRUE;
+            }
+            else if (!strcmp(an, "scrambled_flag_control")) {
+                if (!strcmp(av, "sdt"))
+                {
+                    aml_custom_config.scrambled_flag_control = 1;
+                }
+                else if (!strcmp(av, "pmt"))
+                {
+                    aml_custom_config.scrambled_flag_control = 2;
+                }
+                else if (!strcmp(av, "sdt|pmt") || !strcmp(av, "pmt|sdt"))
+                {
+                    aml_custom_config.scrambled_flag_control = 3;
+                }
             }
             att += 2;
         }
@@ -1195,6 +1210,11 @@ BOOLEAN STB_GetCustomCFGForDEUUseInviableFlag(void)
 BOOLEAN STB_GetCustomCFGForDisableAutomaticUpdate(void)
 {
     return aml_custom_config.disable_automatic_update;
+}
+
+U8BIT STB_GetCustomCFGForScrambledFlagControl(void)
+{
+    return aml_custom_config.scrambled_flag_control;
 }
 
 /**

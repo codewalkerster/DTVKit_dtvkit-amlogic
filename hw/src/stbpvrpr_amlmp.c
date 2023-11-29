@@ -181,6 +181,8 @@ typedef struct
    E_REC_STATE rec_state;
 
    U8BIT libdvr_ext_mode1;
+
+    pthread_rwlock_t lock;
 } S_REC_STATUS;
 
 typedef struct {
@@ -239,6 +241,8 @@ typedef struct {
    U16BIT win_w;
    U16BIT win_h;
 #endif
+
+   pthread_rwlock_t lock;
 } S_RECPLAY_STATUS;
 
 typedef struct
@@ -481,6 +485,7 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
             s_recplay_status[index].rec_start = 0;
             s_recplay_status[index].limit = 0;
             memset(&s_recplay_status[index].clearkey, 0, sizeof(S_CLEAR_KEY));
+            pthread_rwlock_init(&s_recplay_status[index].lock, NULL);
          }
       }
    }
@@ -527,6 +532,7 @@ U8BIT STB_PVRInitRecording(U8BIT num_tuners)
             s_rec_status[index].descramble_v_chanid = -1;
             s_rec_status[index].audio_presentation_id = -1;
             memset(&s_rec_status[index].clearkey, 0, sizeof(S_CLEAR_KEY));
+            pthread_rwlock_init(&s_rec_status[index].lock, NULL);
          }
       }
    }
@@ -893,7 +899,15 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
       if (s_recplay_status[play_index].play_state == PLAY_STARTED)
       {
          {
+            pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+            if (_l == NULL) {
+                PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+                return FALSE;
+            }
+
+            pthread_rwlock_rdlock(_l);
             error = Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player, position_in_seconds * 1000);
+            pthread_rwlock_unlock(_l);
             if (!error)
             {
                s_recplay_status[play_index].last_position_in_seconds = position_in_seconds;
@@ -940,6 +954,14 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 
       if (s_recplay_status[play_index].play_state != PLAY_STOPPED)
       {
+        pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+        if (_l == NULL) {
+            PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+            return;
+        }
+
+        pthread_rwlock_wrlock(_l);
+
          error = Aml_MP_DVRPlayer_Stop(s_recplay_status[play_index].player);
          if (!error)
          {
@@ -970,6 +992,10 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
 #endif
          error = Aml_MP_DVRPlayer_Destroy(s_recplay_status[play_index].player);
 
+        s_recplay_status[play_index].play_state = PLAY_STOPPED;
+        s_recplay_status[play_index].player = NULL;
+        pthread_rwlock_unlock(_l);
+
          //release afd context
          afd_release_context(play_index);
 #if 0
@@ -985,11 +1011,9 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP,
                      &s_recplay_status[play_index].audio_decoder, sizeof(s_recplay_status[play_index].audio_decoder));
 
-         s_recplay_status[play_index].play_state = PLAY_STOPPED;
          s_recplay_status[play_index].last_position_in_seconds = 0;
          s_recplay_status[play_index].video_decoder = INVALID_RES_ID;
          s_recplay_status[play_index].audio_decoder = INVALID_RES_ID;
-         s_recplay_status[play_index].player = NULL;
          s_recplay_status[play_index].rec_start = 0;
          s_recplay_status[play_index].limit = 0;
          memset(&s_recplay_status[play_index].clearkey, 0, sizeof(S_CLEAR_KEY));
@@ -1602,6 +1626,14 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
             recorderCreateParams.encryptParams = rec_encrypt_params;
       }
 
+        pthread_rwlock_t* _l = &(s_rec_status[rec_index].lock);
+        if (_l == NULL) {
+            REC_DBG("Can't get lock, play_index[%d]", rec_index);
+            return FALSE;
+        }
+
+        pthread_rwlock_wrlock(_l);
+
       /*error = dvr_wrapper_open_record(&s_rec_status[rec_index].recorder, &rec_open_params);*/
       error = Aml_MP_DVRRecorder_Create(&recorderCreateParams, &s_rec_status[rec_index].recorder);
       if (!error)
@@ -1659,6 +1691,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       {
          REC_DBG("Failed to open recording, error %d", error);
       }
+      pthread_rwlock_unlock(_l);
    }
    else
    {
@@ -1687,7 +1720,16 @@ BOOLEAN STB_PVRRecordPause(U8BIT rec_index)
 
       if (s_rec_status[rec_index].recorder != NULL)
       {
+        pthread_rwlock_t* _l = &(s_rec_status[rec_index].lock);
+        if (_l == NULL) {
+            REC_DBG("Can't get lock, play_index[%d]", rec_index);
+            return FALSE;
+        }
+
+         pthread_rwlock_rdlock(_l);
          error = Aml_MP_DVRRecorder_Pause(s_rec_status[rec_index].recorder);
+         pthread_rwlock_unlock(_l);
+
          if (error)
          {
             REC_DBG("Failed to pause recording %p, error %d", s_rec_status[rec_index].recorder, error);
@@ -1719,7 +1761,15 @@ BOOLEAN STB_PVRRecordResume(U8BIT rec_index)
 
       if (s_rec_status[rec_index].recorder != NULL)
       {
+        pthread_rwlock_t* _l = &(s_rec_status[rec_index].lock);
+        if (_l == NULL) {
+            REC_DBG("Can't get lock, play_index[%d]", rec_index);
+            return FALSE;
+        }
+
+         pthread_rwlock_rdlock(_l);
          error = Aml_MP_DVRRecorder_Resume(s_rec_status[rec_index].recorder);
+         pthread_rwlock_unlock(_l);
          if (error)
          {
             REC_DBG("Failed to resume recording %p, error %d", s_rec_status[rec_index].recorder, error);
@@ -1752,6 +1802,14 @@ void STB_PVRRecordStop(U8BIT rec_index)
 
       if (s_rec_status[rec_index].recorder != NULL && s_rec_status[rec_index].rec_state != REC_STOPPED)
       {
+        pthread_rwlock_t* _l = &(s_rec_status[rec_index].lock);
+        if (_l == NULL) {
+            REC_DBG("Can't get lock, play_index[%d]", rec_index);
+            return;
+        }
+
+        pthread_rwlock_wrlock(_l);
+
          s_rec_status[rec_index].rec_state = REC_STOPPED;
          error = Aml_MP_DVRRecorder_Stop(s_rec_status[rec_index].recorder);
          if (error)
@@ -1775,6 +1833,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
                  s_rec_status[rec_index].secure_buf = NULL;
              }
          }
+         pthread_rwlock_unlock(_l);
          /* Free descrabmle channel */
          for (i = 0; i < s_rec_status[rec_index].des_aids; i++)
          {
@@ -1794,6 +1853,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
          }
          STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_v_chanid);
          s_rec_status[rec_index].rec_v_chanid = -1;
+         pthread_rwlock_wrlock(_l);
 #endif
 
          Aml_MP_DVRRecorder_Destroy(s_rec_status[rec_index].recorder);
@@ -1802,6 +1862,8 @@ void STB_PVRRecordStop(U8BIT rec_index)
          {
             STB_CAPVRRecordStop(s_rec_status[rec_index].cas_status.cb_param);
          }
+         pthread_rwlock_unlock(_l);
+
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,
                         &rec_index, sizeof(U8BIT));
          s_rec_status[rec_index].rec_state = REC_STOPPED;
@@ -1934,12 +1996,21 @@ BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO
           }
 #endif
 
+        pthread_rwlock_t* _l = &(s_rec_status[rec_index].lock);
+        if (_l == NULL) {
+            REC_DBG("Can't get lock, play_index[%d]", rec_index);
+            return FALSE;
+        }
+
+          pthread_rwlock_rdlock(_l);
           int error = Aml_MP_DVRRecorder_SetStreams(s_rec_status[rec_index].recorder, &rec_streams);
+          pthread_rwlock_unlock(_l);
           REC_DBG("wrap  update recording %u, handle %p end", rec_index, s_rec_status[rec_index].recorder);
           if (error)
           {
              REC_DBG("Failed to update recording %p, error %d", s_rec_status[rec_index].recorder, error);
           }
+
        }
    }
    FUNCTION_FINISH(STB_PVRRecordChangePids);
@@ -2103,6 +2174,13 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
    {
       if (speed != s_recplay_status[play_index].play_speed)
       {
+        pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+        if (_l == NULL) {
+            PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+            return FALSE;
+        }
+
+         pthread_rwlock_rdlock(_l);
          if (speed == 100 && s_recplay_status[play_index].play_speed == 0)
          {
             //fixed 1 -x2 to play and pause then resume,not resume speed 1.0.
@@ -2122,6 +2200,7 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
             PLAY_DBG("Unsupported play speed %d", speed);
             error = -1;
          }
+         pthread_rwlock_unlock(_l);
 
          if (!error)
          {
@@ -2398,7 +2477,16 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *
    if (play_index != INVALID_RES_ID)
    {
       Aml_MP_DVRPlayerStatus status;
+
+    pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+    if (_l == NULL) {
+        PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+        return FALSE;
+    }
+
+      pthread_rwlock_rdlock(_l);
       error = Aml_MP_DVRPlayer_GetStatus(s_recplay_status[play_index].player, &status);
+      pthread_rwlock_unlock(_l);
 
       if (!error)
       {
@@ -2804,8 +2892,16 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
          if (0 && reset == 1)
          {
             PLAY_DBG("pids ready, reset to %d", s_recplay_status[play_index].last_position_in_seconds);
+            pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+            if (_l == NULL) {
+                PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+                return FALSE;
+            }
+
+            pthread_rwlock_rdlock(_l);
             Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,
                   s_recplay_status[play_index].last_position_in_seconds * 1000);
+            pthread_rwlock_unlock(_l);
          }
          PLAY_DBG("pid changed. %d", reset);
          done = updatePlayback(play_index, reset);
@@ -2861,9 +2957,17 @@ BOOLEAN STB_PVRGetPlayerHandle(U8BIT audio_decoder, U8BIT video_decoder, void **
 
     play_index = getPlayIndex(audio_decoder, video_decoder);
     if (play_index != INVALID_RES_ID) {
+        pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+        if (_l == NULL) {
+            PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+            return FALSE;
+        }
+
+        pthread_rwlock_rdlock(_l);
         if (p_handle && s_recplay_status[play_index].player != AML_MP_INVALID_HANDLE) {
             ret = Aml_MP_DVRPlayer_GetMpPlayerHandle(s_recplay_status[play_index].player, p_handle);
         }
+        pthread_rwlock_unlock(_l);
     }
 
     if (AML_MP_OK == ret) {
@@ -3111,6 +3215,13 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       createParams.basicParams = play_params;
       createParams.decryptParams = decrypt_params;
 
+        pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+        if (_l == NULL) {
+            PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+            return FALSE;
+        }
+        pthread_rwlock_wrlock(_l);
+
       error = Aml_MP_DVRPlayer_Create(&createParams, &s_recplay_status[play_index].player);
       if (!error)
       {
@@ -3119,6 +3230,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
             int ret = Aml_MP_DVRPlayer_GetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_INSTANCE_ID, &decoder_id);
             if (ret != 0)
                decoder_id = -1;
+
+            pthread_rwlock_unlock(_l);
 
             S_VIDEO_DECODER_PRIV_DATA priv =
                 {
@@ -3132,6 +3245,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
             //create afd context
             afd_create_context(play_index, decoder_id);
          }
+
+         pthread_rwlock_wrlock(_l);
 
 #ifdef RDK_COMPILE
          // set video window
@@ -3185,6 +3300,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
             PLAY_DBG("Start pause/play failed, error %d", error);
          }
 
+         pthread_rwlock_unlock(_l);
          done = TRUE;
 
          if (s_recplay_status[play_index].has_audio)
@@ -3194,10 +3310,18 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       else
       {
          PLAY_DBG("Failed to start pvr playback, error %d", error);
+         pthread_rwlock_unlock(_l);
       }
    }
    else
    {
+        pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);
+        if (_l == NULL) {
+            PLAY_DBG("Can't get lock, play_index[%d]", play_index);
+            return FALSE;
+        }
+        pthread_rwlock_rdlock(_l);
+
         /*update*/
         if (s_recplay_status[play_index].audio_presentation_id > -1) {
             error = Aml_MP_DVRPlayer_SetParameter(s_recplay_status[play_index].player, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &s_recplay_status[play_index].audio_presentation_id);
@@ -3222,6 +3346,8 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,
                                s_recplay_status[play_index].last_position_in_seconds * 1000);
       }
+      pthread_rwlock_unlock(_l);
+
    }
 
    return done;
@@ -3591,4 +3717,3 @@ BOOLEAN STB_PVRStoreVideoWindow(U8BIT video_decoder, U16BIT x, U16BIT y, U16BIT 
    return TRUE;
 }
 #endif
-

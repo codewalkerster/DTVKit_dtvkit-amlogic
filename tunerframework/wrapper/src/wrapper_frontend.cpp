@@ -1612,6 +1612,7 @@ void Wrapper_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
             }
 
             tuner_status_map[path].tuner_search_mode = mode;
+            tuner_status_map[path].tuning_params_changed = TRUE;
         }
     }
 }

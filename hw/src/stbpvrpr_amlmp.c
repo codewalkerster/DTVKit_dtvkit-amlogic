@@ -890,14 +890,15 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
    play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
    {
-      if (s_recplay_status[play_index].play_state == PLAY_STARTED)
+      if (s_recplay_status[play_index].play_state == PLAY_STARTED
+         || s_recplay_status[play_index].play_state == PLAY_STARTING)
       {
          {
             error = Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player, position_in_seconds * 1000);
             if (!error)
             {
                s_recplay_status[play_index].last_position_in_seconds = position_in_seconds;
-               PLAY_DBG("%lu secs", position_in_seconds);
+               PLAY_DBG("seek to %lu secs", position_in_seconds);
                retval = TRUE;
             }
             else
@@ -3218,7 +3219,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
       if (reset != 0)
       {
-         PLAY_DBG("update pvr playback reset 2, seek");
+         PLAY_DBG("update pvr playback reset 2, seek to %d",
+            s_recplay_status[play_index].last_position_in_seconds);
+
          Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player,
                                s_recplay_status[play_index].last_position_in_seconds * 1000);
       }

@@ -736,7 +736,7 @@ BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
 
     ASSERT(handle);
 
-    CA_DBG(("%s(0x%lx)", __FUNCTION__, handle));
+    CA_DBG("%s(0x%lx)", __FUNCTION__, handle);
 
     STB_OSMutexLock(g_ca_mutex);
     CA_DBG(("%s->CAS_HAL_LOCK", __func__));

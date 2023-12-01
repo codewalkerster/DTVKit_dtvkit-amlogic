@@ -533,9 +533,10 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    {
       PVR_ERR("Failed to stop playback");
    }
-   prps->reset();
 
-   STB_AVSetPlayerHandle(audio_decoder,video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
+   Wrapper_Player_Destroy(prps->asplayer_handle);
+   STB_AVSetPlayerHandle(audio_decoder,video_decoder,WRAPPER_PLAYER_INVALID_HANDLE);
+   prps->reset();
 
    //release afd context
    afd_release_context(play_index);
@@ -1544,6 +1545,8 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       }
    } else if (event == AM_DVR_PLAYER_EVENT_EOS) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_EOS");
+      Wrapper_Player_Destroy(it->asplayer_handle);
+      STB_AVSetPlayerHandle(it->audio_decoder,it->video_decoder,WRAPPER_PLAYER_INVALID_HANDLE);
       it->reset();
    } else if (event == AM_DVR_PLAYER_EVENT_EDGE_LEAVING) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_EDGE_LEAVING");

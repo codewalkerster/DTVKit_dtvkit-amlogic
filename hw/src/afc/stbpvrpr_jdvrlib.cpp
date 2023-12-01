@@ -121,12 +121,25 @@ struct S_RECPLAY_STATUS
    U16BIT audio_pid;
    U32BIT seek_position;
 
-   S_RECPLAY_STATUS() : in_use(FALSE), is_timeshift(FALSE), start_mode(START_RUNNING)
-      , dvr_file_handle(NULL), dvr_player_handle(NULL), asplayer_handle(0), state(0)
-      //, state_cond{}, state_mutex{}
-      , speed(0), audio_decoder(INVALID_RES_ID), video_decoder(INVALID_RES_ID)
-      , video_pid(0), audio_pid(0), seek_position(0)
+   S_RECPLAY_STATUS()
    {
+      reset();
+   }
+
+   void reset()
+   {
+      in_use = FALSE;
+      is_timeshift = FALSE;
+      start_mode = START_RUNNING;
+      dvr_file_handle = NULL;
+      dvr_player_handle = NULL;
+      asplayer_handle = 0;
+      state = 0;
+      fill_n((uint8_t*)&progress,sizeof(am_dvr_playback_progress),0);
+      speed = 0;
+      audio_decoder = INVALID_RES_ID;
+      video_decoder = INVALID_RES_ID;
+      seek_position = 0;
    }
 };
 
@@ -520,8 +533,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    {
       PVR_ERR("Failed to stop playback");
    }
-   fill_n((uint8_t*)&prps->progress,sizeof(am_dvr_playback_progress),0);
-   prps->in_use = FALSE;
+   prps->reset();
 
    STB_AVSetPlayerHandle(audio_decoder,video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
 
@@ -1532,6 +1544,7 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       }
    } else if (event == AM_DVR_PLAYER_EVENT_EOS) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_EOS");
+      it->reset();
    } else if (event == AM_DVR_PLAYER_EVENT_EDGE_LEAVING) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_EDGE_LEAVING");
    } else if (event == AM_DVR_PLAYER_EVENT_INITIAL_STATE) {

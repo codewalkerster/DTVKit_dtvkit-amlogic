@@ -88,6 +88,7 @@ S8BIT Wrapper_Player_StartVideoDecoding(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_StopVideoDecoding(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_StartAudioDecoding(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_StopAudioDecoding(jni_asplayer_handle handle);
+S8BIT Wrapper_Player_SwitchAudioTrack(jni_asplayer_handle handle, jni_asplayer_audio_params *audio_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format);
 S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_params *ad_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format);
 S8BIT Wrapper_Player_EnableADMix(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_DisableADMix(jni_asplayer_handle handle);

@@ -279,10 +279,10 @@ static AUDIO_MIME_MAP audio_mime_types[] =
    {WP_AUDIO_STREAM_TYPE_OPUS, "audio/opus"},
    {WP_AUDIO_STREAM_TYPE_VORBIS, "audio/vorbis"},
    {WP_AUDIO_STREAM_TYPE_DRA, "audio/vnd.dra"},
-   {WP_AUDIO_STREAM_TYPE_AAC_ADTS, "audio/vnd.dlna.adts"},
+   {WP_AUDIO_STREAM_TYPE_AAC_ADTS, "audio/aac"},
    {WP_AUDIO_STREAM_TYPE_AAC_LATM, "audio/mp4a-latm"},
-   {WP_AUDIO_STREAM_TYPE_AAC_HE_ADTS, "audio/unknown"},
-   {WP_AUDIO_STREAM_TYPE_AAC_HE_LATM, "audio/unknown"}
+   {WP_AUDIO_STREAM_TYPE_AAC_HE_ADTS, "audio/aac"},
+   {WP_AUDIO_STREAM_TYPE_AAC_HE_LATM, "audio/mp4a-latm"}
 };
 
 /*---local function prototypes for this file---------------------------------*/
@@ -1100,62 +1100,6 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
     FUNCTION_FINISH(STB_AVChangeAudioMode);
 }
 
-/**
- * @brief   Starts the Audio decoder
- * @param   path the audio decoder path to be started
- */
-void STB_AVStartAudioDecoding(U8BIT path)
-{
-    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
-    U8BIT preselection_id;
-    int ret;
-    jni_asplayer_handle player_handle;
-    WRAPPER_PLAYER_AUDIO_STREAM_TYPE audio_format;
-
-    FUNCTION_START(STB_AVStartAudioDecoding);
-
-    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
-    if (av_path == INVALID_RES_ID) {
-        AUD_DBG("audio decoder get path error audio=%u av_path=%u", path, av_path);
-        return;
-    }
-
-    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
-    if (_l == NULL) {
-        AUD_DBG("Can't get lock, audio decoder[%d]", path);
-        return;
-    }
-
-    pthread_rwlock_wrlock(_l);
-    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, TRUE);
-    if (ret < 0) {
-        AUD_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
-        pthread_rwlock_unlock(_l);
-        return;
-    }
-
-    AUD_DBG("audio decoder path=%u av_path=%u", path, av_path);
-
-    DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
-    audio_format = av_paths_status[av_path].audio_format;
-
-    if (audio_pid != 0 && audio_pid != INVALID_PID)
-    {
-        AUD_DBG("start audio PID= %u FMT:%d", audio_pid, audio_format);
-        ret = AV_StartAudioDecode_l(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
-        if (ret == 0)
-        {
-            av_paths_status[av_path].audio_pid = audio_pid;
-            av_paths_status[av_path].audio_presentation_id = preselection_id;
-//                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
-        }
-    }
-
-    pthread_rwlock_unlock(_l);
-
-    FUNCTION_FINISH(STB_AVStartAudioDecoding);
-}
-
 #ifdef SUPPORT_CAS
 /*
  * Drm Mode on the given video path
@@ -1317,6 +1261,61 @@ void STB_AVStopVideoDecoding(U8BIT path)
 }
 
 /**
+ * @brief   Starts the Audio decoder
+ * @param   path the audio decoder path to be started
+ */
+void STB_AVStartAudioDecoding(U8BIT path)
+{
+    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+    U8BIT preselection_id;
+    int ret;
+    jni_asplayer_handle player_handle;
+    WRAPPER_PLAYER_AUDIO_STREAM_TYPE audio_format;
+
+    FUNCTION_START(STB_AVStartAudioDecoding);
+
+    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+    if (av_path == INVALID_RES_ID) {
+        AUD_DBG("audio decoder get path error audio=%u av_path=%u", path, av_path);
+        return;
+    }
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        AUD_DBG("Can't get lock, audio decoder[%d]", path);
+        return;
+    }
+
+    pthread_rwlock_wrlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, TRUE);
+    if (ret < 0) {
+        AUD_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+
+    AUD_DBG("audio decoder path=%u av_path=%u", path, av_path);
+
+    DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
+    audio_format = av_paths_status[av_path].audio_format;
+
+    if (audio_pid != 0 && audio_pid != INVALID_PID)
+    {
+        AUD_DBG("start audio pid= %u format:%d", audio_pid, audio_format);
+        ret = AV_StartAudioDecode_l(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
+        if (ret == 0)
+        {
+            av_paths_status[av_path].audio_pid = audio_pid;
+            av_paths_status[av_path].audio_presentation_id = preselection_id;
+        }
+    }
+
+    pthread_rwlock_unlock(_l);
+
+    FUNCTION_FINISH(STB_AVStartAudioDecoding);
+}
+
+/**
  * @brief   Stops the audio decoder
  * @param   path the audio decoder path to be stopped
  */
@@ -1373,106 +1372,67 @@ void STB_AVStopAudioDecoding(U8BIT path)
 }
 
 /**
- * @brief   Returns the current 33-bit System Time Clock from the PCR PES.
- *          On some systems, this information may need to be obtained from the associated demux,
- *          which will be contained in the 'param' value when STB_AVSetVideoSource is called.
- * @param   path video path
- * @param   stc an array in which the STC will be returned, ordered such that
- *                stc[0] contains the MS bit (33) of the STC value and stc[4]
- *                contains the LS bits (0-7).
+ * @brief   Starts the Audio decoder
+ * @param   path the audio decoder path to be started
  */
-void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
+void STB_AVSwitchAudioTrack(U8BIT path)
 {
-   int64_t video_pts = 0;
-   int ret;
-   jni_asplayer_handle player_handle;
-   FUNCTION_START(STB_AVGetSTC);
-   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+    U8BIT preselection_id;
+    int ret;
+    jni_asplayer_handle player_handle;
+    jni_asplayer_audio_params audio_param;
+    WRAPPER_PLAYER_AUDIO_STREAM_TYPE audio_format;
 
-   VID_DBG("video codec path=%u av_path = %u", path, av_path);
-   if (av_path == INVALID_RES_ID) {
-      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
-      return;
-   }
+    FUNCTION_START(STB_AVSwitchAudioTrack);
 
-    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
-    if (_l == NULL) {
-        VID_DBG("Can't get lock, video decoder[%d]", path);
+    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+    if (av_path == INVALID_RES_ID) {
+        AUD_DBG("audio decoder get path error audio=%u av_path=%u", path, av_path);
         return;
     }
 
-    pthread_rwlock_rdlock(_l);
-    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder,
-                                    av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
-   if (ret < 0)
-   {
-       AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
-       pthread_rwlock_unlock(_l);
-       return;
-   }
-   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-  // ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_VIDEO, &video_pts);
-   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-   if (ret == 0)
-   {
-       memset(stc, 0, 5);
-       stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
-       stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
-       stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
-       stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
-       stc[4] = (U8BIT)(video_pts & 0xff);
-       AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
-   }
-   pthread_rwlock_unlock(_l);
-   FUNCTION_FINISH(STB_AVGetSTC);
-}
-
-void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5])
-{
-   int64_t video_pts = 0;
-   int ret;
-   jni_asplayer_handle player_handle;
-   FUNCTION_START(STB_AVGetSTC);
-   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
-
-   VID_DBG("video codec path=%u av_path = %u", path, av_path);
-   if (av_path == INVALID_RES_ID) {
-      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
-      return;
-   }
-
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
-        VID_DBG("Can't get lock, video decoder[%d]", path);
+        AUD_DBG("Can't get lock, audio decoder[%d]", path);
         return;
     }
 
-    pthread_rwlock_rdlock(_l);
-    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder,
-                                    av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
-   if (ret < 0)
-   {
-       AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
-       pthread_rwlock_unlock(_l);
-       return;
-   }
-   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-   //ret = Aml_MP_Player_GetCurrentPts(player_handle, (Aml_MP_StreamType)streamType, &video_pts);
-   AUD_DBG("the ret value = %d",ret);
-   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-   if (ret == 0)
-   {
-       memset(stc, 0, 5);
-       stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
-       stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
-       stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
-       stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
-       stc[4] = (U8BIT)(video_pts & 0xff);
-       AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
-   }
+    pthread_rwlock_wrlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, TRUE);
+    if (ret < 0) {
+        AUD_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+
+    AUD_DBG("audio decoder path=%u av_path=%u", path, av_path);
+
+    DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
+    audio_format = av_paths_status[av_path].audio_format;
+
+    if (audio_pid != 0 && audio_pid != INVALID_PID)
+    {
+        AUD_DBG("start audio pid= %u format:%d", audio_pid, av_paths_status[av_path].audio_format);
+
+        memset(&audio_param, 0, sizeof(audio_param));
+        audio_param.pid = audio_pid;
+        audio_param.mimeType = audio_mime_types[audio_format].MIME;
+        audio_param.sampleRate = 8000;
+        audio_param.channelCount = 1;
+
+        ret = Wrapper_Player_SwitchAudioTrack(player_handle, &audio_param, audio_format);
+        if (ret == 0)
+        {
+            AUD_DBG("Switch audio track success, pid:%d, format:%d, player[%u]", audio_pid, audio_format, player_handle);
+            av_paths_status[av_path].audio_pid = audio_pid;
+            av_paths_status[av_path].audio_presentation_id = preselection_id;
+        }
+    }
+
     pthread_rwlock_unlock(_l);
 
-   FUNCTION_FINISH(STB_AVGetSTC);
+    FUNCTION_FINISH(STB_AVSwitchAudioTrack);
 }
 
 /**
@@ -1538,7 +1498,6 @@ void STB_AVSetAudioSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
 
    FUNCTION_FINISH(STB_AVSetAudioSource);
 }
-
 
 /**
  * @brief   Sets the video surface  with the given video decoder path
@@ -1836,7 +1795,6 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
             av_paths_status[av_path].audio_format = WP_AUDIO_STREAM_TYPE_AAC_HE_LATM;
             AUD_DBG("LATM");
             break;
-        //case AV_AUDIO_CODEC_AUTO:
         case AV_AUDIO_CODEC_MP2:
             av_paths_status[av_path].audio_format = WP_AUDIO_STREAM_TYPE_MPEG2;
             AUD_DBG("MPEG2");
@@ -1854,324 +1812,6 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
     FUNCTION_FINISH(STB_AVSetAudioCodec);
 
     return success;
-}
-
-/**
- * @brief   Loads an audio sample for subsequent playback
- * @param   path the decoder path to use for playback
- * @param   data the audio sample data to be loaded
- * @param   size the size of the audio sample in bytes
- * @return  E_HW_STATUS code
- */
-E_HW_STATUS STB_AVLoadAudioSample(U8BIT path, U8BIT *data, U32BIT size)
-{
-   FUNCTION_START(STB_AVLoadAudioSample);
-   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
-
-   AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
-   if (av_path == INVALID_RES_ID) {
-      AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
-      return HW_OK;
-   }
-
-   if (av_paths_status[av_path].sample_data != NULL)
-   {
-      STB_MEMFreeSysRAM(av_paths_status[av_path].sample_data);
-      av_paths_status[av_path].sample_data = NULL;
-      av_paths_status[av_path].sample_data_size = 0;
-   }
-
-   av_paths_status[av_path].sample_data = (U8BIT*)STB_MEMGetSysRAM(size);
-   if (av_paths_status[av_path].sample_data != NULL)
-   {
-      memcpy(av_paths_status[av_path].sample_data,data,size);
-      av_paths_status[av_path].sample_data_size = size;
-   }
-   FUNCTION_FINISH(STB_AVLoadAudioSample);
-
-   return HW_OK;
-}
-
-/**
- * @brief   Plays back a previously loaded audio sample
- * @param   path the audio path to use for playback
- * @param   loop_count the number of times to play the sample, 0=forever
- * @return  E_HW_STATUS code
- */
-E_HW_STATUS STB_AVPlayAudioSample(U8BIT path, U32BIT loop_count)
-{
-   //AM_ErrorCode_t retval;
-   E_HW_STATUS success = HW_GEN_ERROR;
-
-   FUNCTION_START(STB_AVPlayAudioSample);
- #if 0
-   if (av_paths_status[path].sample_data_size > 0)
-   {
-      if ( AM_AV_SetTSSource(path, AM_AV_TS_SRC_HIU) == AM_SUCCESS)
-      {
-         retval = AM_AV_StartAudioESData(path, AFORMAT_MPEG, av_paths_status[path].sample_data,
-                          av_paths_status[path].sample_data_size,loop_count);
-         if (retval == AM_SUCCESS)
-         {
-           success = HW_OK;
-         }
-         else
-         {
-            ERR_DBG("AM_AV_StartAudioESData failed, error: %d",retval-AM_AV_ERROR_BASE);
-         }
-      }
-   }
- #endif
-   FUNCTION_FINISH(STB_AVPlayAudioSample);
-
-   return success;
-}
-
-/**
- * @brief   Pauses playback of an audio sample
- * @param   path Audio path on which to pause
- * @return  E_HW_STATUS code
- */
-E_HW_STATUS STB_AVPauseAudioSample(U8BIT path)
-{
-   FUNCTION_START(STB_AVPauseAudioSample);
-   USE_UNWANTED_PARAM(path);
-   FUNCTION_FINISH(STB_AVPauseAudioSample);
-
-   return HW_GEN_ERROR;
-}
-
-/**
- * @brief   Resumes playback of an audio sample
- * @param   path Audio path on which to resume
- * @return  E_HW_STATUS code
- */
-E_HW_STATUS STB_AVResumeAudioSample(U8BIT path)
-{
-   FUNCTION_START(STB_AVResumeAudioSample);
-   USE_UNWANTED_PARAM(path);
-   FUNCTION_FINISH(STB_AVResumeAudioSample);
-
-   return HW_GEN_ERROR;
-}
-
-/**
- * @brief   Stops playback of an audio sample
- * @param   path Audio path on which to stop
- */
-void STB_AVStopAudioSample(U8BIT path)
-{
-   FUNCTION_START(STB_AVStopAudioSample);
-#if 0
-   AM_AV_StopAudioES(path);
-   AM_AV_SetTSSource(path, AM_AV_TS_SRC_DMX0);
-#endif
-   FUNCTION_FINISH(STB_AVStopAudioSample);
-}
-
-/**
- * @brief   Sets the codec to be used when decoding the next i-frame from memory
- * @param   path video path
- * @param   codec codec to be used
- * @return  TRUE if the codec is supported and is set correctly, FALSE otherwise
- */
-BOOLEAN STB_AVSetIFrameCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
-{
-   BOOLEAN supported;
-   FUNCTION_START(STB_AVSetIFrameCodec);
-   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
-
-   VID_DBG("video codec path=%u av_path = %u", path, av_path);
-   if (av_path == INVALID_RES_ID) {
-      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
-      return FALSE;
-   }
-
-   switch (codec)
-   {
-      case AV_VIDEO_CODEC_MPEG1:
-      case AV_VIDEO_CODEC_MPEG2:
-      case AV_VIDEO_CODEC_H264:
-         supported = TRUE;
-         av_paths_status[av_path].iframe_codec = codec;
-         break;
-      default:
-         supported = FALSE;
-   }
-
-   FUNCTION_FINISH(STB_AVSetIFrameCodec);
-   return(supported);
-}
-
-/**
- * @brief   Loads a video I Frame for subsequent decode and display
- * @param   path the video decode path to be used
- * @param   data the I frame data to be loaded
- * @param   size the size of the data in bytes
- */
-void STB_AVLoadIFrame(U8BIT path, U8BIT *data, U32BIT size)
-{
-   FUNCTION_START(STB_AVLoadIFrame);
-   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
-
-   VID_DBG("video codec path=%u av_path = %u", path, av_path);
-   if (av_path == INVALID_RES_ID) {
-      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
-      return;
-   }
-
-   if (av_paths_status[av_path].iframe_data != NULL)
-   {
-      STB_MEMFreeSysRAM(av_paths_status[av_path].iframe_data);
-      av_paths_status[av_path].iframe_data = NULL;
-   }
-
-   if (size != 0)
-   {
-      av_paths_status[av_path].iframe_data = (U8BIT*)STB_MEMGetSysRAM(size);
-      if (av_paths_status[av_path].iframe_data != NULL)
-      {
-         VID_DBG("buffering %lu byte iframe",size);
-         av_paths_status[av_path].iframe_data_size = size;
-         memcpy(av_paths_status[av_path].iframe_data,data,size);
-      }
-      else
-      {
-         VID_DBG("failed to allocate memory for iframe");
-      }
-   }
-
-   FUNCTION_FINISH(STB_AVLoadIFrame);
-}
-
-/**
- * @brief   Decode and display previously loaded I frame data
- * @param   path the video path to use
- */
-void STB_AVShowIFrame(U8BIT path)
-{
-   int result;
-
-   FUNCTION_START(STB_AVShowIFrame);
-   FUNCTION_FINISH(STB_AVShowIFrame);
-}
-
-/**
- * @brief   Hides a previously shown I frame
- * @param   path the video path containing the I frame
- */
-void STB_AVHideIFrame(U8BIT path)
-{
-   FUNCTION_START(STB_AVHideIFrame);
-
-   VID_DBG("path=%u", path);
-   FUNCTION_FINISH(STB_AVHideIFrame);
-}
-
-/**
- * @brief   Returns minimum video play speed as a percentage.
- * @param   video_decoder video decoder path
- * @return  Minimum play speed.
- */
-S16BIT STB_AVGetMinPlaySpeed(U8BIT path)
-{
-   FUNCTION_START(STB_AVGetMinPlaySpeed);
-   USE_UNWANTED_PARAM(path);
-   FUNCTION_FINISH(STB_AVGetMinPlaySpeed);
-
-   return(MIN_AV_SPEED);
-}
-
-/**
- * @brief   Returns maximum video play speed as a percentage.
- * @param   video_decoder video decoder path
- * @return  Maximum play speed.
- */
-S16BIT STB_AVGetMaxPlaySpeed(U8BIT path)
-{
-   FUNCTION_START(STB_AVGetMinPlaySpeed);
-   USE_UNWANTED_PARAM(path);
-   FUNCTION_FINISH(STB_AVGetMinPlaySpeed);
-
-   return(MAX_AV_SPEED);
-}
-
-/**
- * @brief   Returns the next valid speed that is +/- inc above or below the
- *          given speed. Slow motion speeds (>-100% and < 100%) can be included.
- * @param   path Decode path
- * @param   speed Percentage speed above/below which the new speed is calculated
- * @param   inc number of speeds above that specified to return
- * @param   include_slow_speeds selects whether speeds >-100% and <100% are included
- * @return  Speed as a percentage
- */
-S16BIT STB_AVGetNextPlaySpeed(U8BIT path, S16BIT speed, S16BIT inc, BOOLEAN include_slow_speeds)
-{
-   S16BIT new_speed;
-
-   FUNCTION_START(STB_AVGetNextPlaySpeed);
-   USE_UNWANTED_PARAM(path);
-   USE_UNWANTED_PARAM(include_slow_speeds);
-
-   new_speed = speed;
-
-   if ((speed >= MIN_AV_SPEED) && (speed <= MAX_AV_SPEED))
-   {
-      if (inc > 0)
-      {
-         switch (speed)
-         {
-            case -600:
-               new_speed = -400;
-               break;
-            case -400:
-               new_speed = -100;
-               break;
-            case -100:
-            case 0:
-               new_speed = 100;
-               break;
-            case 100:
-               new_speed = 400;
-               break;
-            case 400:
-               new_speed = 600;
-               break;
-            default:
-               new_speed = speed;
-               break;
-         }
-      }
-      else if (inc < 0)
-      {
-         switch (speed)
-         {
-            case 600:
-               new_speed = 400;
-               break;
-            case 400:
-               new_speed = 100;
-               break;
-            case 100:
-            case 0:
-               new_speed = -100;
-               break;
-            case -100:
-               new_speed = -400;
-               break;
-            case -400:
-               new_speed = -600;
-               break;
-            default:
-               new_speed = speed;
-               break;
-         }
-      }
-   }
-
-   FUNCTION_FINISH(STB_AVGetNextPlaySpeed);
-
-   return(new_speed);
 }
 
 /**
@@ -2535,6 +2175,428 @@ U8BIT STB_AVGetADMixLevel(U8BIT path)
 
     FUNCTION_FINISH(STB_AVGetADMixLevel);
     return (U8BIT)ad_mix_level;
+}
+
+
+/**
+ * @brief   Loads an audio sample for subsequent playback
+ * @param   path the decoder path to use for playback
+ * @param   data the audio sample data to be loaded
+ * @param   size the size of the audio sample in bytes
+ * @return  E_HW_STATUS code
+ */
+E_HW_STATUS STB_AVLoadAudioSample(U8BIT path, U8BIT *data, U32BIT size)
+{
+   FUNCTION_START(STB_AVLoadAudioSample);
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+
+   AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
+      return HW_OK;
+   }
+
+   if (av_paths_status[av_path].sample_data != NULL)
+   {
+      STB_MEMFreeSysRAM(av_paths_status[av_path].sample_data);
+      av_paths_status[av_path].sample_data = NULL;
+      av_paths_status[av_path].sample_data_size = 0;
+   }
+
+   av_paths_status[av_path].sample_data = (U8BIT*)STB_MEMGetSysRAM(size);
+   if (av_paths_status[av_path].sample_data != NULL)
+   {
+      memcpy(av_paths_status[av_path].sample_data,data,size);
+      av_paths_status[av_path].sample_data_size = size;
+   }
+   FUNCTION_FINISH(STB_AVLoadAudioSample);
+
+   return HW_OK;
+}
+
+/**
+ * @brief   Plays back a previously loaded audio sample
+ * @param   path the audio path to use for playback
+ * @param   loop_count the number of times to play the sample, 0=forever
+ * @return  E_HW_STATUS code
+ */
+E_HW_STATUS STB_AVPlayAudioSample(U8BIT path, U32BIT loop_count)
+{
+   //AM_ErrorCode_t retval;
+   E_HW_STATUS success = HW_GEN_ERROR;
+
+   FUNCTION_START(STB_AVPlayAudioSample);
+ #if 0
+   if (av_paths_status[path].sample_data_size > 0)
+   {
+      if ( AM_AV_SetTSSource(path, AM_AV_TS_SRC_HIU) == AM_SUCCESS)
+      {
+         retval = AM_AV_StartAudioESData(path, AFORMAT_MPEG, av_paths_status[path].sample_data,
+                          av_paths_status[path].sample_data_size,loop_count);
+         if (retval == AM_SUCCESS)
+         {
+           success = HW_OK;
+         }
+         else
+         {
+            ERR_DBG("AM_AV_StartAudioESData failed, error: %d",retval-AM_AV_ERROR_BASE);
+         }
+      }
+   }
+ #endif
+   FUNCTION_FINISH(STB_AVPlayAudioSample);
+
+   return success;
+}
+
+/**
+ * @brief   Pauses playback of an audio sample
+ * @param   path Audio path on which to pause
+ * @return  E_HW_STATUS code
+ */
+E_HW_STATUS STB_AVPauseAudioSample(U8BIT path)
+{
+   FUNCTION_START(STB_AVPauseAudioSample);
+   USE_UNWANTED_PARAM(path);
+   FUNCTION_FINISH(STB_AVPauseAudioSample);
+
+   return HW_GEN_ERROR;
+}
+
+/**
+ * @brief   Resumes playback of an audio sample
+ * @param   path Audio path on which to resume
+ * @return  E_HW_STATUS code
+ */
+E_HW_STATUS STB_AVResumeAudioSample(U8BIT path)
+{
+   FUNCTION_START(STB_AVResumeAudioSample);
+   USE_UNWANTED_PARAM(path);
+   FUNCTION_FINISH(STB_AVResumeAudioSample);
+
+   return HW_GEN_ERROR;
+}
+
+/**
+ * @brief   Stops playback of an audio sample
+ * @param   path Audio path on which to stop
+ */
+void STB_AVStopAudioSample(U8BIT path)
+{
+   FUNCTION_START(STB_AVStopAudioSample);
+#if 0
+   AM_AV_StopAudioES(path);
+   AM_AV_SetTSSource(path, AM_AV_TS_SRC_DMX0);
+#endif
+   FUNCTION_FINISH(STB_AVStopAudioSample);
+}
+
+/**
+ * @brief   Sets the codec to be used when decoding the next i-frame from memory
+ * @param   path video path
+ * @param   codec codec to be used
+ * @return  TRUE if the codec is supported and is set correctly, FALSE otherwise
+ */
+BOOLEAN STB_AVSetIFrameCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
+{
+   BOOLEAN supported;
+   FUNCTION_START(STB_AVSetIFrameCodec);
+   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+      return FALSE;
+   }
+
+   switch (codec)
+   {
+      case AV_VIDEO_CODEC_MPEG1:
+      case AV_VIDEO_CODEC_MPEG2:
+      case AV_VIDEO_CODEC_H264:
+         supported = TRUE;
+         av_paths_status[av_path].iframe_codec = codec;
+         break;
+      default:
+         supported = FALSE;
+   }
+
+   FUNCTION_FINISH(STB_AVSetIFrameCodec);
+   return(supported);
+}
+
+/**
+ * @brief   Loads a video I Frame for subsequent decode and display
+ * @param   path the video decode path to be used
+ * @param   data the I frame data to be loaded
+ * @param   size the size of the data in bytes
+ */
+void STB_AVLoadIFrame(U8BIT path, U8BIT *data, U32BIT size)
+{
+   FUNCTION_START(STB_AVLoadIFrame);
+   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+      return;
+   }
+
+   if (av_paths_status[av_path].iframe_data != NULL)
+   {
+      STB_MEMFreeSysRAM(av_paths_status[av_path].iframe_data);
+      av_paths_status[av_path].iframe_data = NULL;
+   }
+
+   if (size != 0)
+   {
+      av_paths_status[av_path].iframe_data = (U8BIT*)STB_MEMGetSysRAM(size);
+      if (av_paths_status[av_path].iframe_data != NULL)
+      {
+         VID_DBG("buffering %lu byte iframe",size);
+         av_paths_status[av_path].iframe_data_size = size;
+         memcpy(av_paths_status[av_path].iframe_data,data,size);
+      }
+      else
+      {
+         VID_DBG("failed to allocate memory for iframe");
+      }
+   }
+
+   FUNCTION_FINISH(STB_AVLoadIFrame);
+}
+
+/**
+ * @brief   Decode and display previously loaded I frame data
+ * @param   path the video path to use
+ */
+void STB_AVShowIFrame(U8BIT path)
+{
+   int result;
+
+   FUNCTION_START(STB_AVShowIFrame);
+   FUNCTION_FINISH(STB_AVShowIFrame);
+}
+
+/**
+ * @brief   Hides a previously shown I frame
+ * @param   path the video path containing the I frame
+ */
+void STB_AVHideIFrame(U8BIT path)
+{
+   FUNCTION_START(STB_AVHideIFrame);
+
+   VID_DBG("path=%u", path);
+   FUNCTION_FINISH(STB_AVHideIFrame);
+}
+
+/**
+ * @brief   Returns minimum video play speed as a percentage.
+ * @param   video_decoder video decoder path
+ * @return  Minimum play speed.
+ */
+S16BIT STB_AVGetMinPlaySpeed(U8BIT path)
+{
+   FUNCTION_START(STB_AVGetMinPlaySpeed);
+   USE_UNWANTED_PARAM(path);
+   FUNCTION_FINISH(STB_AVGetMinPlaySpeed);
+
+   return(MIN_AV_SPEED);
+}
+
+/**
+ * @brief   Returns maximum video play speed as a percentage.
+ * @param   video_decoder video decoder path
+ * @return  Maximum play speed.
+ */
+S16BIT STB_AVGetMaxPlaySpeed(U8BIT path)
+{
+   FUNCTION_START(STB_AVGetMinPlaySpeed);
+   USE_UNWANTED_PARAM(path);
+   FUNCTION_FINISH(STB_AVGetMinPlaySpeed);
+
+   return(MAX_AV_SPEED);
+}
+
+/**
+ * @brief   Returns the next valid speed that is +/- inc above or below the
+ *          given speed. Slow motion speeds (>-100% and < 100%) can be included.
+ * @param   path Decode path
+ * @param   speed Percentage speed above/below which the new speed is calculated
+ * @param   inc number of speeds above that specified to return
+ * @param   include_slow_speeds selects whether speeds >-100% and <100% are included
+ * @return  Speed as a percentage
+ */
+S16BIT STB_AVGetNextPlaySpeed(U8BIT path, S16BIT speed, S16BIT inc, BOOLEAN include_slow_speeds)
+{
+   S16BIT new_speed;
+
+   FUNCTION_START(STB_AVGetNextPlaySpeed);
+   USE_UNWANTED_PARAM(path);
+   USE_UNWANTED_PARAM(include_slow_speeds);
+
+   new_speed = speed;
+
+   if ((speed >= MIN_AV_SPEED) && (speed <= MAX_AV_SPEED))
+   {
+      if (inc > 0)
+      {
+         switch (speed)
+         {
+            case -600:
+               new_speed = -400;
+               break;
+            case -400:
+               new_speed = -100;
+               break;
+            case -100:
+            case 0:
+               new_speed = 100;
+               break;
+            case 100:
+               new_speed = 400;
+               break;
+            case 400:
+               new_speed = 600;
+               break;
+            default:
+               new_speed = speed;
+               break;
+         }
+      }
+      else if (inc < 0)
+      {
+         switch (speed)
+         {
+            case 600:
+               new_speed = 400;
+               break;
+            case 400:
+               new_speed = 100;
+               break;
+            case 100:
+            case 0:
+               new_speed = -100;
+               break;
+            case -100:
+               new_speed = -400;
+               break;
+            case -400:
+               new_speed = -600;
+               break;
+            default:
+               new_speed = speed;
+               break;
+         }
+      }
+   }
+
+   FUNCTION_FINISH(STB_AVGetNextPlaySpeed);
+
+   return(new_speed);
+}
+
+/**
+ * @brief   Returns the current 33-bit System Time Clock from the PCR PES.
+ *          On some systems, this information may need to be obtained from the associated demux,
+ *          which will be contained in the 'param' value when STB_AVSetVideoSource is called.
+ * @param   path video path
+ * @param   stc an array in which the STC will be returned, ordered such that
+ *                stc[0] contains the MS bit (33) of the STC value and stc[4]
+ *                contains the LS bits (0-7).
+ */
+void STB_AVGetSTC(U8BIT path, U8BIT stc[5])
+{
+   int64_t video_pts = 0;
+   int ret;
+   jni_asplayer_handle player_handle;
+   FUNCTION_START(STB_AVGetSTC);
+   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+      return;
+   }
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        VID_DBG("Can't get lock, video decoder[%d]", path);
+        return;
+    }
+
+    pthread_rwlock_rdlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder,
+                                    av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   if (ret < 0)
+   {
+       AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
+       pthread_rwlock_unlock(_l);
+       return;
+   }
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+  // ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_VIDEO, &video_pts);
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+   if (ret == 0)
+   {
+       memset(stc, 0, 5);
+       stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
+       stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
+       stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
+       stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
+       stc[4] = (U8BIT)(video_pts & 0xff);
+       AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
+   }
+   pthread_rwlock_unlock(_l);
+   FUNCTION_FINISH(STB_AVGetSTC);
+}
+
+void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5])
+{
+   int64_t video_pts = 0;
+   int ret;
+   jni_asplayer_handle player_handle;
+   FUNCTION_START(STB_AVGetSTC);
+   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+      return;
+   }
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        VID_DBG("Can't get lock, video decoder[%d]", path);
+        return;
+    }
+
+    pthread_rwlock_rdlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder,
+                                    av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   if (ret < 0)
+   {
+       AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
+       pthread_rwlock_unlock(_l);
+       return;
+   }
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+   //ret = Aml_MP_Player_GetCurrentPts(player_handle, (Aml_MP_StreamType)streamType, &video_pts);
+   AUD_DBG("the ret value = %d",ret);
+   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+   if (ret == 0)
+   {
+       memset(stc, 0, 5);
+       stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
+       stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
+       stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
+       stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
+       stc[4] = (U8BIT)(video_pts & 0xff);
+       AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
+   }
+    pthread_rwlock_unlock(_l);
+
+   FUNCTION_FINISH(STB_AVGetSTC);
 }
 
 /**

@@ -1800,6 +1800,191 @@ void STB_AVStopAudioDecoding(U8BIT path)
 }
 
 /**
+ * @brief   Starts the Audio decoder
+ * @param   path the audio decoder path to be started
+ */
+void STB_AVSwitchAudioTrack(U8BIT path)
+{
+    U16BIT video_pid, audio_pid, pcr_pid, ad_pid;
+    U8BIT preselection_id;
+    BOOLEAN audio_mute = FALSE;
+    int ret;
+    AML_MP_PLAYER player_handle;
+    Aml_MP_CodecID audio_format;
+    FUNCTION_START(STB_AVSwitchAudioTrack);
+
+    FUNCTION_START(STB_AVStopAudioDecoding);
+    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+
+    AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
+    if (av_path == INVALID_RES_ID) {
+        VID_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
+        return;
+    }
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        AUD_DBG("Can't get lock, audio decoder[%d]", path);
+        return;
+    }
+
+    pthread_rwlock_wrlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+    if (ret < 0) {
+        AUD_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+
+    switch (AV_GetDecoderState_l(player_handle, AUDIO_DECODER))
+    {
+        case DECODER_STATE_STOPPED:
+        {
+            AUD_DBG("A NOW:A_STOP, Stop audio decode already");
+            if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
+                if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED &&
+                    AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
+                {
+                    AV_ReleaseTsPlayer_l(av_path);
+                }
+            }
+            break;
+        }
+        case DECODER_STATE_STARTED:
+        {
+            AUD_DBG("A NOW:A_START, Stop Audio decoding");
+            if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
+                ret = Aml_MP_Player_StopAudioDecoding(av_paths_status[av_path].player_handle);
+                if (ret == 0) {
+                    if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED &&
+                        AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
+                    {
+                        AV_ReleaseTsPlayer_l(av_path);
+                    } else {
+                        AUD_DBG("V NOW:V_START");
+                    }
+                }else {
+                    AUD_DBG("Aml_MP_Player_StopAudioDecoding failed, err:%d", ret);
+                }
+            }
+            av_paths_status[av_path].audio_pid = INVALID_PID;
+            av_paths_status[av_path].audio_presentation_id = INVALID_PID;
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
+            break;
+        }
+    }
+
+    if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+    {
+        AUD_DBG("audio decoder path=%u av_path=%u", path, av_path);
+
+        DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
+        audio_format = av_paths_status[av_path].audio_format;
+
+        if (av_paths_status[av_path].audio_out_control) {
+            AUD_DBG("-->mute audio");
+            audio_mute = TRUE;
+            ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_AUDIO_MUTE, &audio_mute);
+            if (ret < 0) {
+                AUD_DBG("mute audio failed, err:%d", ret);
+            }
+        } else {
+            AUD_DBG("-->umute audio");
+        }
+
+        if (audio_pid != 0 && audio_pid != INVALID_PID)
+        {
+            switch (AV_GetDecoderState_l(player_handle, AUDIO_DECODER))
+            {
+                case DECODER_STATE_STARTED:
+                    AUD_DBG("A NOW:A_START: start audio PID=%u(%u) FMT:%d", audio_pid, preselection_id, audio_format);
+                    if (audio_pid != av_paths_status[av_path].audio_pid || preselection_id != av_paths_status[av_path].audio_presentation_id)
+                    {
+                        AUD_DBG("changing audio PID %u->%d(%u->%d)", av_paths_status[av_path].audio_pid, audio_pid, av_paths_status[av_path].audio_presentation_id, preselection_id);
+                        Aml_MP_Player_StopAudioDecoding(player_handle);
+                        ret = AV_StartAudioDecode_l(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
+                        if (ret == 0) {
+                            av_paths_status[av_path].audio_pid = audio_pid;
+                            av_paths_status[av_path].audio_presentation_id = preselection_id;
+                        }
+                    }
+                    break;
+
+                case DECODER_STATE_STOPPED:
+                    AUD_DBG("A NOW:A_STOP: start audio PID=%u FMT:%d", audio_pid, audio_format);
+                    ret = AV_StartAudioDecode_l(player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
+                    if (ret == 0)
+                    {
+                        av_paths_status[av_path].audio_pid = audio_pid;
+                        av_paths_status[av_path].audio_presentation_id = preselection_id;
+                        STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+    else
+    {
+        Aml_MP_CodecID video_format;
+        Aml_MP_CodecID ad_format;
+
+        DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
+        audio_format = av_paths_status[av_path].audio_format;
+        ad_format = av_paths_status[av_path].ad_format;
+        video_format = av_paths_status[av_path].video_format;
+
+        AUD_DBG("av-pvr: path=%u, apid:%d(%d), adpid:%d, vpid:%d", path, audio_pid, preselection_id, ad_pid, video_pid);
+
+        if (audio_pid != 0 && audio_pid != INVALID_PID)
+        {
+            switch (AV_GetDecoderState_l(player_handle, AUDIO_DECODER))
+            {
+                case DECODER_STATE_STARTED:
+                    AUD_DBG("av-pvr: Audio decoder already started");
+                    if (audio_pid != av_paths_status[av_path].audio_pid || preselection_id != av_paths_status[av_path].audio_presentation_id)
+                    {
+                        AUD_DBG("av-pvr: changing audio PID %u->%d(%u->%d)",
+                        av_paths_status[av_path].audio_pid, audio_pid, av_paths_status[av_path].audio_presentation_id, preselection_id);
+                        if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
+                            toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
+                        {
+                            AV_SetAudioDecode_l(player_handle, av_paths_status[av_path].audio_mode, av_paths_status[av_path].volume, av_paths_status[av_path].mute);
+                            av_paths_status[av_path].audio_pid = audio_pid;
+                            av_paths_status[av_path].audio_presentation_id = preselection_id;
+                        }
+                    }
+                    break;
+
+                case DECODER_STATE_STOPPED:
+                    AUD_DBG("av-pvr: audio stopped, audio PID=%u(%d)", audio_pid, preselection_id);
+                    /*pvr radio will get here*/
+                    if (audio_pid != av_paths_status[av_path].audio_pid || preselection_id != av_paths_status[av_path].audio_presentation_id)
+                    {
+                        if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
+                            toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
+                        {
+                            AV_SetAudioDecode_l(player_handle, av_paths_status[av_path].audio_mode, av_paths_status[av_path].volume, av_paths_status[av_path].mute);
+                            av_paths_status[av_path].audio_pid = audio_pid;
+                            av_paths_status[av_path].audio_presentation_id = preselection_id;
+                            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
+                        }
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+    pthread_rwlock_unlock(_l);
+
+    FUNCTION_FINISH(STB_AVSwitchAudioTrack);
+}
+
+/**
  * @brief   Returns the current 33-bit System Time Clock from the PCR PES.
  *          On some systems, this information may need to be obtained from the associated demux,
  *          which will be contained in the 'param' value when STB_AVSetVideoSource is called.

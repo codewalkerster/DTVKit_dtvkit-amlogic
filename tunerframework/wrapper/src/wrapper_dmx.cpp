@@ -155,7 +155,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
     }
 }
 
-int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_source,U16BIT demux_cap)
+int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_source,U16BIT demux_cap  ,U32BIT section_size)
 {
     int ClientId = 0xFF;
     if (!gDMXTaskLocked.initDmxLocked )
@@ -226,8 +226,15 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_
     S_HAL *filerInfo;
     filerInfo = new S_HAL();
     filerInfo->cb = cb ;
-    /*8 *8* 4096 from OTA feature request*/
-    filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, 8 *8* 4096, (long)filterCallback);
+    if (section_size > 8 * 4096)
+    {
+        ALOGI("large section_size  [%d]",section_size);
+        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, section_size, (long)filterCallback, 1);
+    }
+    else
+    {
+        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, section_size, (long)filterCallback, 0);
+    }
     filerInfo->user_data  = user_data;
     int filterId = Am_filter_getId(filerInfo->Jfilter);
 

@@ -419,6 +419,104 @@ void DMX_Route_TS(int cicamid,BOOLEAN pass_through)
     }
     ALOGD("END:%s", __FUNCTION__);
 }
+
+
+JCAS_JNI_RESULT MediaCAS_Init()
+{
+    return AM_CasManagerInit();
+}
+
+JCAS_JNI_RESULT MediaCAS_CreatePlugin(U8BIT path , AM_CasPluginInfo *casPluginInfo , CasHandle *casHandle)
+{
+    int ClientId = 0xFFFF;
+    static jobject sTunerJcas = NULL;
+
+    TUNER_TYPE tuner_type = TUNER_TYPE_LIVE_0;
+    switch (path)
+    {
+        case 0:
+        {
+            tuner_type = TUNER_TYPE_LIVE_0;
+            break ;
+        }
+        case 1:
+        {
+            tuner_type = TUNER_TYPE_LIVE_1;
+            break ;
+        }
+        case 2 :
+        {
+            tuner_type = TUNER_TYPE_LIVE_2;
+            break ;
+        }
+        default:
+        {
+            tuner_type = TUNER_TYPE_LIVE_0;
+            break ;
+        }
+    }
+    ClientId = Am_tuner_getTunerClientIdByType(tuner_type);
+    if (INVALID_TUNER_ID == ClientId)
+    {
+        ALOGD("%s : get fail", __FUNCTION__);
+        return AM_CAS_JNI_ERR_BASE ;
+    }
+    else
+    {
+        ALOGD("%s : get ClientId ok = %d ", __FUNCTION__, ClientId);
+        return AM_CreateCasPlugin(casPluginInfo, ClientId, casHandle);
+    }
+    #if 0
+    sTunerJcas = Am_tuner_getOriginalTuner(ClientId);
+    if (NULL != sTunerJcas)
+    {
+        ALOGD("%s : get TunerHandle ok = %p ", __FUNCTION__,sTunerJcas);
+        return AM_CreateCasPlugin(casPluginInfo, ClientId, casHandle);
+    }
+    else
+    {
+        ALOGD("%s : get TunerHandle fail", __FUNCTION__);
+        return AM_CAS_JNI_ERR_BASE;
+    }
+    #endif
+}
+
+BOOLEAN MediaCAS_IsSystemIdSupported(int caSystemId)
+{
+    return AM_IsSystemIdSupported(caSystemId);
+}
+
+JCAS_JNI_RESULT MediaCAS_OpenCasSession(CasHandle casHandle, AM_CasSessionInfo *casSessionInfo,
+        CasSessionHandle* casSessionHandle)
+{
+    return AM_OpenCasSession(casHandle, casSessionInfo, casSessionHandle);
+}
+
+JCAS_JNI_RESULT MediaCAS_StartDescrambling(CasHandle casHandle, CasSessionHandle casSessionHandle)
+{
+    return AM_StartDescrambling(casHandle, casSessionHandle);
+}
+
+JCAS_JNI_RESULT MediaCAS_StopDescrambling(CasHandle casHandle, CasSessionHandle casSessionHandle)
+{
+    return AM_StopDescrambling(casHandle, casSessionHandle);
+}
+
+JCAS_JNI_RESULT MediaCAS_CloseCasSession(CasHandle casHandle, CasSessionHandle casSessionHandle)
+{
+    return AM_CloseCasSession(casHandle, casSessionHandle);
+}
+
+JCAS_JNI_RESULT MediaCAS_DestroyCasPlugin(CasHandle casHandle)
+{
+    return AM_DestroyCasPlugin(casHandle);
+}
+
+JCAS_JNI_RESULT MediaCAS_CasManagerTerm()
+{
+    return AM_CasManagerTerm();
+}
+
 ////////////////////////////
  //tuner hal flow
 // open descramble

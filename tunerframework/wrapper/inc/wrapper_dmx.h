@@ -4,6 +4,9 @@
 #include "techtype.h"
 #include "wrapper_os.h"
 #include "dmx.h"
+#include "JNICasTypes.h"
+#include "JNICasWrapper.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -59,6 +62,27 @@ BOOLEAN DMX_StopFilter(int un32filterID );
 
 
 void DMX_Route_TS(int cicamid,BOOLEAN pass_through);
+
+JCAS_JNI_RESULT MediaCAS_Init();
+
+JCAS_JNI_RESULT MediaCAS_CreatePlugin(U8BIT path , AM_CasPluginInfo *casPluginInfo , CasHandle *casHandle);
+
+BOOLEAN MediaCAS_IsSystemIdSupported(int caSystemId);
+
+JCAS_JNI_RESULT MediaCAS_OpenCasSession(CasHandle casHandle, AM_CasSessionInfo *casSessionInfo,
+        CasSessionHandle* casSessionHandle);
+
+JCAS_JNI_RESULT MediaCAS_StartDescrambling(CasHandle casHandle, CasSessionHandle casSessionHandle);
+
+JCAS_JNI_RESULT MediaCAS_StopDescrambling(CasHandle casHandle, CasSessionHandle casSessionHandle);
+
+JCAS_JNI_RESULT MediaCAS_CloseCasSession(CasHandle casHandle, CasSessionHandle casSessionHandle);
+
+JCAS_JNI_RESULT MediaCAS_DestroyCasPlugin(CasHandle casHandle);
+
+JCAS_JNI_RESULT MediaCAS_CasManagerTerm();
+
+
 jobject DESCRAMBLE_Open();
 void DESCRAMBLE_AddPid( jobject handle, int pid);
 void DESCRAMBLE_RemovePid(jobject handle, int pid);

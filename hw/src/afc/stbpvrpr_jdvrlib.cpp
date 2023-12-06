@@ -92,10 +92,25 @@ struct S_REC_STATUS
    U16BIT disk_id;
    vector<S_PVR_PID_INFO> pids_array;
 
-   S_REC_STATUS() : in_use(FALSE), is_timeshift(FALSE), start_mode(START_RUNNING)
-      , limit_seconds(0), limit_size(0), dvr_file_handle(NULL), dvr_recorder_handle(NULL)
-      , state(0), state_cond{}, state_mutex{}, rec_index(INVALID_RES_ID), disk_id(INVALID_RES_ID)
+   S_REC_STATUS() :
+      state_cond{}, state_mutex{}
    {
+      reset();
+   }
+
+   void reset()
+   {
+      in_use = FALSE;
+      is_timeshift = FALSE;
+      start_mode = START_RUNNING;
+      limit_seconds = 0;
+      limit_size = 0;
+      dvr_file_handle = NULL;
+      dvr_recorder_handle = NULL;
+      state = 0;
+      fill_n((uint8_t*)&progress,sizeof(am_dvr_recording_progress),0);
+      rec_index = INVALID_RES_ID;
+      disk_id = INVALID_RES_ID;
       pids_array.clear();
    }
 };
@@ -835,11 +850,8 @@ void STB_PVRRecordStop(U8BIT rec_index)
    PVR_INFO("rec_index:%d", rec_index);
    const am_dvr_recorder_handle handle = prs->dvr_recorder_handle;
 
-   // Don't call stop() if JDvrRecorder is in STOPPING or INITIAL state.
-   if (prs->state > 1 && prs->state < 5) {
-      U8BIT ret = Wrapper_PVR_Recorder_stop(handle);
-      prs->disk_id = INVALID_RES_ID;
-   }
+   Wrapper_PVR_Recorder_stop(handle);
+   prs->reset();
 
    LOG_LEAVE;
 }

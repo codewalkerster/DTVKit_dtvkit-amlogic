@@ -27,11 +27,11 @@
 
 
 /*!**************************************************************************
- * @brief   This function can get from other module, to judge under TSE mode
+ * @brief   This function can get from other module, to judge under Block mode
  *          or not
- * @return  true under TSE mode, false not TSE mode
+ * @return  true under Block mode, false not Block mode
  ****************************************************************************/
-BOOLEAN STB_CAIsTSEMode();
+BOOLEAN STB_CAIsBlockMode();
 
 /*!**************************************************************************
  * @brief   This function is called when in timeshift state

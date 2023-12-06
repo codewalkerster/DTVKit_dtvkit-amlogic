@@ -106,13 +106,8 @@ static BOOLEAN is_enable_cicam = FALSE;
 static E_CAS_TYPE g_cas_type = CAS_TYPE_NONE;
 static BOOLEAN is_enable_fta = FALSE;
 static const char* IOCTRL_INVOKE_GET_CAS_MODE = "{\"InvokeID\":3}";
-
-typedef enum {
-    CAS_MODE_NONE,
-    CAS_MODE_TSE,
-    CAS_MODE_R2R,
-} E_CAS_MODE;
-E_CAS_MODE g_cas_mode = CAS_MODE_NONE;
+static BOOLEAN is_block_mode = FALSE;
+static BOOLEAN is_gained_cas_mode = FALSE;
 
 typedef struct sess_info_entry
 {
@@ -462,8 +457,9 @@ static void get_cas_mode(AML_MP_CASSESSION session)
     cJSON *item = NULL;
     char out_json[MAX_JSON_LEN];
 
-    if (g_cas_mode != CAS_MODE_NONE)
-        return ;
+    if (is_gained_cas_mode == TRUE) {
+        return;
+    }
 
     if (session)
         Aml_MP_CAS_Ioctl(session, IOCTRL_INVOKE_GET_CAS_MODE, out_json, MAX_JSON_LEN);
@@ -475,16 +471,15 @@ static void get_cas_mode(AML_MP_CASSESSION session)
         return;
     }
 
-    if (strncmp(item->valuestring, "r2r", 3) == 0) {
-        g_cas_mode = CAS_MODE_R2R;
-        CA_DBG("%s:g_cas_mode is CAS_MODE_R2R", __func__);
-    } else if (strncmp(item->valuestring, "tse", 3) == 0) {
-        g_cas_mode = CAS_MODE_TSE;
-        CA_DBG("%s:g_cas_mode is CAS_MODE_TSE", __func__);
-    } else {
-        CA_DBG("%s:g_cas_mode is CAS_MODE_NONE", __func__);
+    if (strncmp(item->valuestring, "false", strlen(item->valuestring)) == 0) {
+        is_block_mode = FALSE;
+        CA_DBG("%s:isn't block mode", __func__);
+    } else if (strncmp(item->valuestring, "true", strlen(item->valuestring)) == 0) {
+        is_block_mode = TRUE;
+        CA_DBG("%s:is block mode", __func__);
     }
 
+    is_gained_cas_mode = TRUE;
     cJSON_Delete(input);
 }
 
@@ -645,16 +640,13 @@ E_CAS_TYPE STB_CAGetCASType()
 }
 
 /*!**************************************************************************
- * @brief   This function can get from other module, to judge under TSE mode
+ * @brief   This function can get from other module, to judge under Block mode
  *          or not
- * @return  true under TSE mode, false not TSE mode
+ * @return  true under Block mode, false not Block mode
  ****************************************************************************/
-BOOLEAN STB_CAIsTSEMode()
+BOOLEAN STB_CAIsBlockMode()
 {
-    if (g_cas_mode == CAS_MODE_TSE)
-        return true;
-    else
-        return false;
+    return is_block_mode;
 }
 
 /*!**************************************************************************

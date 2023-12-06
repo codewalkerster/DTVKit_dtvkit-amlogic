@@ -1482,8 +1482,8 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          void *buf = NULL;
          AML_MP_SECMEM secmem_handle;
          uint32_t secmem_size = 0;
-         REC_DBG("is_smp=%d is_tse_mode=%d type=%d", s_rec_status[rec_index].cas_status.is_smp, STB_CAIsTSEMode(),STB_CAGetCASType());
-         if (!s_rec_status[rec_index].cas_status.is_smp || STB_CAIsTSEMode()) {
+         REC_DBG("is_smp=%d is_block_mode=%d type=%d", s_rec_status[rec_index].cas_status.is_smp, STB_CAIsBlockMode(),STB_CAGetCASType());
+         if (!s_rec_status[rec_index].cas_status.is_smp || !STB_CAIsBlockMode()) {
             break;
          }
          AML_MP_CASSESSION sec_handle;
@@ -3101,9 +3101,9 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
       else
          play_params.blockSize = 188 * 6;
 
-      PLAY_DBG("is_smp:%d, clearkey enable:%d is_tse_mode=%d istimeshift=%d",
+      PLAY_DBG("is_smp:%d, clearkey enable:%d is_block_mode=%d istimeshift=%d",
                s_recplay_status[play_index].cas_status.is_smp,
-               s_recplay_status[play_index].clearkey.enabled, STB_CAIsTSEMode(), s_recplay_status[play_index].is_timeshift);
+               s_recplay_status[play_index].clearkey.enabled, STB_CAIsBlockMode(), s_recplay_status[play_index].is_timeshift);
       if (s_recplay_status[play_index].cas_status.is_smp)
       {
          snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", 0);
@@ -3117,7 +3117,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
             play_params.blockSize = 256 * 1024;
          }
 
-         if (STB_CAIsTSEMode())
+         if (!STB_CAIsBlockMode())
              play_params.drmMode = AML_MP_INPUT_STREAM_ENCRYPTED; /* if tse mode not need create secmem */
          else if(!STB_GetTvpEnable())
              play_params.drmMode = AML_MP_INPUT_STREAM_NORMAL;
@@ -3126,7 +3126,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
 
          decrypt_params.cryptoFn = (Aml_MP_CAS_CryptoFunction)s_recplay_status[play_index].cas_status.crypto_cb;
          decrypt_params.cryptoData = NULL;
-         PLAY_DBG("dec_func:%p tse=%d drmMode=%d", decrypt_params.cryptoFn, STB_CAIsTSEMode(), play_params.drmMode);
+         PLAY_DBG("dec_func:%p is_block_mode=%d drmMode=%d", decrypt_params.cryptoFn, STB_CAIsBlockMode(), play_params.drmMode);
       }
       else if (s_recplay_status[play_index].clearkey.enabled)
       {
@@ -3170,14 +3170,14 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
          uint32_t secmem_size = 0;
 
          if (!s_recplay_status[play_index].cas_status.is_smp) {
-            PLAY_DBG("is_smp=%d is_tse_mode=%d not need create secmem", s_recplay_status[play_index].cas_status.is_smp, STB_CAIsTSEMode());
+            PLAY_DBG("is_smp=%d isn't block_mode=%d not need create secmem", s_recplay_status[play_index].cas_status.is_smp, STB_CAIsBlockMode());
             break;
          }
 
          STB_CAPVRPlayStart(&param, play_params.isTimeShift);
 
-         if (STB_CAIsTSEMode()) {
-             PLAY_DBG("is_smp=%d is_tse_mode=%d not need create secmem", s_recplay_status[play_index].cas_status.is_smp, STB_CAIsTSEMode());
+         if (!STB_CAIsBlockMode()) {
+             PLAY_DBG("is_smp=%d isn't block_mode=%d not need create secmem", s_recplay_status[play_index].cas_status.is_smp, STB_CAIsBlockMode());
              break;
          }
 

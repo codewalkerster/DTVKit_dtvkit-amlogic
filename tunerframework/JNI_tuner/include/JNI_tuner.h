@@ -138,6 +138,7 @@ enum TUNER_TYPE {
     TUNER_TYPE_DVR_PLAY             = 4,
     TUNER_TYPE_SCAN                 = 5,
     TUNER_TYPE_LIVE_2               = 6,
+    TUNER_TYPE_BACKGROUND           = 7,
 };
 /*
 struct AMTuner : public RefBase {
@@ -175,7 +176,6 @@ jobject Am_tuner_getTunerObjectByClientId(int clientId);
  * @return tuner jobject or null.
  */
 jobject Am_tuner_getOriginalTuner(int tunerClientId);
-
 
 /**
  * get record tuner object.
@@ -320,10 +320,11 @@ void Am_tuner_clearOnTuneEventListener(int tunerClientId);
  * @param bufferSize the buffer size of the filter to be opened in bytes. The buffer holds the
  * data output from the filter.
  * @param callbackContext native callback context to listen filter event.
+ * @param privateCallback make filter use new thread for callback or not.
  * @return the opened filter.
  * @jni weak reference corresponds to the java reference Filter.
  */
-jobject Am_tuner_openFilter(int tunerClientId, int mainType, int subType, long bufferSize, long callbackContext);
+jobject Am_tuner_openFilter(int tunerClientId, int mainType, int subType, long bufferSize, long callbackContext, int privateCallback);
 
 /**
  * Gets hardware sync ID for audio and video.

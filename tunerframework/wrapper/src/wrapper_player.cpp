@@ -696,7 +696,7 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
             wp_player_av_status[av_path].playerWeakRefAudioFilter = NULL;
         }
         Am_filter_callback audioFilterCallback = player_AudioFilterCallback;
-        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback);
+        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback, 0);
     } else {
         if (wp_player_av_status[av_path].playerWeakRefVideoFilter != NULL)
         {
@@ -704,7 +704,7 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
             wp_player_av_status[av_path].playerWeakRefVideoFilter = NULL;
         }
         Am_filter_callback videoFilterCallback = player_VideoFilterCallback;
-        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_VIDEO, WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT, (long)videoFilterCallback);
+        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_VIDEO, WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT, (long)videoFilterCallback, 0);
     }
 
     if (NULL == avFilter) {
@@ -793,7 +793,7 @@ static int player_GetADFilterId(int ad_pid, int audioStreamType, jni_asplayer_ha
         wp_player_av_status[av_path].playerWeakRefADFilter = NULL;
     }
     Am_filter_callback audioFilterCallback = player_AudioFilterCallback;
-    avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback);
+    avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback, 0);
 
     if (NULL == avFilter) {
         ALOGI("%s : test fail, gPlayerWeakRefAudioFilter is null", __FUNCTION__);

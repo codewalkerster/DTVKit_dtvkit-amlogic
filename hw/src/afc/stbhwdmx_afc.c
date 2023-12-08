@@ -241,6 +241,7 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
 static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track);
 static int key_open(void);
+static BOOLEAN Is_DDB_Filter(S_PID_FILTER_INFO * pidfilter);
 
 /**
  * @brief   Initialises the demux / programmable transport interface
@@ -2059,7 +2060,12 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
            /*source_param means which tuner path attach*/
            U8BIT source_path = demux_status[path].source_param;
            U16BIT demux_cap = demux_status[path].demux_cap;
-           pid_filter->fhandle = DMX_OpenFilter(source_path, PidCallback, (void*)pid_filter,source_type,demux_cap);
+           U32BIT section_size = 0;
+           if (Is_DDB_Filter(pid_filter))
+               section_size = 8 * MAX_DDB_SECTION_SIZE ;
+           else
+                section_size = 8 * MAX_SECTION_SIZE ;
+           pid_filter->fhandle = DMX_OpenFilter(source_path, PidCallback, (void*)pid_filter,source_type,demux_cap ,section_size);
         }
 
         if (pid_filter->fhandle != -1)
@@ -2679,3 +2685,26 @@ static void ClearKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
       ptrk->chanid = -1;
    }
 }
+
+static BOOLEAN Is_DDB_Filter(S_PID_FILTER_INFO * pidfilter)
+{
+    BOOLEAN result = FALSE;
+    S_SECTION_FILTER_INFO *sect_filter = NULL;
+    if (pidfilter && pidfilter->pid == OAD_DDB_PID)
+    {
+        for (int i = 0; i < MAX_SECTION_FILTERS; i++)
+        {
+           sect_filter = &pidfilter->section_filters[i];
+           if (sect_filter && sect_filter->setup)
+           {
+              if (sect_filter->match[0]== OAD_DSI_DDB_MATCH)
+              {
+                    result = TRUE;
+                    break;
+              }
+           }
+        }
+    }
+    return result;
+}
+

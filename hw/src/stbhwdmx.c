@@ -3907,3 +3907,17 @@ BOOLEAN STB_DMXSetSource(U8BIT dmx_idx, U8BIT src)
 {
     return DvbSetDemuxSource(dmx_idx, (DVB_DemuxSource_t)src);
 }
+
+BOOLEAN STB_DMXGetDevNo(U8BIT path , U8BIT *dev_no)
+{
+    BOOLEAN retval = FALSE;
+    FUNCTION_START(STB_DMXGetDevNo);
+    if (path < num_paths)
+    {
+        DMX_DBG("STB_DMXGetDevNo [%d]!", demux_status[path].path);
+       *dev_no = demux_status[path].path;
+        retval = TRUE ;
+    }
+    FUNCTION_FINISH(STB_DMXGetDevNo);
+    return retval;
+}

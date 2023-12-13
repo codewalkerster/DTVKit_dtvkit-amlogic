@@ -1144,7 +1144,7 @@ void STB_AVStartVideoDecoding(U8BIT path)
 
     U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
     if (av_path == INVALID_RES_ID) {
-        AUD_DBG("video decoder get path error video=%u av_path=%u", path, av_path);
+        VID_DBG("video decoder get path error video=%u av_path=%u", path, av_path);
         return;
     }
 
@@ -1157,13 +1157,13 @@ void STB_AVStartVideoDecoding(U8BIT path)
     pthread_rwlock_wrlock(_l);
     ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, TRUE);
     if (ret < 0) {
-        AUD_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
+        VID_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
         pthread_rwlock_unlock(_l);
         return;
     }
     else
     {
-        AUD_DBG("player handle[%d], av_path[%d], player_handle: %u", path, av_path, player_handle);
+        VID_DBG("player handle[%d], av_path[%d], player_handle: %u", path, av_path, player_handle);
     }
 
     VID_DBG("video path=%u av_path=%u", path, av_path);
@@ -1172,15 +1172,26 @@ void STB_AVStartVideoDecoding(U8BIT path)
 
     if (video_pid != 0)
     {
-        VID_DBG("start video PID= %u PCR=%u FMT=%d", video_pid, pcr_pid, video_format);
-        ret = AV_StartVideoDecode_l(av_path, player_handle, video_pid, pcr_pid, video_format);
+        if (STB_PVRIsPlayStarted(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+        {
+            if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder,
+                        pcr_pid, video_pid, audio_pid, ad_pid,av_paths_status[av_path].video_format, av_paths_status[av_path].audio_format,
+                        av_paths_status[av_path].ad_format, preselection_id))
+            {
+                ret = 0;
+            }
+        }
+        else
+        {
+            VID_DBG("start video PID= %u PCR=%u FMT=%d", video_pid, pcr_pid, video_format);
+            ret = AV_StartVideoDecode_l(av_path, player_handle, video_pid, pcr_pid, video_format);
+        }
         if (ret == 0)
         {
             av_paths_status[av_path].video_pid = video_pid;
             av_paths_status[av_path].pcr_pid = pcr_pid;
         }
     }
-
 
     pthread_rwlock_unlock(_l);
 
@@ -1237,6 +1248,13 @@ void STB_AVStopVideoDecoding(U8BIT path)
     ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
     if (ret < 0) {
         VID_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+
+    if (STB_PVRIsPlayStarted(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+    {
+        VID_DBG("pvr play, do not stop [%d], av_path[%d]", path, av_path);
         pthread_rwlock_unlock(_l);
         return;
     }
@@ -1317,6 +1335,19 @@ void STB_AVStartAudioDecoding(U8BIT path)
 
     if (audio_pid != 0 && audio_pid != INVALID_PID)
     {
+        if (STB_PVRIsPlayStarted(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+        {
+            U16BIT pvr_video_pid,  pvr_audio_pid,  pvr_pcr_pid, pvr_ad_pid;
+            PVRGetDecodePIDs(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder, &pvr_pcr_pid, &pvr_video_pid, &pvr_audio_pid, &pvr_ad_pid);
+            if (pvr_audio_pid == audio_pid)
+            {
+                AUD_DBG("pvr playing, do not start audio [%d], av_path[%d]", path, av_path);
+                av_paths_status[av_path].audio_pid = audio_pid;
+                av_paths_status[av_path].audio_presentation_id = preselection_id;
+                pthread_rwlock_unlock(_l);
+                return;
+            }
+        }
         AUD_DBG("start audio pid= %u format:%d", audio_pid, audio_format);
         ret = AV_StartAudioDecode_l(av_path,player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
         if (ret == 0)
@@ -1359,6 +1390,13 @@ void STB_AVStopAudioDecoding(U8BIT path)
     ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
     if (ret < 0) {
         AUD_DBG("Cannot get player handle[%d], av_path[%d]", path, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+
+    if (STB_PVRIsPlayStarted(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+    {
+        AUD_DBG("pvr play, do not stop [%d], av_path[%d]", path, av_path);
         pthread_rwlock_unlock(_l);
         return;
     }

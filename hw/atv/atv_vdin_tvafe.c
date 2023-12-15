@@ -32,6 +32,7 @@
 #include "../src/systemcontrol.h"
 
 #include "dtv_log.h"
+#include "stbhwcfg.h"
 
 #define TAG "TUNER"
 
@@ -371,6 +372,7 @@ int start_vdin_dec(struct tvin_info_s signal_info)
 int vdin_signal_handle()
 {
     //struct tvin_info_s Info;
+    bool tvin_db_reg;
     int ret = vdin_get_signal_info ( &m_cur_sig_info );
     if (ret < 0) {
         m_cur_sig_info.status = TVIN_SIG_STATUS_NULL;
@@ -391,6 +393,13 @@ int vdin_signal_handle()
         DTV_LOGI(TAG, "mLocked: %d\n", mLocked);
         if (!mLocked && !mSearchStatus) {
             SC_setATVVideoColor(1, 0, 6);
+        }
+        if (ret == 0) {
+            tvin_db_reg = STB_Get_Tvin_Db_Reg_Enabled();
+            DTV_LOGI(TAG, "tvin_db_reg: %d\n", tvin_db_reg);
+            if (tvin_db_reg) {
+                SC_SetCVD2Values();
+            }
         }
         if (call_back) {
             call_back(m_cur_sig_info.status);

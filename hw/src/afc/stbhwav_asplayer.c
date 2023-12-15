@@ -3385,7 +3385,7 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
     }
 }
 
-int AV_CreatePlayer_l(U8BIT av_path,
+static int AV_CreatePlayer_l(U8BIT av_path,
                        jni_asplayer_input_source_type source_type, int32_t dmx_dev_id, int32_t event_mask)
 {
     U32BIT decoder_id;
@@ -3436,7 +3436,7 @@ int AV_CreatePlayer_l(U8BIT av_path,
     return ret;
 }
 
-int AV_ReleasePlayer_l(U8BIT av_path)
+static int AV_ReleasePlayer_l(U8BIT av_path)
 {
     int ret = 0;
 
@@ -3484,7 +3484,7 @@ int AV_ReleasePlayer_l(U8BIT av_path)
     return ret;
 }
 
-int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, jni_asplayer_handle * player_handle, BOOLEAN recreat_handle)
+static int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, jni_asplayer_handle * player_handle, BOOLEAN recreat_handle)
 {
     int ret = -1;
 
@@ -3513,7 +3513,7 @@ int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, jni_asp
     return ret;
 }
 
-int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle)
+static int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle)
 {
     int i;
     if (!player_handle)
@@ -3526,7 +3526,7 @@ int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle)
     return INVALID_RES_ID;
 }
 
-int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handle, U16BIT a_pid,
+static int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handle, U16BIT a_pid,
                         WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId)
 {
     int ret;
@@ -3591,7 +3591,7 @@ int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handle, U16B
     return ret;
 }
 
-int AV_SetAudioDecode_l(jni_asplayer_handle player_handle, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute)
+static int AV_SetAudioDecode_l(jni_asplayer_handle player_handle, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute)
 {
     int ret;
 
@@ -3611,7 +3611,7 @@ int AV_SetAudioDecode_l(jni_asplayer_handle player_handle, jni_asplayer_audio_st
     return ret;
 }
 
-int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle,
+static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle,
                        U16BIT v_pid, U16BIT pcr_pid, WRAPPER_PLAYER_VIDEO_STREAM_TYPE format)
 {
     int ret;
@@ -3739,6 +3739,16 @@ static int AV_SetAudioMute_l(jni_asplayer_handle player_handle, BOOLEAN mute)
     }
 
     AUD_DBG("set aud mute :%d, player_handle= %u", mute, player_handle);
+
+    if (STB_Is_PIP_Enabled())
+    {
+        jni_asplayer_pip_mode mode = mute ? JNI_ASPLAYER_PIP_MODE_PIP : JNI_ASPLAYER_PIP_MODE_NORMAL;
+        ret = Wrapper_Player_SetPIPMode(player_handle, mode);
+        if (ret < 0)
+        {
+            AUD_DBG("set PIP mode failed, err:%d, player[0x%u]", ret, player_handle);
+        }
+    }
 
     ret = Wrapper_Player_SetAudioMute(player_handle, mute);
     if (ret < 0)

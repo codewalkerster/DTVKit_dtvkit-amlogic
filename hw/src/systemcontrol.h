@@ -29,6 +29,7 @@ int SC_ReadSysfs(const char *path, char *value);
 int SC_getDisplayMode();
 int SC_setDisplayMode(int mode, int issave);
 int SC_SetCurrentSourceInfo(int source_input, int sig_fmt, int trans_fmt);
+int SC_SetCVD2Values();
 
 struct SysClientWrapper_t *SC_getInstance(void);
 int SC_setSysClientCallback(EventCallback Callback) ;

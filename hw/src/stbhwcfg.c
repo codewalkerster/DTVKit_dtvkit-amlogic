@@ -127,7 +127,11 @@ stb_hardware_cfg aml_hw_cfg = {
     }
 },
 .unsupport_descriptor_tag_num = 0,
-.unsupport_descriptor_tag_list=NULL
+.unsupport_descriptor_tag_list=NULL,
+.tvin_cfg = {
+    .tvin_db_reg_en = FALSE
+}
+
 };
 
 stb_custom_config aml_custom_config = {
@@ -677,6 +681,18 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             }
         }
         CFG_DBG("unsupport_descriptor_tag_num %d", cfg->unsupport_descriptor_tag_num);
+    }
+    else if (!strcmp(name,"tvin_config"))
+    {
+        att = atts;
+        while (*att) {
+            an = att[0];
+            av = att[1];
+            if (!strcmp(an, "tvin_db_reg_en") && !strcmp(av, "yes")) {
+                cfg->tvin_cfg.tvin_db_reg_en = TRUE;
+            }
+            att += 2;
+        }
     }
 }
 
@@ -1313,4 +1329,9 @@ BOOLEAN STB_GetPlatformOui(int *oui)
     }
     *oui = aml_hw_cfg.oui;
     return TRUE;
+}
+
+BOOLEAN STB_Get_Tvin_Db_Reg_Enabled()
+{
+   return aml_hw_cfg.tvin_cfg.tvin_db_reg_en;
 }

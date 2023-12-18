@@ -399,6 +399,15 @@ int SC_SetCurrentSourceInfo(int source_input, int sig_fmt, int trans_fmt)
     return -1;
 }
 
+int SC_SetCVD2Values()
+{
+    const sp<SystemControlClient> &sws = getSystemControlService();
+    if (sws != nullptr) {
+        return sws->setCVD2Values();
+    }
+    return -1;
+}
+
 #endif
 
 /*****************************************************************************

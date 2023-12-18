@@ -913,7 +913,22 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
 }
 void Wrapper_TuneStopTuner(U8BIT path)
 {
-    ALOGD("%s: do nothing", __FUNCTION__);
+    U16BIT tuner_client = findTunerClient(path);
+    if (tuner_client == INVALID_TUNER_ID) {
+        ALOGE("%s path:%d is invalid", __FUNCTION__, path);
+        return;
+    }
+
+    if (E_TERR_TYPE_DVBT == tuner_status_map[path].signal_type &&
+        WRAPPER_TUNE_SYSTEM_TYPE_DVBT2 == tuner_status_map[path].sys_type) {
+        if (tuner_status_map[path].tuner_search_mode)
+        {
+            ALOGD("%s path:%d client_id:%d DVBT2 Scan", __FUNCTION__, path, tuner_client);
+            Am_tuner_cancelScanning(tuner_client);
+            tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
+            tuner_status_map[path].current_tuning = FALSE;
+        }
+    }
 }
 U32BIT Wrapper_TuneGetSignalStrength(U8BIT path)
 {
@@ -1902,6 +1917,22 @@ BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindC
 }
 BOOLEAN Wrapper_Tune_BlindExit(U8BIT path)
 {
+    U16BIT tuner_client = findTunerClient(path);
+    if (tuner_client == INVALID_TUNER_ID) {
+        ALOGE("%s path:%d is invalid", __FUNCTION__, path);
+        return FALSE;
+    }
+
+    ALOGD("%s path:%d client_id:%d DVBS Blind Scan", __FUNCTION__, path, tuner_client);
+    Am_tuner_cancelScanning(tuner_client);
+    if (E_TERR_TYPE_DVBS == tuner_status_map[path].signal_type) {
+        closeLnb(path);
+    }
+
+    tuner_status_map[path].blindscan_mode = FALSE;
+    tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
+    tuner_status_map[path].current_tuning = FALSE;
+
     return TRUE;
 }
 void Wrapper_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)

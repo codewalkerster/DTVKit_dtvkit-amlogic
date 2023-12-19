@@ -183,10 +183,37 @@ typedef enum {
     JNI_ASPLAYER_AV_VIDEO_TRICK_MODE_IONLY = 3          // Decode and out I frame only
 } jni_asplayer_video_trick_mode;
 
+/*Transition mode before*/
 typedef enum {
     JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK = 0,              // black screen
     JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE = 1          // keep last frame
 } jni_asplayer_transition_mode_before;
+
+/*Transition mode after*/
+typedef enum {
+    JNI_ASPLAYER_TRANSITION_AFTER_PREROLL_FROM_FIRST_IMAGE = 0,    // show first image before sync (default)
+    JNI_ASPLAYER_TRANSITION_AFTER_WAIT_UNTIL_SYNC = 1              // wait until sync
+} jni_asplayer_transition_mode_after;
+
+/*screen color*/
+typedef enum {
+    JNI_ASPLAYER_COLOR_BLACK = 0,    // black screen (default)
+    JNI_ASPLAYER_COLOR_BLUE  = 1,    // blue screen
+    JNI_ASPLAYER_COLOR_GREEN = 2     // green screen
+} jni_asplayer_screen_color;
+
+typedef enum {
+    JNI_ASPLAYER_COLOR_ONCE_TRANSITION  = 0,     // color for transition
+    JNI_ASPLAYER_COLOR_ONCE_SOLID       = 1,     // solid color
+    JNI_ASPLAYER_COLOR_ALWAYS           = 2,     // keep color always
+    JNI_ASPLAYER_COLOR_ALWAYS_CANCEL    = 3      // cancel always color
+} jni_asplayer_screen_color_mode;
+
+typedef enum {
+    JNI_ASPLAYER_UN_MUTE = 0,                   // un mute video (default)
+    JNI_ASPLAYER_MUTE = 1                       // mute video
+} jni_asplayer_video_mute;
+
 
 /*JniASPlayer handle*/
 typedef size_t jni_asplayer_handle;
@@ -222,6 +249,7 @@ typedef struct {
     int32_t filterId;                      // video track filter id in Tuner
     int32_t avSyncHwId;                    // AvSyncHwId
     bool scrambled;                        // scrambled or not
+    bool hasVideo;                         // has video or not
     jobject mediaFormat;                   // Video MediaFormat
 } jni_asplayer_video_params;
 
@@ -590,6 +618,57 @@ jni_asplayer_result  JniASPlayer_setVideoParams(jni_asplayer_handle handle,
  */
 jni_asplayer_result  JniASPlayer_setTransitionModeBefore(jni_asplayer_handle handle,
                                                          jni_asplayer_transition_mode_before mode);
+/**
+ *@brief:        Set if need show first image before sync
+ *               for specified JniASPlayer instance.
+ *@param:        handle     JniASPlayer handle.
+ *@param:        mode       transition mode after.
+ *@return:       The JniASPlayer result.
+ */
+jni_asplayer_result  JniASPlayer_setTransitionModeAfter(jni_asplayer_handle handle,
+                                                        jni_asplayer_transition_mode_after mode);
+
+/**
+ *@brief:        Set transition preroll rate
+ *               for specified JniASPlayer instance.
+ *@param:        handle     JniASPlayer handle.
+ *@param:        rate       transition preroll rate.
+ *@return:       The JniASPlayer result.
+ */
+jni_asplayer_result  JniASPlayer_setTransitionPrerollRate(jni_asplayer_handle handle,
+                                                          float rate);
+
+/**
+ *@brief:        Set maximum a/v time difference in ms to start preroll
+ *               for specified JniASPlayer instance.
+ *               This value limits the max time of preroll duration.
+ *@param:        handle         JniASPlayer handle.
+ *@param:        milliSecond    the max time of preroll duration
+ *@return:       The JniASPlayer result.
+ */
+jni_asplayer_result  JniASPlayer_setTransitionPrerollAVTolerance(jni_asplayer_handle handle,
+                                                                 int32_t milliSecond);
+
+/**
+ *@brief:        Set video mute or not
+ *               for specified JniASPlayer instance.
+ *@param:        handle         JniASPlayer handle.
+ *@param:        mute           mute or not
+ *@return:       The JniASPlayer result.
+ */
+jni_asplayer_result  JniASPlayer_setVideoMute(jni_asplayer_handle handle,
+                                              jni_asplayer_video_mute mute);
+
+/**
+ *@brief:        Set screen color for specified JniASPlayer instance.
+ *@param:        handle     JniASPlayer handle.
+ *@param:        mode       screen color mode.
+ *@param:        color      screen color.
+ *@return:       The JniASPlayer result.
+ */
+jni_asplayer_result  JniASPlayer_setScreenColor(jni_asplayer_handle handle,
+                                                jni_asplayer_screen_color_mode mode,
+                                                jni_asplayer_screen_color color);
 
 /**
  *@brief:        Get video basic info of specified JniASPlayer instance.

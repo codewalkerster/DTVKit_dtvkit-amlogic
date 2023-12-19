@@ -73,6 +73,8 @@ extern "C" {
 
 #define LOG_NOT_IMPLEMENTED PVR_DBG("*NOT IMPLEMENTED*")
 
+#define INVALID_PID 0x1fff
+
 struct S_REC_STATUS
 {
    BOOLEAN in_use;
@@ -1899,56 +1901,63 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
     PVR_INFO("%s(%d,%d), handle: %u, video: %d, %d, audio: %d, %d", __FUNCTION__,
         video_decoder, audio_decoder, player_handle, video_pid, video_format, audio_pid, audio_format);
 
-    memset(&video_param, 0, sizeof(video_param));
-    memset(&audio_param, 0, sizeof(audio_param));
-    video_param.pid = video_pid;
-    video_param.mimeType = video_mime_types[video_format].MIME;
-    video_param.height = 1080;
-    video_param.width = 1920;
-    audio_param.pid = audio_pid;
-    audio_param.sampleRate = 8000;
-    audio_param.channelCount = 1;
-    audio_param.mimeType = audio_mime_types[audio_format].MIME;
-    ret = Wrapper_Player_SetVideoParams(player_handle, &video_param, (WRAPPER_PLAYER_VIDEO_STREAM_TYPE)video_format);
-    if (ret < 0)
+    if (video_pid != 0 && video_pid != INVALID_PID)
     {
-        PVR_INFO("Set video params failed, v_pid:%d fmt:%d err:%d", video_pid, video_format, ret);
-        return ret;
+        memset(&video_param, 0, sizeof(video_param));
+        video_param.pid = video_pid;
+        video_param.mimeType = video_mime_types[video_format].MIME;
+        video_param.height = 1080;
+        video_param.width = 1920;
+        video_param.hasVideo = TRUE;
+        ret = Wrapper_Player_SetVideoParams(player_handle, &video_param, (WRAPPER_PLAYER_VIDEO_STREAM_TYPE)video_format);
+        if (ret < 0)
+        {
+            PVR_INFO("Set video params failed, v_pid:%d fmt:%d err:%d", video_pid, video_format, ret);
+            return ret;
+        }
+
+        ret = Wrapper_Player_SetSurface(player_handle);
+        if (ret < 0)
+        {
+            PVR_INFO("set surface failed, err:%d, player[0x%u]", ret, player_handle);
+        }
+
+        ret = Wrapper_Player_StartVideoDecoding(player_handle);
+        if (ret == 0)
+        {
+            PVR_INFO("Start video decode success, player[0x%u]", player_handle);
+        }
+        else
+        {
+            PVR_INFO("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d err:%d, player[0x%u]", video_pid, video_format, ret, player_handle);
+            return ret;
+        }
     }
 
-    ret = Wrapper_Player_SetSurface(player_handle);
-    if (ret < 0)
+    if (audio_pid != 0 && audio_pid != INVALID_PID)
     {
-        PVR_INFO("set surface failed, err:%d, player[0x%u]", ret, player_handle);
-    }
+        memset(&audio_param, 0, sizeof(audio_param));
+        audio_param.pid = audio_pid;
+        audio_param.sampleRate = 8000;
+        audio_param.channelCount = 1;
+        audio_param.mimeType = audio_mime_types[audio_format].MIME;
+        ret = Wrapper_Player_SetAudioParams(player_handle, &audio_param, (WRAPPER_PLAYER_AUDIO_STREAM_TYPE)audio_format);
+        if (ret < 0)
+        {
+            PVR_INFO("Set audio params failed, pid:%d fmt:%d err:%d", audio_pid, audio_format, ret);
+            return ret;
+        }
 
-    ret = Wrapper_Player_StartVideoDecoding(player_handle);
-    if (ret == 0)
-    {
-        PVR_INFO("Start video decode success, player[0x%u]", player_handle);
-    }
-    else
-    {
-        PVR_INFO("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d err:%d, player[0x%u]", video_pid, video_format, ret, player_handle);
-        return ret;
-    }
-
-    ret = Wrapper_Player_SetAudioParams(player_handle, &audio_param, (WRAPPER_PLAYER_AUDIO_STREAM_TYPE)audio_format);
-    if (ret < 0)
-    {
-        PVR_INFO("Set audio params failed, pid:%d fmt:%d err:%d", audio_pid, audio_format, ret);
-        return ret;
-    }
-
-    ret = Wrapper_Player_StartAudioDecoding(player_handle);
-    if (ret == 0)
-    {
-        PVR_INFO("Start audio decode success, player[0x%u]", player_handle);
-    }
-    else
-    {
-        PVR_INFO("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%u]", audio_pid, audio_format, ret, player_handle);
-        return ret;
+        ret = Wrapper_Player_StartAudioDecoding(player_handle);
+        if (ret == 0)
+        {
+            PVR_INFO("Start audio decode success, player[0x%u]", player_handle);
+        }
+        else
+        {
+            PVR_INFO("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%u]", audio_pid, audio_format, ret, player_handle);
+            return ret;
+        }
     }
 
     return ret;

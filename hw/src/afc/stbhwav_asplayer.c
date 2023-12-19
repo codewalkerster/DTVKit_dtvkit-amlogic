@@ -658,8 +658,14 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color, BOOL
  * @param   blank TRUE to blank, FALSE to unblank
  * @param   force_black  TRUE to force black, else with user setting
 */
-void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOLEAN force_all)
+void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOLEAN force_all, U8BIT path, BOOLEAN mode)
 {
+    int ret;
+    jni_asplayer_handle player_handle;
+    U8BIT av_path;
+    jni_asplayer_screen_color_mode asplayer_mode;
+    int color;
+    jni_asplayer_screen_color asplayer_color;
     //this function is only supported for CVTE/CTV bluescreen feature
     if (video_blank_lock)
     {
@@ -667,34 +673,51 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
         return;
     }
 
-    VID_DBG("window:%d, force_all:%d blank:%d force_black:%d",
-        window, force_all, blank, force_black);
-
-#if 0
-    if (window > 0)
-    {
-        U8BIT win = window;
-        U8BIT win_max = window;
-
-        if (force_all)
-        {
-            win = 1;
-            win_max = 2;
-        }
-
-        for (; win <= win_max; win++)
-        {
-            if (blank == TRUE)
-            {
-                SC_setVideoColor(win, force_black? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting());
-            }
-            else
-            {
-                SC_setVideoColor(win, VIDEO_LAYER_COLOR_MAX);
-            }
-        }
+    av_path = STB_AVGetPath(path, INVALID_RES_ID);
+    if (av_path == INVALID_RES_ID) {
+        VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+        return;
     }
-#endif
+    VID_DBG("force_all:%d blank:%d force_black:%d,av_path:%d,mode:%d " , force_all, blank, force_black, av_path, mode);
+
+    switch (mode) {
+        case 0:
+            asplayer_mode = JNI_ASPLAYER_COLOR_ONCE_TRANSITION;
+            break;
+        case 1:
+            asplayer_mode = JNI_ASPLAYER_COLOR_ONCE_SOLID;
+            break;
+    }
+
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+    if (ret == 0)
+    {
+
+        if (blank == TRUE)
+        {
+            Wrapper_Player_SetVideoBlackOut(player_handle,0);
+            color = force_black? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
+            switch (color) {
+                case 0:
+                    asplayer_color = JNI_ASPLAYER_COLOR_BLACK;
+                    VID_DBG("set black color mode=%d",asplayer_mode);
+                    break;
+                case 1:
+                    asplayer_color = JNI_ASPLAYER_COLOR_BLUE;
+                    VID_DBG("set blue color mode=%d",asplayer_mode);
+                    break;
+            }
+            Wrapper_Player_SetVideoColor(player_handle, asplayer_mode, asplayer_color);
+        }
+
+    }
+    else
+    {
+        AV_DBG("failed to get player handle, %d:[%d:%d]",
+            av_path,
+            av_paths_status[av_path].video_decoder,
+            av_paths_status[av_path].audio_decoder);
+    }
 }
 
 /**
@@ -705,7 +728,7 @@ BOOLEAN STB_AVGetStaticFrameEnable()
    BOOLEAN ret = FALSE;
    FUNCTION_START(STB_AVGetStaticFrameEnable);
 
-#if 0
+#if 1
    ret = SC_getStaticFrameEnable();
 #endif
 
@@ -1598,18 +1621,18 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
  */
 BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
 {
-   BOOLEAN success = TRUE;
-   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+    BOOLEAN success = TRUE;
+    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
-   FUNCTION_START(STB_AVSetVideoBlackOut);
+    FUNCTION_START(STB_AVSetVideoBlackOut);
 
-   if (av_path == INVALID_RES_ID) {
-      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
-      return FALSE;
-   }
+    if (av_path == INVALID_RES_ID) {
+        VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+        return FALSE;
+    }
 
-   int ret;
-   jni_asplayer_handle player_handle;
+    int ret;
+    jni_asplayer_handle player_handle;
 
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
@@ -1620,30 +1643,31 @@ BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
     pthread_rwlock_rdlock(_l);
     ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
 
-   if (ret == 0) {
-      //Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_BLACK_OUT, &is_black);
-      AV_DBG("set AML MP PLAYER_PARAMETER_BLACK_OUT %d:[%d:%d]:[%d] = %d, player[0x%u]",
-         av_path,
-         av_paths_status[av_path].video_decoder,
-         av_paths_status[av_path].audio_decoder,
-         is_black,
-         ret,
-         player_handle);
-   }
-   else
-   {
-      AV_DBG("failed to get player handle, %d:[%d:%d]",
-         av_path,
-         av_paths_status[av_path].video_decoder,
-         av_paths_status[av_path].audio_decoder);
-      success = FALSE;
-   }
+    if (ret == 0) {
+        jni_asplayer_transition_mode_before mode = is_black ? JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK : JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE;
+        Wrapper_Player_SetVideoBlackOut(player_handle, mode);
+        AV_DBG("set asplayer black out %d:[%d:%d]:[%d] = %d, player[0x%u]",
+            av_path,
+            av_paths_status[av_path].video_decoder,
+            av_paths_status[av_path].audio_decoder,
+            is_black,
+            ret,
+            player_handle);
+    }
+    else
+    {
+        AV_DBG("failed to get player handle, %d:[%d:%d]",
+            av_path,
+            av_paths_status[av_path].video_decoder,
+            av_paths_status[av_path].audio_decoder);
+        success = FALSE;
+    }
 
     pthread_rwlock_unlock(_l);
 
-   FUNCTION_FINISH(STB_AVSetVideoBlackOut);
+    FUNCTION_FINISH(STB_AVSetVideoBlackOut);
 
-   return success;
+    return success;
 }
 
 /**
@@ -3639,6 +3663,16 @@ static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
     video_param.mimeType = video_mime_types[format].MIME;
     video_param.height = 1080;
     video_param.width = 1920;
+
+    if (v_pid != 0 && v_pid != INVALID_PID)
+    {
+        video_param.hasVideo = TRUE;
+    }
+    else
+    {
+        video_param.hasVideo = FALSE;
+    }
+
 #ifdef SUPPORT_CAS
     if (av_paths_status[av_path].drm_mode == DRM_NONE)
     {

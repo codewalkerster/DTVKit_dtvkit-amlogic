@@ -594,6 +594,36 @@ S8BIT Wrapper_Player_SetAudioMute(jni_asplayer_handle handle, BOOLEAN audio_mute
     return ret;
 }
 
+S8BIT Wrapper_Player_SetVideoBlackOut(jni_asplayer_handle handle, jni_asplayer_transition_mode_before mode)
+{
+    S8BIT ret = -1;
+    if (JniASPlayer_setTransitionModeBefore(handle, mode) == JNI_ASPLAYER_OK)
+    {
+        ret = JNI_ASPLAYER_OK;
+        ALOGI("%s : mode = %d, handle = %u", __FUNCTION__, mode, handle);
+    }
+    else
+    {
+        ALOGI("%s :set video failed, handle = %u", __FUNCTION__, handle);
+    }
+    return ret;
+}
+
+S8BIT Wrapper_Player_SetVideoColor(jni_asplayer_handle handle, jni_asplayer_screen_color_mode mode, jni_asplayer_screen_color color)
+{
+    S8BIT ret = -1;
+    if (JniASPlayer_setScreenColor(handle, mode, color) == JNI_ASPLAYER_OK)
+    {
+        ret = JNI_ASPLAYER_OK;
+        ALOGI("%s : color = %d, handle = %u", __FUNCTION__, color, handle);
+    }
+    else
+    {
+        ALOGI("%s :set video failed, handle = %u", __FUNCTION__, handle);
+    }
+    return ret;
+}
+
 S8BIT Wrapper_Player_SetPIPMode(jni_asplayer_handle handle, jni_asplayer_pip_mode mode)
 {
     S8BIT ret = -1;

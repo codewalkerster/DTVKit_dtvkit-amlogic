@@ -692,7 +692,7 @@ void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color, BOOL
  * @param   blank TRUE to blank, FALSE to unblank
  * @param   force_black  TRUE to force black, else with user setting
 */
-void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOLEAN force_all)
+void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOLEAN force_all, U8BIT path, BOOLEAN mode)
 {
     //this function is only supported for CVTE/CTV bluescreen feature
     if (video_blank_lock)

@@ -54,6 +54,8 @@
 #include "stbdpc.h"
 #include "stbhwc.h"
 #include "stbhwini.h"
+#include "stbhwutils.h"
+
 
 #include "emu_internal.h"
 #include "wrapper_frontend.h"
@@ -72,6 +74,15 @@ static void Tuner_EventCallback(BOOLEAN repeat, U16BIT event_class, U16BIT event
 {
     TUN_DBG("Tuner_EventCallback");
     STB_OSSendEvent(repeat, event_class, event_type, data, data_size);
+}
+
+static BOOLEAN IsPercentConversionRequired(U8BIT path)
+{
+    BOOLEAN retval = TRUE;
+
+    // TODO
+
+    return retval;
 }
 
 /*---global function definitions---------------------------------------------*/
@@ -349,7 +360,12 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
 
     FUNCTION_START(STB_TuneGetSignalStrength);
 
-    retval = (U8BIT)Wrapper_TuneGetSignalStrength(path);
+    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
+        retval = STB_TuneReadSignalStrength(path);
+    }
+    else {
+        TUN_DBG("%u: Unlock", path);
+    }
 
     FUNCTION_FINISH(STB_TuneGetSignalStrength);
 
@@ -359,9 +375,21 @@ U8BIT STB_TuneGetSignalStrength(U8BIT path)
 U8BIT STB_TuneReadSignalStrength(U8BIT path)
 {
     U8BIT retval = 0;
+    S16BIT strength = 0;
 
     FUNCTION_START(STB_TuneReadSignalStrength);
 
+    strength = (S16BIT)Wrapper_TuneGetSignalStrength(path);
+    if (IsPercentConversionRequired(path))
+    {
+        retval = STB_Utils_StrengthToSSI(path, strength);
+        TUN_DBG("%u: Percent=%u%%(strength:%d)", path, retval, strength);
+    }
+    else
+    {
+        retval = (U8BIT)strength;
+        TUN_DBG("%u: Strength:%d", path, retval);
+    }
 
     FUNCTION_FINISH(STB_TuneReadSignalStrength);
 
@@ -376,11 +404,16 @@ U8BIT STB_TuneReadSignalStrength(U8BIT path)
  */
 U32BIT STB_TuneGetDataIntegrity(U8BIT path)
 {
-    U32BIT retval;
+    U32BIT retval = 0;
 
     FUNCTION_START(STB_TuneGetDataIntegrity);
 
-    retval = Wrapper_TuneGetDataIntegrity(path);
+    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
+        retval = Wrapper_TuneGetDataIntegrity(path);
+    }
+    else {
+        TUN_DBG("%u: Unlock", path);
+    }
 
     FUNCTION_FINISH(STB_TuneGetDataIntegrity);
 
@@ -395,11 +428,16 @@ U32BIT STB_TuneGetDataIntegrity(U8BIT path)
  */
 U8BIT STB_TuneGetSignalQuality(U8BIT path)
 {
-    U8BIT retval;
+    U8BIT retval = 0;
 
     FUNCTION_START(STB_TuneGetSignalQuality);
 
-    retval = (U8BIT)Wrapper_TuneGetSignalQuality(path);
+    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
+        retval = STB_TuneReadSignalQuality(path);
+    }
+    else {
+        TUN_DBG("%u: Unlock", path);
+    }
 
     FUNCTION_FINISH(STB_TuneGetSignalQuality);
 
@@ -409,9 +447,21 @@ U8BIT STB_TuneGetSignalQuality(U8BIT path)
 U8BIT STB_TuneReadSignalQuality(U8BIT path)
 {
     U8BIT retval = 0;
+    S16BIT quality = 0;
 
     FUNCTION_START(STB_TuneReadSignalQuality);
 
+    quality = (S16BIT)Wrapper_TuneGetSignalQuality(path);
+    if (IsPercentConversionRequired(path))
+    {
+        retval = STB_Utils_SNR10ToSQI(path, quality);
+        TUN_DBG("%u: Percent=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
+    }
+    else
+    {
+        retval = (U8BIT)quality;
+        TUN_DBG("%u: Snr=%d.%d", path, retval / 10, retval % 10);
+    }
 
     FUNCTION_FINISH(STB_TuneReadSignalQuality);
 

@@ -931,6 +931,7 @@ void Wrapper_TuneStopTuner(U8BIT path)
         }
         tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
         tuner_status_map[path].current_tuning = FALSE;
+        tuner_status_map[path].tune_lock = FALSE;
     }
 }
 U32BIT Wrapper_TuneGetSignalStrength(U8BIT path)
@@ -948,17 +949,9 @@ U32BIT Wrapper_TuneGetSignalStrength(U8BIT path)
 
     ALOGD("%s: tuner_client: %d", __FUNCTION__, tuner_client);
 
-    U32BIT strength = 0;
-    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
-        Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_STRENGTH);
-        strength = stfrontendStatus.signal_strength;
-        ALOGD("%s: strength %d", __FUNCTION__, strength);
-    }
-    else {
-        ALOGD("%s: unlock", __FUNCTION__);
-    }
+    Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_STRENGTH);
 
-    return strength;
+    return stfrontendStatus.signal_strength;
 }
 
 U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path)
@@ -976,17 +969,9 @@ U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path)
 
     ALOGD("%s: tuner_client: %d", __FUNCTION__, tuner_client);
 
-    U32BIT ber = 0;
-    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
-        Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_BER);
-        ber = stfrontendStatus.ber;
-        ALOGD("%s: ber %d", __FUNCTION__, ber);
-    }
-    else {
-        ALOGD("%s: unlock", __FUNCTION__);
-    }
+    Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_BER);
 
-    return ber;
+    return stfrontendStatus.ber;
 }
 
 U32BIT Wrapper_TuneGetSignalQuality(U8BIT path)
@@ -1004,17 +989,9 @@ U32BIT Wrapper_TuneGetSignalQuality(U8BIT path)
 
     ALOGD("%s: tuner_client: %d", __FUNCTION__, tuner_client);
 
-    U32BIT quality = 0;
-    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
-        Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_QUALITY);
-        quality = stfrontendStatus.signal_quality;
-        ALOGD("%s: quality %d", __FUNCTION__, quality);
-    }
-    else {
-        ALOGD("%s: unlock", __FUNCTION__);
-    }
+    Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_QUALITY);
 
-    return quality;
+    return stfrontendStatus.signal_quality;
 }
 
 U32BIT Wrapper_TuneGetActualTerrFrequency(U8BIT path)
@@ -1245,6 +1222,7 @@ void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type)
         if (tuner_status_map[path].signal_type != signal_type) {
             tuner_status_map[path].signal_type = signal_type;
             tuner_status_map[path].tuning_params_changed = TRUE;
+            tuner_status_map[path].tune_lock = FALSE;
             U16BIT tuner_client = findTunerClient(path);
             if (tuner_client != INVALID_TUNER_ID) {
                 Am_tuner_cancelTuning(tuner_client);
@@ -1935,6 +1913,7 @@ BOOLEAN Wrapper_Tune_BlindExit(U8BIT path)
     tuner_status_map[path].blindscan_mode = FALSE;
     tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
     tuner_status_map[path].current_tuning = FALSE;
+    tuner_status_map[path].tune_lock = FALSE;
 
     return TRUE;
 }

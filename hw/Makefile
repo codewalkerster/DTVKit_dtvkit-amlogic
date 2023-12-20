@@ -30,17 +30,17 @@ endif
 
 SRCDIR = src
 SRCS = stbhwplatform.c \
-	stbhwini.c \
-	stbhwmem.c \
-	stbhwtun.c \
-	stbhwdmx.c \
-	stbhwdsk.c \
-	stbhwfp.c  \
-	stbhwsp.c  \
-	stbhwcrypt.c \
-	stbhwupg.c \
-	stbhwosd.c \
-	stbhwnet.c \
+    stbhwini.c \
+    stbhwmem.c \
+    stbhwtun.c \
+    stbhwdmx.c \
+    stbhwdsk.c \
+    stbhwfp.c  \
+    stbhwsp.c  \
+    stbhwcrypt.c \
+    stbhwupg.c \
+    stbhwosd.c \
+    stbhwnet.c \
     stbhwvbi.c \
     stbhwcfg.c \
     stbswcfg.c \
@@ -52,14 +52,15 @@ SRCS = stbhwplatform.c \
     stbhwci.c \
     stbhwdemux_usb.c \
     stbhwtun_ex.c \
+    stbhwutils.c \
     fsm_base.c \
     stbpathcfg.c \
     afd_ctrl.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
-SRCS +=  emu_tuner.c \
-		emu_dmx.c \
-		emu_config.c
+SRCS += emu_tuner.c \
+        emu_dmx.c \
+        emu_config.c
 
 DEFINES += EMUTUNNER_ENABLE
 endif

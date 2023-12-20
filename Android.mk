@@ -173,6 +173,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwnet.c \
     hw/src/stbhwvbi.c \
     hw/src/stbhwcfg.c \
+    hw/src/stbhwutils.c \
     hw/src/stbswcfg.c \
     hw/src/stbhwdemux_usb.c \
     hw/src/systemcontrol.cpp \
@@ -203,10 +204,10 @@ LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
 
 
-    LOCAL_SRC_FILES += hw/src/stbhwtun.c \
-                       hw/src/stbhwresm.c \
-                       hw/src/stbhwdmx.c \
-                       hw/src/linuxdvbdmx_wrapper.c
+LOCAL_SRC_FILES += hw/src/stbhwtun.c \
+                   hw/src/stbhwresm.c \
+                   hw/src/stbhwdmx.c \
+                   hw/src/linuxdvbdmx_wrapper.c
 
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS

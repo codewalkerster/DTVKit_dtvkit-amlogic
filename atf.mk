@@ -181,6 +181,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwnet.c \
     hw/src/stbhwvbi.c \
     hw/src/stbhwcfg.c \
+    hw/src/stbhwutils.c \
     hw/src/stbswcfg.c \
     hw/src/stbhwdemux_usb.c \
     hw/src/systemcontrol.cpp \

@@ -3693,6 +3693,14 @@ BOOLEAN STB_PVRStoreLibdvrExtParam1InPortingLayer(U8BIT rec_index, U8BIT val)
    return FALSE;
 }
 
+BOOLEAN STB_PVRStartAVDecoding(U8BIT index)
+{
+    FUNCTION_START(STB_PVRStartAVDecoding);
+    USE_UNWANTED_PARAM(index);
+    FUNCTION_FINISH(STB_PVRStartAVDecoding);
+    return FALSE;
+}
+
 #ifdef RDK_COMPILE
 /**
  * @brief   Store PVR video rectangle for future reference.

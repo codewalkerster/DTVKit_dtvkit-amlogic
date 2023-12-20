@@ -134,6 +134,9 @@ struct S_RECPLAY_STATUS
 
    U16BIT video_pid;
    U16BIT audio_pid;
+   U16BIT video_format;
+   U16BIT audio_format;
+   U16BIT audio_presentation_id;
    U32BIT seek_position;
 
    S_RECPLAY_STATUS()
@@ -158,6 +161,59 @@ struct S_RECPLAY_STATUS
    }
 };
 
+typedef struct
+{
+   WRAPPER_PLAYER_VIDEO_STREAM_TYPE v_format;
+   const char* MIME ;
+} VIDEO_MIME_MAP;
+
+static VIDEO_MIME_MAP video_mime_types[] =
+{
+   {WP_VIDEO_STREAM_TYPE_UNDEFINED, "video/unknown"},
+   {WP_VIDEO_STREAM_TYPE_RESERVED, "video/unknown"},
+   {WP_VIDEO_STREAM_TYPE_MPEG1, "video/mpeg"},
+   {WP_VIDEO_STREAM_TYPE_MPEG2, "video/mpeg2"},
+   {WP_VIDEO_STREAM_TYPE_MPEG4P2, "video/mp4v-es"},
+   {WP_VIDEO_STREAM_TYPE_AVC, "video/avc"},
+   {WP_VIDEO_STREAM_TYPE_HEVC, "video/hevc"},
+   {WP_VIDEO_STREAM_TYPE_VC1, "video/wvc1"},
+   {WP_VIDEO_STREAM_TYPE_VP8, "video/x-vnd.on2.vp8"},
+   {WP_VIDEO_STREAM_TYPE_VP9, "video/x-vnd.on2.vp9"},
+   {WP_VIDEO_STREAM_TYPE_AV1, "video/av01"},
+   {WP_VIDEO_STREAM_TYPE_AVS, "video/avs-video"},
+   {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs-video"}
+};
+
+typedef struct
+{
+   WRAPPER_PLAYER_AUDIO_STREAM_TYPE a_format;
+   const char* MIME;
+} AUDIO_MIME_MAP;
+
+static AUDIO_MIME_MAP audio_mime_types[] =
+{
+   {WP_AUDIO_STREAM_TYPE_UNDEFINED, "audio/unknown"},
+   {WP_AUDIO_STREAM_TYPE_PCM, "audio/raw"},
+   {WP_AUDIO_STREAM_TYPE_MP3, "audio/mpeg"},
+   {WP_AUDIO_STREAM_TYPE_MPEG1, "audio/mpeg"},
+   {WP_AUDIO_STREAM_TYPE_MPEG2, "audio/mpeg"},
+   {WP_AUDIO_STREAM_TYPE_MPEGH, "audio/mpeg"},
+   {WP_AUDIO_STREAM_TYPE_AAC, "audio/aac"},
+   {WP_AUDIO_STREAM_TYPE_AC3, "audio/ac3"},
+   {WP_AUDIO_STREAM_TYPE_EAC3, "audio/eac3"},
+   {WP_AUDIO_STREAM_TYPE_AC4, "audio/ac4"},
+   {WP_AUDIO_STREAM_TYPE_DTS, "audio/vnd.dts"},
+   {WP_AUDIO_STREAM_TYPE_DTS_HD, "audio/vnd.dts.hd"},
+   {WP_AUDIO_STREAM_TYPE_WMA, "audio/x-ms-wma"},
+   {WP_AUDIO_STREAM_TYPE_OPUS, "audio/opus"},
+   {WP_AUDIO_STREAM_TYPE_VORBIS, "audio/vorbis"},
+   {WP_AUDIO_STREAM_TYPE_DRA, "audio/vnd.dra"},
+   {WP_AUDIO_STREAM_TYPE_AAC_ADTS, "audio/aac"},
+   {WP_AUDIO_STREAM_TYPE_AAC_LATM, "audio/mp4a-latm"},
+   {WP_AUDIO_STREAM_TYPE_AAC_HE_ADTS, "audio/aac"},
+   {WP_AUDIO_STREAM_TYPE_AAC_HE_LATM, "audio/mp4a-latm"}
+};
+
 #define MAX_RECORDERS 6
 static S_REC_STATUS s_rec_status[MAX_RECORDERS];
 
@@ -174,6 +230,7 @@ static int video_codec_map1(E_STB_AV_VIDEO_CODEC format);
 static int audio_codec_map1(E_STB_AV_AUDIO_CODEC format);
 static U32BIT getPVRConfigInt(const char *config, U32BIT def);
 static U8BIT to_index(U8BIT video_decoder, U8BIT audio_decoder);
+static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, U8BIT audio_decoder, U16BIT video_pid, U8BIT video_format, U16BIT audio_pid, U8BIT audio_format);
 
 typedef vector<S_PVR_PID_INFO> PID_VECTOR;
 static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR& to_add, PID_VECTOR& to_remove);
@@ -402,10 +459,18 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
    int32_t video_pid = 0;
    int32_t audio_pid = 0;
+   int32_t video_format = 0;
+   int32_t audio_format = 0;
    Wrapper_PVR_File_getVideoPID(prps->dvr_file_handle,&video_pid);
    Wrapper_PVR_File_getAudioPID(prps->dvr_file_handle,&audio_pid);
+   Wrapper_PVR_File_getVideoFormat(prps->dvr_file_handle,&video_format);
+   Wrapper_PVR_File_getAudioFormat(prps->dvr_file_handle,&audio_format);
    prps->video_pid = (U16BIT)video_pid;
    prps->audio_pid = (U16BIT)audio_pid;
+   prps->video_format = (U16BIT)video_format;
+   prps->audio_format = (U16BIT)audio_format;
+   prps->video_decoder = video_decoder;
+   prps->audio_decoder = audio_decoder;
 
    if (prps->seek_position > 0)
    {
@@ -435,6 +500,12 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       }
    }
 
+   if (asplayer_handle != 0)
+   {
+       U8BIT index = play_index;
+       STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_START_DECODE, &index, sizeof(U8BIT));
+   }
+
    LOG_LEAVE;
    return TRUE;
 }
@@ -457,6 +528,7 @@ BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    BOOLEAN ret = ((prps->state >= 2 && prps->state <= 5) ? TRUE : FALSE);
+   STB_SPDebugWrite("[%s][state: %d] [ret: %d]", __FUNCTION__,  prps->state, ret);
 
    //PVR_DBG(" returns %s",(ret == TRUE ? "TRUE" : "FALSE"));
 
@@ -483,6 +555,7 @@ BOOLEAN STB_PVRIsPlayStopped(U8BIT audio_decoder, U8BIT video_decoder)
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    BOOLEAN ret = ((prps->state < 2 || prps->state > 5) ? TRUE : FALSE);
+   STB_SPDebugWrite("[%s][state: %d] [ret: %d]", __FUNCTION__, prps->state, ret);
 
    //LOG_LEAVE;
    return ret;
@@ -548,7 +621,8 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    {
       PVR_ERR("Failed to stop playback");
    }
-
+   Wrapper_Player_StopVideoDecoding(prps->asplayer_handle);
+   Wrapper_Player_StopAudioDecoding(prps->asplayer_handle);
    Wrapper_Player_Destroy(prps->asplayer_handle);
    STB_AVSetPlayerHandle(audio_decoder,video_decoder,WRAPPER_PLAYER_INVALID_HANDLE);
    prps->reset();
@@ -1390,10 +1464,36 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    U16BIT pcr_pid, U16BIT video_pid, U16BIT audio_pid, U16BIT ad_pid,
    U32BIT video_fmt, U32BIT audio_fmt, U32BIT ad_fmt, U16BIT audio_presentation_id)
 {
-   //LOG_ENTER;
-   LOG_NOT_IMPLEMENTED;
-   //LOG_LEAVE;
-   return TRUE;
+    //LOG_ENTER;
+    U8BIT play_index = to_index(video_decoder,audio_decoder);
+
+    PVR_INFO("%u: pcr=%u, video=%u, audio=%u(%u), ad=%u", play_index, pcr_pid, video_pid, audio_pid, audio_presentation_id, ad_pid);
+    if (play_index >= num_players)
+    {
+        PVR_ERR("Player index %d is invalid", play_index);
+        return FALSE;
+    }
+
+    if (s_recplay_status[play_index].audio_pid != audio_pid ||
+          s_recplay_status[play_index].audio_presentation_id != audio_presentation_id ||
+          s_recplay_status[play_index].video_pid != video_pid)
+    {
+        s_recplay_status[play_index].audio_pid = audio_pid;
+        s_recplay_status[play_index].audio_format= audio_fmt;
+        s_recplay_status[play_index].audio_presentation_id = audio_presentation_id;
+        s_recplay_status[play_index].video_pid = video_pid;
+        s_recplay_status[play_index].video_format = video_fmt;
+        Wrapper_Player_StopVideoDecoding(s_recplay_status[play_index].asplayer_handle);
+        Wrapper_Player_StopAudioDecoding(s_recplay_status[play_index].asplayer_handle);
+        STB_PVRStartAVDecoding(play_index);
+    }
+    else
+    {
+        PVR_INFO("PVR keep playing, index %d", play_index);
+    }
+
+    //LOG_LEAVE;
+    return TRUE;
 }
 
 /**
@@ -1464,6 +1564,29 @@ BOOLEAN STB_PVRStoreLibdvrExtParam1InPortingLayer(U8BIT rec_index, U8BIT val)
 {
    LOG_NOT_IMPLEMENTED;
    return FALSE;
+}
+
+BOOLEAN STB_PVRStartAVDecoding(U8BIT index)
+{
+    if (index >= num_players)
+    {
+        PVR_ERR("Player index %d is invalid", index);
+        return FALSE;
+    }
+
+    S_RECPLAY_STATUS* prps = &s_recplay_status[index];
+
+    if (start_decode(prps->asplayer_handle, prps->video_decoder, prps->audio_decoder,
+        prps->video_pid, prps->video_format, prps->audio_pid, prps->audio_format) == 0)
+    {
+        PVR_INFO("PVR start decode success");
+        return TRUE;
+    }
+    else
+    {
+        PVR_ERR("Failed to start decode");
+        return FALSE;
+    }
 }
 
 static void on_recorder_evt_cb(am_dvr_recorder_handle handle, am_dvr_recorder_event event, void *event_data)
@@ -1559,6 +1682,8 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       }
    } else if (event == AM_DVR_PLAYER_EVENT_EOS) {
       PVR_DBG("AM_DVR_PLAYER_EVENT_EOS");
+      Wrapper_Player_StopVideoDecoding(it->asplayer_handle);
+      Wrapper_Player_StopAudioDecoding(it->asplayer_handle);
       Wrapper_Player_Destroy(it->asplayer_handle);
       STB_AVSetPlayerHandle(it->audio_decoder,it->video_decoder,WRAPPER_PLAYER_INVALID_HANDLE);
       it->reset();
@@ -1758,3 +1883,73 @@ static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR
    log_buf.str(""); log_buf.clear();
 }
 
+static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, U8BIT audio_decoder, U16BIT video_pid, U8BIT video_format, U16BIT audio_pid, U8BIT audio_format)
+{
+    int ret;
+    jni_asplayer_video_params video_param;
+    jni_asplayer_audio_params audio_param;
+
+    PVR_INFO("%s(%d,%d), handle: %u, video: %d, %d, audio: %d, %d", __FUNCTION__,
+        video_decoder, audio_decoder, player_handle, video_pid, video_format, audio_pid, audio_format);
+
+    memset(&video_param, 0, sizeof(video_param));
+    memset(&audio_param, 0, sizeof(audio_param));
+    video_param.pid = video_pid;
+    video_param.mimeType = video_mime_types[video_format].MIME;
+    video_param.height = 1080;
+    video_param.width = 1920;
+    audio_param.pid = audio_pid;
+    audio_param.sampleRate = 8000;
+    audio_param.channelCount = 1;
+    audio_param.mimeType = audio_mime_types[audio_format].MIME;
+    ret = Wrapper_Player_SetVideoParams(player_handle, &video_param, (WRAPPER_PLAYER_VIDEO_STREAM_TYPE)video_format);
+    if (ret < 0)
+    {
+        PVR_INFO("Set video params failed, v_pid:%d fmt:%d err:%d", video_pid, video_format, ret);
+        return ret;
+    }
+
+    ret = Wrapper_Player_SetSurface(player_handle);
+    if (ret < 0)
+    {
+        PVR_INFO("set surface failed, err:%d, player[0x%u]", ret, player_handle);
+    }
+
+    ret = Wrapper_Player_StartVideoDecoding(player_handle);
+    if (ret == 0)
+    {
+        STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &video_decoder, sizeof(U8BIT));
+    }
+    else
+    {
+        PVR_INFO("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d err:%d, player[0x%u]", video_pid, video_format, ret, player_handle);
+        return ret;
+    }
+
+    ret = Wrapper_Player_SetAudioParams(player_handle, &audio_param, (WRAPPER_PLAYER_AUDIO_STREAM_TYPE)audio_format);
+    if (ret < 0)
+    {
+        PVR_INFO("Set audio params failed, pid:%d fmt:%d err:%d", audio_pid, audio_format, ret);
+        return ret;
+    }
+
+    ret = Wrapper_Player_SetAudioStereoMode(player_handle, JNI_ASPLAYER_AV_AUDIO_STEREO);
+    if (ret < 0)
+    {
+        PVR_INFO("Set aduio stereo mode[%d] failed, err:%d", JNI_ASPLAYER_AV_AUDIO_STEREO, ret);
+        return ret;
+    }
+
+    ret = Wrapper_Player_StartAudioDecoding(player_handle);
+    if (ret == 0)
+    {
+        STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &video_decoder, sizeof(U8BIT));
+    }
+    else
+    {
+        PVR_INFO("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%u]", audio_pid, audio_format, ret, player_handle);
+        return ret;
+    }
+
+    return ret;
+}

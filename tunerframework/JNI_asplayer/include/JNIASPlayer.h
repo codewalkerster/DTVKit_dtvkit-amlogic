@@ -237,6 +237,7 @@ typedef struct {
     int32_t seclevel;                       // Audio security level
     bool scrambled;                         // scrambled or not
     jobject mediaFormat;                    // Audio MediaFormat
+    const char *extraInfoJson;              // Audio extra info (format: json)
 } jni_asplayer_audio_params;
 
 /*Video basic information*/

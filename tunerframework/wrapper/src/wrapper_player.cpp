@@ -255,7 +255,7 @@ S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_vid
         if (JniASPlayer_setVideoParams(handle, video_params) == JNI_ASPLAYER_OK)
         {
             ret = JNI_ASPLAYER_OK;
-            ALOGI("%s : video pid= %d, handle = %u", __FUNCTION__, video_params->pid, handle);
+            ALOGI("%s : video pid= %d, mime= %s, handle = %u", __FUNCTION__, video_params->pid, video_params->mimeType, handle);
         }
         else
         {
@@ -280,7 +280,7 @@ S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_aud
         if (JniASPlayer_setAudioParams(handle, audio_params) == JNI_ASPLAYER_OK)
         {
             ret = JNI_ASPLAYER_OK;
-            ALOGI("%s : audio pid= %d, handle = %u", __FUNCTION__, audio_params->pid, handle);
+            ALOGI("%s : audio pid= %d, mime= %s, handle = %u", __FUNCTION__, audio_params->pid, audio_params->mimeType, handle);
         }
         else
         {
@@ -496,7 +496,7 @@ S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_
         if (JniASPlayer_setADParams(handle, ad_params) == JNI_ASPLAYER_OK)
         {
             ret = JNI_ASPLAYER_OK;
-            ALOGI("%s : handle = %u", __FUNCTION__, handle);
+            ALOGI("%s : AD pid= %d, mime= %s, handle = %u", __FUNCTION__, ad_params->pid, ad_params->mimeType, handle);
         }
         else
         {

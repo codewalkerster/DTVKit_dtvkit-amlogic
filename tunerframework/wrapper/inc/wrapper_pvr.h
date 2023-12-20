@@ -34,6 +34,8 @@ S8BIT Wrapper_PVR_File_size2(const PU8BIT path_prefix, int64_t* psize);
 S8BIT Wrapper_PVR_File_destroy(am_dvr_file_handle handle);
 S8BIT Wrapper_PVR_File_getVideoPID(am_dvr_file_handle handle, int32_t* pPID);
 S8BIT Wrapper_PVR_File_getAudioPID(am_dvr_file_handle handle, int32_t* pPID);
+S8BIT Wrapper_PVR_File_getVideoFormat(am_dvr_file_handle handle, int* pformat);
+S8BIT Wrapper_PVR_File_getAudioFormat(am_dvr_file_handle handle, int* pformat);
 
 S8BIT Wrapper_PVR_deleteRecord(const PU8BIT path_prefix);
 

@@ -193,6 +193,26 @@ S8BIT Wrapper_PVR_File_getAudioPID(am_dvr_file_handle handle, int32_t* pPID)
     return 0;
 }
 
+S8BIT Wrapper_PVR_File_getVideoFormat(am_dvr_file_handle handle, int* pformat)
+{
+    //LOG_ENTER;
+
+    AmDvr_File_getVideoFormat(handle, pformat);
+
+    //LOG_LEAVE;
+    return 0;
+}
+
+S8BIT Wrapper_PVR_File_getAudioFormat(am_dvr_file_handle handle, int* pformat)
+{
+    //LOG_ENTER;
+
+    AmDvr_File_getAudioFormat(handle, pformat);
+
+    //LOG_LEAVE;
+    return 0;
+}
+
 S8BIT Wrapper_PVR_Recorder_create(wrapper_recorder_init_params* params, am_dvr_recorder_handle* phandle)
 {
     LOG_ENTER;

@@ -528,7 +528,7 @@ int Epoll_create()
 int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
 {
     open_vdin_port_tvafe();
-
+    SC_disableTsync();
     if (Epoll_isvalid()) {
         enable_thread = 1;
     } else {
@@ -558,7 +558,6 @@ int stop_vdin_signal_detect()
     if (fd_vdin >0) {
         stop_vdin_dec();
     }
-
     return 0;
 }
 

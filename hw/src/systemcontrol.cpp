@@ -336,6 +336,18 @@ extern "C" int SC_setATVVideoColor(int forceColor, int setColor, int freq)
     return s32Ret;
 }
 
+extern "C" int SC_disableTsync() {
+    int ret = 0;
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
+    const sp<SystemControlClient> &sws = getSystemControlService();
+    if (sws != nullptr) {
+        SC_WriteSysfs("/sys/class/tsync/enable", "0");
+        SC_WriteSysfs("/sys/class/tsync/mode", "0");
+    }
+#endif
+    return ret;
+}
+
 extern "C" int SC_getDisplayMode() {
     int ret = 0;
 #if ANDROID_PLATFORM_SDK_VERSION >= 30

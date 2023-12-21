@@ -30,6 +30,7 @@ int SC_getDisplayMode();
 int SC_setDisplayMode(int mode, int issave);
 int SC_SetCurrentSourceInfo(int source_input, int sig_fmt, int trans_fmt);
 int SC_SetCVD2Values();
+int SC_disableTsync();
 
 struct SysClientWrapper_t *SC_getInstance(void);
 int SC_setSysClientCallback(EventCallback Callback) ;

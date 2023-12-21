@@ -241,9 +241,7 @@ ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION
 endif
 
-ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK),true)
-    LOCAL_CFLAGS += -DUSE_AFD_DEVICE
-endif
+LOCAL_CFLAGS += -DUSE_AFD_DEVICE
 
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0

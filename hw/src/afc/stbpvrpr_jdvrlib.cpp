@@ -1303,7 +1303,7 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    const am_dvr_playback_progress progress = prps->progress;
-   const U64BIT total = progress.currTime - progress.startTime;
+   const U64BIT total = progress.currTime;
    *elapsed_hours = total/1000/3600;
    *elapsed_mins = total/1000%3600/60;
    *elapsed_secs = total/1000%60;

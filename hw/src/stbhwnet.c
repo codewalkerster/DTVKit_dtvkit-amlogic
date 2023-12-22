@@ -632,6 +632,7 @@ BOOLEAN STB_NWCloseSocket(void *socket)
    FUNCTION_START(STB_NWCloseSocket);
    if (ctx)
    {
+      shutdown(ctx->sock, SHUT_RDWR);
       close(ctx->sock);
       STB_SPDebugWrite("%s: close socket fd: %d", __FUNCTION__, ctx->sock);
       ctx->sock = 0;
@@ -984,7 +985,9 @@ S32BIT STB_NWReceive(void *socket, U8BIT *buf, U32BIT max_bytes)
    if (socket != NULL)
    {
       socket_desc = (S_SOCKET_CTX *)socket;
-      retval = recv(socket_desc->sock, buf, (size_t)max_bytes, MSG_DONTWAIT);
+      // previously it was wait forever, so lets keep old behavior
+      //retval = recv(socket_desc->sock, buf, (size_t)max_bytes, MSG_DONTWAIT);
+      retval = recv(socket_desc->sock, buf, (size_t)max_bytes, 0);
 #ifdef NETWORK_ERROR
       if (retval < 0)
       {
@@ -1116,29 +1119,27 @@ S32BIT STB_NWSendTo(void *socket, U8BIT *buf, U32BIT num_bytes,
  */
 BOOLEAN STB_NWSockIsSet(void *socket, S_NW_SOCKSET *socks)
 {
-   BOOLEAN retval = FALSE;
-   U16BIT i = 0;
-
+   int i;
    FUNCTION_START(STB_NWSockIsSet);
-
-   if ((socket != NULL) && (socks != NULL))
+   if (!socks || !socket || (socks->sock_count == 0))
    {
-      while (!retval && (i < socks->sock_count))
-      {
-         if (socks->sock_array[i] == socket)
-         {
-            retval = TRUE;
-         }
-         else
-         {
-            i++;
-         }
-      }
+      NET_ERR("STB_NWSockIsSet parameter invalid");
+      return FALSE;
    }
 
+   for (i=0; i<socks->sock_count; i++)
+   {
+      if (socks->sock_array[i] == socket)
+      {
+         //NET_ERR("given sock is set, fd %d\n", ctx->sock);
+         if (socks->sockset_array[i] == 1)
+            return TRUE;
+      }
+   }
+   //NET_ERR("given sock is not set, fd %d\n", ctx->sock);
    FUNCTION_FINISH(STB_NWSockIsSet);
 
-   return retval;
+   return FALSE;
 }
 
 /**
@@ -1148,12 +1149,12 @@ BOOLEAN STB_NWSockIsSet(void *socket, S_NW_SOCKSET *socks)
 void STB_NWSockZero(S_NW_SOCKSET *socks)
 {
    FUNCTION_START(STB_NWSockZero);
-
-   if (socks != NULL)
+   if (socks)
    {
       socks->sock_count = 0;
+      memset(socks->sock_array, 0, SOCK_SETSIZE * sizeof(void*));
+      memset(socks->sockset_array, 0, SOCK_SETSIZE * sizeof(U8BIT));
    }
-
    FUNCTION_FINISH(STB_NWSockZero);
 }
 
@@ -1164,27 +1165,26 @@ void STB_NWSockZero(S_NW_SOCKSET *socks)
  */
 void STB_NWSockClear(void *socket, S_NW_SOCKSET *socks)
 {
-   U16BIT i = 0;
-
+   int i;
    FUNCTION_START(STB_NWSockClear);
-
-   if ((socket != NULL) && (socks != NULL))
+   if (!socks || !socks->sock_count)
    {
-      for (i = 0; i < socks->sock_count; ++i)
-      {
-         if (socks->sock_array[i] == socket)
-         {
-            while (i < socks->sock_count - 1)
-            {
-               socks->sock_array[i] = socks->sock_array[i + 1];
-               ++i;
-            }
-            --socks->sock_count;
-            break;
-         }
-      }
+      NET_ERR("socks sets is empty");
+      return;
    }
 
+   for (i=0; i<socks->sock_count; i++)
+   {
+      if (socks->sock_array[i] == socket)
+      {
+         socks->sock_array[i] = socks->sock_array[socks->sock_count-1];
+         socks->sockset_array[i] = socks->sockset_array[socks->sock_count-1];
+         socks->sock_count--;
+         NET_ERR("Found socket to clear");
+         return;
+      }
+   }
+   NET_ERR("given socket is not found");
    FUNCTION_FINISH(STB_NWSockClear);
 }
 
@@ -1196,16 +1196,14 @@ void STB_NWSockClear(void *socket, S_NW_SOCKSET *socks)
 void STB_NWSockSet(void *socket, S_NW_SOCKSET *socks)
 {
    FUNCTION_START(STB_NWSockSet);
-
-   if ((socket != NULL) && (socks != NULL))
+   if (!socks || !socket)
    {
-      if (socks->sock_count < SOCK_SETSIZE)
-      {
-         socks->sock_array[socks->sock_count] = socket;
-         ++socks->sock_count;
-      }
+      NET_ERR("STB_NWSockSet parameter invalid");
+      return;
    }
-
+   socks->sock_array[socks->sock_count] = socket;
+   socks->sockset_array[socks->sock_count] = 0;
+   socks->sock_count++;
    FUNCTION_FINISH(STB_NWSockSet);
 }
 
@@ -1224,143 +1222,131 @@ void STB_NWSockSet(void *socket, S_NW_SOCKSET *socks)
 S32BIT STB_NWSelect(S_NW_SOCKSET *read_sockets, S_NW_SOCKSET *write_sockets,
                     S_NW_SOCKSET *except_sockets, S32BIT timeout_ms)
 {
-   S_SOCKET_CTX *socket_desc;
-   S32BIT retval = -1;
-   U16BIT i;
-   struct timeval *timeout_p;
-   struct timeval timeout;
-   fd_set readfds;
-   fd_set *readfds_p = NULL;
-   fd_set writefds;
-   fd_set *writefds_p = NULL;
-   fd_set exceptfds;
-   fd_set *exceptfds_p = NULL;
-   S_SOCKET_CTX *temp_socket;
-   int nfds;
-
    FUNCTION_START(STB_NWSelect);
+   fd_set read_fds;
+   fd_set write_fds;
+   fd_set exception_fds;
+   int max_fd = 0;
+   int ret = -1;
+   int i;
+   struct timeval time = {0};
+   S_SOCKET_CTX *ctx;
 
-   if (timeout_ms >= 0)
-   {
-      timeout.tv_sec = timeout_ms / 1000;
-      timeout.tv_usec = (timeout_ms % 1000) * 1000;
-      timeout_p = &timeout;
-   }
-   else
-   {
-      timeout_p = NULL;
-   }
+#if 0
+   if (read_sockets)
+      NET_ERR("read socket %d", read_sockets->sock_count);
+   if (write_sockets)
+      NET_ERR("write socket %d", write_sockets->sock_count);
+   if (except_sockets)
+      NET_ERR("except socket %d", except_sockets->sock_count);
+#endif
 
-   nfds = 0;
+   FD_ZERO(&read_fds);
+   FD_ZERO(&write_fds);
+   FD_ZERO(&exception_fds);
 
-   /* remap the set of sockets from the OBS API to sets for the socket API */
-   FD_ZERO(&readfds);
-   if (read_sockets != NULL)
+   if (read_sockets)
    {
-      for (i = 0; i < read_sockets->sock_count; i++)
+      for (i=0; i<read_sockets->sock_count; i++)
       {
-         socket_desc = (S_SOCKET_CTX *)read_sockets->sock_array[i];
-         FD_SET(socket_desc->sock, &readfds);
-         if (socket_desc->sock > nfds)
+         ctx = read_sockets->sock_array[i];
+         if (!ctx)
          {
-            nfds = socket_desc->sock;
+            NET_ERR("Found null ctx in read socks set");
+            continue;
          }
+         FD_SET(ctx->sock, &read_fds);
+         max_fd = (max_fd > ctx->sock) ? max_fd : ctx->sock;
       }
-      readfds_p = &readfds;
    }
-
-   FD_ZERO(&writefds);
-   if (write_sockets != NULL)
+   if (write_sockets)
    {
       for (i = 0; i < write_sockets->sock_count; i++)
       {
-         socket_desc = (S_SOCKET_CTX *)write_sockets->sock_array[i];
-         FD_SET(socket_desc->sock, &writefds);
-         if (socket_desc->sock > nfds)
+         ctx = write_sockets->sock_array[i];
+         if (!ctx)
          {
-            nfds = socket_desc->sock;
+            NET_ERR("Found null ctx in write socks set");
+            continue;
          }
+         FD_SET(ctx->sock, &write_fds);
+         max_fd = (max_fd > ctx->sock) ? max_fd : ctx->sock;
       }
-      writefds_p = &writefds;
    }
-
-   FD_ZERO(&exceptfds);
-   if (except_sockets != NULL)
+   if (except_sockets)
    {
       for (i = 0; i < except_sockets->sock_count; i++)
       {
-         socket_desc = (S_SOCKET_CTX *)except_sockets->sock_array[i];
-         FD_SET(socket_desc->sock, &exceptfds);
-         if (socket_desc->sock > nfds)
+         ctx = except_sockets->sock_array[i];
+         if (!ctx)
          {
-            nfds = socket_desc->sock;
+            NET_ERR("Found null ctx in exception socks set");
+            continue;
          }
-      }
-      exceptfds_p = &exceptfds;
-   }
-
-   retval = select(nfds + 1, readfds_p, writefds_p, exceptfds_p, timeout_p);
-
-   if (retval != -1)
-   {
-      retval = 0;
-
-      /* remove all the socket handles from the OBS API sets that select did not report as ready */
-      if (read_sockets != NULL)
-      {
-         retval = read_sockets->sock_count;
-
-         for (i = 0; i < read_sockets->sock_count; i++)
-         {
-            temp_socket = (S_SOCKET_CTX *)read_sockets->sock_array[i];
-            if (!FD_ISSET(temp_socket->sock, &readfds))
-            {
-               SOCK_CLR(temp_socket, read_sockets);
-               retval--;
-            }
-         }
-      }
-
-      if (write_sockets != NULL)
-      {
-         retval += write_sockets->sock_count;
-
-         for (i = 0; i < write_sockets->sock_count; i++)
-         {
-            temp_socket = (S_SOCKET_CTX *)write_sockets->sock_array[i];
-            if (!FD_ISSET(temp_socket->sock, &writefds))
-            {
-               SOCK_CLR(temp_socket, write_sockets);
-               retval--;
-            }
-         }
-      }
-
-      if (except_sockets != NULL)
-      {
-         retval += except_sockets->sock_count;
-
-         for (i = 0; i < except_sockets->sock_count; i++)
-         {
-            temp_socket = (S_SOCKET_CTX *)except_sockets->sock_array[i];
-            if (!FD_ISSET(temp_socket->sock, &exceptfds))
-            {
-               SOCK_CLR(temp_socket, except_sockets);
-               retval--;
-            }
-         }
+         FD_SET(ctx->sock, &exception_fds);
+         max_fd = (max_fd > ctx->sock) ? max_fd : ctx->sock;
       }
    }
-#ifdef NETWORK_ERROR
+   //NET_ERR("select timeout %d", timeout_ms);
+   if (timeout_ms == -1)
+      ret = select(max_fd + 1, &read_fds, &write_fds, &exception_fds, NULL);
    else
    {
-      NET_ERR("STB_NWSelect: select failed, errno %d", errno);
+      time.tv_sec = timeout_ms / 1000;
+      time.tv_usec = (timeout_ms%1000)*1000;
+      ret = select(max_fd + 1, &read_fds, &write_fds, &exception_fds, &time);
    }
-#endif
+
+   if (read_sockets)
+   {
+      for (i = 0; i < read_sockets->sock_count; i++)
+      {
+         ctx = read_sockets->sock_array[i];
+         if (ctx)
+         {
+            //STB_SPDebugWrite("%s: No.%d ctx->sock %d", __FUNCTION__, i, ctx->sock);
+            if (FD_ISSET(ctx->sock, &read_fds))
+               read_sockets->sockset_array[i] = 1;
+            else
+               read_sockets->sockset_array[i] = 0;
+         }
+
+      }
+   }
+
+   if (write_sockets)
+   {
+      for (i = 0; i < write_sockets->sock_count; i++)
+      {
+         ctx = write_sockets->sock_array[i];
+         if (ctx)
+         {
+            if (FD_ISSET(ctx->sock, &write_fds))
+               write_sockets->sockset_array[i] = 1;
+            else
+               write_sockets->sockset_array[i] = 0;
+         }
+      }
+   }
+
+   if (except_sockets)
+   {
+      for (i = 0; i < except_sockets->sock_count; i++)
+      {
+         ctx = except_sockets->sock_array[i];
+         if (ctx)
+         {
+            if (FD_ISSET(ctx->sock, &exception_fds))
+               except_sockets->sockset_array[i] = 1;
+            else
+               except_sockets->sockset_array[i] = 0;
+         }
+      }
+   }
 
    FUNCTION_FINISH(STB_NWSelect);
 
-   return retval;
+   return ret;
 }
 
 /**

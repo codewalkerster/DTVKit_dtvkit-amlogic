@@ -919,15 +919,18 @@ void Wrapper_TuneStopTuner(U8BIT path)
         return;
     }
 
-    if (E_TERR_TYPE_DVBT == tuner_status_map[path].signal_type &&
-        WRAPPER_TUNE_SYSTEM_TYPE_DVBT2 == tuner_status_map[path].sys_type) {
-        if (tuner_status_map[path].tuner_search_mode)
-        {
+    if (tuner_status_map[path].tuner_search_mode) {
+        if (E_TERR_TYPE_DVBT == tuner_status_map[path].signal_type &&
+            WRAPPER_TUNE_SYSTEM_TYPE_DVBT2 == tuner_status_map[path].sys_type) {
             ALOGD("%s path:%d client_id:%d DVBT2 Scan", __FUNCTION__, path, tuner_client);
             Am_tuner_cancelScanning(tuner_client);
-            tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
-            tuner_status_map[path].current_tuning = FALSE;
         }
+        else {
+            ALOGD("%s path:%d client_id:%d DVB Scan", __FUNCTION__, path, tuner_client);
+            Am_tuner_cancelTuning(tuner_client);
+        }
+        tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
+        tuner_status_map[path].current_tuning = FALSE;
     }
 }
 U32BIT Wrapper_TuneGetSignalStrength(U8BIT path)

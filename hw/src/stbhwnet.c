@@ -92,6 +92,51 @@ static E_NW_LINK_STATUS current_ethernet_status = NW_LINK_DISABLED;
 static void* EthernetMonitorTask(void *arg);
 
 /*---global function definitions---------------------------------------------*/
+#define RESOLV_CONF "/etc/resolv.conf"
+#define MAX_LINE_LENGTH 1024
+
+int parseResolvConf(char *dns1, char *dns2)
+{
+    FILE *file = fopen(RESOLV_CONF, "r");
+    if (file == NULL)
+        return 0;
+
+    char line[MAX_LINE_LENGTH];
+    strcpy(dns1, "");
+    strcpy(dns2, "");
+    char keyword[] = "nameserver";
+    int done = 0;
+
+    while (!done && fgets(line, sizeof(line), file))
+    {
+        if (strncmp(line, keyword, strlen(keyword)) == 0)
+        {
+            char *token = strtok(line + strlen(keyword), " ");
+            while (token != NULL)
+            {
+                if (*token != '\n' && *token != ' ')
+                {
+                    if (strlen(dns1) == 0)
+                    {
+                        strcpy(dns1, token);
+                    }
+                    else if (strlen(dns2) == 0)
+                    {
+                        strcpy(dns2, token);
+                    }
+                    else
+                    {
+                        done = 1;
+                        break;
+                    }
+                }
+                token = strtok(NULL, " ");
+            }
+        }
+    }
+    fclose(file);
+    return 1;
+}
 
 /**
  * @brief   Initialises the socket API, must be called once before using API
@@ -275,12 +320,17 @@ BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
 {
    U8BIT dns_prop_name[128] = {0};
    U8BIT dns_buff[PROPERTY_VALUE_MAX] = {0};
+   U8BIT dns_buff2[PROPERTY_VALUE_MAX] = {0};
    U32BIT dns;
 
    FUNCTION_START(STB_IPGetDnsServerIPAddress);
    //snprintf(dns_prop_name, sizeof(dns_prop_name), "net.dns%d", 1);
+#ifndef RDK_COMPILE
    snprintf((char *)dns_prop_name, sizeof(dns_prop_name), "vendor.tv.dtv.net.dns%d", 1);
    property_get((const char *)dns_prop_name, (char *)dns_buff, "");
+#else
+   parseResolvConf(dns_buff,dns_buff2);
+#endif
    dns = inet_addr((const char *) dns_buff);
    DBGPRINT("DNS: %s %d", dns_buff, dns);
 

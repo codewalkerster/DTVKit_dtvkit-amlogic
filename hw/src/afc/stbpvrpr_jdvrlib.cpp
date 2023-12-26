@@ -128,7 +128,9 @@ struct S_RECPLAY_STATUS
    //condition_variable state_cond;    // the condition is signaled when state has a change
    //mutex state_mutex;  // the mutex associated with above condition
    am_dvr_playback_progress progress;
-   S16BIT speed;
+   S16BIT speed;     // from progress update
+   S16BIT speed2;    // from STB_PVRSetPlaySpeed
+   BOOLEAN speed2_just_set;
    U8BIT audio_decoder;
    U8BIT video_decoder;
 
@@ -155,6 +157,8 @@ struct S_RECPLAY_STATUS
       state = 0;
       fill_n((uint8_t*)&progress,sizeof(am_dvr_playback_progress),0);
       speed = 0;
+      speed2 = 0;
+      speed2_just_set = FALSE;
       audio_decoder = INVALID_RES_ID;
       video_decoder = INVALID_RES_ID;
       seek_position = 0;
@@ -1067,7 +1071,8 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
 
    PVR_DBG("input speed: %hd",speed);
    double speed2 = ((double)speed)/100.0;
-   prps->speed = speed;
+   prps->speed2 = speed;
+   prps->speed2_just_set = TRUE;
    int ret = Wrapper_PVR_Player_setSpeed(prps->dvr_player_handle,speed2);
    if (ret == -1)
    {
@@ -1096,8 +1101,8 @@ S16BIT STB_PVRGetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder)
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
-   const S16BIT speed = prps->speed;
-   //PVR_DBG("returns %hd",speed);
+   const S16BIT speed = (prps->speed2_just_set ? prps->speed2 : prps->speed);
+   //PVR_DBG("use speed %hd from %s",speed,(prps->speed2_just_set?"SetPlaySpeed":"progress"));
 
    //LOG_LEAVE;
    return speed;
@@ -1262,7 +1267,7 @@ BOOLEAN STB_PVRGetRecordingLength(U16BIT disk_id, U8BIT *basename, U32BIT *rec_l
       LOG_LEAVE_EARLY;
       return FALSE;
    }
-   *rec_size_kb = recording_size/1024;
+   *rec_size_kb = (U32BIT)(recording_size/1024);
 
    int64_t recording_duration;
    ret2 = Wrapper_PVR_File_duration2(path_prefix,&recording_duration);
@@ -1273,7 +1278,7 @@ BOOLEAN STB_PVRGetRecordingLength(U16BIT disk_id, U8BIT *basename, U32BIT *rec_l
    }
    *rec_length_ms = recording_duration;
 
-   PVR_DBG(" returns %d ms, %d kb",*rec_length_ms,*rec_size_kb);
+   PVR_DBG(" returns %u ms, %u kb",*rec_length_ms,*rec_size_kb);
 
    //LOG_LEAVE;
    return TRUE;
@@ -1671,7 +1676,9 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       if (evt != NULL) {
          it->progress = *evt;
          it->state = (U8BIT)evt->state;
-         //it->speed = (S16BIT)(100*evt->speed);
+         it->speed = (S16BIT)(100*evt->speed);
+         it->speed2 = it->speed;
+         it->speed2_just_set = FALSE;
          PVR_DBG("AM_DVR_PLAYER_EVENT_PROGRESS: "
                "sessionNumber:%d, state:%d, speed:%.2f, "
                "currTime:%lld, startTime:%lld, endTime:%lld, duration:%lld, "

@@ -27,11 +27,11 @@
 
 
 /*!**************************************************************************
- * @brief   This function can get from other module, to judge under Block mode
+ * @brief   This function can get from other module, to judge under M2M
  *          or not
- * @return  true under Block mode, false not Block mode
+ * @return  true under M2M, false not M2M
  ****************************************************************************/
-BOOLEAN STB_CAIsBlockMode();
+BOOLEAN STB_CAIsM2M();
 
 /*!**************************************************************************
  * @brief   This function is called when in timeshift state

@@ -168,6 +168,7 @@ typedef struct
 {
    void*  filter_mtx;
    U8BIT path;
+   U8BIT dev_no;
    U16BIT caps;
 
    void *config_mutex;
@@ -2070,12 +2071,20 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 
         if (pid_filter->fhandle != -1)
         {
-          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x] crc %d",path,pid_filter->fhandle , filter_index,\
+            /*
+            6bit  fid         111111
+            5bit  stream type 11111
+            1bit  sec         1
+            4bit  dmx id      1111
+            16bit pid         1111 1111 1111 1111
+            */
+          demux_status[path].dev_no = (pid_filter->fhandle >> 16) & 0x0F;
+          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x] dev_no %d",path,pid_filter->fhandle , filter_index,\
            demux_status[path].source,\
            demux_status[path].source_param,\
           demux_status[path].demux_cap,\
            pid_filter->pid,\
-           dvb_filt_p.flags);
+           demux_status[path].dev_no);
 
           DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, &dvb_filt_p);
           if (pid_filter->started)
@@ -2092,7 +2101,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
              demux_status[path].source_param,\
             demux_status[path].demux_cap,\
              pid_filter->pid);
-
+        demux_status[path].dev_no = 0xFF;
         DMX_CloseFilter(pid_filter->fhandle);
         pid_filter->fhandle = -1;
     }
@@ -2156,6 +2165,19 @@ static void PesCallback(int dev_no, int fhandle, const uint8_t *data, int len, v
    }
 
    FUNCTION_FINISH(PesCallback);
+}
+BOOLEAN STB_DMXGetDevNo(U8BIT path , U8BIT *dev_no)
+{
+    BOOLEAN retval = FALSE;
+    FUNCTION_START(STB_DMXGetDevNo);
+    if (path < num_paths)
+    {
+        DMX_INFO("STB_DMXGetDevNo [%d]!", demux_status[path].dev_no);
+       *dev_no = demux_status[path].dev_no;
+        retval = TRUE ;
+    }
+    FUNCTION_FINISH(STB_DMXGetDevNo);
+    return retval;
 }
 
 void STB_SetTsoutSource(BOOLEAN is_cam_plugin)

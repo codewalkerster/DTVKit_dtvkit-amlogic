@@ -241,7 +241,6 @@ typedef struct
    S_PID_FILTER_INFO filter_info[MAX_PID_FILTERS];
 
    U8BIT num_pid_filters_started;
-   int dvr_fd; /*for TS injection*/
 } S_DMX_STATUS;
 
 
@@ -601,7 +600,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
    int chan_id = -1;
    int i, r, id;
    char name[256];
-
+   
    DMX_DBG("dev %d pid %x dsc_type %d %s", dev_id, pid, type, name);
 
    if (dmx_model_sc2)
@@ -789,7 +788,8 @@ static void
 dsc_set_aes_output(BOOLEAN enable)
 {
    S_DSC_DEV_INFO *dsc;
-   U8BIT i, r;
+   U8BIT r;
+   int i;
    U32BIT flag = 0;
    U8BIT dev_name[256];
    U8BIT dst_name[32];
@@ -1178,7 +1178,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
 void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 {
    BOOLEAN am_result = FALSE;
-   U16BIT i;
+   int i;
    U16BIT j;
 
    char buf[128];
@@ -1266,7 +1266,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                   }
                   demux_status[i].text_fhandle = -1;
                   demux_status[i].num_pid_filters_started = 0;
-                  demux_status[i].dvr_fd = -1;
                }
                else
                {
@@ -2315,12 +2314,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
       DMX_DBG("%u: new=%u, %u; old=%u, %u", path, source, param, demux_status[path].source, demux_status[path].source_param);
       demux_status[path].source = source;
       demux_status[path].source_param = param;
-      // TODO: maybe better place to close FD? not to close at all?
-      if (demux_status[path].dvr_fd >= 0)
-      {
-         close(demux_status[path].dvr_fd);
-         demux_status[path].dvr_fd = -1;
-      }
+
       if (source == DMX_TUNER)
       {
          AV_StopInjection(path);
@@ -2329,12 +2323,9 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
          {
             DMX_ERR("Failed to set demux %u source to %u, error %d", path, param, ret);
          }
-         DMX_DBG("set tsn_source to DEMOD");
-         STB_File_Echo("/sys/class/stb/tsn_source", "demod");
       }
       else if(source == DMX_MEMORY)
       {
-         char name[32];
          DMX_DBG("setting source to MEMORY");
          AV_StartInjection(path);
          if (dmx_src_cur != _GetDmxDMASourceById(path))
@@ -2345,14 +2336,6 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
                 DMX_ERR("Failed to set demux %u source to %u ", path, param);
             }
          }
-         snprintf(name, sizeof(name), "/dev/dvb0.dvr%d", path);
-         demux_status[path].dvr_fd = open(name, O_WRONLY);
-         DMX_DBG("SETUP DVR DEV for MEMORY => %d!", demux_status[path].dvr_fd);
-         // TODO: do we need this?
-         //ret = ioctl(demux_status[path].dvr_fd, DMX_SET_INPUT, INPUT_LOCAL);
-         //ret = ioctl(demux_status[path].dvr_fd, DMX_SET_BUFFER_SIZE, 5*1024*1024);
-         DMX_DBG("set tsn_source to LOCAL");
-         STB_File_Echo("/sys/class/stb/tsn_source", "local");
       }
    }
 
@@ -2786,27 +2769,9 @@ void STB_DMXReadTextPES(U8BIT path, U8BIT **buffer, U32BIT *num_bytes)
  */
 void STB_DMXWriteDemux(U8BIT path, U8BIT *data, U32BIT size)
 {
-   int ret;
-   U32BIT left = size;
-   U32BIT off = 0;
    FUNCTION_START(STB_DMXWriteDemux);
 
-   //AV_InjectData(path,data,size);
-   if (demux_status[path].dvr_fd == -1)
-   {
-      DMX_ERR("Cannot write to DMX [%d]", path);
-      return;
-   }
-   //while (left > 0)
-   {
-      ret = write(demux_status[path].dvr_fd, data + off, left);
-      left -= ret;
-      off += ret;
-   }
-   if (left || (size % 188))
-   {
-      DMX_ERR("Write to DMX [%d] %u -> %u", path, size, left);
-   }
+   AV_InjectData(path,data,size);
 
    FUNCTION_FINISH(STB_DMXWriteDemux);
 }

@@ -241,6 +241,9 @@ typedef struct
    S_PID_FILTER_INFO filter_info[MAX_PID_FILTERS];
 
    U8BIT num_pid_filters_started;
+   /*for TS injection*/
+   int dvr_fd;
+   BOOLEAN inj_ready;
 } S_DMX_STATUS;
 
 
@@ -788,8 +791,7 @@ static void
 dsc_set_aes_output(BOOLEAN enable)
 {
    S_DSC_DEV_INFO *dsc;
-   U8BIT r;
-   int i;
+   U8BIT i, r;
    U32BIT flag = 0;
    U8BIT dev_name[256];
    U8BIT dst_name[32];
@@ -1178,7 +1180,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
 void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 {
    BOOLEAN am_result = FALSE;
-   int i;
+   U16BIT i;
    U16BIT j;
 
    char buf[128];
@@ -1266,6 +1268,8 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                   }
                   demux_status[i].text_fhandle = -1;
                   demux_status[i].num_pid_filters_started = 0;
+                  demux_status[i].dvr_fd = -1;
+                  demux_status[i].inj_ready = FALSE;
                }
                else
                {
@@ -2769,9 +2773,48 @@ void STB_DMXReadTextPES(U8BIT path, U8BIT **buffer, U32BIT *num_bytes)
  */
 void STB_DMXWriteDemux(U8BIT path, U8BIT *data, U32BIT size)
 {
-   FUNCTION_START(STB_DMXWriteDemux);
+   int ret;
+   U32BIT left = size;
+   char name[32];
 
-   AV_InjectData(path,data,size);
+   FUNCTION_START(STB_DMXWriteDemux);
+   if (demux_status[path].inj_ready == FALSE)
+   {
+      snprintf(name, sizeof(name), "/dev/dvb0.dvr%d", path);
+      demux_status[path].dvr_fd = open(name, O_WRONLY);
+      DMX_DBG("SETUP DVR DEV for MEMORY => %d!", demux_status[path].dvr_fd);
+      // TODO: do we need this?
+      //ret = ioctl(demux_status[path].dvr_fd, DMX_SET_INPUT, INPUT_LOCAL);
+      //ret = ioctl(demux_status[path].dvr_fd, DMX_SET_BUFFER_SIZE, 5*1024*1024);
+      DMX_DBG("set tsn_source to LOCAL");
+      STB_File_Echo("/sys/class/stb/tsn_source", "local");
+      demux_status[path].inj_ready = TRUE;
+   }
+   else if (data == NULL && size == 0)
+   {
+      DMX_DBG("DMX [%d] -> EOS -> cleanup!", path);
+      if (demux_status[path].dvr_fd >= 0)
+      {
+         close(demux_status[path].dvr_fd);
+         demux_status[path].dvr_fd = -1;
+      }
+      DMX_DBG("set tsn_source to DEMOD");
+      STB_File_Echo("/sys/class/stb/tsn_source", "demod");
+      demux_status[path].inj_ready = FALSE;
+      return;
+   }
+   if (demux_status[path].dvr_fd == -1)
+   {
+      DMX_ERR("Cannot write to DMX [%d]", path);
+      return;
+   }
+   ret = write(demux_status[path].dvr_fd, data, left);
+   left -= ret;
+
+   if (left || (size % 188))
+   {
+      DMX_ERR("Write to DMX [%d] %u -> %u", path, size, left);
+   }
 
    FUNCTION_FINISH(STB_DMXWriteDemux);
 }

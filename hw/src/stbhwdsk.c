@@ -601,8 +601,10 @@ void STB_DSKCloseFile(void *file)
    {
       fp = (FILE *)file;
       fflush(fp);
+#ifdef COMMON_INTERFACE_CERT_TEST
+      /*CI CERT NG without fysnc on T5M previously, refer to SWPL-129739*/
       fsync(fileno(fp));
-
+#endif
       fclose(fp);
 
       //DISK_DBG("Closed %p", file);

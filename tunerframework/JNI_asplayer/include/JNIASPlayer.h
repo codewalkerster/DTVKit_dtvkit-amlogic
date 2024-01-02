@@ -30,7 +30,7 @@ typedef enum {
     JNI_ASPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_AUDIO, //The audio decoder outputs the first frame
     JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_VIDEO, //The video decoder render the first frame
     JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_AUDIO, //The audio decoder render the first frame
-    JNI_ASPLAYER_EVENT_TYPE_AV_SYNC_DONE,     //Av sync done
+    JNI_ASPLAYER_EVENT_TYPE_AV_SYNC_DONE,       //Av sync done
     JNI_ASPLAYER_EVENT_TYPE_VIDEO_DECODER_INIT_COMPLETED,       // The video decoder init completed
     JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS,          // Decoder data loss
     JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_RESUME         // Decoder data resume
@@ -167,14 +167,13 @@ typedef enum {
     JNI_ASPLAYER_PIP_MODE_PIP = 1               // PIP mode
 } jni_asplayer_pip_mode;
 
-/*Audio stereo output mode*/
+/*Audio dual mono output mode*/
 typedef enum {
-    JNI_ASPLAYER_AV_AUDIO_STEREO = 0,                   // Stereo mode
-    JNI_ASPLAYER_AV_AUDIO_LEFT = 1,                     // Output left channel
-    JNI_ASPLAYER_AV_AUDIO_RIGHT = 2,                    // Output right channel
-    JNI_ASPLAYER_AV_AUDIO_SWAP = 3,                     // Swap left and right channels
-    JNI_ASPLAYER_AV_AUDIO_LRMIX = 4                     // Mix left and right channels
-} jni_asplayer_audio_stereo_mode;
+    JNI_ASPLAYER_DUAL_MONO_OFF = 0,                     // This mode disables any Dual Mono presentation effect
+    JNI_ASPLAYER_DUAL_MONO_LR  = 1,                     // Output left and right channels both
+    JNI_ASPLAYER_DUAL_MONO_LL  = 2,                     // Output left channel
+    JNI_ASPLAYER_DUAL_MONO_RR  = 3                      // Output right channel
+} jni_asplayer_audio_dual_mono_mode;
 
 /*Video decoder trick mode*/
 typedef enum {
@@ -206,7 +205,7 @@ typedef struct {
     int32_t buf_size;                      // Input buffer size
 } jni_asplayer_input_buffer;
 
-/*JniASPlayer input buffer type*/
+/*JniASPlayer input frame buffer*/
 typedef struct {
     void *buf_data;                        // Input buffer addr
     int32_t buf_size;                      // Input buffer size
@@ -352,12 +351,14 @@ jni_asplayer_result JniASPlayer_registerJNI(JNIEnv *env);
 
 /**
  * @brief:        Create JniASPlayer instance.
- *                Set input mode demux_id and event mask to JniASPlayer.
- * @param:        Params    Init params with input mode demux_id and event mask.
+ *                Set input mode and event mask to JniASPlayer.
+ * @param:        params    Init params with input mode and event mask.
  * @param:        *pHandle  JniASPlayer handle.
  * @return:       The JniASPlayer result.
 */
-jni_asplayer_result  JniASPlayer_create(jni_asplayer_init_params Params, void *tuner, jni_asplayer_handle *pHandle);
+jni_asplayer_result  JniASPlayer_create(jni_asplayer_init_params params,
+                                        void *tuner,
+                                        jni_asplayer_handle *pHandle);
 
 /**
  * @brief:        Get ASPlayer instance.
@@ -369,10 +370,10 @@ jni_asplayer_result  JniASPlayer_getJavaASPlayer(jni_asplayer_handle handle, job
 
 /**
  * @brief:        Prepare JniASPlayer instance.
- * @param:        Handle  JniASPlayer handle.
+ * @param:        handle  JniASPlayer handle.
  * @return:       The JniASPlayer result.
 */
-jni_asplayer_result  JniASPlayer_prepare(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_prepare(jni_asplayer_handle handle);
 
 /**
  *@brief:        Get JniASPlayer interface version information.
@@ -394,28 +395,32 @@ jni_asplayer_result  JniASPlayer_getInstanceNo(jni_asplayer_handle handle, int32
 /**
  *@brief:        Get the sync instance number of specified JniASPlayer .
  *@param:        handle    JniASPlayer handle.
- *@param:        *Numb     JniASPlayer instance number.
+ *@param:        *numb     JniASPlayer instance number.
  *@return:       The JniASPlayer result.
  */
 jni_asplayer_result  JniASPlayer_getSyncInstanceNo(jni_asplayer_handle handle, int32_t *numb);
 
 /**
  *@brief:        Register event callback to specified JniASPlayer
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@param:        pfunc     Event callback function ptr.
  *@param:        *param    Extra data ptr.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_registerCb(jni_asplayer_handle Handle, event_callback pfunc, void *param);
+jni_asplayer_result  JniASPlayer_registerCb(jni_asplayer_handle handle,
+                                            event_callback pfunc,
+                                            void *param);
 
 /**
  *@brief:        Get event callback to specified JniASPlayer
- *@param:        Handle      JniASPlayer handle.
+ *@param:        handle      JniASPlayer handle.
  *@param:        *pfunc      ptr of Event callback function ptr.
  *@param:        *ppParam    Set the callback, with a pointer to the parameter.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getCb(jni_asplayer_handle Handle, event_callback *pfunc, void* *ppParam);
+jni_asplayer_result  JniASPlayer_getCb(jni_asplayer_handle handle,
+                                       event_callback *pfunc,
+                                       void* *ppParam);
 
 /**
  *@brief:        Release specified JniASPlayer instance.
@@ -426,14 +431,14 @@ jni_asplayer_result  JniASPlayer_release(jni_asplayer_handle handle);
 
 /**
  *@brief:        Flush specified JniASPlayer instance.
- *@param:        Handle         JniASPlayer handle.
+ *@param:        handle         JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
 jni_asplayer_result  JniASPlayer_flush(jni_asplayer_handle handle);
 
 /**
  *@brief:        Flush DvrPlayback of specified JniASPlayer instance.
- *@param:        Handle         JniASPlayer handle.
+ *@param:        handle         JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
 jni_asplayer_result  JniASPlayer_flushDvr(jni_asplayer_handle handle);
@@ -441,295 +446,314 @@ jni_asplayer_result  JniASPlayer_flushDvr(jni_asplayer_handle handle);
 /**
  *@brief:        Write Frame data to specified JniASPlayer instance.
  *               It will only work when TS input's source type is TS_MEMORY.
- *@param:        Handle       JniASPlayer handle.
+ *@param:        handle       JniASPlayer handle.
  *@param:        *buf         Input buffer struct (1.Buffer type:secure/no
  *                            2.secure buffer ptr 3.buffer len).
  *@param:        timeout_ms   Time out limit.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_writeFrameData(jni_asplayer_handle Handle,
+jni_asplayer_result  JniASPlayer_writeFrameData(jni_asplayer_handle handle,
                                               jni_asplayer_input_frame_buffer *buf,
                                               uint64_t timeout_ms);
 
 /**
  *@brief:        Write data to specified JniASPlayer instance.
  *               It will only work when TS input's source type is TS_MEMORY.
- *@param:        Handle         JniASPlayer handle.
+ *@param:        handle         JniASPlayer handle.
  *@param:        *buf           Input buffer struct (1.Buffer type:secure/no
  *                              2.secure buffer ptr 3.buffer len).
  *@param:        timeout_ms     Time out limit .
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_writeData(jni_asplayer_handle Handle, jni_asplayer_input_buffer *buf, uint64_t timeout_ms);
+jni_asplayer_result  JniASPlayer_writeData(jni_asplayer_handle handle,
+                                           jni_asplayer_input_buffer *buf,
+                                           uint64_t timeout_ms);
 
 /**
  *@brief:        Set work mode to specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        mode       The enum of work mode.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setWorkMode (jni_asplayer_handle Handle, jni_asplayer_work_mode mode);
+jni_asplayer_result  JniASPlayer_setWorkMode(jni_asplayer_handle handle,
+                                              jni_asplayer_work_mode mode);
 
 /**
  *@brief:        Reset work mode to specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_resetWorkMode (jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_resetWorkMode(jni_asplayer_handle handle);
 
 /**
  *@brief:        Set PIP mode to specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        mode       The enum of PIP mode.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setPIPMode (jni_asplayer_handle Handle, jni_asplayer_pip_mode mode);
+jni_asplayer_result  JniASPlayer_setPIPMode(jni_asplayer_handle handle, jni_asplayer_pip_mode mode);
 
 /*AV sync*/
 /**
  *@brief:        Get the playing time of specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        *time      Playing time.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getCurrentTime(jni_asplayer_handle Handle, int64_t *time);
+jni_asplayer_result  JniASPlayer_getCurrentTime(jni_asplayer_handle handle, int64_t *time);
 
 /**
  *@brief:        Get the pts of specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        StrType    stream type.
  *@param:        *pts       pts.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getPts(jni_asplayer_handle Handle, jni_asplayer_stream_type StrType, uint64_t *pts);
+jni_asplayer_result  JniASPlayer_getPts(jni_asplayer_handle handle,
+                                        jni_asplayer_stream_type StrType,
+                                        uint64_t *pts);
 
 /**
  *@brief:        Set the tsync mode for specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        mode       The enum of avsync mode.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setSyncMode(jni_asplayer_handle Handle, jni_asplayer_avsync_mode mode);
+jni_asplayer_result  JniASPlayer_setSyncMode(jni_asplayer_handle handle, jni_asplayer_avsync_mode mode);
 
 /**
  *@brief:        Get the tsync mode for specified JniASPlayer instance.
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@param:        *mode     The avsync mode of specified JniASPlayer instance.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getSyncMode(jni_asplayer_handle Handle, jni_asplayer_avsync_mode *mode);
+jni_asplayer_result  JniASPlayer_getSyncMode(jni_asplayer_handle handle, jni_asplayer_avsync_mode *mode);
 
 /**
  *@brief:        Set pcr pid to specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        pid        The pid of pcr.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setPcrPid(jni_asplayer_handle Handle, uint32_t pid);
+jni_asplayer_result  JniASPlayer_setPcrPid(jni_asplayer_handle handle, uint32_t pid);
 
 
 /*Player control interface*/
 /**
  *@brief:        Start Fast play for specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        scale      Fast play speed.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_startFast(jni_asplayer_handle Handle, float scale);
+jni_asplayer_result  JniASPlayer_startFast(jni_asplayer_handle handle, float scale);
 
 /**
  *@brief:        Stop Fast play for specified JniASPlayer instance.
- *@param:        Handle       JniASPlayer handle.
+ *@param:        handle       JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_stopFast(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_stopFast(jni_asplayer_handle handle);
 
 /**
  *@brief:        Set trick mode for specified JniASPlayer instance.
- *@param:        Handle        JniASPlayer handle.
+ *@param:        handle        JniASPlayer handle.
  *@param:        trickmode     The enum of trick mode type
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setTrickMode(jni_asplayer_handle Handle, jni_asplayer_video_trick_mode trickmode);
+jni_asplayer_result  JniASPlayer_setTrickMode(jni_asplayer_handle handle,
+                                              jni_asplayer_video_trick_mode trickmode);
 
 /**
  *@brief:        Set Surface ptr to specified JniASPlayer instance.
- *@param:        Handle       JniASPlayer handle.
+ *@param:        handle       JniASPlayer handle.
  *@param:        *pSurface    Surface ptr
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setSurface(jni_asplayer_handle Handle, void* pSurface);
+jni_asplayer_result  JniASPlayer_setSurface(jni_asplayer_handle handle, void* pSurface);
 
 /**
  *@brief:        Set video params need by demuxer and video decoder
  *               for specified JniASPlayer instance.
- *@param:        Handle      JniASPlayer handle.
+ *@param:        handle      JniASPlayer handle.
  *@param:        *pParams    Params need by demuxer and video decoder.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setVideoParams(jni_asplayer_handle Handle, jni_asplayer_video_params *pParams);
+jni_asplayer_result  JniASPlayer_setVideoParams(jni_asplayer_handle handle,
+                                                jni_asplayer_video_params *pParams);
 
 /**
  *@brief:        Set if need keep last frame for video display
  *               for specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        mode       transition mode before.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setTransitionModeBefore(jni_asplayer_handle Handle, jni_asplayer_transition_mode_before mode);
+jni_asplayer_result  JniASPlayer_setTransitionModeBefore(jni_asplayer_handle handle,
+                                                         jni_asplayer_transition_mode_before mode);
 
 /**
  *@brief:        Get video basic info of specified JniASPlayer instance.
- *@param:        Handle      JniASPlayer handle.
+ *@param:        handle      JniASPlayer handle.
  *@param:        *pInfo      The ptr of video basic info struct .
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getVideoInfo(jni_asplayer_handle Handle, jni_asplayer_video_info *pInfo);
+jni_asplayer_result  JniASPlayer_getVideoInfo(jni_asplayer_handle handle,
+                                              jni_asplayer_video_info *pInfo);
 
 /**
  *@brief:        Start video decoding for specified JniASPlayer instance .
- *@param:        Handle      JniASPlayer handle.
+ *@param:        handle      JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_startVideoDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_startVideoDecoding(jni_asplayer_handle handle);
 
 /**
  *@brief:        Pause video decoding for specified JniASPlayer instance .
- *@param:        Handle       JniASPlayer handle.
+ *@param:        handle       JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_pauseVideoDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_pauseVideoDecoding(jni_asplayer_handle handle);
 
 /**
  *@brief:        Resume video decoding for specified JniASPlayer instance .
- *@param:        Handle      JniASPlayer handle.
+ *@param:        handle      JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_resumeVideoDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_resumeVideoDecoding(jni_asplayer_handle handle);
 
 /**
  *@brief:        Stop video decoding for specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_stopVideoDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_stopVideoDecoding(jni_asplayer_handle handle);
 
 
 /*Audio interface*/
 /**
  *@brief:        Set audio volume to specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        volume     Volume value.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setAudioVolume(jni_asplayer_handle Handle, int32_t volume);
+jni_asplayer_result  JniASPlayer_setAudioVolume(jni_asplayer_handle handle, int32_t volume);
 
 /**
  *@brief:        Get audio volume value from specified JniASPlayer instance .
- *@param:        Handle      JniASPlayer handle.
+ *@param:        handle      JniASPlayer handle.
  *@param:        *volume     Volume value.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getAudioVolume(jni_asplayer_handle Handle, int32_t *volume);
+jni_asplayer_result  JniASPlayer_getAudioVolume(jni_asplayer_handle handle, int32_t *volume);
 
 /*Audio interface*/
 /**
- *@brief:        Set audio stereo mode to specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
- *@param:        Mode       Stereo mode.
+ *@brief:        Sets the Dual Mono mode to specified JniASPlayer instance .
+ *@param:        handle     JniASPlayer handle.
+ *@param:        mode       dual mono mode.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setAudioStereoMode(jni_asplayer_handle Handle, jni_asplayer_audio_stereo_mode Mode);
+jni_asplayer_result  JniASPlayer_setAudioDualMonoMode(jni_asplayer_handle handle,
+                                                      jni_asplayer_audio_dual_mono_mode mode);
 
 /**
- *@brief:        Get audio stereo mode to specified JniASPlayer instance .
- *@param:        Handle    JniASPlayer handle.
- *@param:        *pMode    Stereo mode.
+ *@brief:        Returns the Dual Mono mode of specified JniASPlayer instance .
+ *@param:        handle    JniASPlayer handle.
+ *@param:        *pMode    dual mono mode.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getAudioStereoMode(jni_asplayer_handle Handle, jni_asplayer_audio_stereo_mode *pMode);
+jni_asplayer_result  JniASPlayer_getAudioDualMonoMode(jni_asplayer_handle handle,
+                                                      jni_asplayer_audio_dual_mono_mode *pMode);
 
 /**
  *@brief:        Set audio output mute to specified JniASPlayer instance .
- *@param:        Handle         JniASPlayer handle.
+ *@param:        handle         JniASPlayer handle.
  *@param:        analog_mute    If analog mute or unmute .
  *@param:        digital_mute   If digital mute or unmute .
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setAudioMute(jni_asplayer_handle Handle, bool_t analog_mute, bool_t digital_mute);
+jni_asplayer_result  JniASPlayer_setAudioMute(jni_asplayer_handle handle,
+                                              bool_t analog_mute,
+                                              bool_t digital_mute);
 
 /**
  *@brief:        Get audio output mute status from specified
                  JniASPlayer instance .
- *@param:        Handle            JniASPlayer handle.
+ *@param:        handle            JniASPlayer handle.
  *@param:        *analog_unmute    If analog mute or unmute .
  *@param:        *digital_unmute   If digital mute or unmute .
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getAudioMute(jni_asplayer_handle Handle, bool_t *analog_unmute, bool_t *digital_unmute);
+jni_asplayer_result  JniASPlayer_getAudioMute(jni_asplayer_handle handle,
+                                              bool_t *analog_unmute,
+                                              bool_t *digital_unmute);
 
 /**
  *@brief:        Set audio params need by demuxer and audio decoder
  *               to specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        *pParams   Params need by demuxer and audio decoder.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setAudioParams(jni_asplayer_handle Handle, jni_asplayer_audio_params *pParams);
+jni_asplayer_result  JniASPlayer_setAudioParams(jni_asplayer_handle handle,
+                                                jni_asplayer_audio_params *pParams);
 
 /**
  *@brief:        Switch audio track for specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        *pParams   Params need by demuxer and audio decoder.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_switchAudioTrack(jni_asplayer_handle Handle, jni_asplayer_audio_params *pParams);
+jni_asplayer_result  JniASPlayer_switchAudioTrack(jni_asplayer_handle handle,
+                                                  jni_asplayer_audio_params *pParams);
 
 /**
  *@brief:        Get audio basic info of specified JniASPlayer instance.
- *@param:        Handle      JniASPlayer handle.
+ *@param:        handle      JniASPlayer handle.
  *@param:        *pInfo      The ptr of audio basic info struct .
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getAudioInfo(jni_asplayer_handle Handle,  jni_asplayer_audio_info *pInfo);
+jni_asplayer_result  JniASPlayer_getAudioInfo(jni_asplayer_handle handle,
+                                              jni_asplayer_audio_info *pInfo);
 
 /**
  *@brief:        Start audio decoding for specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_startAudioDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_startAudioDecoding(jni_asplayer_handle handle);
 
 /**
  *@brief:        Pause audio decoding for specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_pauseAudioDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_pauseAudioDecoding(jni_asplayer_handle handle);
 
 /**
  *@brief:        Resume audio decoding for specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_resumeAudioDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_resumeAudioDecoding(jni_asplayer_handle handle);
 
 /**
  *@brief:        Stop audio decoding for specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_stopAudioDecoding(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_stopAudioDecoding(jni_asplayer_handle handle);
 
 /*Audio description interface*/
 /**
  *@brief:        Set audio description params need by demuxer
  *               and audio decoder to specified JniASPlayer instance.
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@param:        *pParams   Params need by demuxer and audio decoder.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setADParams(jni_asplayer_handle Handle, jni_asplayer_audio_params *pParams);
+jni_asplayer_result  JniASPlayer_setADParams(jni_asplayer_handle handle,
+                                             jni_asplayer_audio_params *pParams);
 
 /**
  *@brief:        Set audio description volume
@@ -775,72 +799,79 @@ jni_asplayer_result  JniASPlayer_setADMixLevel(jni_asplayer_handle handle, int32
  *@param:        *mixLevel     audio description mix level.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getADMixLevel(jni_asplayer_handle Handle, int32_t *mixLevel);
+jni_asplayer_result  JniASPlayer_getADMixLevel(jni_asplayer_handle handle, int32_t *mixLevel);
 
 /**
  *@brief:        Get audio description basic info of specified
  *               JniASPlayer instance.
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@param:        *pInfo    The ptr of audio basic info struct .
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getADInfo(jni_asplayer_handle Handle, jni_asplayer_audio_info *pInfo);
+jni_asplayer_result  JniASPlayer_getADInfo(jni_asplayer_handle handle, jni_asplayer_audio_info *pInfo);
 
 /*Subtitle interface*/
 /**
  *@brief:        Set subtitle pid for specified JniASPlayer instance .
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@param:        pid       The pid of subtitle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setSubPid(jni_asplayer_handle Handle, uint32_t pid);
+jni_asplayer_result  JniASPlayer_setSubPid(jni_asplayer_handle handle, uint32_t pid);
 
 /**
  *@brief:        get Params for specified JniASPlayer instance .
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@param:        type      JniASPlayer parameter type.
  *@param:        *arg      The qualified pointer returned
                            by the function.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getParams(jni_asplayer_handle Handle, jni_asplayer_parameter type, void* arg);
+jni_asplayer_result  JniASPlayer_getParams(jni_asplayer_handle handle,
+                                           jni_asplayer_parameter type,
+                                           void* arg);
 
 /**
  *@brief:        set Params for specified JniASPlayer instance .
- *@param:        Handle     JniASPlayer handle.
+ *@param:        handle     JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setParams(jni_asplayer_handle Handle, jni_asplayer_parameter type, void* arg);
+jni_asplayer_result  JniASPlayer_setParams(jni_asplayer_handle handle,
+                                           jni_asplayer_parameter type,
+                                           void* arg);
 
 /**
  *@brief:        get State for specified JniASPlayer instance .
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result JniASPlayer_getState(jni_asplayer_handle Handle,jni_asplayer_state_t* state);
+jni_asplayer_result JniASPlayer_getState(jni_asplayer_handle handle,
+                                         jni_asplayer_state_t* state);
 
 /**
  *@brief:        Start subtitle for specified JniASPlayer instance .
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_startSub(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_startSub(jni_asplayer_handle handle);
 
 /**
  *@brief:        Stop subtitle for specified JniASPlayer instance .
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_stopSub(jni_asplayer_handle Handle);
+jni_asplayer_result  JniASPlayer_stopSub(jni_asplayer_handle handle);
 
 /**
  *@brief:        Get the first pts of specified JniASPlayer instance.
- *@param:        Handle    JniASPlayer handle.
+ *@param:        handle    JniASPlayer handle.
  *@param:        StrType   stream type.
  *@param:        *pts      output pts.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getFirstPts(jni_asplayer_handle Handle, jni_asplayer_stream_type StrType, uint64_t *pts);
+jni_asplayer_result  JniASPlayer_getFirstPts(jni_asplayer_handle handle,
+                                             jni_asplayer_stream_type StrType,
+                                             uint64_t *pts);
 
 
 #ifdef __cplusplus

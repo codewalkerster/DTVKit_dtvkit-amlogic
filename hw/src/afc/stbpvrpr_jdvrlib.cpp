@@ -1918,7 +1918,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
     ret = Wrapper_Player_StartVideoDecoding(player_handle);
     if (ret == 0)
     {
-        STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_VIDEO_STARTED, &video_decoder, sizeof(U8BIT));
+        PVR_INFO("Start video decode success, player[0x%u]", player_handle);
     }
     else
     {
@@ -1933,17 +1933,10 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         return ret;
     }
 
-    ret = Wrapper_Player_SetAudioDualMonoMode(player_handle, JNI_ASPLAYER_DUAL_MONO_OFF);
-    if (ret < 0)
-    {
-        PVR_INFO("Set aduio stereo mode[%d] failed, err:%d", JNI_ASPLAYER_DUAL_MONO_OFF, ret);
-        return ret;
-    }
-
     ret = Wrapper_Player_StartAudioDecoding(player_handle);
     if (ret == 0)
     {
-        STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &video_decoder, sizeof(U8BIT));
+        PVR_INFO("Start audio decode success, player[0x%u]", player_handle);
     }
     else
     {

@@ -145,7 +145,7 @@ typedef struct
     WRAPPER_PLAYER_VIDEO_STREAM_TYPE    video_format;
     WRAPPER_PLAYER_AUDIO_STREAM_TYPE    audio_format;
     WRAPPER_PLAYER_AUDIO_STREAM_TYPE    ad_format;
-    jni_asplayer_audio_stereo_mode  audio_mode;
+    jni_asplayer_audio_dual_mono_mode  audio_mode;
     BOOLEAN              injecting;
 
     BOOLEAN              iframe_shown;
@@ -294,11 +294,11 @@ static int AV_CreatePlayer_l(U8BIT av_path, jni_asplayer_input_source_type sourc
 static int AV_ReleasePlayer_l(U8BIT av_path);
 static int AV_GetPlayerHandleByPath_l(U8BIT video, U8BIT audio, jni_asplayer_handle* player_handle, BOOLEAN recreat_handle); //return jni_asplayer_handle or am_tsplayer_handle
 static int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle);
-static int AV_StartAudioDecode_l(U8BIT av_path,jni_asplayer_handle player_handle, U16BIT a_pid, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
+static int AV_StartAudioDecode_l(U8BIT av_path,jni_asplayer_handle player_handle, U16BIT a_pid, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_dual_mono_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId);
 static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handle, U16BIT v_pid, U16BIT pcr_pid, WRAPPER_PLAYER_VIDEO_STREAM_TYPE format);
 
 //for PVR
-static int AV_SetAudioDecode_l(jni_asplayer_handle player_handle, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute);
+static int AV_SetAudioDecode_l(jni_asplayer_handle player_handle, jni_asplayer_audio_dual_mono_mode audio_mode, U8BIT vol, BOOLEAN mute);
 BOOLEAN STB_AVAcquirePath(U8BIT video_decoder, U8BIT audio_decoder);
 BOOLEAN STB_AVReleasePath(U8BIT video_decoder, U8BIT audio_decoder);
 U8BIT STB_AVGetPath(U8BIT video_decoder, U8BIT audio_decoder);
@@ -350,7 +350,7 @@ void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths)
             av_paths_status[av_path].player_handle      = WRAPPER_PLAYER_INVALID_HANDLE;
             av_paths_status[av_path].volume             = 100;
             av_paths_status[av_path].mute               = FALSE;
-            av_paths_status[av_path].audio_mode         = JNI_ASPLAYER_AV_AUDIO_STEREO;
+            av_paths_status[av_path].audio_mode         = JNI_ASPLAYER_DUAL_MONO_OFF;
             av_paths_status[av_path].video_decoder      = INVALID_RES_ID;
             av_paths_status[av_path].audio_decoder      = INVALID_RES_ID;
             av_paths_status[av_path].video_out_control     = 0;
@@ -1050,7 +1050,7 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
 {
     int ret;
     jni_asplayer_handle player_handle;
-    jni_asplayer_audio_stereo_mode audio_mode;
+    jni_asplayer_audio_dual_mono_mode audio_mode;
     FUNCTION_START(STB_AVChangeAudioMode);
     U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
     AUD_DBG("set stereo mode %d[-:%d] mode[%d]", av_path, path, mode);
@@ -1058,24 +1058,25 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
     switch (mode)
     {
         case AV_AUDIO_STEREO:
-            audio_mode = JNI_ASPLAYER_AV_AUDIO_STEREO;
+            audio_mode = JNI_ASPLAYER_DUAL_MONO_OFF;
             break;
         case AV_AUDIO_RIGHT:
-            audio_mode = JNI_ASPLAYER_AV_AUDIO_RIGHT;
+            audio_mode = JNI_ASPLAYER_DUAL_MONO_RR;
             break;
         case AV_AUDIO_LEFT:
-            audio_mode = JNI_ASPLAYER_AV_AUDIO_LEFT;
+            audio_mode = JNI_ASPLAYER_DUAL_MONO_LL;
             break;
         case AV_AUDIO_MONO:
-            audio_mode = JNI_ASPLAYER_AV_AUDIO_LRMIX;
+            audio_mode = JNI_ASPLAYER_DUAL_MONO_LR;
             break;
         case AV_AUDIO_MULTICHANNEL:
-            audio_mode = JNI_ASPLAYER_AV_AUDIO_STEREO;
+            audio_mode = JNI_ASPLAYER_DUAL_MONO_OFF;
             break;
         default:
             AUD_DBG("Not support audio mode:%d", mode);
             return;
     }
+
     if (av_path != INVALID_RES_ID)
     {
         av_paths_status[av_path ].audio_mode = audio_mode;
@@ -1095,11 +1096,11 @@ void STB_AVChangeAudioMode(U8BIT path, E_STB_AV_AUDIO_MODE mode)
         return;
     }
 
-    ret = Wrapper_Player_SetAudioStereoMode(player_handle, audio_mode);
+    ret = Wrapper_Player_SetAudioDualMonoMode(player_handle, audio_mode);
     if (ret < 0) {
-        AUD_DBG("%d Set aduio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
+        AUD_DBG("%d Set audio stereo mode[%d] failed, err:%d", __LINE__, audio_mode, ret);
     } else {
-        AUD_DBG("Set aduio stereo mode[%d]", audio_mode);
+        AUD_DBG("Set audio stereo mode[%d]", audio_mode);
     }
     pthread_rwlock_unlock(_l);
 
@@ -3565,7 +3566,7 @@ static int AV_GetPathByPlayerHandle(jni_asplayer_handle player_handle)
 }
 
 static int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handle, U16BIT a_pid,
-                        WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId)
+                        WRAPPER_PLAYER_AUDIO_STREAM_TYPE format, jni_asplayer_audio_dual_mono_mode audio_mode, U8BIT vol, BOOLEAN mute, int audioPresentationId)
 {
     int ret;
     jni_asplayer_audio_params audio_param;
@@ -3600,15 +3601,15 @@ static int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
         ret = Wrapper_Player_SetParams(player_handle, JNI_ASPLAYER_KEY_AUDIO_PRESENTATION_ID, &audioPresentationId);
         if (ret < 0)
         {
-            AUD_DBG("Set aduio presentation id[%d] failed, err:%d", audioPresentationId, ret);
+            AUD_DBG("Set audio presentation id[%d] failed, err:%d", audioPresentationId, ret);
             return ret;
         }
     }
 
-    ret = Wrapper_Player_SetAudioStereoMode(player_handle, audio_mode);
+    ret = Wrapper_Player_SetAudioDualMonoMode(player_handle, audio_mode);
     if (ret < 0)
     {
-        AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
+        AUD_DBG("Set audio stereo mode[%d] failed, err:%d", audio_mode, ret);
         return ret;
     }
 
@@ -3629,14 +3630,14 @@ static int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
     return ret;
 }
 
-static int AV_SetAudioDecode_l(jni_asplayer_handle player_handle, jni_asplayer_audio_stereo_mode audio_mode, U8BIT vol, BOOLEAN mute)
+static int AV_SetAudioDecode_l(jni_asplayer_handle player_handle, jni_asplayer_audio_dual_mono_mode audio_mode, U8BIT vol, BOOLEAN mute)
 {
     int ret;
 
-    ret = Wrapper_Player_SetAudioStereoMode(player_handle, audio_mode);
+    ret = Wrapper_Player_SetAudioDualMonoMode(player_handle, audio_mode);
     if (ret < 0)
     {
-        AUD_DBG("Set aduio stereo mode[%d] failed, err:%d", audio_mode, ret);
+        AUD_DBG("Set audio stereo mode[%d] failed, err:%d", audio_mode, ret);
         return ret;
     }
 

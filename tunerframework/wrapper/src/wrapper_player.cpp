@@ -309,13 +309,13 @@ S8BIT Wrapper_Player_GetVideoInfo(jni_asplayer_handle handle, jni_asplayer_video
     return ret;
 }
 
-S8BIT Wrapper_Player_SetAudioStereoMode(jni_asplayer_handle handle, jni_asplayer_audio_stereo_mode Mode)
+S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode Mode)
 {
     S8BIT ret = -1;
-    if (1)//JniASPlayer_setAudioStereoMode(handle, Mode) == JNI_ASPLAYER_OK)
+    if (JniASPlayer_setAudioDualMonoMode(handle, Mode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
-        ALOGI("%s : func not impl, handle = %u", __FUNCTION__, handle);
+        ALOGI("%s : mode= %d, handle = %u", __FUNCTION__, Mode, handle);
     }
     else
     {
@@ -324,10 +324,10 @@ S8BIT Wrapper_Player_SetAudioStereoMode(jni_asplayer_handle handle, jni_asplayer
     return ret;
 }
 
-S8BIT Wrapper_Player_GetAudioStereoMode(jni_asplayer_handle handle, jni_asplayer_audio_stereo_mode *pMode)
+S8BIT Wrapper_Player_GetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode *pMode)
 {
     S8BIT ret = -1;
-    if (0)//JniASPlayer_getAudioStereoMode(handle, pMode) == JNI_ASPLAYER_OK)
+    if (JniASPlayer_getAudioDualMonoMode(handle, pMode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
         ALOGI("%s : handle = %u", __FUNCTION__, handle);

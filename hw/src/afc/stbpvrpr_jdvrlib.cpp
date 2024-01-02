@@ -1933,10 +1933,10 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         return ret;
     }
 
-    ret = Wrapper_Player_SetAudioStereoMode(player_handle, JNI_ASPLAYER_AV_AUDIO_STEREO);
+    ret = Wrapper_Player_SetAudioDualMonoMode(player_handle, JNI_ASPLAYER_DUAL_MONO_OFF);
     if (ret < 0)
     {
-        PVR_INFO("Set aduio stereo mode[%d] failed, err:%d", JNI_ASPLAYER_AV_AUDIO_STEREO, ret);
+        PVR_INFO("Set aduio stereo mode[%d] failed, err:%d", JNI_ASPLAYER_DUAL_MONO_OFF, ret);
         return ret;
     }
 

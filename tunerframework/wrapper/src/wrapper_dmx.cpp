@@ -524,6 +524,16 @@ JCAS_JNI_RESULT MediaCAS_CasManagerTerm()
     return AM_CasManagerTerm();
 }
 
+JCAS_JNI_RESULT MediaCAS_SendCommand(CasHandle casHandle, int event, int arg, uint8_t* data, int dataLen)
+{
+    return AM_SendCommand(casHandle, event, arg, data, dataLen);
+}
+
+JCAS_JNI_RESULT MediaCAS_SendSessionCommand(CasHandle casHandle, CasSessionHandle casSessionHandle, int event, int arg, uint8_t* data, int dataLen)
+{
+    return AM_SendSessionCommand(casHandle, casSessionHandle, event, arg, data, dataLen);
+}
+
 ////////////////////////////
  //tuner hal flow
 // open descramble

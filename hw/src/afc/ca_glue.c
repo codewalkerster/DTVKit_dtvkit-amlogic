@@ -171,6 +171,39 @@ static void DebugPrintBuffer(U8BIT *buff, U32BIT len)
    }
 }
 
+JCAS_JNI_RESULT CAS_CallBack(CasHandle casHandle, int event, int args, uint8_t* data, int dataLen)
+{
+    U8BIT i;
+
+    CA_DBG("%s casHandle[%#x] event[%d] args[%d] data[%p] dataLen[%d]", __FUNCTION__, casHandle, event, args, data, dataLen);
+    if (NULL != data)
+    {
+        DebugPrintBuffer(data, dataLen);
+    }
+    else
+    {
+        CA_DBG("%s data==NULL", __FUNCTION__);
+    }
+    return AM_CAS_JNI_OK;
+}
+
+JCAS_JNI_RESULT CAS_SessionCallBack(CasHandle casHandle, CasSessionHandle sessionHandle, int event, int args, uint8_t* data, int dataLen)
+{
+    U8BIT i;
+
+    CA_DBG("%s casHandle[%#x] sessionHandle[%#x] event[%d] args[%d] data[%p] dataLen[%d]", __FUNCTION__,\
+        casHandle, sessionHandle, event, args, data, dataLen);
+    if (NULL != data)
+    {
+        DebugPrintBuffer(data, dataLen);
+    }
+    else
+    {
+        CA_DBG("%s data==NULL", __FUNCTION__);
+    }
+    return AM_CAS_JNI_OK;
+}
+
 /*!**************************************************************************
  * @brief   This function is used by the resource manager to acquire a CA descrambler
  *          that's able to descramble a service that uses one of the CA systems
@@ -230,6 +263,11 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
         CA_DBG("%s CA Id[%#x]", __FUNCTION__, ca_ids[j]);
         ((CA_HANDLE *)(*handle))->plug_info.tisSessionId = path;
         ((CA_HANDLE *)(*handle))->plug_info.tisUseCase = LIVE;
+        ((CA_HANDLE *)(*handle))->plug_info.casCallback = (CAS_Callback_t)CAS_CallBack;
+        ((CA_HANDLE *)(*handle))->plug_info.casSessionCallback = (CAS_SessionCallback_t)CAS_SessionCallBack;
+        CA_DBG("%s casCallback [%p] casSessionCallback[%p]", __FUNCTION__, ((CA_HANDLE *)(*handle))->plug_info.casCallback,((CA_HANDLE *)(*handle))->plug_info.casSessionCallback);
+        CA_DBG("%s casCallback [%p] casSessionCallback[%p]", __FUNCTION__, (CAS_Callback_t)CAS_CallBack,(CAS_SessionCallback_t)CAS_SessionCallBack);
+
         if (MediaCAS_IsSystemIdSupported(ca_ids[j]))
         {
             ((CA_HANDLE *)(*handle))->plug_info.caSystemId = ca_ids[j];
@@ -454,8 +492,35 @@ void STB_CADescrambleServiceStop(UINTPTR handle)
  * @brief   This function will be called when set CA descramble ioctl
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session,  const char* inJson, char* outJson, U32BIT outLen)
+void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session, const char* inJson, char* outJson, U32BIT outLen)
 {
+    FUNCTION_START(STB_CADescrambleIoctl);
+    ASSERT(handle);
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+    STB_OSMutexLock(cas_mutex);
+
+    if (0 != session)
+    {
+        if (MediaCAS_SendCommand((CasHandle)session, CAS_EVENT_TYPE_PROVIDER , CAS_EVENT_TYPE_STATUS, (uint8_t*)inJson, strlen(inJson)))
+        {
+            CA_DBG("%s MediaCAS_SendCommand failed.", __FUNCTION__);
+        }
+    }
+    else if (0 != handle)
+    {
+        if (MediaCAS_SendSessionCommand(((CA_HANDLE *)handle)->ca_handle, ((CA_HANDLE *)handle)->ca_session_handle, CAS_EVENT_TYPE_PROVIDER, CAS_EVENT_TYPE_STATUS, (uint8_t*)inJson, strlen(inJson)))
+        {
+            CA_DBG("%s MediaCAS_SendSessionCommand failed.", __FUNCTION__);
+        }
+    }
+    else
+    {
+        CA_DBG("%s ca_handle = NULL", __FUNCTION__);
+    }
+
+    CA_DBG("%s handle:(0x%lx) session:(0x%lx) [inJson: %s] [inLen: %d]", __FUNCTION__, handle, session, inJson, strlen(inJson));
+    STB_OSMutexUnlock(cas_mutex);
+    FUNCTION_FINISH(STB_CADescrambleIoctl);
 }
 
 /*!**************************************************************************

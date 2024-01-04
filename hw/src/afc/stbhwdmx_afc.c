@@ -1818,7 +1818,7 @@ void PidCallback(ST_CALLBACK_T* param)
                    * 0 then this data is for a different table id */
                   if (result == 0)
                   {
-                     for (sfi = 1; sfi < DEMUX_SECTION_FILTER_LENGTH; ++sfi)
+                     for (sfi = 1; sfi < DEMUX_SECTION_FILTER_LENGTH && (sfi + 2) < pid_filter->data_packet_size; ++sfi)
                      {
                         /* Skip section length field */
                         result |= (sect_filter->mask[sfi] & (param->pun8_buffer[sfi+2] ^ sect_filter->match[sfi]));

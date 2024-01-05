@@ -854,9 +854,9 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
    FUNCTION_START(STB_AVBlankVideo);
 
    VID_DBG("path[%u], blank[%d], flag[%x], av_out_flag[%x]", path, av_blank, flag, av_paths_status[path].video_out_control);
-   if (video_blank_lock)
+   if (video_blank_lock || path >= num_paths)
    {
-      VID_DBG("Video blank locked, can not change");
+      VID_DBG("Video blank locked or path is invalid, can not change");
       return;
    }
 

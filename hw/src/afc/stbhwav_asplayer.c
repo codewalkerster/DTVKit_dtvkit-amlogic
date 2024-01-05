@@ -744,15 +744,14 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
 {
    int ret;
    jni_asplayer_handle player_handle;
-   U8BIT av_path = INVALID_RES_ID;
    BOOLEAN blank = FALSE;
 
    FUNCTION_START(STB_AVBlankVideo);
 
    VID_DBG("path[%u], blank[%d], flag[%x], av_out_flag[%x]", path, av_blank, flag, av_paths_status[path].video_out_control);
-   if (video_blank_lock)
+   if (video_blank_lock || path >= num_paths)
    {
-      VID_DBG("Video blank locked, can not change");
+      VID_DBG("Video blank locked or path is invalid, can not change");
       return;
    }
 
@@ -768,32 +767,11 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
         blank = FALSE;
     }
 
-    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
-    if (_l == NULL) {
-        VID_DBG("Can't get lock, video decoder[%d]", path);
-        return;
-    }
-
-    pthread_rwlock_rdlock(_l);
-    ret = AV_GetPlayerHandleByPath_l(path, INVALID_RES_ID, &player_handle, FALSE);
-    if (ret < 0) {
-        VID_DBG("Cannot get player video decoder[%d]", path);
-        pthread_rwlock_unlock(_l);
-        return;
-    }
-
     if (blank == TRUE) {
-        //ret = Aml_MP_Player_HideVideo(player_handle);
-        if (ret < 0) {
-            AUD_DBG("Hide video failed, err:%d", ret);
-        }
+        VID_DBG("Hide video", path);
     } else {
-        //ret = Aml_MP_Player_ShowVideo(player_handle);
-        if (ret < 0) {
-            AUD_DBG("Show video failed, err:%d", ret);
-        }
+        VID_DBG("Show video", path);
     }
-    pthread_rwlock_unlock(_l);
 
    FUNCTION_FINISH(STB_AVBlankVideo);
 }

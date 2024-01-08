@@ -1316,7 +1316,7 @@ BOOLEAN STB_Tune_BlindContinue(U8BIT path)
 
 E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path)
 {
-    E_TUNER_EVENT tuner_event = TUNER_STATE_UNKNOW;
+    E_TUNER_EVENT tuner_event = TUNER_STATE_UNKNOWN;
     FUNCTION_START(STB_TuneGetLockStatus);
 
     tuner_event = (E_TUNER_EVENT)Wrapper_TuneGetLockStatus(path);

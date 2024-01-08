@@ -403,7 +403,7 @@ static int key_close(int fd)
 {
    if (fd == -1)
    {
-      DMX_DBG("key_close inavlid fd\n");
+      DMX_DBG("key_close invalid fd\n");
       return -1;
    }
    close(fd);
@@ -497,7 +497,7 @@ static int key_set(int fd, int key_index, char *key, int key_len)
 }
 
 static int ca_set_scb(int dev_id, int index, int scb_flag)
-{  
+{
    int ret = 0;
    int fd = 0;
    struct ca_sc2_descr_ex desc = {0};
@@ -600,7 +600,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
    int chan_id = -1;
    int i, r, id;
    char name[256];
-   
+
    DMX_DBG("dev %d pid %x dsc_type %d %s", dev_id, pid, type, name);
 
    if (dmx_model_sc2)
@@ -844,7 +844,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       for (i = 0; i < SC2_DSC_CH_NUM; i++)
       {
          dsc_channel = &sc2_dsc_dev_info->dsc_pid_channel[i];
-         if (dsc_channel->chan_id == chan_id && 
+         if (dsc_channel->chan_id == chan_id &&
                dsc_channel->ref > 0 &&
                dsc_channel->src == ts_src)
          {
@@ -865,7 +865,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
                r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
                if (r < 0)
                   DMX_DBG("CA_SC2_SET_DESCR_EX free channel failed");
-               
+
                if (dsc_channel->even_key_id != -1)
                   key_free(dsc->key_fd, dsc_channel->even_key_id);
                if (dsc_channel->odd_key_id != -1)
@@ -1186,7 +1186,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 
    FUNCTION_START(STB_DMXInitialise);
 
-   DMX_DBG("%u demuxes--, %s PES colection", paths, inc_pes_collection ? "with" : "no");
+   DMX_DBG("%u demuxes--, %s PES collection", paths, inc_pes_collection ? "with" : "no");
    num_paths = paths;
 
    if (num_paths != 0)
@@ -2497,7 +2497,7 @@ static void* ci_signal_entry (void *arg)
       fds[0].fd     = event_fd;
       fds[0].events = POLLIN|POLLERR;
 
-      if(poll(fds, 1, 50) < 0)
+      if (poll(fds, 1, 50) < 0)
       {
          DMX_DBG("poll failure: %s", strerror(errno));
          break;
@@ -2539,14 +2539,14 @@ static void* ci_signal_entry (void *arg)
    filter.filter.mask[0]   = 0xff;
    filter.flags |= DMX_CHECK_CRC;
 
-   if(ioctl(fd, DMX_SET_FILTER, &filter) < 0)
+   if (ioctl(fd, DMX_SET_FILTER, &filter) < 0)
    {
         DMX_DBG("set filter fail error:%s", strerror(errno));
         close(fd);
         return NULL;
    }
 
-   if(ioctl(fd, DMX_START) < 0)
+   if (ioctl(fd, DMX_START) < 0)
    {
        DMX_DBG("set START fail error:%s", strerror(errno));
        close(fd);

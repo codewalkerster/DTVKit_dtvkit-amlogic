@@ -374,7 +374,7 @@ BOOLEAN DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes_filter_pa
        }
        else
        {
-            if(fcntl(filter->fd, F_SETFL, O_NONBLOCK) < 0)
+            if (fcntl(filter->fd, F_SETFL, O_NONBLOCK) < 0)
             {
                 DMX_DBG("set F_SETFL failed error:%s", strerror(errno));
                 ret = FALSE;
@@ -519,7 +519,7 @@ BOOLEAN DMX_SetSource(int dev_no, AML_DMX_Source_t src)
     char *cmd;
 
     snprintf(buf, sizeof(buf), "/sys/class/stb/demux%d_source", dev_no);
-    switch(src)
+    switch (src)
     {
         case AML_DMX_SRC_TS0:
             cmd = "ts0";
@@ -602,7 +602,7 @@ BOOLEAN DMX_Close(int dev_no)
         {
             if (filter->enable)
             {
-                if(ioctl(filter->fd, DMX_STOP, 0) < 0)
+                if (ioctl(filter->fd, DMX_STOP, 0) < 0)
                 {
                     DMX_DBG("set filter failed error:%s", strerror(errno));
                     ret = FALSE;

@@ -9,7 +9,7 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  *
- * If you or your organisation is not a member of DTVKit then you have access
+ * If you or your organization is not a member of DTVKit then you have access
  * to this source code outside of the terms of the licence agreement
  * and you are expected to delete this and any associated files immediately.
  * Further information on DTVKit, membership and terms can be found at www.dtvkit.org
@@ -1566,7 +1566,7 @@ E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
 /**
  * @brief   Returns the heirarchy of the current terrestrial signal
  * @param   tuner_id, the tuner index to query
- * @return  the heirarchy
+ * @return  the hierarchy
  */
 E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
 {
@@ -2753,7 +2753,7 @@ void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count)
 
     *count = 0;
 
-    if(tuner_status[path].bs_setting.m_uiChannelCount)
+    if (tuner_status[path].bs_setting.m_uiChannelCount)
     {
         *count = (unsigned int)(tuner_status[path].bs_setting.m_uiChannelCount);
     }
@@ -2775,7 +2775,7 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
 
     STB_OSMutexLock(tuner_status[path].lock);
 
-    if((*count) > tuner_status[path].bs_setting.m_uiChannelCount)
+    if ((*count) > tuner_status[path].bs_setting.m_uiChannelCount)
     {
         *count = (unsigned int)(tuner_status[path].bs_setting.m_uiChannelCount);
     }
@@ -3562,9 +3562,9 @@ static void* TunerTask(void *param)
                     {
                         if (locked)
                         {
-                            if(TRUE == STB_TuneIsSearchMode(tstatus->path))//Filter unstable signals
+                            if (TRUE == STB_TuneIsSearchMode(tstatus->path))//Filter unstable signals
                             {
-                                if(lost_signal_times<TUNER_LOST_LOCK_TIMES)
+                                if (lost_signal_times < TUNER_LOST_LOCK_TIMES)
                                 {
                                     lost_signal_times++;
                                 }
@@ -3720,7 +3720,7 @@ static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus)
 /*static*/ E_TUNER_EVENT GetTunerLockStatus(U32BIT frontend_fd)
 {
     struct dvb_frontend_event fe_event;
-    E_TUNER_EVENT tune_event = TUNER_STATE_UNKNOW;
+    E_TUNER_EVENT tune_event = TUNER_STATE_UNKNOWN;
 
     if (ioctl(frontend_fd, FE_READ_STATUS, &fe_event.status) >= 0)
     {
@@ -3874,7 +3874,7 @@ static BOOLEAN dvb_blindscan_scan(U8BIT fd, struct dvbsx_blindscanpara *pbspara)
     int num = 8;
 
     property = STB_MEMGetSysRAM(num * sizeof(struct dtv_property));
-    if(NULL == property)
+    if (NULL == property)
         return FALSE;
 
     memset(property, 0, num * sizeof(struct dtv_property));
@@ -4069,7 +4069,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
     /*Query the internal blind scan procedure information.*/
     ret = dvb_blindscan_getscanevent(tuner_status[path].frontend_fd, pbsEvent);
 
-    if(!ret)
+    if (!ret)
     {
         ret = FALSE;
         STB_OSMutexUnlock(tuner_status[path].lock);
@@ -4079,7 +4079,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
     memcpy(pbsevent, pbsEvent, sizeof(struct dvbsx_blindscanevent));
 
     /*update tp info*/
-    if(pbsEvent->status == BLINDSCAN_UPDATERESULTFREQ)
+    if (pbsEvent->status == BLINDSCAN_UPDATERESULTFREQ)
     {
         /*now driver return 1 tp*/
         for (U16BIT i = 0; i < tuner_status[path].bs_setting.m_uiChannelCount; i++)
@@ -4136,7 +4136,7 @@ static BOOLEAN AM_FEND_BlindDump(U8BIT path)
     TUN_DBG( "AM_FEND_BlindDump start %d--------------------\n", tuner_status[path].bs_setting.m_uiChannelCount);
     STB_OSMutexLock(tuner_status[path].lock);
 
-    for(i = 0; i < (tuner_status[path].bs_setting.m_uiChannelCount); i++)
+    for (i = 0; i < (tuner_status[path].bs_setting.m_uiChannelCount); i++)
     {
         TUN_DBG( "num:%d freq:%d symb:%d\n", i, tuner_status[path].bs_setting.channels[i].frequency, tuner_status[path].bs_setting.channels[i].u.qpsk.symbol_rate);
     }
@@ -4165,7 +4165,7 @@ static void* fend_blindscan_thread(void *arg)
             BS_Status = DVB_BS_Status_Cancel;
         }
 
-        switch(BS_Status)
+        switch (BS_Status)
         {
             case DVB_BS_Status_Init:
             {
@@ -4179,10 +4179,10 @@ static void* fend_blindscan_thread(void *arg)
                 ret = AM_FEND_IBlindScanAPI_Start(path);
                 TUN_DBG( "fend_blindscan_thread AM_FEND_IBlindScanAPI_Start %d", ret);
 
-                if(!ret)
+                if (!ret)
                 {
                     BS_Status = DVB_BS_Status_Exit;
-                    if(tuner_status[path].blindscan_cb)
+                    if (tuner_status[path].blindscan_cb)
                     {
                         evt.status = AM_FEND_BLIND_START_FAILED;
                         tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
@@ -4201,7 +4201,7 @@ static void* fend_blindscan_thread(void *arg)
                 ret = AM_FEND_IBlindScanAPI_GetScanEvent(path, &cur_bsevent);
                 TUN_DBG( "fend_blindscan_thread AM_FEND_IBlindScanAPI_GetScanEvent %d", ret);
 
-                if(ret)
+                if (ret)
                 {
                     BS_Status = DVB_BS_Status_User_Process;
                 }
@@ -4211,7 +4211,7 @@ static void* fend_blindscan_thread(void *arg)
 
                     wait_reports++;
                     // to avoid wait event reporting frequently
-                    if(wait_reports == 5 && tuner_status[path].blindscan_cb)
+                    if (wait_reports == 5 && tuner_status[path].blindscan_cb)
                     {
                         evt.status = AM_FEND_BLIND_WAIT;
                         tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
@@ -4231,9 +4231,9 @@ static void* fend_blindscan_thread(void *arg)
                 */
                 TUN_DBG( "fend_blindscan_thread custom cb");
 
-                if(tuner_status[path].blindscan_cb)
+                if (tuner_status[path].blindscan_cb)
                 {
-                    if(cur_bsevent.status == BLINDSCAN_UPDATESTARTFREQ)
+                    if (cur_bsevent.status == BLINDSCAN_UPDATESTARTFREQ)
                     {
                         TUN_DBG( "adp start freq %d\n", cur_bsevent.u.m_uistartfreq_khz);
                         evt.freq = cur_bsevent.u.m_uistartfreq_khz;
@@ -4241,7 +4241,7 @@ static void* fend_blindscan_thread(void *arg)
                         evt.status = AM_FEND_BLIND_START;
                         tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
                     }
-                    else if(cur_bsevent.status == BLINDSCAN_UPDATEPROCESS)
+                    else if (cur_bsevent.status == BLINDSCAN_UPDATEPROCESS)
                     {
                         TUN_DBG( "adp process %d\n", cur_bsevent.u.m_uiprogress);
                         evt.process = cur_bsevent.u.m_uiprogress;
@@ -4249,7 +4249,7 @@ static void* fend_blindscan_thread(void *arg)
                         evt.status = AM_FEND_BLIND_UPDATEPROCESS;
                         tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
                     }
-                    else if(cur_bsevent.status == BLINDSCAN_UPDATERESULTFREQ)
+                    else if (cur_bsevent.status == BLINDSCAN_UPDATERESULTFREQ)
                     {
                         TUN_DBG( "adp result freq %d symb %d\n", cur_bsevent.u.parameters.frequency, cur_bsevent.u.parameters.u.qpsk.symbol_rate);
 
@@ -4261,22 +4261,22 @@ static void* fend_blindscan_thread(void *arg)
                 }
 
                 /*------------Custom code end -------------------*/
-                if(cur_bsevent.status == BLINDSCAN_UPDATESTARTFREQ)
+                if (cur_bsevent.status == BLINDSCAN_UPDATESTARTFREQ)
                 {
                     BS_Status = DVB_BS_Status_Wait;
                 }
-                else if(cur_bsevent.status == BLINDSCAN_UPDATEPROCESS)
+                else if (cur_bsevent.status == BLINDSCAN_UPDATEPROCESS)
                 {
                     if (evt.process < 100)
                         BS_Status = DVB_BS_Status_Wait;
                     else
                         BS_Status = DVB_BS_Status_WaitExit;
                 }
-                else if(cur_bsevent.status == BLINDSCAN_UPDATERESULTFREQ)
+                else if (cur_bsevent.status == BLINDSCAN_UPDATERESULTFREQ)
                 {
                     BS_Status = DVB_BS_Status_Wait;
                 }
-                else if(cur_bsevent.status == BLINDSCAN_UPDATERESULT_OTHERS)
+                else if (cur_bsevent.status == BLINDSCAN_UPDATERESULT_OTHERS)
                 {
                     TUN_DBG( "adp result event ERROR\n");
                     BS_Status = DVB_BS_Status_Wait;
@@ -4296,7 +4296,7 @@ static void* fend_blindscan_thread(void *arg)
                 AM_FEND_BlindDump(path);
 
                 ret = AM_FEND_IBlindScanAPI_Exit(path);
-                if(FALSE == ret)
+                if (FALSE == ret)
                 {
                     TUN_DBG( "AM_FEND_IBlindScanAPI_Exit error");
                 }
@@ -4389,7 +4389,7 @@ static BOOLEAN GetRealParamFromDriver(U8BIT path)
 
 E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path)
 {
-    E_TUNER_EVENT tuner_event = TUNER_STATE_UNKNOW;
+    E_TUNER_EVENT tuner_event = TUNER_STATE_UNKNOWN;
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {

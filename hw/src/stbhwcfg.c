@@ -460,10 +460,10 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
             an = att[0];
             av = att[1];
             //CFG_DBG("an [%s] av[%s]", an, av);
-            if (strcmp(an, "name")==0) {
+            if (strcmp(an, "name") == 0) {
                 pname = av;
                 has_name=TRUE;
-            } else if (strcmp(an, "value")==0) {
+            } else if (strcmp(an, "value") == 0) {
                 pvalue = av;
                 has_value=TRUE;
             }
@@ -472,7 +472,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
         if ( has_name && has_value ) {
             e.key=strdup(pname);
             e.data=strdup(pvalue);
-            if ( e.key!=NULL && e.data!=NULL )
+            if (e.key != NULL && e.data != NULL)
             {
                 hret = hsearch_r(e,ENTER,&ep,&(cfg->prop_htab));
                 if ( hret == 0 ) {
@@ -481,10 +481,10 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                     CFG_DBG("Hash table, key:%s, value:%s", pname,pvalue);
                 }
             } else {
-                if (e.key!=NULL) {
+                if (e.key != NULL) {
                     STB_MEMFreeSysRAM(e.key);
                 }
-                if (e.data!=NULL) {
+                if (e.data != NULL) {
                     STB_MEMFreeSysRAM(e.data);
                 }
                 CFG_ERR("Hash table, failed to duplicate strings %s,%s due to insufficient memory"
@@ -705,7 +705,7 @@ static BOOLEAN getDtvKitConfigXmlFile(char *strPathBuf,U16BIT u16PathBufLen)
 {
     BOOLEAN bRet = FALSE;
 
-    if(NULL == strPathBuf)
+    if (NULL == strPathBuf)
     {
         STB_SPDebugWrite("%s %d ERROR!!!", __FUNCTION__, __LINE__);
         return bRet;
@@ -740,7 +740,7 @@ void STB_CfgInitialise(void)
     aml_hw_cfg.epg_cfg.eit_search_enabled = 0;
 
     memset(&(aml_hw_cfg.prop_htab),0,sizeof(struct hsearch_data));
-    if(0==hcreate_r(100,&(aml_hw_cfg.prop_htab)))
+    if (0 == hcreate_r(100,&(aml_hw_cfg.prop_htab)))
     {
         CFG_ERR("Hash table, failed to create hash table");
         //return;
@@ -1009,9 +1009,9 @@ int STB_Get_SI_PSI_Timeout(E_SI_PSI_TYPE sipsi_type)
 
 /**
  * @brief   get dynamic prop
- *          prority1: android property
- *          prority2: config.xml
- *          prority3: other modules
+ *          priority1: android property
+ *          priority2: config.xml
+ *          priority3: other modules
  * @param   name prop name
  * @param   buf returned value
  * @param   len length of buf
@@ -1024,7 +1024,7 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
     int search_ret=0;
     int get_ret=0;
 
-    if ( buf==NULL || len<=0 ) {
+    if (buf == NULL || len <= 0) {
         return FALSE;
     }
 
@@ -1036,10 +1036,10 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
     get_ret = property_get(name, buf, (search_ret!=0?ep->data:NULL));
 #endif
 
-    if ( get_ret>0 ) {
+    if (get_ret > 0) {
         return TRUE;
     }
-    if ( search_ret!=0 ) {
+    if (search_ret != 0) {
         strncpy(buf,ep->data,len);
         CFG_DBG("Hash table, key:%s, value:%s",name,buf);
         return TRUE;
@@ -1060,11 +1060,11 @@ int STB_Cam_Is_CIPlus_Mode()
 BOOLEAN STB_GetDemoCapabilityByType(E_STB_TUNE_SIGNAL_TYPE eType, U_STB_DEMO_CAPABILITY *pCap)
 {
     BOOLEAN ret = TRUE;
-    if(NULL == pCap)
+    if (NULL == pCap)
     {
         return FALSE;
     }
-    switch(eType)
+    switch (eType)
     {
     case TUNE_SIGNAL_QAM:
     {
@@ -1086,7 +1086,7 @@ BOOLEAN STB_GetDemoCapabilityByType(E_STB_TUNE_SIGNAL_TYPE eType, U_STB_DEMO_CAP
  */
 void STB_Set_Prop(const char *name, const char *value)
 {
-    if ( name==NULL || value==NULL ) {
+    if (name == NULL || value == NULL) {
         return;
     }
 #ifdef DTVKIT_IN_VENDOR_PARTITION
@@ -1098,7 +1098,7 @@ void STB_Set_Prop(const char *name, const char *value)
 
     e.key = (char *)name;
     hret = hsearch_r(e,FIND,&ep,&(cfg->prop_htab));
-    if (hret!=0) {
+    if (hret != 0) {
         STB_MEMFreeSysRAM(ep->data);
         ep->data=strdup(value);
         CFG_DBG("Hash table key:%s, value:%s",ep->key,ep->data);

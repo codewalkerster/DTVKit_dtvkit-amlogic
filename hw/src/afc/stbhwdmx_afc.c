@@ -1219,6 +1219,11 @@ printf(" - STOP");
             pid_filter->started = FALSE;
 
             demux_status[path].num_pid_filters_started--;
+            if (demux_status[path].num_pid_filters_started == 0)
+            {
+               demux_status[path].dev_no = 0xFF;
+               DMX_INFO("num_pid_filters_started == 0, set dev_no 0x%x", demux_status[path].dev_no);
+            }
          }
 #ifdef FILTER_PRINTS
 printf("\n");
@@ -2101,7 +2106,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
              demux_status[path].source_param,\
             demux_status[path].demux_cap,\
              pid_filter->pid);
-        demux_status[path].dev_no = 0xFF;
+      //   demux_status[path].dev_no = 0xFF;
         DMX_CloseFilter(pid_filter->fhandle);
         pid_filter->fhandle = -1;
     }

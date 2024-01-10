@@ -306,7 +306,7 @@ U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
     FUNCTION_START(STB_TuneGetMinTunerFreqKHz);
 
     //min_freq = Wrapper_TuneGetMinTunerFreqKHz(path);
-    min_freq = 0;
+    min_freq = 40000;
 
     FUNCTION_FINISH(STB_TuneGetMinTunerFreqKHz);
 
@@ -325,7 +325,7 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
     FUNCTION_START(STB_TuneGetMaxTunerFreqKHz);
 
     //max_freq = Wrapper_TuneGetMaxTunerFreqKHz(path);
-    max_freq = 0x0FFFFFFF;
+    max_freq = 1002000;
 
     FUNCTION_FINISH(STB_TuneGetMaxTunerFreqKHz);
 

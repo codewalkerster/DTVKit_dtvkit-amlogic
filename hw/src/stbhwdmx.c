@@ -1302,7 +1302,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
       struct stat st;
       int         r;
 
-      r = stat("/dev/key", &st);
+      r = stat("/sys/class/stb/dsc_setting", &st);
       if (r == 0)
       {
          dmx_model_sc2 = TRUE;

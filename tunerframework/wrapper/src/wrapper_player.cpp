@@ -25,6 +25,8 @@ using namespace android;
 
 static auto playerFailLeave = [](bool attached){if (attached) Am_tuner_detachJNIEnv();};
 static U8BIT num_paths = 0;
+static U32BIT first_lang = 0;
+static U32BIT second_lang = 0;
 
 typedef struct
 {
@@ -154,7 +156,8 @@ S8BIT Wrapper_Player_Initialise(U8BIT av_path, WRAPPER_TUNER_TYPE tunerType)
 S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle *handle, U8BIT av_path)
 {
     S8BIT ret = -1;
-//    jni_asplayer_handle player_handle;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_create(params, (void *)wp_player_av_status[av_path].playerTuner, &wp_player_av_status[av_path].player_handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -172,6 +175,7 @@ S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle
 S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
 
     U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
     wp_player_av_status[av_path].player_no = WRAPPER_PLAYER_INVALID_RES_ID;
@@ -232,14 +236,33 @@ U8BIT Wrapper_Player_GetPlayerPathByNo(U8BIT player_no)
 S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter)
 {
     S8BIT ret = -1;
-    if (1)//(JniASPlayer_setParams(handle, type, parameter) == JNI_ASPLAYER_OK)
+    ALOGI("%s : start", __FUNCTION__);
+
+    if (JniASPlayer_setParams(handle, type, parameter) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
-        ALOGI("%s : func not impl, handle = %u", __FUNCTION__, handle);
+        ALOGI("%s : params type= %d, handle = %u", __FUNCTION__, type, handle);
     }
     else
     {
-        ALOGI("%s : Player set fail, handle = %u", __FUNCTION__, handle);
+        ALOGI("%s : Player set params fail, params type= %d, handle = %u", __FUNCTION__, type, handle);
+    }
+    return ret;
+}
+
+S8BIT Wrapper_Player_GetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter)
+{
+    S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
+    if (JniASPlayer_getParams(handle, type, parameter) == JNI_ASPLAYER_OK)
+    {
+        ret = JNI_ASPLAYER_OK;
+        ALOGI("%s : params type= %d, handle = %u", __FUNCTION__, type, handle);
+    }
+    else
+    {
+        ALOGI("%s : Player get params fail, params type= %d, handle = %u", __FUNCTION__, type, handle);
     }
     return ret;
 }
@@ -247,6 +270,7 @@ S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_paramete
 S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_video_params *video_params, WRAPPER_PLAYER_VIDEO_STREAM_TYPE format)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
 
     if (video_params != NULL)
     {
@@ -272,15 +296,18 @@ S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_vid
 S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_audio_params *audio_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (audio_params != NULL)
     {
         audio_params->filterId = player_GetAVFilterId(true, audio_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
         audio_params->avSyncHwId = player_GetAVSyncHwId(handle);
-
+        audio_params->language.first_lang = (int)first_lang;
+        audio_params->language.second_lang = (int)second_lang;
         if (JniASPlayer_setAudioParams(handle, audio_params) == JNI_ASPLAYER_OK)
         {
             ret = JNI_ASPLAYER_OK;
-            ALOGI("%s : audio pid= %d, mime= %s, handle = %u", __FUNCTION__, audio_params->pid, audio_params->mimeType, handle);
+            ALOGI("%s : audio pid= %d(%d), mime= %s, handle = %u", __FUNCTION__, audio_params->pid, audio_params->presentation.presentation_id, audio_params->mimeType, handle);
         }
         else
         {
@@ -294,9 +321,20 @@ S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_aud
     return ret;
 }
 
+S8BIT Wrapper_Player_SetAudioLanguage(U32BIT pri_language_code, U32BIT sec_language_code)
+{
+    ALOGI("%s : start", __FUNCTION__);
+    first_lang = pri_language_code;
+    second_lang = sec_language_code;
+    ALOGI("%s : first_lang:0x%x, second_lang:0x%x", __FUNCTION__, first_lang, second_lang);
+    return JNI_ASPLAYER_OK;
+}
+
 S8BIT Wrapper_Player_GetVideoInfo(jni_asplayer_handle handle, jni_asplayer_video_info *pInfo)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_getVideoInfo(handle, pInfo) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -312,6 +350,8 @@ S8BIT Wrapper_Player_GetVideoInfo(jni_asplayer_handle handle, jni_asplayer_video
 S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode Mode)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_setAudioDualMonoMode(handle, Mode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -327,6 +367,8 @@ S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplay
 S8BIT Wrapper_Player_GetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode *pMode)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_getAudioDualMonoMode(handle, pMode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -342,6 +384,7 @@ S8BIT Wrapper_Player_GetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplay
 S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
 
     U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
     jobject surface = Am_tuner_getSurfaceByTunerClient(wp_player_av_status[av_path].playerClient);
@@ -361,6 +404,8 @@ S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle)
 S8BIT Wrapper_Player_RegisterEventCallBack(jni_asplayer_handle handle, event_callback cb, void* userData)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_registerCb(handle, cb, userData) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -373,19 +418,11 @@ S8BIT Wrapper_Player_RegisterEventCallBack(jni_asplayer_handle handle, event_cal
     return ret;
 }
 
-S8BIT Wrapper_Player_ShowVideo(jni_asplayer_handle handle)
-{
-    return 0;
-}
-
-S8BIT Wrapper_Player_HideVideo(jni_asplayer_handle handle)
-{
-    return 0;
-}
-
 S8BIT Wrapper_Player_StartVideoDecoding(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_startVideoDecoding(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -402,6 +439,8 @@ S8BIT Wrapper_Player_StartVideoDecoding(jni_asplayer_handle handle)
 S8BIT Wrapper_Player_StopVideoDecoding(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_stopVideoDecoding(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -426,6 +465,8 @@ S8BIT Wrapper_Player_StopVideoDecoding(jni_asplayer_handle handle)
 S8BIT Wrapper_Player_StartAudioDecoding(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_startAudioDecoding(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -441,6 +482,8 @@ S8BIT Wrapper_Player_StartAudioDecoding(jni_asplayer_handle handle)
 S8BIT Wrapper_Player_StopAudioDecoding(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_stopAudioDecoding(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -465,14 +508,18 @@ S8BIT Wrapper_Player_StopAudioDecoding(jni_asplayer_handle handle)
 S8BIT Wrapper_Player_SwitchAudioTrack(jni_asplayer_handle handle, jni_asplayer_audio_params *audio_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (audio_params != NULL)
     {
         audio_params->filterId = player_GetAVFilterId(true, audio_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
         audio_params->avSyncHwId = player_GetAVSyncHwId(handle);
+        audio_params->language.first_lang = (int)first_lang;
+        audio_params->language.second_lang = (int)second_lang;
         if (JniASPlayer_switchAudioTrack(handle, audio_params) == JNI_ASPLAYER_OK)
         {
             ret = JNI_ASPLAYER_OK;
-            ALOGI("%s : audio pid= %d, handle = %u", __FUNCTION__, audio_params->pid, handle);
+            ALOGI("%s : audio pid= %d(%d), handle = %u", __FUNCTION__, audio_params->pid, audio_params->presentation.presentation_id, handle);
         }
         else
         {
@@ -489,6 +536,7 @@ S8BIT Wrapper_Player_SwitchAudioTrack(jni_asplayer_handle handle, jni_asplayer_a
 S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_params *ad_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
 
     if (ad_params != NULL)
     {
@@ -514,6 +562,8 @@ S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_
 S8BIT Wrapper_Player_EnableADMix(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_enableADMix(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -529,6 +579,8 @@ S8BIT Wrapper_Player_EnableADMix(jni_asplayer_handle handle)
 S8BIT Wrapper_Player_DisableADMix(jni_asplayer_handle handle)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_disableADMix(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -553,6 +605,8 @@ S8BIT Wrapper_Player_DisableADMix(jni_asplayer_handle handle)
 S8BIT Wrapper_Player_SetADMixLevel(jni_asplayer_handle handle, S32BIT mix_level)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_setADMixLevel(handle, mix_level) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -568,6 +622,8 @@ S8BIT Wrapper_Player_SetADMixLevel(jni_asplayer_handle handle, S32BIT mix_level)
 S8BIT Wrapper_Player_GetADMixLevel(jni_asplayer_handle handle, S32BIT *mix_level)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_getADMixLevel(handle, mix_level) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -583,6 +639,8 @@ S8BIT Wrapper_Player_GetADMixLevel(jni_asplayer_handle handle, S32BIT *mix_level
 S8BIT Wrapper_Player_SetAudioMute(jni_asplayer_handle handle, BOOLEAN audio_mute)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_setAudioMute(handle, audio_mute, audio_mute) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -615,6 +673,8 @@ S8BIT Wrapper_Player_SetVideoMute(jni_asplayer_handle handle, jni_asplayer_video
 S8BIT Wrapper_Player_SetVideoBlackOut(jni_asplayer_handle handle, jni_asplayer_transition_mode_before mode)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_setTransitionModeBefore(handle, mode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -630,6 +690,8 @@ S8BIT Wrapper_Player_SetVideoBlackOut(jni_asplayer_handle handle, jni_asplayer_t
 S8BIT Wrapper_Player_SetVideoColor(jni_asplayer_handle handle, jni_asplayer_screen_color_mode mode, jni_asplayer_screen_color color)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_setScreenColor(handle, mode, color) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -645,6 +707,8 @@ S8BIT Wrapper_Player_SetVideoColor(jni_asplayer_handle handle, jni_asplayer_scre
 S8BIT Wrapper_Player_SetPIPMode(jni_asplayer_handle handle, jni_asplayer_pip_mode mode)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_setPIPMode(handle, mode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -660,6 +724,8 @@ S8BIT Wrapper_Player_SetPIPMode(jni_asplayer_handle handle, jni_asplayer_pip_mod
 S8BIT Wrapper_Player_SetWorkMode(jni_asplayer_handle handle, jni_asplayer_work_mode mode)
 {
     S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
     if (JniASPlayer_setWorkMode(handle, mode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
@@ -676,6 +742,7 @@ S8BIT Wrapper_Player_ResetWorkMode(void)
 {
     S8BIT ret = -1;
     U8BIT i;
+    ALOGI("%s : start", __FUNCTION__);
 
     for (i = 0; i < num_paths; i++)
     {

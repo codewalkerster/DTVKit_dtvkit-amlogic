@@ -163,6 +163,9 @@ struct S_RECPLAY_STATUS
       speed2_just_set = FALSE;
       audio_decoder = INVALID_RES_ID;
       video_decoder = INVALID_RES_ID;
+      video_pid = INVALID_PID;
+      audio_pid = INVALID_PID;
+      audio_presentation_id = 0;
       seek_position = 0;
    }
 };
@@ -236,7 +239,7 @@ static int video_codec_map1(E_STB_AV_VIDEO_CODEC format);
 static int audio_codec_map1(E_STB_AV_AUDIO_CODEC format);
 static U32BIT getPVRConfigInt(const char *config, U32BIT def);
 static U8BIT to_index(U8BIT video_decoder, U8BIT audio_decoder);
-static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, U8BIT audio_decoder, U16BIT video_pid, U8BIT video_format, U16BIT audio_pid, U8BIT audio_format);
+static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, U8BIT audio_decoder, U16BIT video_pid, U8BIT video_format, U16BIT audio_pid, U8BIT audio_format, U16BIT audio_presentation_id);
 
 typedef vector<S_PVR_PID_INFO> PID_VECTOR;
 static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR& to_add, PID_VECTOR& to_remove);
@@ -1590,7 +1593,7 @@ BOOLEAN STB_PVRStartAVDecoding(U8BIT index)
     S_RECPLAY_STATUS* prps = &s_recplay_status[index];
 
     if (start_decode(prps->asplayer_handle, prps->video_decoder, prps->audio_decoder,
-        prps->video_pid, prps->video_format, prps->audio_pid, prps->audio_format) == 0)
+        prps->video_pid, prps->video_format, prps->audio_pid, prps->audio_format, prps->audio_presentation_id) == 0)
     {
         PVR_INFO("PVR start decode success");
         return TRUE;
@@ -1921,14 +1924,15 @@ static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR
    log_buf.str(""); log_buf.clear();
 }
 
-static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, U8BIT audio_decoder, U16BIT video_pid, U8BIT video_format, U16BIT audio_pid, U8BIT audio_format)
+static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, U8BIT audio_decoder, U16BIT video_pid, U8BIT video_format, U16BIT audio_pid, U8BIT audio_format, U16BIT audio_presentation_id)
 {
     int ret;
     jni_asplayer_video_params video_param;
     jni_asplayer_audio_params audio_param;
+    jni_asplayer_audio_presentation audio_presentation;
 
-    PVR_INFO("%s(%d,%d), handle: %u, video: %d, %d, audio: %d, %d", __FUNCTION__,
-        video_decoder, audio_decoder, player_handle, video_pid, video_format, audio_pid, audio_format);
+    PVR_INFO("%s(%d,%d), handle: %u, video: %d, %d, audio: %d, %d, %d", __FUNCTION__,
+        video_decoder, audio_decoder, player_handle, video_pid, video_format, audio_pid, audio_format, audio_presentation_id);
 
     if (video_pid != 0 && video_pid != INVALID_PID)
     {
@@ -1941,14 +1945,14 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         ret = Wrapper_Player_SetVideoParams(player_handle, &video_param, (WRAPPER_PLAYER_VIDEO_STREAM_TYPE)video_format);
         if (ret < 0)
         {
-            PVR_INFO("Set video params failed, v_pid:%d fmt:%d err:%d", video_pid, video_format, ret);
+            PVR_ERR("Set video params failed, v_pid:%d fmt:%d err:%d", video_pid, video_format, ret);
             return ret;
         }
 
         ret = Wrapper_Player_SetSurface(player_handle);
         if (ret < 0)
         {
-            PVR_INFO("set surface failed, err:%d, player[0x%u]", ret, player_handle);
+            PVR_ERR("set surface failed, err:%d, player[0x%u]", ret, player_handle);
         }
 
         ret = Wrapper_Player_StartVideoDecoding(player_handle);
@@ -1958,7 +1962,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         }
         else
         {
-            PVR_INFO("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d err:%d, player[0x%u]", video_pid, video_format, ret, player_handle);
+            PVR_ERR("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d err:%d, player[0x%u]", video_pid, video_format, ret, player_handle);
             return ret;
         }
     }
@@ -1970,10 +1974,21 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         audio_param.sampleRate = 8000;
         audio_param.channelCount = 1;
         audio_param.mimeType = audio_mime_types[audio_format].MIME;
+        if (audio_presentation_id > 0)
+        {
+            audio_param.presentation.presentation_id = audio_presentation_id;
+            audio_param.presentation.program_id = -1;
+        }
+        else
+        {
+            audio_param.presentation.presentation_id = -1;
+            audio_param.presentation.program_id = -1;
+        }
+
         ret = Wrapper_Player_SetAudioParams(player_handle, &audio_param, (WRAPPER_PLAYER_AUDIO_STREAM_TYPE)audio_format);
         if (ret < 0)
         {
-            PVR_INFO("Set audio params failed, pid:%d fmt:%d err:%d", audio_pid, audio_format, ret);
+            PVR_ERR("Set audio params failed, pid:%d fmt:%d err:%d", audio_pid, audio_format, ret);
             return ret;
         }
 
@@ -1984,7 +1999,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         }
         else
         {
-            PVR_INFO("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%u]", audio_pid, audio_format, ret, player_handle);
+            PVR_ERR("Start audio decode failed, pid:%d fmt:%d err:%d, player[0x%u]", audio_pid, audio_format, ret, player_handle);
             return ret;
         }
     }

@@ -220,12 +220,6 @@ typedef struct
    E_STB_AV_VIDEO_FORMAT format;
 } S_VIDEO_MODE;
 
- typedef enum {
-    AMP_TSPLAYER_KEY_SPDIF_MODE_NONE  = 0,
-    AMP_TSPLAYER_KEY_SPDIF_MODE_NEVER = 1,
-    AMP_TSPLAYER_KEY_SPDIF_MODE_ONCE  = 2,
-} amp_spdif_mode;
-
 static S_VIDEO_MODE video_modes[] =
 {
    {HW_AM_VOUT_FORMAT_576I, VIDEO_FORMAT_576IHD},
@@ -1438,6 +1432,7 @@ void STB_AVSwitchAudioTrack(U8BIT path)
     int ret;
     jni_asplayer_handle player_handle;
     jni_asplayer_audio_params audio_param;
+    jni_asplayer_audio_presentation audio_presentation;
     WRAPPER_PLAYER_AUDIO_STREAM_TYPE audio_format;
 
     FUNCTION_START(STB_AVSwitchAudioTrack);
@@ -1476,11 +1471,23 @@ void STB_AVSwitchAudioTrack(U8BIT path)
         audio_param.mimeType = audio_mime_types[audio_format].MIME;
         audio_param.sampleRate = 8000;
         audio_param.channelCount = 1;
+        audio_param.presentation.presentation_id = preselection_id;
+        audio_param.presentation.program_id = -1;
+        audio_presentation.presentation_id = preselection_id;
+        audio_presentation.program_id = -1;
 
         ret = Wrapper_Player_SwitchAudioTrack(player_handle, &audio_param, audio_format);
         if (ret == 0)
         {
-            AUD_DBG("Switch audio track success, pid:%d, format:%d, player[%u]", audio_pid, audio_format, player_handle);
+            AUD_DBG("Switch audio track success, pid:%d, preselection_id:%d, format:%d, player[%u]", audio_pid, preselection_id, audio_format, player_handle);
+            if (preselection_id > 0)
+            {
+                ret = Wrapper_Player_SetParams(player_handle, JNI_ASPLAYER_KEY_AUDIO_PRESENTATION_ID, &audio_presentation);
+                if (ret < 0)
+                {
+                    AUD_DBG("Set audio presentation id[%d] failed, err:%d", preselection_id, ret);
+                }
+            }
             av_paths_status[av_path].audio_pid = audio_pid;
             av_paths_status[av_path].audio_presentation_id = preselection_id;
         }
@@ -3023,8 +3030,68 @@ U8BIT STB_AVGetVideoScanType(U8BIT path)
  */
 void STB_AVSetCopyProtection(S_STB_AV_COPY_PROTECTION *copy_protection)
 {
+   //copy freely (use case 2-9):      CP=1, L=0
+   //copy no more (use case 10-17): CP=0, L=1
+   //copy once (use case 18-25):  CP=0, L=0
+   //copy never (use case 26-33):     CP=0, L=1
+   //copy freely (use case 34-41):    CP=1, L=0
+
    FUNCTION_START(STB_AVSetCopyProtection);
-   USE_UNWANTED_PARAM(copy_protection);
+   int ret;
+   jni_asplayer_handle player_handle;
+   jni_asplayer_spdif_protection_mode type = JNI_ASPLAYER_KEY_SPDIF_PROTECTION_MODE_NONE;
+   U8BIT path = 0;
+
+   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+
+   AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
+      return;
+   }
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        AUD_DBG("Can't get lock, audio decoder[%d]", path);
+        return;
+    }
+
+    pthread_rwlock_rdlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder,
+                                    av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+   if (ret < 0)
+   {
+       AUD_DBG("Cannot get player handle[%d]", av_path);
+       pthread_rwlock_unlock(_l);
+       return;
+   }
+
+   AUD_DBG("set spdif protection: scms:[0x%x ] scms_set:[0x%x ] ", copy_protection->scms, copy_protection->scms_set);
+
+   if (copy_protection->scms_set== TRUE)
+   {
+        if (copy_protection->scms == 2)
+        {
+            type = JNI_ASPLAYER_KEY_SPDIF_PROTECTION_MODE_NONE;
+        }
+        else if (copy_protection->scms == 0)
+        {
+            type = JNI_ASPLAYER_KEY_SPDIF_PROTECTION_MODE_ONCE;
+        }
+        else if (copy_protection->scms == 1)
+        {
+            type = JNI_ASPLAYER_KEY_SPDIF_PROTECTION_MODE_NEVER;
+        }
+
+        ret = Wrapper_Player_SetParams(player_handle, JNI_ASPLAYER_KEY_SPDIF_PROTECTION_MODE, (void*)&type);
+
+        if (ret < 0)
+        {
+           AUD_DBG("Set audio spdf protection failed, err:%d", ret);
+        }
+    }
+    pthread_rwlock_unlock(_l);
+
    FUNCTION_FINISH(STB_AVSetCopyProtection);
 }
 
@@ -3205,7 +3272,9 @@ S16BIT STB_AVGetAC4ActivePresentationsID(U8BIT path)
 {
     int ret;
     jni_asplayer_handle handle;
+    jni_asplayer_audio_presentation audio_presentation;
     S16BIT presentations_id = -1;
+
     FUNCTION_START(STB_AVGetAC4ActivePresentationsID);
 
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
@@ -3223,7 +3292,15 @@ S16BIT STB_AVGetAC4ActivePresentationsID(U8BIT path)
         return 0;
     }
 
-    //ret = Aml_MP_Player_GetParameter(handle, AML_MP_PLAYER_PARAMETER_AUDIO_PRESENTATION_ID, &presentations_id);
+    ret = Wrapper_Player_GetParams(handle, JNI_ASPLAYER_KEY_AUDIO_PRESENTATION_ID, &audio_presentation);
+    if (ret < 0)
+    {
+        AUD_DBG("get presentations_id fail[%d]", path);
+    }
+    else
+    {
+        presentations_id= audio_presentation.presentation_id;
+    }
 
     pthread_rwlock_unlock(_l);
     //AUD_DBG("presentations_id:%d, err:%d", presentations_id, ret);
@@ -3235,7 +3312,7 @@ BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_
 {
     int ret;
     jni_asplayer_handle player_handle;
-    jni_asplayer_audio_lang audioLang;
+    jni_asplayer_audio_lang language;
 
     FUNCTION_START(STB_AVSetAudioLanguage);
 
@@ -3246,9 +3323,6 @@ BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_
         return FALSE;
     }
 
-    audioLang.first_lang = pri_language_code;
-    audioLang.second_lang = sec_language_code;
-
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
         AUD_DBG("Can't get lock, path[%d]", path);
@@ -3258,17 +3332,19 @@ BOOLEAN STB_AVSetAudioLanguage(U8BIT path, U32BIT pri_language_code, U32BIT sec_
     pthread_rwlock_rdlock(_l);
     ret = AV_GetPlayerHandleByPath_l(path, INVALID_RES_ID, &player_handle, FALSE);
     if (ret < 0) {
-        VID_DBG("Cannot get player handle video[%d]", path);
+        AUD_DBG("Cannot get player handle video[%d]", path);
         pthread_rwlock_unlock(_l);
         return FALSE;
     }
 
-    ret = Wrapper_Player_SetParams(player_handle, JNI_ASPLAYER_KEY_SET_AUDIO_LANG, &audioLang);
-    pthread_rwlock_unlock(_l);
-
+    language.first_lang = pri_language_code;
+    language.second_lang= sec_language_code;
+    ret = Wrapper_Player_SetAudioLanguage(pri_language_code, sec_language_code);
+    ret = Wrapper_Player_SetParams(player_handle, JNI_ASPLAYER_KEY_AUDIO_LANG, &language);
     if (ret < 0) {
-        VID_DBG("STB_AVSetAudioLanguage failed, err:%d", ret);
+        AUD_DBG("STB_AVSetAudioLanguage failed, err:%d", ret);
     }
+    pthread_rwlock_unlock(_l);
 
     FUNCTION_FINISH(STB_AVSetAudioLanguage);
     return TRUE;
@@ -3615,6 +3691,16 @@ static int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
     audio_param.sampleRate = 8000;
     audio_param.channelCount = 1;
     audio_param.mimeType = audio_mime_types[format].MIME;
+    if (audioPresentationId > 0)
+    {
+        audio_param.presentation.presentation_id = audioPresentationId;
+        audio_param.presentation.program_id = -1;
+    }
+    else
+    {
+        audio_param.presentation.presentation_id = -1;
+        audio_param.presentation.program_id = -1;
+    }
 #ifdef SUPPORT_CAS
     if (av_paths_status[av_path].drm_mode == DRM_NONE)
     {
@@ -3626,22 +3712,12 @@ static int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
     }
     AUD_DBG("scrambled = %d", audio_param.scrambled);
 #endif
-    AUD_DBG("=========> Set audio params start, pid:%d MIME:%s  filterId %d avSyncHwId %d ", a_pid, audio_param.mimeType,audio_param.filterId,audio_param.avSyncHwId);
+    AUD_DBG("===> Set audio params start, pid:%d, presentationId:%d, MIME:%s,  filterId:%d, avSyncHwId:%d ", a_pid, audioPresentationId, audio_param.mimeType,audio_param.filterId,audio_param.avSyncHwId);
     ret = Wrapper_Player_SetAudioParams(player_handle, &audio_param, format);
     if (ret < 0)
     {
         AUD_DBG("Set audio params failed, pid:%d fmt:%d err:%d", a_pid, format, ret);
         return ret;
-    }
-
-    if (audioPresentationId >= 0)
-    {
-        ret = Wrapper_Player_SetParams(player_handle, JNI_ASPLAYER_KEY_AUDIO_PRESENTATION_ID, &audioPresentationId);
-        if (ret < 0)
-        {
-            AUD_DBG("Set audio presentation id[%d] failed, err:%d", audioPresentationId, ret);
-            return ret;
-        }
     }
 
     ret = Wrapper_Player_SetAudioDualMonoMode(player_handle, audio_mode);
@@ -3664,7 +3740,7 @@ static int AV_StartAudioDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
         return ret;
     }
 
-    AUD_DBG("Start audio decode, pid:%d fmt:%d, volume[%d], audio_mode[%d], mute[%d], player[0x%u]", a_pid, format, vol, audio_mode, mute, player_handle);
+    AUD_DBG("Start audio decode, pid:%d(%d), fmt:%d, volume[%d], audio_mode[%d], mute[%d], player[0x%u]", a_pid, audioPresentationId, format, vol, audio_mode, mute, player_handle);
     return ret;
 }
 

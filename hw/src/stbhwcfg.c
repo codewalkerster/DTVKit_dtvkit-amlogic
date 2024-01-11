@@ -83,6 +83,7 @@ stb_hardware_cfg aml_hw_cfg = {
 .pvr = {
     .encrypt = 0,
     .rec_ringbuf_size = 0,
+    .rec_hwbuf_size = 0,
     },
 .country_code = {'d', 'e', 'u'},
 .network = {
@@ -324,6 +325,10 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                 i = strtol(av, NULL, 0);
                 if ((i != LONG_MIN) && (i != LONG_MAX))
                     cfg->pvr.rec_ringbuf_size = i;
+            } else if (!strcmp(an, "rec_hwbuf_size")) {
+                i = strtol(av, NULL, 0);
+                if ((i != LONG_MIN) && (i != LONG_MAX))
+                    cfg->pvr.rec_hwbuf_size = i;
             }
             att += 2;
         }
@@ -1160,6 +1165,14 @@ int STB_Get_PVR_RecRingBufSize()
     return aml_hw_cfg.pvr.rec_ringbuf_size;
 }
 
+/**
+ * @brief   get pvr record hw buffer size
+ * @return  hw buffer size;
+ */
+int STB_Get_PVR_RecHwBufSize()
+{
+    return aml_hw_cfg.pvr.rec_hwbuf_size;
+}
 /**
  * @brief   get cam CI host mode.
  * @return  host mode 2:ask user to confirm, others: no need

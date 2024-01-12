@@ -1620,7 +1620,7 @@ E_STB_BOARD_TYPE STB_DMXGetModel()
     int         r;
     static BOOLEAN                dmx_model_sc2 = FALSE;
 
-   r = stat("/dev/key", &st);
+   r = stat("/sys/class/stb/dsc_setting", &st);
    if (r == 0)
    {
       dmx_model_sc2 = TRUE;

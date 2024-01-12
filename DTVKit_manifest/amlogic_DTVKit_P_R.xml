@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote  name="aml_gerrit"
+           fetch="ssh://scgit.amlogic.com:29418/"
+           review="http://scgit.amlogic.com:8080/" />
+
+  <include name="google_partner_ref.xml" />
+
+  <project path="vendor/amlogic/common/external/DTVKit/DVBCore" name="DTVKit/DVBCore" remote="aml_gerrit" revision="p-amlogic"  />
+  <project path="vendor/amlogic/common/external/DTVKit/DVBCore/CERT/src" name="DTVKit/CERT" remote="aml_gerrit" revision="p-amlogic"  />
+  <project path="vendor/amlogic/common/external/DTVKit/android-rpcservice" name="DTVKit/android-rpcservice" remote="aml_gerrit" revision="p-amlogic"  />
+  <project path="vendor/amlogic/common/external/DTVKit/dtvkit-amlogic" name="DTVKit/dtvkit-amlogic" remote="aml_gerrit" revision="p-amlogic"  />
+  <project path="vendor/amlogic/common/external/DTVKit/CI-Plus" name="DTVKit/CI-Plus" remote="aml_gerrit" revision="p-amlogic"  />
+  <project path="vendor/amlogic/common/external/DTVKit/DSMCC" name="DTVKit/DSMCC" remote="aml_gerrit" revision="p-amlogic"  />
+  <project path="vendor/amlogic/common/external/DTVKit/MHEG5" name="DTVKit/MHEG5" remote="aml_gerrit" revision="p-amlogic"  />
+</manifest>

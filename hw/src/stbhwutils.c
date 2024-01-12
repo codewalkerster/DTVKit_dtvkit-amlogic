@@ -111,7 +111,7 @@ U8BIT STB_Utils_StrengthToSSI(U8BIT path, S16BIT strength)
                 if (strength <= -85)
                     ssi = 0;
                 else if (strength <= -80)
-                    ssi = 5 * (80 + strength) / 5;
+                    ssi = 5 * (85 + strength) / 5;
                 else if (strength <= -75)
                     ssi = 5 + 15 * (80 + strength) / 5;
                 else if (strength <= -65)

@@ -214,7 +214,6 @@ typedef enum {
     JNI_ASPLAYER_MUTE = 1                       // mute video
 } jni_asplayer_video_mute;
 
-
 /*JniASPlayer handle*/
 typedef size_t jni_asplayer_handle;
 
@@ -618,6 +617,7 @@ jni_asplayer_result  JniASPlayer_setVideoParams(jni_asplayer_handle handle,
  */
 jni_asplayer_result  JniASPlayer_setTransitionModeBefore(jni_asplayer_handle handle,
                                                          jni_asplayer_transition_mode_before mode);
+
 /**
  *@brief:        Set if need show first image before sync
  *               for specified JniASPlayer instance.

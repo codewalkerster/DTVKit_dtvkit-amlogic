@@ -413,6 +413,13 @@ int Am_tuner_disconnectFrontendToCiCam(int tunerClientId, int ciCamId);
 jobject Am_tuner_getSurfaceByTunerClient(int tunerClientId);
 
 /**
+ * Delete surface global reference
+ *
+ * @param surface the global reference.
+ */
+void Am_tuner_DeleteSurfaceRef(jobject surface);
+
+/**
  * Sets the filter type.
  *
  * @param filter the open filter instance.

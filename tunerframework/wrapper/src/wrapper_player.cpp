@@ -347,6 +347,7 @@ S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle)
     jobject surface = Am_tuner_getSurfaceByTunerClient(wp_player_av_status[av_path].playerClient);
     if (JniASPlayer_setSurface(handle, (void *)surface) == JNI_ASPLAYER_OK)
     {
+        Am_tuner_DeleteSurfaceRef(surface);
         ret = JNI_ASPLAYER_OK;
         ALOGI("%s : handle = %u", __FUNCTION__, handle);
     }

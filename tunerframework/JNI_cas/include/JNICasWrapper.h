@@ -95,6 +95,33 @@ JCAS_JNI_RESULT AM_DestroyCasPlugin(CasHandle casHandle);
  */
 JCAS_JNI_RESULT AM_CasManagerTerm();
 
+/**
+ * @brief   Send the command to cas plugin.
+ *          It will send the command of middleware or app to cas plugin
+ * @param   casHandle: The cas plugin handle.
+ * @param   event: The command event.
+ * @param   arg: The specified arg of the command.
+ * @param   data: The specified data of the command.
+ * @param   dataLen: The dataLen of the command data.
+ * @retval  AM_CAS_JNI_OK if function succeeds.
+ *          AM_CAS_JNI_ERR or AM_CAS_JNI_PARAM_ERR if some exception occurs.
+ */
+JCAS_JNI_RESULT AM_SendCommand(CasHandle casHandle, int event, int arg, uint8_t* data, int dataLen);
+
+/**
+ * @brief   Send the command to cas plugin.
+ *          It will send the command of middleware or app to cas session
+ * @param   casHandle: The cas plugin handle.
+ * @param   casSessionHandle: The cas session handle.
+ * @param   event: The command event.
+ * @param   arg: The specified arg of the command.
+ * @param   data: The specified data of the command.
+ * @param   dataLen: The dataLen of the command data.
+ * @retval  AM_CAS_JNI_OK if function succeeds.
+ *          AM_CAS_JNI_ERR or AM_CAS_JNI_PARAM_ERR if some exception occurs.
+ */
+JCAS_JNI_RESULT AM_SendSessionCommand(CasHandle casHandle, CasSessionHandle casSessionHandle, int event, int arg, uint8_t* data, int dataLen);
+
 #ifdef __cplusplus
 };
 #endif

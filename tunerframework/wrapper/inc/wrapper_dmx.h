@@ -82,6 +82,10 @@ JCAS_JNI_RESULT MediaCAS_DestroyCasPlugin(CasHandle casHandle);
 
 JCAS_JNI_RESULT MediaCAS_CasManagerTerm();
 
+JCAS_JNI_RESULT MediaCAS_SendCommand(CasHandle casHandle, int event, int arg, uint8_t* data, int dataLen);
+
+JCAS_JNI_RESULT MediaCAS_SendSessionCommand(CasHandle casHandle, CasSessionHandle casSessionHandle, int event, int arg, uint8_t* data, int dataLen);
+
 
 jobject DESCRAMBLE_Open();
 void DESCRAMBLE_AddPid( jobject handle, int pid);

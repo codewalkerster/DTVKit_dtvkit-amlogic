@@ -8,7 +8,7 @@
 #include "type_change_utils.h"
 #include "frontend_utils.h"
 
-#define LOG_TAG "wrapper_frontend"
+#define TAG "wrapper_frontend"
 
 using namespace android;
 using namespace std;
@@ -54,6 +54,7 @@ typedef struct
     BOOLEAN curr_starttune = FALSE;
     BOOLEAN auto_relock= FALSE;
     BOOLEAN tune_lock = FALSE;
+    BOOLEAN tune_stop = TRUE;
 
     BOOLEAN blindscan_mode = FALSE;
     Wrapper_Tune_BlindCallback_t blindscan_event_cb = NULL;
@@ -774,7 +775,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         ALOGE("%s: path:%d isn't contained in map", __FUNCTION__, path);
         return;
     }
-
+    tuner_status_map[path].tune_stop = FALSE;
     U16BIT client_id = Am_tuner_getTunerClientIdByType(getTunerType(path));
     ALOGD("%s path:%d client_id:%d freq:%d cmode:%d srate:%d", __FUNCTION__, path, client_id, freq, cmode, srate);
 
@@ -918,6 +919,8 @@ void Wrapper_TuneStopTuner(U8BIT path)
         ALOGE("%s path:%d is invalid", __FUNCTION__, path);
         return;
     }
+
+    tuner_status_map[path].tune_stop = TRUE;
 
     if (tuner_status_map[path].tuner_search_mode) {
         if (E_TERR_TYPE_DVBT == tuner_status_map[path].signal_type &&
@@ -1064,7 +1067,7 @@ EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path)
 
     EW_TUNER_EVENT lock_st = WRAPPER_TUNER_STATE_UNKNOWN;
 
-    if (TRUE == tuner_status_map[path].tune_lock) {
+    if (TRUE == tuner_status_map[path].tune_lock && !tuner_status_map[path].tune_stop) {
         lock_st = WRAPPER_TUNER_STATE_LOCKED;
     }
     else {
@@ -1265,12 +1268,62 @@ EW_STB_TUNE_TBWIDTH Wrapper_TuneGetActualTerrBwidth(U8BIT path)
 
 U32BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path)
 {
-    return getFrontendParameter(path, FRONTEND_PARAM_MIN_FREQ);
+    U32BIT min_freq;
+    E_TTYPE signal_type = E_TERR_TYPE_UNKNOWN;
+
+//    min_freq = getFrontendParameter(path, FRONTEND_PARAM_MIN_FREQ);
+//    min_freq /= 1000;
+
+    signal_type = getSignalType(path);
+
+    switch (signal_type)
+    {
+        case E_TERR_TYPE_DVBS:
+//            if (min_freq < (950-5)*1000)
+//            {
+//                min_freq = (950-5)*1000;
+//            }
+            min_freq = (950-5)*1000;
+            break;
+        default:
+//            if (min_freq < 40*1000)
+//            {
+//                min_freq = 40*1000;
+//            }
+            min_freq = 40*1000;
+            break;
+    }
+
+    return min_freq;
 }
 
 U32BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path)
 {
-    return getFrontendParameter(path, FRONTEND_PARAM_MAX_FREQ);
+    U32BIT max_freq;
+    E_TTYPE signal_type = E_TERR_TYPE_UNKNOWN;
+//    max_freq = getFrontendParameter(path, FRONTEND_PARAM_MAX_FREQ);
+//    max_freq /= 1000;
+
+    signal_type = getSignalType(path);
+
+    switch (signal_type)
+    {
+        case E_TERR_TYPE_DVBS:
+//            if (max_freq == 0 || max_freq > (2150+5)*1000)
+//            {
+//                max_freq = (2150+5)*1000;
+//            }
+            max_freq = (2150+5)*1000;
+            break;
+        default:
+//            if (max_freq == 0 || max_freq > 1002*1000)
+//            {
+//                max_freq = 1002*1000;
+//            }
+            max_freq = 1002*1000;
+            break;
+    }
+    return max_freq;
 }
 
 EW_STB_TUNE_TCONST Wrapper_TuneGetActualTerrConstellation(U8BIT path)
@@ -1446,7 +1499,14 @@ U32BIT Wrapper_TuneGetMinTunerSymbolRate(U8BIT path)
 
 U32BIT Wrapper_TuneGetMaxTunerSymbolRate(U8BIT path)
 {
-    return getFrontendParameter(path, FRONTEND_PARAM_MAX_SRATE);
+    U32BIT symbol_rate;
+
+    symbol_rate = getFrontendParameter(path, FRONTEND_PARAM_MAX_SRATE);
+    if (symbol_rate == 0)
+    {
+        symbol_rate = 0x0FFFFFFF;
+    }
+    return symbol_rate;
 }
 
 void Wrapper_TuneInitialise(U8BIT paths)

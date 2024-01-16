@@ -50,7 +50,6 @@
 #include "stbhwmem.h"
 #include "stbhwos.h"
 #include "stbhwresm.h"
-#include "stbdpc.h"
 #include "stbhwc.h"
 #include "stbhwini.h"
 #include "stbhwutils.h"
@@ -1470,9 +1469,9 @@ E_STB_TUNE_HIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
             retval--;
         }
     }
-    else
+    else // TUNE_SYSTEM_TYPE_DVBT
     {
-        if (tuner_id < num_paths && tuner_status[tuner_id].sys_type == TUNE_SYSTEM_TYPE_DVBT2)
+        if (tuner_id < num_paths)
         {
             if (tuner_status[tuner_id].frontend_fd != INVALID_FD &&
                 GetTunerLockStatus(tuner_status[tuner_id].frontend_fd) == TUNER_STATE_LOCKED)
@@ -2471,12 +2470,7 @@ void STB_TuneAllStop()
 
     if (STB_TuneIsTvPlatform())
     {
-        if (STB_DPIsAllPathReleased())
-        {
-            TUN_DBG("STB_DPIsAllPathReleased [TRUE].");
-        }
-
-        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_RESOURCE_BUSY, &i, sizeof(U8BIT));
+        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_RESOURCE_BUSY, NULL, 0);
     }
 
     for (i = 0; i != num_paths; i++)

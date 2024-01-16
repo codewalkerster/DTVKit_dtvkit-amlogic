@@ -51,7 +51,6 @@
 #include "stbhwmem.h"
 #include "stbhwos.h"
 #include "stbhwresm.h"
-#include "stbdpc.h"
 #include "stbhwc.h"
 #include "stbhwini.h"
 #include "stbhwutils.h"
@@ -1158,7 +1157,11 @@ void STB_TuneAllStop()
 {
     FUNCTION_START(STB_TuneAllStop);
 
-    E_TUNER_STATE state;
+    if (STB_TuneIsTvPlatform())
+    {
+        STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_RESOURCE_BUSY, NULL, 0);
+    }
+
     Wrapper_TuneAllStop();
 
     FUNCTION_FINISH(STB_TuneAllStop);

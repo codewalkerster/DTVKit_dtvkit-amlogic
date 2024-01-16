@@ -241,16 +241,6 @@ typedef enum ew_tune_terr_type
     E_TERR_TYPE_IPTV
 } E_TTYPE;
 
-typedef enum
-{
-    E_TUNER_IDLE,
-    E_TUNER_TUNING,
-    E_TUNER_LOCKED,
-    E_TUNER_RELOCKING,
-    E_TUNER_EXITED
-} EE_TUNER_STATE;
-
-
 typedef void (* Wrapper_SendEvent) (BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size);
 
 BOOLEAN tuner_getFrontendIds(U8BIT path);

@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -86,6 +87,7 @@ static BOOLEAN IsTunerLocked(S_TUNER_STATUS *tstatus);
 static BOOLEAN IsTuningParameterMatched(S_TUNER_STATUS *tstatus, struct dvb_frontend_event event);
 static void* TunerTask(void *param);
 static void ClearTuner(S_TUNER_STATUS *tstatus);
+static void ConvertToLowercase(char *str);
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type);
 /*static*/ U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type);
 static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus);
@@ -1065,15 +1067,11 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
 static BOOLEAN IsPercentConversionRequired(U8BIT path)
 {
     BOOLEAN retval = TRUE;
-
-    if (ioctl(tuner_status[path].frontend_fd, FE_GET_INFO, &(tuner_status[path].fe_info)) >= 0)
+    if (NULL != strstr(tuner_status[path].fe_info.name, "cxd2856"))
     {
-        if (NULL != strstr(tuner_status[path].fe_info.name,"CXD2856"))
-        {
-            TUN_INFO("fe_info.name=%s", tuner_status[path].fe_info.name);
-            retval = FALSE;  //For cxd2856, not need to convert to percentage
-        }
+       retval = FALSE;  //For cxd2856, not need to convert to percentage
     }
+
     return retval;
 }
 
@@ -2787,6 +2785,13 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
 }
 
 /*---local function definitions----------------------------------------------*/
+static void ConvertToLowercase(char *str) {
+    int length = strlen(str);
+    for (int i = 0; i < length; ++i)
+    {
+        str[i] = tolower(str[i]);
+    }
+}
 
 static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_type)
 {
@@ -2845,7 +2850,10 @@ static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_ty
 
             if (ioctl(tstatus->frontend_fd, FE_GET_INFO, &(tstatus->fe_info)) >= 0)
             {
-                TUN_DBG("fe_info.type=%d", tstatus->fe_info.type);
+                // fe name to lower case
+                ConvertToLowercase(tstatus->fe_info.name);
+
+                TUN_DBG("fe_info.type=%d, name=%s", tstatus->fe_info.type, tstatus->fe_info.name);
 
                 if (tstatus->fe_info.type == FE_OFDM)
                 {

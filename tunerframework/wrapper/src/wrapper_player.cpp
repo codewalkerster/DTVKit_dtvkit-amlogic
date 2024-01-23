@@ -595,6 +595,23 @@ S8BIT Wrapper_Player_SetAudioMute(jni_asplayer_handle handle, BOOLEAN audio_mute
     return ret;
 }
 
+S8BIT Wrapper_Player_SetVideoMute(jni_asplayer_handle handle, jni_asplayer_video_mute video_mute)
+{
+    S8BIT ret = -1;
+    ALOGI("%s : start", __FUNCTION__);
+
+    if (JniASPlayer_setVideoMute(handle, video_mute) == JNI_ASPLAYER_OK)
+    {
+        ret = JNI_ASPLAYER_OK;
+        ALOGI("%s : video_mute = %d, handle = %u", __FUNCTION__, video_mute, handle);
+    }
+    else
+    {
+        ALOGI("%s :set video mute failed, handle = %u", __FUNCTION__, handle);
+    }
+    return ret;
+}
+
 S8BIT Wrapper_Player_SetVideoBlackOut(jni_asplayer_handle handle, jni_asplayer_transition_mode_before mode)
 {
     S8BIT ret = -1;

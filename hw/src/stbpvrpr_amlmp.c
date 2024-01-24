@@ -1591,6 +1591,20 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
                REC_DBG("  Not recording %u, type %u", pid_array[i].pid, pid_array[i].type);
             }
          }
+
+         /*dvr ts mode*/
+         REC_DBG("dvr_mode:%d, model:%d, streams:%d", dvr_mode, STB_DMXGetModel(), cnt);
+         if (dvr_mode == 1 && STB_DMXGetModel() == STB_DMX_MODEL_SC2)
+         {
+            if (cnt < AML_MP_DVR_STREAMS_COUNT)
+            {
+               s_rec_status[rec_index].pids_info.streams[cnt].type = AML_MP_STREAM_TYPE_SECTION;
+               s_rec_status[rec_index].pids_info.streams[cnt].pid = 0x2000;
+               cnt++;
+               REC_DBG("  SECTION %#x", 0x2000);
+            }
+         }
+
          s_rec_status[rec_index].pids_info.nbStreams = cnt;
       }
 
@@ -1973,6 +1987,23 @@ BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO
                 REC_DBG("  Not recording %u, type %u", pids_array[i].pid, pids_array[i].type);
              }
           }
+
+          {
+             /*check if dvr ts mode*/
+             U8BIT dvr_mode = getDvrMode();
+             REC_DBG("dvr_mode:%d, model:%d, streams:%d", dvr_mode, STB_DMXGetModel(), cnt);
+             if (dvr_mode == 1 && STB_DMXGetModel() == STB_DMX_MODEL_SC2)
+             {
+                if (cnt < AML_MP_DVR_STREAMS_COUNT)
+                {
+                   s_rec_status[rec_index].pids_info.streams[cnt].type = AML_MP_STREAM_TYPE_SECTION;
+                   s_rec_status[rec_index].pids_info.streams[cnt].pid = 0x2000;
+                   cnt++;
+                   REC_DBG("  SECTION %#x", 0x2000);
+                }
+             }
+          }
+
           s_rec_status[rec_index].pids_info.nbStreams = cnt;
 
           Aml_MP_DVRStreamArray rec_streams;

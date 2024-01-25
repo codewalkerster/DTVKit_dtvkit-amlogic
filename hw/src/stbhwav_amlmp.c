@@ -739,7 +739,7 @@ BOOLEAN STB_AVGetStaticFrameEnable()
    BOOLEAN ret = FALSE;
    FUNCTION_START(STB_AVGetStaticFrameEnable);
 
-#ifdef COMMON_INTERFACE
+#ifndef RDK_COMPILE
    ret = SC_getStaticFrameEnable();
 #endif
 

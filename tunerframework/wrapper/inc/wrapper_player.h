@@ -32,6 +32,8 @@ typedef enum {
     WP_VIDEO_STREAM_TYPE_AV1,        // AOMedia Video 1
     WP_VIDEO_STREAM_TYPE_AVS,        // Chinese Standard
     WP_VIDEO_STREAM_TYPE_AVS2,       // New Chinese Standard
+    WP_VIDEO_STREAM_TYPE_DVES_AVC,   // Dolby Vision
+    WP_VIDEO_STREAM_TYPE_DVES_HEVC   // Dolby Vision
 }WRAPPER_PLAYER_VIDEO_STREAM_TYPE;
 
 typedef enum {

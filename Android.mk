@@ -256,6 +256,7 @@ LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
 
 include $(BUILD_STATIC_LIBRARY)
 
-
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
 include $(LOCAL_PATH)/atf.mk
 include $(LOCAL_PATH)/tunerframework/wrapper/Android.mk
+endif

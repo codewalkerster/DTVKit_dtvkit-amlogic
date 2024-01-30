@@ -512,7 +512,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    if (asplayer_handle != 0)
    {
        U8BIT index = play_index;
-       STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_START_DECODE, &index, sizeof(U8BIT));
+       STB_PVRStartAVDecoding(index);
+//       STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_START_DECODE, &index, sizeof(U8BIT));
    }
 
    LOG_LEAVE;
@@ -1483,7 +1484,7 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
     //LOG_ENTER;
     U8BIT play_index = to_index(video_decoder,audio_decoder);
 
-    PVR_INFO("%u: pcr=%u, video=%u, audio=%u(%u), ad=%u", play_index, pcr_pid, video_pid, audio_pid, audio_presentation_id, ad_pid);
+    PVR_INFO("%u: pcr=%u, video=%u(fmt:%u), audio=%u(%u)(fmt:%u), ad=%u", play_index, pcr_pid, video_pid, video_fmt, audio_pid, audio_presentation_id, audio_fmt, ad_pid);
     if (play_index >= num_players)
     {
         PVR_ERR("Player index %d is invalid", play_index);
@@ -1492,7 +1493,9 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 
     if (s_recplay_status[play_index].audio_pid != audio_pid ||
           s_recplay_status[play_index].audio_presentation_id != audio_presentation_id ||
-          s_recplay_status[play_index].video_pid != video_pid)
+          s_recplay_status[play_index].video_pid != video_pid ||
+          s_recplay_status[play_index].video_format != video_fmt ||
+          s_recplay_status[play_index].audio_format != audio_fmt )
     {
         s_recplay_status[play_index].audio_pid = audio_pid;
         s_recplay_status[play_index].audio_format= audio_fmt;
@@ -1931,7 +1934,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
     jni_asplayer_audio_params audio_param;
     jni_asplayer_audio_presentation audio_presentation;
 
-    PVR_INFO("%s(%d,%d), handle: %u, video: %d, %d, audio: %d, %d, %d", __FUNCTION__,
+    PVR_INFO("%s(%d,%d), handle: %u, video: %d, %d, audio: %d, %d, (%d)", __FUNCTION__,
         video_decoder, audio_decoder, player_handle, video_pid, video_format, audio_pid, audio_format, audio_presentation_id);
 
     if (video_pid != 0 && video_pid != INVALID_PID)
@@ -1996,6 +1999,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         if (ret == 0)
         {
             PVR_INFO("Start audio decode success, player[0x%u]", player_handle);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &video_decoder, sizeof(U8BIT));
         }
         else
         {

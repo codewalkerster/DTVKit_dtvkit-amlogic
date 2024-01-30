@@ -686,24 +686,24 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
     ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
     if (ret == 0)
     {
-
-        if (blank == TRUE)
+        BOOLEAN is_pvr = STB_PVRIsPlayInitialled(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder);
+        if (blank == TRUE && is_pvr == FALSE)
         {
-            Wrapper_Player_SetVideoBlackOut(player_handle,0);
             color = force_black? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
             switch (color) {
                 case 0:
-                    asplayer_color = JNI_ASPLAYER_COLOR_BLACK;
+                    Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_MUTE);
                     VID_DBG("set black color mode=%d",asplayer_mode);
                     break;
                 case 1:
                     asplayer_color = JNI_ASPLAYER_COLOR_BLUE;
+                    Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
+                    Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
+                    Wrapper_Player_SetVideoColor(player_handle, asplayer_mode, asplayer_color);
                     VID_DBG("set blue color mode=%d",asplayer_mode);
                     break;
             }
-            Wrapper_Player_SetVideoColor(player_handle, asplayer_mode, asplayer_color);
         }
-
     }
     else
     {
@@ -784,11 +784,34 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
         blank = FALSE;
     }
 
-    if (blank == TRUE) {
-        VID_DBG("Hide video", path);
-    } else {
-        VID_DBG("Show video", path);
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        VID_DBG("Can't get lock, video decoder[%d]", path);
+        return;
     }
+
+    pthread_rwlock_rdlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(path, INVALID_RES_ID, &player_handle, FALSE);
+    if (ret < 0) {
+        VID_DBG("Cannot get player video decoder[%d]", path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+
+    if (blank == TRUE) {
+        ret = Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_MUTE);
+        if (ret < 0)
+            VID_DBG("Hide video failed, err:%d", ret);
+        else
+            VID_DBG("Hide video", path);
+    } else {
+        ret = Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
+        if (ret < 0)
+            VID_DBG("Show video failed, err:%d", ret);
+        else
+            VID_DBG("Show video", path);
+    }
+    pthread_rwlock_unlock(_l);
 
    FUNCTION_FINISH(STB_AVBlankVideo);
 }
@@ -1653,9 +1676,6 @@ BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
     if (ret == 0) {
         jni_asplayer_transition_mode_before mode = is_black ? JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK : JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE;
         Wrapper_Player_SetVideoBlackOut(player_handle, mode);
-
-        jni_asplayer_video_mute mute = is_black ? JNI_ASPLAYER_MUTE : JNI_ASPLAYER_UN_MUTE;
-        Wrapper_Player_SetVideoMute(player_handle, mute);
         AV_DBG("set asplayer black out %d:[%d:%d]:[%d] = %d, player[0x%u]",
             av_path,
             av_paths_status[av_path].video_decoder,

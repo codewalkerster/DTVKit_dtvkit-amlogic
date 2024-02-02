@@ -249,7 +249,9 @@ static VIDEO_MIME_MAP video_mime_types[] =
    {WP_VIDEO_STREAM_TYPE_VP9, "video/x-vnd.on2.vp9"},
    {WP_VIDEO_STREAM_TYPE_AV1, "video/av01"},
    {WP_VIDEO_STREAM_TYPE_AVS, "video/avs-video"},
-   {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs-video"}
+   {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs-video"},
+   {WP_VIDEO_STREAM_TYPE_DVES_AVC, "video/dolby-vision-avc"},
+   {WP_VIDEO_STREAM_TYPE_DVES_HEVC, "video/dolby-vision-hevc"}
 };
 
 typedef struct
@@ -1826,6 +1828,14 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
         case AV_VIDEO_CODEC_MPEG4:
             av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_MPEG4P2;
             VID_DBG("MPEG4");
+            break;
+        case AV_VIDEO_CODEC_DVES_AVC:
+            av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_DVES_AVC;
+            VID_DBG("DVES AVC");
+            break;
+        case AV_VIDEO_CODEC_DVES_HEVC:
+            av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_DVES_HEVC;
+            VID_DBG("DVES HEVC");
             break;
         default:
             VID_DBG("Unrecognised video codec %u", codec);

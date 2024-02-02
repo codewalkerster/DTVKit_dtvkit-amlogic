@@ -190,7 +190,9 @@ static VIDEO_MIME_MAP video_mime_types[] =
    {WP_VIDEO_STREAM_TYPE_VP9, "video/x-vnd.on2.vp9"},
    {WP_VIDEO_STREAM_TYPE_AV1, "video/av01"},
    {WP_VIDEO_STREAM_TYPE_AVS, "video/avs-video"},
-   {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs-video"}
+   {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs-video"},
+   {WP_VIDEO_STREAM_TYPE_DVES_AVC, "video/dolby-vision-avc"},
+   {WP_VIDEO_STREAM_TYPE_DVES_HEVC, "video/dolby-vision-hevc"}
 };
 
 typedef struct

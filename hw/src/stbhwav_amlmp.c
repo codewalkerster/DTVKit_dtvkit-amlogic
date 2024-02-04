@@ -846,19 +846,19 @@ static void AV_EventCallback(int color)
  */
 void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
 {
-   int ret;
-   AML_MP_PLAYER player_handle;
-   U8BIT av_path = INVALID_RES_ID;
-   BOOLEAN blank = FALSE;
+    int ret;
+    AML_MP_PLAYER player_handle;
+    U8BIT av_path = INVALID_RES_ID;
+    BOOLEAN blank = FALSE;
 
-   FUNCTION_START(STB_AVBlankVideo);
+    FUNCTION_START(STB_AVBlankVideo);
 
-   VID_DBG("path[%u], blank[%d], flag[%x], av_out_flag[%x]", path, av_blank, flag, av_paths_status[path].video_out_control);
-   if (video_blank_lock || path >= num_paths)
-   {
-      VID_DBG("Video blank locked or path is invalid, can not change");
-      return;
-   }
+    if (video_blank_lock || path >= num_paths)
+    {
+        VID_DBG("Video blank locked or path is invalid, can not change(%d)", path);
+        return;
+    }
+    VID_DBG("path[%u], blank[%d], flag[%x], av_out_flag[%x]", path, av_blank, flag, av_paths_status[path].video_out_control);
 
     if (av_blank) {
         av_paths_status[path].video_out_control |= (1<<flag);
@@ -899,7 +899,7 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
     }
     pthread_rwlock_unlock(_l);
 
-   FUNCTION_FINISH(STB_AVBlankVideo);
+    FUNCTION_FINISH(STB_AVBlankVideo);
 }
 
 U32BIT STB_AVGetBlankFlag(U8BIT path)

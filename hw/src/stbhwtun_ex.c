@@ -667,6 +667,7 @@ static void* tune_fsm_task(void *param)
 
     while (1)
     {
+        memset(&msg, 0, sizeof(STRU_FSM_TASK_MSG));
         // Waits for an event to be reported, or the next 100 ms to elapse
         msg_ready = STB_OSReadQueue(sg_tune_task_msg_queue_ptr_array[path], (void *)&msg, sizeof(STRU_FSM_TASK_MSG), TIMEOUT_NEVER);
 

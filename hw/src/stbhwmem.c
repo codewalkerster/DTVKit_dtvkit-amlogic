@@ -703,7 +703,7 @@ static U8BIT* ConvertPathToNVM(U8BIT* path)
      new_path = STB_MEMGetSysRAM(length+strlen(NVM_PATH)+1);
      if (new_path != NULL)
      {
-        sprintf(new_path,"%s%s",NVM_PATH,path);
+        snprintf(new_path, length+strlen(NVM_PATH)+1, "%s%s", NVM_PATH, path);
      }
   }
   return new_path;

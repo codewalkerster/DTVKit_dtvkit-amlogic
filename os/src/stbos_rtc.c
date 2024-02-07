@@ -304,7 +304,7 @@ void STB_OSSetClockTimeZoneNext(S32BIT num_seconds)
 static U32BIT SysBootTime(void)
 {
     struct timespec tsp;
-    U64BIT boot_time_in_msec=0;
+    U64BIT boot_time_in_msec = 0;
 
     /* Notice CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time */
     clock_gettime(CLOCK_MONOTONIC,&tsp);
@@ -312,7 +312,7 @@ static U32BIT SysBootTime(void)
      * 1) Time out of CLOCK_MONOTONIC starts from 0 and reflects actual elapsed time from boot;
      * 2) Time out of CLOCK_MONOTONIC is not affected by discontinuous jumps in the system time;
      */
-    boot_time_in_msec=tsp.tv_sec*1000+tsp.tv_nsec/1000000;
+    boot_time_in_msec = ((U64BIT)tsp.tv_sec) * 1000 +  tsp.tv_nsec / 1000000;
     //RTC_DBG("timespec=(%u,%ld), ret=%u", tsp.tv_sec,tsp.tv_nsec,(U32BIT)boot_time_in_msec);
     return (U32BIT)boot_time_in_msec;
 }

@@ -298,7 +298,7 @@ BOOLEAN STB_IPGetSubnetMask(U8BIT subnet_mask[4])
  */
 BOOLEAN STB_IPGetGatewayIPAddress(U8BIT gateway_addr[4])
 {
-   U8BIT address[4];
+   U8BIT address[4] = {0};
    FUNCTION_START(STB_IPGetGatewayIPAddress);
 
    STB_IPGetIPAddress(address);
@@ -327,9 +327,17 @@ BOOLEAN STB_IPGetDnsServerIPAddress(U8BIT *dns_addr)
    //snprintf(dns_prop_name, sizeof(dns_prop_name), "net.dns%d", 1);
 #ifndef RDK_COMPILE
    snprintf((char *)dns_prop_name, sizeof(dns_prop_name), "vendor.tv.dtv.net.dns%d", 1);
-   property_get((const char *)dns_prop_name, (char *)dns_buff, "");
+   if (!property_get((const char *)dns_prop_name, (char *)dns_buff, ""))
+   {
+      DBGPRINT("get dns prop name failed");
+      return FALSE;
+   }
 #else
-   parseResolvConf(dns_buff,dns_buff2);
+   if (!parseResolvConf(dns_buff,dns_buff2))
+   {
+      DBGPRINT("get dns prop name failed");
+      return FALSE;
+   }
 #endif
    dns = inet_addr((const char *) dns_buff);
    DBGPRINT("DNS: %s %d", dns_buff, dns);
@@ -585,6 +593,11 @@ void *STB_NWOpenSocket(E_NW_AF af, E_NW_TYPE type, E_NW_PROTOCOL protocol, BOOLE
    int s_type = 0;
    int sock;
    S_SOCKET_CTX *ctx = (S_SOCKET_CTX *)STB_MEMGetSysRAM(sizeof(S_SOCKET_CTX));
+   if (!ctx)
+   {
+      STB_SPDebugWrite("%s: memory allocate failure\n", __FUNCTION__);
+      return NULL;
+   }
 
    USE_UNWANTED_PARAM(protocol); /* used in windows socket implementation */
    FUNCTION_START(STB_NWOpenSocket);
@@ -940,7 +953,10 @@ void *STB_NWAccept(void *socket, U8BIT *address, U32BIT *port)
 
    FUNCTION_FINISH(STB_NWAccept);
    new_client = (S_SOCKET_CTX *)STB_MEMGetSysRAM(sizeof(S_SOCKET_CTX));
-   new_client->sock = connfd;
+   if (new_client)
+   {
+      new_client->sock = connfd;
+   }
    return new_client;
 }
 

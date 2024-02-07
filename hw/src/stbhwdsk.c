@@ -316,6 +316,7 @@ U32BIT STB_DSKGetUsed(U16BIT disk_id)
    U32BIT disk_used = 0;
    S_DISK_INFO* disk;
    struct statfs fs_info;
+   memset(&fs_info, 0, sizeof(struct statfs));
    U32BIT blocks_used;
 
    FUNCTION_START(STB_DSKGetUsed);
@@ -323,7 +324,7 @@ U32BIT STB_DSKGetUsed(U16BIT disk_id)
    STB_OSMutexLock(disk_mutex);
 
    disk = FindDisk(disk_id);
-   
+
    if (disk != NULL)
    {
       /* Found the disk */
@@ -1408,6 +1409,7 @@ static BOOLEAN STB_DSKAddDevicePathAndLoad(char *device, char *path, BOOLEAN loa
             else
             {
                struct statfs fs_info;
+               memset(&fs_info, 0, sizeof(struct statfs));
                int retval = statfs(disk->mount_path, &fs_info);
 
                if (retval == 0)
@@ -1669,6 +1671,7 @@ static S_DISK_INFO* AddDisk(char *device_name, char *mount_path)
    S_DISK_INFO *disk_ptr;
    int major, minor;
    struct statfs fs_info;
+   memset(&fs_info, 0, sizeof(struct statfs));
    int retval;
 
    disk = (S_DISK_INFO*)STB_MEMGetSysRAM(sizeof(S_DISK_INFO));
@@ -1676,15 +1679,19 @@ static S_DISK_INFO* AddDisk(char *device_name, char *mount_path)
    {
       memset(disk, 0, sizeof(S_DISK_INFO));
 
-      disk->device_name = (char *)STB_MEMGetSysRAM(strlen(device_name) + 1);
+      int device_name_len = strlen(device_name);
+      disk->device_name = (char *)STB_MEMGetSysRAM(device_name_len + 1);
       if (disk->device_name != NULL)
       {
-         strcpy(disk->device_name, device_name);
+         strncpy(disk->device_name, device_name, device_name_len);
+         disk->device_name[device_name_len] = '\0';
 
-         disk->mount_path = (char *)STB_MEMGetSysRAM(strlen(mount_path) + 1);
+         int mount_path_len = strlen(mount_path);
+         disk->mount_path = (char *)STB_MEMGetSysRAM(mount_path_len + 1);
          if (disk->mount_path != NULL)
          {
-            strcpy(disk->mount_path, mount_path);
+            strncpy(disk->mount_path, mount_path, mount_path_len);
+            disk->mount_path[mount_path_len] = '\0';
 
             /* If major/minor IDs are available then they're included in the device name */
             if (sscanf(device_name, "%*[^:]:%d,%d", &major, &minor) == 2)
@@ -1922,24 +1929,26 @@ BOOLEAN STB_DSKGetDiskInfo(U16BIT disk_id, U8BIT* dev_name, U8BIT name_len,
    }
 
    const U32BIT len1 = strlen(disk->device_name);
-   if (len1 > name_len)
+   if ((len1 + 1) > name_len)
    {
       DISK_ERR("Input devic_name buffer size is not enough. expect:%u, given:%u",
             len1, (U32BIT)name_len);
       STB_OSMutexUnlock(disk_mutex);
       return FALSE;
    }
-   strcpy(dev_name,disk->device_name);
+   strncpy(dev_name, disk->device_name, len1);
+   dev_name[len1] = '\0';
 
    const U32BIT len2 = strlen(disk->mount_path);
-   if (len2 > path_len)
+   if ((len2 + 1) > path_len)
    {
       DISK_ERR("Input mount_path buffer size is not enough. expect:%u, given:%u",
             len2, (U32BIT)path_len);
       STB_OSMutexUnlock(disk_mutex);
       return FALSE;
    }
-   strcpy(mount_path,disk->mount_path);
+   strncpy(mount_path, disk->mount_path, len2);
+   mount_path[len2] = '\0';
 
    *used_in_kb = STB_DSKGetUsed(disk_id);
    *size_in_kb = disk->disk_size;

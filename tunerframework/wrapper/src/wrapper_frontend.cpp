@@ -1450,13 +1450,13 @@ U8BIT Wrapper_TuneGetPLP(U8BIT path)
     return plp_id;
 }
 
-S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
+U16BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
 {
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
         return 0;
     }
-    S32BIT length = tuner_status_map[path].t2_plp_list.size();
+    U16BIT length = (U16BIT)tuner_status_map[path].t2_plp_list.size();
     ALOGD("%s: length = %d", __FUNCTION__,length);
     if (length <= listlen && length > 0)
     {

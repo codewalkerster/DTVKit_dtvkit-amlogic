@@ -479,7 +479,7 @@ void Wrapper_TuneSetPLP(U8BIT path, U8BIT plp);
  */
 U8BIT Wrapper_TuneGetPLP(U8BIT path);
 
-S32BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen);
+U16BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen);
 
 /**
  * @brief   Returns the actual symbol rate when a tuner has locked

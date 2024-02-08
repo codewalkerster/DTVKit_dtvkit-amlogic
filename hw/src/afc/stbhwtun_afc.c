@@ -576,13 +576,13 @@ E_STB_TUNE_TCONST STB_TuneGetActualTerrConstellation(U8BIT path)
  * @param   tuner_id, the tuner index to query
  * @return  the heirarchy
  */
-E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
+E_STB_TUNE_HIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
 {
-    U8BIT retval = TUNE_THIERARCHY_NONE;
+    U8BIT retval = TUNE_HIERARCHY_NONE;
 
     FUNCTION_START(STB_TuneGetActualTerrHierarchy);
 
-    retval = (E_STB_TUNE_THIERARCHY)Wrapper_TuneGetActualTerrHierarchy(tuner_id);
+    retval = (E_STB_TUNE_HIERARCHY)Wrapper_TuneGetActualTerrHierarchy(tuner_id);
 
     FUNCTION_FINISH(STB_TuneGetActualTerrHierarchy);
 
@@ -596,9 +596,9 @@ E_STB_TUNE_THIERARCHY STB_TuneGetActualTerrHierarchy(U8BIT tuner_id)
  * @param   listlen,  in  param, the max numbers of pipid that can be stored in the list
  * @return  the max pip number of the current frequency.
  */
-S32BIT STB_TuneGetMPLPIDList(U8BIT tuner_id, U8BIT *plp_list, U16BIT listlen)
+ U16BIT STB_TuneGetMPLPIDList(U8BIT tuner_id, U8BIT *plp_list, U16BIT listlen)
 {
-    S32BIT retval = 0;
+    U16BIT retval = 0;
 
     FUNCTION_START(STB_TuneGetMPLPIDList);
 

@@ -176,10 +176,16 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     hw/src/stbhwutils.c \
     hw/src/stbswcfg.c \
     hw/src/stbhwdemux_usb.c \
+    hw/src/stbhwresm.c \
+    hw/src/stbpathcfg.c \
     hw/src/systemcontrol.cpp \
+    hw/src/stbhwtun.c \
     hw/src/stbhwtun_ex.c \
+    hw/src/stbhwdmx.c \
     hw/src/fsm_base.c \
     hw/src/afd_ctrl.c \
+    hw/src/linuxdvbdmx_wrapper.c \
+    hw/hal/aml_frontend_api.c \
     hw/atv/linux_v4l2.c \
     hw/atv/atv_vlfend.c \
     hw/atv/atv_vlfend_test.c \
@@ -192,8 +198,7 @@ LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
     os/src/stbos_semaphore.c  \
     os/src/stbos_task.c       \
     os/src/stbos_utils.c      \
-    os/src/dtv_log.c          \
-    hw/src/stbpathcfg.c
+    os/src/dtv_log.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
 LOCAL_SRC_FILES += hw/src/emu_tuner.c \
@@ -202,12 +207,6 @@ LOCAL_SRC_FILES += hw/src/emu_tuner.c \
 
 LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
-
-
-LOCAL_SRC_FILES += hw/src/stbhwtun.c \
-                   hw/src/stbhwresm.c \
-                   hw/src/stbhwdmx.c \
-                   hw/src/linuxdvbdmx_wrapper.c
 
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS

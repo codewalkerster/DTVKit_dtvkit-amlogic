@@ -103,7 +103,6 @@ TRGT_LIB = $(BIN_BUILD_PATH)/lib$(COMP).a
 COMMON_CLEAN_ACTION=rm -rf $(BIN_BUILD_PATH)/$(COMP) $(TRGT_LIB)
 endif
 
-SRCDIR = src
 DEPF = $(OBJDIR)/$(*F)
 CSRCS = $(filter %.c,$(SRCS))
 DSRCS = $(filter-out %.c,$(SRCS))
@@ -142,7 +141,9 @@ $(TRGT_LIB): $(OBJS)
 #
 # The compile rule
 #
-$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
+VPATH = $(SRCDIR)
+
+$(OBJDIR)/%.o: %.c | $(OBJDIR)
 	$(compile)
 
 #

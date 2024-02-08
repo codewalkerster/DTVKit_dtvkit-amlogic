@@ -16,7 +16,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sys/ioctl.h>
 #include <sys/poll.h>
 
 //---#includes for this file---------------------------------------------------
@@ -39,6 +38,9 @@
 #include "stbhwtun_ex.h"
 
 #include "cert_log.h"
+
+#include "aml_frontend_api.h"
+
 
 #define TAG "TUNER"
 
@@ -464,26 +466,28 @@ BOOLEAN stb_tune_isdiff_systype(S_TUNER_STATUS *tstatus)
 {
     BOOLEAN is_diff = TRUE;
 
-    struct dtv_property p = {.cmd = DTV_DELIVERY_SYSTEM, .u.data = 0};
-    struct dtv_properties props = {.num = 1, .props = &p};
-
-    if (ioctl(tstatus->frontend_fd, FE_GET_PROPERTY, &props) >= 0)
+    fe_delivery_system_t fe_sys = SYS_UNDEFINED;
+    fe_modulation_t modulation = QPSK;
+    U32BIT srate = 0;
+    if (aml_frontend_get_delivery_system(tstatus->frontend_fd,
+                                         (U32BIT *)&fe_sys, (U32BIT *)&modulation, &srate))
     {
-        if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (p.u.data == SYS_DVBT)) ||
-             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (p.u.data == SYS_DVBT2)) ||
-             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) && (p.u.data == SYS_DVBS)) ||
-             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (p.u.data == SYS_DVBS2)) ||
-             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBC)  && ((p.u.data == SYS_DVBC_ANNEX_A) || (p.u.data == SYS_DVBC_ANNEX_B) || (p.u.data == SYS_DVBC_ANNEX_C))) ||
-             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) && (p.u.data == SYS_ISDBT)))
+        if (((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (fe_sys == SYS_DVBT)) ||
+             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (fe_sys == SYS_DVBT2)) ||
+             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) && (fe_sys == SYS_DVBS)) ||
+             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (fe_sys == SYS_DVBS2)) ||
+             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBC)  &&
+               ((fe_sys == SYS_DVBC_ANNEX_A) || (fe_sys == SYS_DVBC_ANNEX_B) || (fe_sys == SYS_DVBC_ANNEX_C))) ||
+             ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) && (fe_sys == SYS_ISDBT)))
         {
             CERT_LOG_INFO(TAG, "[%s] same sys_type %s, delivery system is %d", __FUNCTION__,
-                                GetSysTypeDebugString(tstatus->sys_type), p.u.data);
+                                GetSysTypeDebugString(tstatus->sys_type), fe_sys);
             is_diff = FALSE;
         }
         else
         {
             CERT_LOG_INFO(TAG, "[%s] different sys_type %s, delivery system is %d", __FUNCTION__,
-                                GetSysTypeDebugString(tstatus->sys_type), p.u.data);
+                                GetSysTypeDebugString(tstatus->sys_type), fe_sys);
             is_diff = TRUE;
         }
     }
@@ -790,7 +794,6 @@ static BOOLEAN _check_hw_lock_status(int frontend_fd, BOOLEAN *locked)
     struct pollfd pfd;
     struct dvb_frontend_event fe_event;
 
-
     pfd.fd = frontend_fd;
     pfd.events = POLLIN;
     pfd.revents = 0;
@@ -799,7 +802,7 @@ static BOOLEAN _check_hw_lock_status(int frontend_fd, BOOLEAN *locked)
 
     if (poll(&pfd, 1, TUNER_POLLING_TIMEOUT) == 1)
     {
-       if (ioctl(frontend_fd, FE_GET_EVENT, &fe_event) >= 0)
+       if (aml_frontend_get_event(frontend_fd, &fe_event))
        {
            CERT_LOG_INFO(TAG, "[%s] status=0x%02x", __FUNCTION__, fe_event.status);
 

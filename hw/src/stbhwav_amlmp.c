@@ -2063,29 +2063,35 @@ void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5])
     pthread_rwlock_rdlock(_l);
     ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder,
                                     av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
-   if (ret < 0)
-   {
-       AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
-       pthread_rwlock_unlock(_l);
-       return;
-   }
-   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-   ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_PCR, &video_pts);
-   AUD_DBG("the ret value = %d",ret);
-   STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-   if (ret == 0)
-   {
-       memset(stc, 0, 5);
-       stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
-       stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
-       stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
-       stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
-       stc[4] = (U8BIT)(video_pts & 0xff);
-       AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
-   }
+    if (ret < 0)
+    {
+        AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+    STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+
+    #ifdef RDK_COMPILE
+         ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_STC, &video_pts);
+    #else
+         ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_PCR, &video_pts);
+    #endif
+
+    AUD_DBG("the ret value = %d",ret);
+    STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+    if (ret == 0)
+    {
+        memset(stc, 0, 5);
+        stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
+        stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
+        stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
+        stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
+        stc[4] = (U8BIT)(video_pts & 0xff);
+        AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
+    }
     pthread_rwlock_unlock(_l);
 
-   FUNCTION_FINISH(STB_AVGetSTC);
+    FUNCTION_FINISH(STB_AVGetSTC);
 }
 
 /**

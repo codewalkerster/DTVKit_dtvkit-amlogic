@@ -325,14 +325,14 @@ void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type);
  * @param   path the tuner path to query
  * @return  minimum frequency in Khz
  */
-U32BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path);
+S64BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path);
 
 /**
  * @brief   Returns the maximum tuner frequency in KHz
  * @param   path the tuner path to query
  * @return  maximum frequency in Khz
  */
-U32BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path);
+S64BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path);
 
 /**
  * @brief   Starts the tuner, it will then attempt to lock specified signal.

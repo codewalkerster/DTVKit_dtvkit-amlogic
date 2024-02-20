@@ -138,8 +138,9 @@ static BOOLEAN getFrontendIds(U8BIT path)
 {
     frontend_list.clear();
 
-    U16BIT tuner_client = findTunerClient(path);
+    U16BIT tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
     if (tuner_client == INVALID_TUNER_ID) {
+        ALOGE("%s: path: %d, Invalid tuner id", __FUNCTION__, path);
         return FALSE;
     }
 
@@ -195,17 +196,12 @@ static BOOLEAN getFrontendIds(U8BIT path)
     return (frontend_list.size() > 0);
 }
 
-static U32BIT getFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM param)
+static S64BIT getCurrentFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM param)
 {
-    U16BIT tuner_client = findTunerClient(path);
+    U16BIT tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
+
     if (tuner_client == INVALID_TUNER_ID) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
-        return 0;
-    }
-
-    jobject frontendInfo = Am_tuner_getFrontendInfo(tuner_client);
-    if (NULL == frontendInfo) {
-        ALOGE("%s: FrontendInfo is null", __FUNCTION__);
         return 0;
     }
 
@@ -216,13 +212,13 @@ static U32BIT getFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM param)
         return 0;
     }
 
-    U32BIT param_value = 0;
+    S64BIT param_value = 0;
     for (int frontendId : frontend_list)
     {
-        ALOGD("%s: frontendId : %d", __FUNCTION__, frontendId);
+        ALOGI("%s: frontendId : %d", __FUNCTION__, frontendId);
         jobject frontendInfo = Am_tuner_getFrontendInfoById(tuner_client, frontendId);
         if (NULL == frontendInfo) {
-            ALOGD("%s: FrontendInfo is null", __FUNCTION__);
+            ALOGE("%s: FrontendInfo is null", __FUNCTION__);
             if (attached) {
                 Am_tuner_detachJNIEnv();
             }
@@ -231,7 +227,7 @@ static U32BIT getFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM param)
         //1.Test jobject class
         jclass fe_info_class = env->FindClass("android/media/tv/tuner/frontend/FrontendInfo");
         if (JNI_TRUE != env->IsInstanceOf(frontendInfo, fe_info_class)) {
-            ALOGD("%s: not FrontendInfo object", __FUNCTION__);
+            ALOGE("%s: not FrontendInfo object", __FUNCTION__);
             if (attached) {
                 Am_tuner_detachJNIEnv();
             }
@@ -241,20 +237,23 @@ static U32BIT getFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM param)
         //2.show Frontend info
         jfieldID fType = env->GetFieldID(fe_info_class, "mType", "I");
         E_TTYPE type = (E_TTYPE)(env->GetIntField(frontendInfo, fType));
-        if (E_TERR_TYPE_DVBT == type) {
+        if (getSignalType(path) == type) {
             string get_param_range;
+            string ValueClass_type;
             if (param == FRONTEND_PARAM_MAX_FREQ || param == FRONTEND_PARAM_MIN_FREQ) {
-                get_param_range = "getFrequencyRange";
+                get_param_range = "getFrequencyRangeLong";
+                ValueClass_type = LONG_CLASS;
             }
             else if (param == FRONTEND_PARAM_MAX_SRATE || param == FRONTEND_PARAM_MIN_SRATE) {
                 get_param_range = "getSymbolRateRange";
+                ValueClass_type = INTEGER_CLASS;
             }
 
             jmethodID value_range_id = env->GetMethodID(fe_info_class, get_param_range.c_str(), "()Landroid/util/Range;");
             jobject value_range_obj = env->CallObjectMethod(frontendInfo, value_range_id);
             jclass value_range_class = env->FindClass("android/util/Range");
             if (JNI_TRUE != env->IsInstanceOf(value_range_obj, value_range_class)) {
-                ALOGD("%s: not FrequencyRange object", __FUNCTION__);
+                ALOGE("%s: not Range object", __FUNCTION__);
                 if (attached) {
                     Am_tuner_detachJNIEnv();
                 }
@@ -271,15 +270,27 @@ static U32BIT getFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM param)
 
             jmethodID get_value_id = env->GetMethodID(value_range_class, get_value_func.c_str(), "()Ljava/lang/Comparable;");
             jobject get_value_obj = env->CallObjectMethod(value_range_obj, get_value_id);
-            jclass value_class = getValueClass(env, get_value_obj, INTEGER_CLASS);
+            jclass value_class = getValueClass(env, get_value_obj, ValueClass_type.c_str());
             if (NULL == value_class) {
+                if (attached) {
+                    Am_tuner_detachJNIEnv();
+                }
                 return 0;
             }
             jmethodID value_id = env->GetMethodID(value_class, "intValue", "()I");
-            param_value = env->CallIntMethod(get_value_obj, value_id);
-            ALOGD("%s: type:%d param:%d value:%d", __FUNCTION__, type, param, param_value);
+            if (param == FRONTEND_PARAM_MAX_FREQ || param == FRONTEND_PARAM_MIN_FREQ)
+            {
+                param_value = env->CallLongMethod(get_value_obj, value_id);
+            }
+            else if (param == FRONTEND_PARAM_MAX_SRATE || param == FRONTEND_PARAM_MIN_SRATE)
+            {
+                param_value = env->CallIntMethod(get_value_obj, value_id);
+            }
+            ALOGI("%s: type:%d param:%d value:%lld", __FUNCTION__, type, param, param_value);
             env->DeleteLocalRef(get_value_obj);
             env->DeleteLocalRef(value_range_obj);
+            env->DeleteWeakGlobalRef(frontendInfo);
+            break;
         }
 
         env->DeleteWeakGlobalRef(frontendInfo);
@@ -288,7 +299,6 @@ static U32BIT getFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM param)
     if (attached) {
         Am_tuner_detachJNIEnv();
     }
-
     return param_value;
 }
 
@@ -482,7 +492,7 @@ static void lnbCallback(jobject lnb, int tuner_client, int eventType, jbyteArray
 
 static BOOLEAN openLnb(U8BIT path)
 {
-    U16BIT client_id = Am_tuner_getTunerClientIdByType(getTunerType(path));
+    U16BIT client_id = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path:%d isn't contained in map, client_id:%d", __FUNCTION__, path, client_id);
         return FALSE;
@@ -869,7 +879,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         return;
     }
     tuner_status_map[path].tune_stop = FALSE;
-    U16BIT client_id = Am_tuner_getTunerClientIdByType(getTunerType(path));
+    U16BIT client_id = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
     BOOLEAN search_mode = tuner_status_map[path].tuner_search_mode;
     ALOGD("%s path:%d client_id:%d search:%u freq:%d cmode:%d srate:%d",
           __FUNCTION__, path, search_mode, client_id, freq, cmode, srate);
@@ -1136,9 +1146,9 @@ BOOLEAN Wrapper_TuneOpen(U8BIT path)
     U16BIT tuner_client = INVALID_TUNER_ID;
     if (KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGD("%s: path:%d is contained in map", __FUNCTION__, path);
-        tuner_client = findTunerClient(path);
+        tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
         if (INVALID_TUNER_ID == tuner_client) {
-            tuner_client = Am_tuner_getTunerClientIdByType(getTunerType(path));
+            tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
             if (INVALID_TUNER_ID == tuner_client)
             {
                 ALOGE("%s: tuner_client is invalid", __FUNCTION__);
@@ -1150,7 +1160,7 @@ BOOLEAN Wrapper_TuneOpen(U8BIT path)
         }
     }
     else {
-        tuner_client = Am_tuner_getTunerClientIdByType(getTunerType(path));
+        tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
         if (INVALID_TUNER_ID == tuner_client)
         {
             ALOGE("%s: tuner_client is invalid", __FUNCTION__);
@@ -1318,63 +1328,22 @@ EW_STB_TUNE_TBWIDTH Wrapper_TuneGetActualTerrBwidth(U8BIT path)
     return tbwidth;
 }
 
-U32BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path)
+S64BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path)
 {
-    U32BIT min_freq;
-    E_TTYPE signal_type = E_TERR_TYPE_UNKNOWN;
+    S64BIT min_freq;
 
-//    min_freq = getFrontendParameter(path, FRONTEND_PARAM_MIN_FREQ);
-//    min_freq /= 1000;
-
-    signal_type = getSignalType(path);
-
-    switch (signal_type)
-    {
-        case E_TERR_TYPE_DVBS:
-//            if (min_freq < (950-5)*1000)
-//            {
-//                min_freq = (950-5)*1000;
-//            }
-            min_freq = (950-5)*1000;
-            break;
-        default:
-//            if (min_freq < 40*1000)
-//            {
-//                min_freq = 40*1000;
-//            }
-            min_freq = 40*1000;
-            break;
-    }
-
+    min_freq = getCurrentFrontendParameter(path, FRONTEND_PARAM_MIN_FREQ);
+    min_freq /= 1000;
+    ALOGI("%s: Min Tuner Freq: %lld KHz", __FUNCTION__, min_freq);
     return min_freq;
 }
 
-U32BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path)
+S64BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path)
 {
-    U32BIT max_freq;
-    E_TTYPE signal_type = E_TERR_TYPE_UNKNOWN;
-//    max_freq = getFrontendParameter(path, FRONTEND_PARAM_MAX_FREQ);
-//    max_freq /= 1000;
-
-    signal_type = getSignalType(path);
-
-    switch (signal_type)
-    {
-        case E_TERR_TYPE_DVBS:
-//            if (max_freq == 0 || max_freq > (2150+5)*1000)
-//            {
-//                max_freq = (2150+5)*1000;
-//            }
-            max_freq = (2150+5)*1000;
-            break;
-        default:
-//            if (max_freq == 0 || max_freq > 1002*1000)
-//            {
-//                max_freq = 1002*1000;
-//            }
-            max_freq = 1002*1000;
-            break;
-    }
+    S64BIT max_freq;
+    max_freq = getCurrentFrontendParameter(path, FRONTEND_PARAM_MAX_FREQ);
+    max_freq /= 1000;
+    ALOGI("%s: Max Tuner Freq: %lld KHz", __FUNCTION__, max_freq);
     return max_freq;
 }
 
@@ -1548,14 +1517,14 @@ void Wrapper_TuneGetSupportedSystemType(U8BIT path, U8BIT *support_sys)
 
 U32BIT Wrapper_TuneGetMinTunerSymbolRate(U8BIT path)
 {
-    return getFrontendParameter(path, FRONTEND_PARAM_MIN_SRATE);
+    return getCurrentFrontendParameter(path, FRONTEND_PARAM_MIN_SRATE);
 }
 
 U32BIT Wrapper_TuneGetMaxTunerSymbolRate(U8BIT path)
 {
     U32BIT symbol_rate;
 
-    symbol_rate = getFrontendParameter(path, FRONTEND_PARAM_MAX_SRATE);
+    symbol_rate = getCurrentFrontendParameter(path, FRONTEND_PARAM_MAX_SRATE);
     if (symbol_rate == 0)
     {
         symbol_rate = 0x0FFFFFFF;
@@ -1684,7 +1653,7 @@ void Wrapper_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
         ALOGD("%s: path:%d is contained in map", __FUNCTION__, path);
         tuner_client = findTunerClient(path);
         if (INVALID_TUNER_ID == tuner_client) {
-            tuner_client = Am_tuner_getTunerClientIdByType(getTunerType(path));
+            tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
             if (INVALID_TUNER_ID == tuner_client)
             {
                 ALOGE("%s: tuner_client is invalid", __FUNCTION__);
@@ -1696,7 +1665,7 @@ void Wrapper_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
         }
     }
     else {
-        tuner_client = Am_tuner_getTunerClientIdByType(getTunerType(path));
+        tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
         if (INVALID_TUNER_ID == tuner_client)
         {
             ALOGE("%s: tuner_client is invalid", __FUNCTION__);
@@ -1984,7 +1953,7 @@ void Wrapper_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT 
 BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindCallback_t cb, void *user_data,
                                       unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable)
 {
-    U16BIT client_id = Am_tuner_getTunerClientIdByType(getTunerType(path));
+    U16BIT client_id = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
 
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path:%d isn't contained in map, client_id:%d", __FUNCTION__, path, client_id);

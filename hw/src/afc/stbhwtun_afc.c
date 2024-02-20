@@ -298,7 +298,7 @@ U32BIT STB_TuneGetMaxTunerSymbolRate(U8BIT path)
  */
 U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
 {
-    U32BIT min_freq;
+    U64BIT min_freq;
 
     FUNCTION_START(STB_TuneGetMinTunerFreqKHz);
 
@@ -306,7 +306,7 @@ U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
 
     FUNCTION_FINISH(STB_TuneGetMinTunerFreqKHz);
 
-    return(min_freq);
+    return ((U32BIT)min_freq);
 }
 
 /**
@@ -316,7 +316,7 @@ U32BIT STB_TuneGetMinTunerFreqKHz(U8BIT path)
  */
 U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
 {
-    U32BIT max_freq;
+    S64BIT max_freq;
 
     FUNCTION_START(STB_TuneGetMaxTunerFreqKHz);
 
@@ -324,7 +324,7 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
 
     FUNCTION_FINISH(STB_TuneGetMaxTunerFreqKHz);
 
-    return(max_freq);
+    return ((U32BIT)max_freq);
 }
 
 /**

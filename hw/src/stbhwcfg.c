@@ -187,8 +187,10 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                     tun->frontend_idx = i;
                 }
             }else if (!strcmp(an, "dvbt") && !strcmp(av, "yes")) {
+                tun->signal_types  |= TUNE_SIGNAL_VSB;  // for test
                 tun->signal_types  |= TUNE_SIGNAL_COFDM;
             } else if (!strcmp(an, "dvbt2") && !strcmp(av, "yes")) {
+                tun->signal_types  |= TUNE_SIGNAL_VSB;  // for test
                 tun->signal_types  |= TUNE_SIGNAL_COFDM;
                 tun->support_dvbt2  = 1;
             } else if (!strcmp(an, "dvbs") && !strcmp(av, "yes")) {
@@ -198,6 +200,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
                 tun->support_dvbs2  = 1;
             } else if (!strcmp(an, "dvbc") && !strcmp(av, "yes")) {
                 tun->signal_types  |= TUNE_SIGNAL_QAM;
+                tun->signal_types  |= TUNE_SIGNAL_QAMB;
             }
 
             att += 2;
@@ -809,6 +812,7 @@ void STB_CfgInitialise(void)
                                 aml_hw_cfg.epg_cfg.eit_search_enabled);
 
     // B: Starting Up Log
+    #if 0
     CERT_Log_StartingUp("tuner_num:%d demux_num:%d ci_slot_num:%d recorder_num:%d vdec_num:%d adec_num:%d demux:%d",
                                 aml_hw_cfg.tuner_num,
                                 aml_hw_cfg.demux_num,
@@ -826,6 +830,7 @@ void STB_CfgInitialise(void)
                                 aml_hw_cfg.epg_cfg.is_not_match_tsid,
                                 aml_hw_cfg.epg_cfg.barker_channel_enabled,
                                 aml_hw_cfg.epg_cfg.eit_search_enabled);
+    #endif
 
     // record origin ts input index
     for (i = 0; i < aml_hw_cfg.tuner_num; i ++) {
@@ -845,6 +850,7 @@ void STB_CfgInitialise(void)
                                 tun->support_dvbs2);
 
        // B: Starting Up Log
+       #if 0
        CERT_Log_StartingUp("tuner%d ts_input:%d frontend:%d signal_types:%d dvbt2:%d dvbs2:%d",
                                 i,
                                 tun->ts_input_idx,
@@ -852,6 +858,7 @@ void STB_CfgInitialise(void)
                                 tun->signal_types,
                                 tun->support_dvbt2,
                                 tun->support_dvbs2);
+       #endif
        // E: Starting Up Log
     }
 

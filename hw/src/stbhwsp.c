@@ -165,6 +165,48 @@ void STB_SPDebugNoCnWrite(const char *format, ... )
    //fflush(stdout);
 
    FUNCTION_FINISH(STB_SPDebugNoCnWrite);
+
+}
+
+/**
+ * @brief     Print hexadecimal dump of data buffer
+ * @param     data Pointer to data to hex dump
+ * @param     size Size of data in bytes
+ */
+void STB_SPDebugHexDump(U8BIT *data, U32BIT size)
+{
+   const char digits[17] = "0123456789ABCDEF";
+   char buff[52];
+   U32BIT dlen, blen;
+
+
+   for (dlen = 0, blen = 0; dlen != size; dlen++, data++)
+   {
+      buff[blen++] = digits[*data >> 4];
+      buff[blen++] = digits[*data & 0xf];
+      switch (dlen & 0xf)
+      {
+      case 0xf:
+      {
+         buff[blen] = '\0';
+         STB_SPDebugWrite("%s\n", buff);
+         blen = 0;
+         break;
+      }
+      case 0x7:
+         buff[blen++] = ' ';
+      default:
+         buff[blen++] = ' ';
+         break;
+      }
+   }
+
+   if (blen != 0)
+   {
+      buff[blen] = '\0';
+      STB_SPDebugWrite("%s\n", buff);
+   }
+
 }
 
 /**

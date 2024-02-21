@@ -791,7 +791,8 @@ static void
 dsc_set_aes_output(BOOLEAN enable)
 {
    S_DSC_DEV_INFO *dsc;
-   U8BIT i, r;
+   U8BIT r;
+   int i;
    U32BIT flag = 0;
    U8BIT dev_name[256];
    U8BIT dst_name[32];

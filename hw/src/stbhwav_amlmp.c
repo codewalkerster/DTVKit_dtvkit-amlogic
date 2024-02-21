@@ -3891,6 +3891,12 @@ void STB_AVNotifyEventHandler(U8BIT audio_path, U8BIT video_path, void *event, i
    FUNCTION_FINISH(STB_AVNotifyEventHandler);
 }
 
+void STB_AVRegisterCcCallback(U8BIT path, void* context, CC_DATA_CALLBACK callback)
+{
+   FUNCTION_START(STB_AVRegisterCcCallback);
+   FUNCTION_FINISH(STB_AVRegisterCcCallback);
+}
+
 pthread_rwlock_t *STB_AVGetLockByPath(U8BIT path)
 {
    FUNCTION_START(STB_AVGetLockByPath);

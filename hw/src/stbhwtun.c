@@ -141,7 +141,7 @@ void STB_TuneInitialise(U8BIT paths)
     }
 
     TUN_ERR("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
-    CERT_Log_StartingUp("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
+    //CERT_Log_StartingUp("Current isTvPlatform [%s].", isTvPlatform ? "Yes": "No");
 
     /* Find out how many tuners are available */
     do
@@ -175,7 +175,7 @@ void STB_TuneInitialise(U8BIT paths)
             }
             else
             {
-                CERT_Log_StartingUp("not found path %u", num_paths);
+                //CERT_Log_StartingUp("not found %s", fe_name);
                 adapter_found = FALSE;
             }
         }
@@ -186,7 +186,7 @@ void STB_TuneInitialise(U8BIT paths)
             sleep(1);
 
             TUN_DBG("retry: %d", init_try_count);
-            CERT_Log_StartingUp("retry: %d", init_try_count);
+            //CERT_Log_StartingUp("retry: %d", init_try_count);
         }
         else
         {
@@ -247,7 +247,7 @@ void STB_TuneInitialise(U8BIT paths)
                                          TUNE_TASK_PRIORITY, (U8BIT *)"TunerTask") == NULL)
                     {
                         TUN_ERR("Failed to create task for tuner %u", i);
-                        CERT_Log_StartingUp("Failed to create task for tuner %u", i);
+                        //CERT_Log_StartingUp("Failed to create task for tuner %u", i);
                     }
                 }
                 else
@@ -261,7 +261,7 @@ void STB_TuneInitialise(U8BIT paths)
     else
     {
         TUN_ERR("No tuners found!");
-        CERT_Log_StartingUp("No tuners found!");
+        //CERT_Log_StartingUp("No tuners found!");
     }
 
     FUNCTION_FINISH(STB_TuneInitialise);
@@ -367,6 +367,12 @@ void STB_TuneSetActualSupportedSystemType(U8BIT path, S32BIT frontend_fd)
                     case SYS_DVBC_ANNEX_A:
                     case SYS_DVBC_ANNEX_C:
                         aml_hw_cfg.tuners[path].signal_types |= TUNE_SIGNAL_QAM;
+                        break;
+                    case SYS_ATSC:
+                        aml_hw_cfg.tuners[path].signal_types |= TUNE_SIGNAL_VSB;
+                        break;
+                    case SYS_DVBC_ANNEX_B:
+                        aml_hw_cfg.tuners[path].signal_types |= TUNE_SIGNAL_QAMB;
                         break;
                     default:
                         break;
@@ -526,6 +532,13 @@ static fe_delivery_system_t SysTypeToFeMode(E_STB_TUNE_SYSTEM_TYPE sys_type)
             fe_mode = SYS_ANALOG;
             break;
 
+        case TUNE_SYSTEM_TYPE_ATSC_T:
+            fe_mode = SYS_ATSC;
+            break;
+
+        case TUNE_SYSTEM_TYPE_ATSC_C:
+            fe_mode = SYS_DVBC_ANNEX_B;
+            break;
         default:
             TUN_ERR("not support type:%d", sys_type);
             break;
@@ -670,14 +683,16 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
         TUN_DBG("%u: freq %lu, srate %lu fec %d sys_type %s, signal_type %d", path, freq, srate, fec,
                     GetSysTypeDebugString(tstatus->sys_type), tstatus->signal_type);
 
-        if (((tstatus->signal_type == TUNE_SIGNAL_COFDM) &&
-                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) ||
-                 ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (tstatus->delivery_system == SYS_DVBT2)))) ||
-                ((tstatus->signal_type == TUNE_SIGNAL_QPSK) &&
-                 ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) ||
-                  ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (tstatus->delivery_system == SYS_DVBS2)))) ||
-                ((tstatus->signal_type == TUNE_SIGNAL_QAM) && (tstatus->delivery_system == SYS_DVBC_ANNEX_A)) ||
-                ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) && (tstatus->delivery_system == SYS_ISDBT)))
+        if ((tstatus->signal_type == TUNE_SIGNAL_COFDM &&
+               (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT ||
+               (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2 && tstatus->delivery_system == SYS_DVBT2))) ||
+             (tstatus->signal_type == TUNE_SIGNAL_QPSK &&
+                (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS ||
+                (tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2 && tstatus->delivery_system == SYS_DVBS2))) ||
+             (tstatus->signal_type == TUNE_SIGNAL_QAM && tstatus->delivery_system == SYS_DVBC_ANNEX_A) ||
+             (tstatus->signal_type == TUNE_SIGNAL_ISDBT && tstatus->delivery_system == SYS_ISDBT) ||
+             (tstatus->signal_type == TUNE_SIGNAL_VSB && tstatus->delivery_system == SYS_ATSC) ||
+             (tstatus->signal_type == TUNE_SIGNAL_QAMB && tstatus->delivery_system == SYS_DVBC_ANNEX_B))
         {
             start_tuning = FALSE;
             STB_TimeConsumeDebug("Tune lock start");
@@ -708,6 +723,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                     break;
 
                 case TUNE_SIGNAL_QAM:
+                case TUNE_SIGNAL_QAMB:
                     if ((tstatus->u.cab.cmode != cmode) || (tstatus->u.cab.srate != srate))
                     {
                         start_tuning = TRUE;
@@ -734,6 +750,9 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
                         tstatus->u.isdbt.tbwidth = tbwidth;
                     }
 
+                    break;
+                case TUNE_SIGNAL_VSB:
+                case TUNE_SIGNAL_16VSB:
                     break;
 
                 default:
@@ -1806,6 +1825,14 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetActualSysType(U8BIT path)
         {
             sys_type = TUNE_SYSTEM_TYPE_DVBS2;
         }
+        else if (fe_sys == SYS_ATSC)
+        {
+            sys_type = TUNE_SYSTEM_TYPE_ATSC_T;
+        }
+        else if (fe_sys == SYS_DVBC_ANNEX_B)
+        {
+            sys_type = TUNE_SYSTEM_TYPE_ATSC_C;
+        }
         // loop more
     }
     else
@@ -2111,7 +2138,7 @@ void STB_TuneSetSystemType(U8BIT path, E_STB_TUNE_SYSTEM_TYPE type)
         tuner_status[path].sys_type = type;
     }
 
-    FUNCTION_FINISH(STB_TuneSetTerrType);
+    FUNCTION_FINISH(STB_TuneSetSystemType);
 }
 
 /**
@@ -2202,7 +2229,8 @@ U32BIT STB_TuneGetActualSymbolRate(U8BIT path)
     }
     else
     {
-        if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM)
+        if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM ||
+            tuner_status[path].signal_type == TUNE_SIGNAL_QAMB)
         {
             srate = tuner_status[path].u.cab.srate;
         }
@@ -2232,7 +2260,9 @@ E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path)
 
     mode = TUNE_MODE_QAM_UNDEFINED;
 
-    if ((path < num_paths) && (tuner_status[path].signal_type == TUNE_SIGNAL_QAM))
+    if ((path < num_paths) &&
+        (tuner_status[path].signal_type == TUNE_SIGNAL_QAM ||
+         tuner_status[path].signal_type == TUNE_SIGNAL_QAMB))
     {
         mode = tuner_status[path].u.cab.cmode;
     }
@@ -2282,6 +2312,14 @@ void STB_TuneGetSupportedSystemType(U8BIT path, U8BIT *support_sys)
           {
              support_sys[TUNE_SYSTEM_TYPE_DVBS2] = TRUE;
           }
+       }
+       if (aml_hw_cfg.tuners[path].signal_types & TUNE_SIGNAL_QAMB)
+       {
+          support_sys[TUNE_SYSTEM_TYPE_ATSC_C] = TRUE;
+       }
+       if (aml_hw_cfg.tuners[path].signal_types & TUNE_SIGNAL_VSB)
+       {
+          support_sys[TUNE_SYSTEM_TYPE_ATSC_T] = TRUE;
        }
     }
 }
@@ -2636,6 +2674,17 @@ static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_ty
 
                 break;
 
+            case TUNE_SIGNAL_QAMB:
+                if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_ATSC_C)
+                    tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_ATSC_C;
+
+                break;
+            case TUNE_SIGNAL_VSB:
+                if (tstatus->tuned_sys_type != TUNE_SYSTEM_TYPE_ATSC_T)
+                    tstatus->tuned_sys_type = TUNE_SYSTEM_TYPE_ATSC_T;
+
+                break;
+
             default:
                 TUN_ERR("not support sig_type:%d\n", sig_type);
                 return retval;
@@ -2676,13 +2725,30 @@ static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_ty
                     tstatus->signal_type = TUNE_SIGNAL_QAM;
                     tstatus->delivery_system = SYS_DVBC_ANNEX_A;
                 }
-                else
+                else if (tstatus->fe_info.type == FE_QPSK)
                 {
                     TUN_DBG("Tuner configured as DVB-S/S2, freq min/max=%lu/%lu, symbol rate min/max=%lu/%lu",
                             tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max,
                             tstatus->fe_info.symbol_rate_min, tstatus->fe_info.symbol_rate_max);
                     tstatus->signal_type = TUNE_SIGNAL_QPSK;
                     tstatus->delivery_system = SYS_DVBS2;
+                }
+                else if (tstatus->fe_info.type == FE_ATSC)
+                {
+                    TUN_DBG("Tuner configured as ATSC, min_freq=%lu, max_freq=%lu sig_type=%u",
+                            tstatus->fe_info.frequency_min, tstatus->fe_info.frequency_max, sig_type);
+                    if (sig_type == TUNE_SIGNAL_QAMB)
+                    {
+                        tstatus->delivery_system = SYS_DVBC_ANNEX_B;
+                    }
+                    else
+                    {
+                        tstatus->delivery_system = SYS_ATSC;
+                    }
+                }
+                else
+                {
+                    TUN_DBG("Tuner configured as unknown type");
                 }
 
                 retval = TRUE;
@@ -2786,6 +2852,8 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
 
     retval = FALSE;
 
+    memset(&fe_params, 0, sizeof(struct dvb_frontend_parameters));
+
     switch (tstatus->signal_type)
     {
         case TUNE_SIGNAL_COFDM:
@@ -2869,6 +2937,7 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
             break;
         }
 
+        case TUNE_SIGNAL_QAMB:
         case TUNE_SIGNAL_QAM:
         {
             fe_params.frequency = tstatus->freq;
@@ -2903,6 +2972,12 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
             fe_params.u.qam.symbol_rate = tstatus->u.cab.srate;
             TUN_DBG("[%s] fe_params.u.qam.symbol_rate = %lu, fe_params.u.qam.modulation = %u\n", __FUNCTION__,
                     fe_params.u.qam.symbol_rate, fe_params.u.qam.modulation);
+
+            //For ATSC-C, modulation is set to both qam and vsb
+            if (tstatus->signal_type == TUNE_SIGNAL_QAMB)
+            {
+                fe_params.u.vsb.modulation = QAM_AUTO;
+            }
 
             if (aml_frontend_set_frontend(tstatus->frontend_fd, &fe_params))
             {
@@ -3024,6 +3099,24 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
             break;
         }
 
+        case TUNE_SIGNAL_VSB:
+        case TUNE_SIGNAL_16VSB:
+        {
+            fe_params.frequency = tstatus->freq;
+            fe_params.u.vsb.modulation = (tstatus->signal_type == TUNE_SIGNAL_16VSB) ? VSB_16 : VSB_8;
+
+            if (aml_frontend_set_frontend(tstatus->frontend_fd, &fe_params))
+            {
+                TUN_DBG("%u: Tuning to %lu", tstatus->path, tstatus->freq);
+                retval = TRUE;
+            }
+            else
+            {
+                TUN_ERR("%u: Unable to set tuning parameters", tstatus->path);
+            }
+
+            break;
+        }
         default:
         {
             TUN_ERR("%u: Unsupported tuner type %u", tstatus->path, tstatus->signal_type);
@@ -3180,7 +3273,15 @@ static void* TunerTask(void *param)
                         {
                             STB_OSMutexLock(tstatus->mutex);
 
-                            if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (fe_sys != SYS_DVBT)) ||
+                            if (tstatus->signal_type == TUNE_SIGNAL_QAM ||
+                                tstatus->signal_type == TUNE_SIGNAL_QAMB ||
+                                tstatus->signal_type == TUNE_SIGNAL_VSB)
+                            {
+                                TUN_INFO("%u: Keep LOCKED status for %s", tstatus->path,
+                                         (tstatus->signal_type == TUNE_SIGNAL_QAM ? "QAM" :
+                                          (tstatus->signal_type == TUNE_SIGNAL_QAMB ? "QAMB": "VSB")));
+                            }
+                            else if ((((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT) && (fe_sys != SYS_DVBT)) ||
                                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBT2) && (fe_sys != SYS_DVBT2))) &&
                                     (tstatus->signal_type != TUNE_SIGNAL_QAM))
                             {
@@ -3470,6 +3571,14 @@ static void ClearTuner(S_TUNER_STATUS *tstatus)
     {
         string = (U8BIT *)"DVB-ANALOG";
     }
+    else if (sys_type == TUNE_SYSTEM_TYPE_ATSC_T)
+    {
+        string = (U8BIT *)"ATSC-T";
+    }
+    else if (sys_type == TUNE_SYSTEM_TYPE_ATSC_C)
+    {
+        string = (U8BIT *)"ATSC-C";
+    }
     else
     {
         TUN_DBG("ERROR: sys_type = %d, is invalid.", sys_type);
@@ -3493,7 +3602,9 @@ static BOOLEAN IsDiffSysType(S_TUNER_STATUS * tstatus)
                 ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS) && (fe_sys == SYS_DVBS)) ||
                     ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBS2) && (fe_sys== SYS_DVBS2)) ||
                 ((tstatus->sys_type == TUNE_SYSTEM_TYPE_DVBC)  &&
-                     ((fe_sys == SYS_DVBC_ANNEX_A) || (fe_sys == SYS_DVBC_ANNEX_B) || (fe_sys == SYS_DVBC_ANNEX_C))))
+                 (fe_sys == SYS_DVBC_ANNEX_A || fe_sys == SYS_DVBC_ANNEX_C)) ||
+             (tstatus->sys_type == TUNE_SYSTEM_TYPE_ATSC_T && fe_sys == SYS_ATSC) ||
+             (tstatus->sys_type == TUNE_SYSTEM_TYPE_ATSC_C && fe_sys == SYS_DVBC_ANNEX_B))
         {
             TUN_DBG(" same sys_type %s, delivery system is %d", GetSysTypeDebugString(tstatus->sys_type), fe_sys);
             is_diff = FALSE;

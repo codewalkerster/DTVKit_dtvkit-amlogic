@@ -24,6 +24,9 @@
 
 #include <pthread.h>
 
+#ifdef RDK_COMPILE
+#include <sys/ioctl.h>
+#endif
 #include "stbhwmem.h"
 #include "stbhwos.h"
 

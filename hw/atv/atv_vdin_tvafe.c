@@ -25,6 +25,9 @@
 
 
 #include <pthread.h>
+#ifdef RDK_COMPILE
+#include <sys/ioctl.h>
+#endif
 
 #include "atv_vlfend.h"
 #include "atv_fend_internal.h"
@@ -286,8 +289,10 @@ int open_vdin_port_tvafe()
     }
 
     if (!mlistener) {
+    #ifndef RDK_COMPILE
         pSysClientWrapper = SC_getInstance();
         SC_setSysClientCallback(SysEventCallback);
+    #endif
         mlistener = 1;
     }
     return ret;
@@ -298,7 +303,9 @@ int close_vdin_port_tvafe()
     int ret = 0;
     if (mlistener) {
         mlistener = 0;
+    #ifndef RDK_COMPILE
         SC_releaseInstance(&pSysClientWrapper);
+    #endif
     }
     if (fd_vdin > 0)
     {
@@ -382,23 +389,33 @@ int vdin_signal_handle()
     DTV_LOGI(TAG, "mSearchStatus: %d\n", mSearchStatus);
 
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE ) {
+    #ifndef RDK_COMPILE
         SC_setATVVideoColor(1, 0, 5);
+    #endif
         if (mSetPQmode) {
+        #ifndef RDK_COMPILE
             SC_setDisplayMode(SC_getDisplayMode(), 0);
+        #endif
             mSetPQmode = 0;
         }
+    #ifndef RDK_COMPILE
         SC_SetCurrentSourceInfo(0, m_cur_sig_info.fmt, m_cur_sig_info.trans_fmt);
+    #endif
         set_atv_snow_status(0);
         ret = start_vdin_dec(m_cur_sig_info);
         DTV_LOGI(TAG, "mLocked: %d\n", mLocked);
         if (!mLocked && !mSearchStatus) {
+        #ifndef RDK_COMPILE
             SC_setATVVideoColor(1, 0, 6);
+        #endif
         }
         if (ret == 0) {
             tvin_db_reg = STB_Get_Tvin_Db_Reg_Enabled();
             DTV_LOGI(TAG, "tvin_db_reg: %d\n", tvin_db_reg);
             if (tvin_db_reg) {
+            #ifndef RDK_COMPILE
                 SC_SetCVD2Values();
+            #endif
             }
         }
         if (call_back) {
@@ -406,27 +423,35 @@ int vdin_signal_handle()
         }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_UNSTABLE ) {
         if (!mSearchStatus) {
+        #ifndef RDK_COMPILE
             SC_setATVVideoColor(1, 0, 5);
+        #endif
             ret = stop_vdin_dec();
         }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOTSUP ) {
         if (!mSearchStatus) {
+        #ifndef RDK_COMPILE
             SC_setATVVideoColor(1, 0, 5);
+        #endif
             ret = stop_vdin_dec();
         }
     } else if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
+    #ifndef RDK_COMPILE
         SC_setATVVideoColor(1, 0, 5);
         if (5 != SC_getDisplayMode()) {//5:VPP_DISPLAY_MODE_FULL
             SC_setDisplayMode(5, 0);//no sig need full screen
             mSetPQmode = 1;
         }
+    #endif
         set_atv_snow_status(1);
         ret = start_vdin_dec(m_cur_sig_info);
+    #ifndef RDK_COMPILE
         if (SC_getScreenColorSetting() != VIDEO_LAYER_COLOR_BLUE || mSearchStatus) {
             SC_setATVVideoColor(1, 0, 6);
         } else {
             SC_setATVVideoColor(0, 0, 5);
         }
+    #endif
         if (call_back) {
             call_back(m_cur_sig_info.status);
         }
@@ -528,7 +553,9 @@ int Epoll_create()
 int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
 {
     open_vdin_port_tvafe();
+#ifndef RDK_COMPILE
     SC_disableTsync();
+#endif
     if (Epoll_isvalid()) {
         enable_thread = 1;
     } else {
@@ -543,7 +570,9 @@ int close_vdin_signal_detect()
 {
     call_back = NULL;
     mSourcePlayed = 0;
+#ifndef RDK_COMPILE
     SC_setATVVideoColor(1, 0, 5);
+#endif
     if (fd_vdin >0) {
         stop_vdin_dec();
         close_vdin_port();
@@ -793,11 +822,13 @@ extern void setChannelLockd(int locked)
     mLocked = locked;
 
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_STABLE) {
+    #ifndef RDK_COMPILE
         if (mLocked) {
             SC_setATVVideoColor(0, 0, 5);
         } else {
             SC_setATVVideoColor(0, 0, 6);
         }
+    #endif
     }
 }
 
@@ -806,12 +837,16 @@ static void SysEventCallback(int color)
     if (m_cur_sig_info.status == TVIN_SIG_STATUS_NOSIG ) {
         DTV_LOGI(TAG, "%s:TVIN_SIG_STATUS_NOSIG, mSnowStatusEnable = %d, mSearchStatus=%d\n", __FUNCTION__, mSnowStatusEnable, mSearchStatus);
         if (color && !mSearchStatus) {
+        #ifndef RDK_COMPILE
             SC_setATVVideoColor(1, 1, 5);
+        #endif
             if (mSnowStatusEnable) {
                 set_atv_snow_status(0);
             }
         } else {
+        #ifndef RDK_COMPILE
             SC_setATVVideoColor(0, 0, 6);
+        #endif
             if (!mSnowStatusEnable) {
                 set_atv_snow_status(1);
             }

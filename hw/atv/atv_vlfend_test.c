@@ -24,6 +24,10 @@
 #include <errno.h>
 
 #include <pthread.h>
+#ifdef RDK_COMPILE
+#include <sys/ioctl.h>
+#include "techtype.h"
+#endif
 
 #include "atv_vlfend.h"
 #include "atv_fend_internal.h"

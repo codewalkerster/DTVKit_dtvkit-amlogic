@@ -28,7 +28,7 @@ endif
 
 
 
-SRCDIR = src:hal
+SRCDIR = src:hal:atv
 SRCS = stbhwplatform.c \
     stbhwini.c \
     stbhwmem.c \
@@ -56,7 +56,11 @@ SRCS = stbhwplatform.c \
     fsm_base.c \
     stbpathcfg.c \
     afd_ctrl.c \
-    aml_frontend_api.c
+    aml_frontend_api.c \
+    atv_vdin_tvafe.c \
+    atv_vlfend.c \
+    atv_vlfend_test.c \
+    linux_v4l2.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
 SRCS += emu_tuner.c \

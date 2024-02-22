@@ -29,6 +29,9 @@
 //#include <linux/dvb/frontend.h>
 #include <sys/ioctl.h>
 #include <poll.h>
+#ifdef RDK_COMPILE
+#include "techtype.h"
+#endif
 
 #include "_frontend.h"
 #include "atv_fend_internal.h"

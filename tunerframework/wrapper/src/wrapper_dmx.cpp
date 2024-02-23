@@ -403,6 +403,23 @@ BOOLEAN  DMX_StopFilter(int un32filterID )
     return ret ;
 }
 
+BOOLEAN  DMX_FlushFilter(int un32filterID )
+{
+    BOOLEAN ret = FALSE;
+    pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
+    FILTER_MAP::iterator it = filter_map.find( un32filterID );
+    pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
+    if (it != filter_map.end())
+    {
+       if (it->second != NULL)
+       {
+           ALOGD("DMX_HAL_%s  filerInfo %p filterId 0x%x Jfilter %p pid [0x%x]",  __FUNCTION__,  it->second , un32filterID, it->second->Jfilter ,it->second->pid);
+           jint result = Am_filter_flush(it->second->Jfilter);
+           ret =  TRUE;
+       }
+    }
+    return ret ;
+}
 
 void DMX_Route_TS(int cicamid,BOOLEAN pass_through)
 {

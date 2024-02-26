@@ -2261,8 +2261,19 @@ E_STB_TUNE_CMODE STB_TuneGetActualCableMode(U8BIT path)
     mode = TUNE_MODE_QAM_UNDEFINED;
 
     if ((path < num_paths) &&
-        (tuner_status[path].signal_type == TUNE_SIGNAL_QAM ||
-         tuner_status[path].signal_type == TUNE_SIGNAL_QAMB))
+        (tuner_status[path].signal_type == TUNE_SIGNAL_QAM))
+    {
+        if (GetRealParamFromDriver(path) == TRUE)
+        {
+            mode = real_cmode;
+        }
+        else
+        {
+            mode = tuner_status[path].u.cab.cmode;
+        }
+    }
+    else if ((path < num_paths) &&
+         (tuner_status[path].signal_type == TUNE_SIGNAL_QAMB))
     {
         mode = tuner_status[path].u.cab.cmode;
     }
@@ -4072,12 +4083,13 @@ static BOOLEAN GetRealParamFromDriver(U8BIT path)
                             cmode = TUNE_MODE_QAM_UNDEFINED;
                             break;
                     }
-
-                    TUN_DBG("%u: from driver:", path);
-                    TUN_DBG("%u: symbol rate = %lu", path, srate);
                     if (tuner_status[path].signal_type == TUNE_SIGNAL_QAM)
                     {
-                        TUN_DBG("%u: cable mode = %lu", path, modulation);
+                        TUN_DBG("%u: symbol rate = %lu, cable mode = %lu", path, srate, modulation);
+                    }
+                    else
+                    {
+                        TUN_DBG("%u: from driver symbol rate = %lu", path, srate);
                     }
                 }
                 real_srate = srate;

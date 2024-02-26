@@ -102,6 +102,7 @@ extern "C" {
     #if ANDROID_PLATFORM_SDK_VERSION >= 30
         SysClientWrapper sysClientCallbackWrapper;
     #endif
+        void *unused;
     };
 
     struct SysClientWrapper_t *SC_getInstance(void)
@@ -293,8 +294,8 @@ extern "C"  int SC_getStaticFrameEnable()
 
 extern "C" int SC_setATVVideoColor(int forceColor, int setColor, int freq)
 {
-#if ANDROID_PLATFORM_SDK_VERSION >= 30
     int s32Ret = 0;
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
     const sp<SystemControlClient> &sws = getSystemControlService();
     if (sws != nullptr) {
         int color = sws->getScreenColorForSignalChange();

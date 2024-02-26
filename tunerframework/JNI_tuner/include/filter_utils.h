@@ -169,6 +169,13 @@ jobject filter_utils_getSectionTsFilterConfiguration(JNIEnv *env, TS_Filter_Conf
  */
 jobject filter_utils_getAVTsFilterConfiguration(JNIEnv *env, TS_Filter_Configuration tsFilterConfiguration);
 
+/**
+ * get TsFilterConfiguration jobject setting is null
+ *
+ * @param pid ts filter pid.
+ * @return TsFilterConfiguration jobject for ts filter conifg or null.
+ */
+ jobject filter_utils_getTsFilterConfiguration(JNIEnv *env, int pid);
 
 
 bool filter_utils_getSectionEvent(JNIEnv *env, jobject sectionEventObject, Section_Event *pSectionEvent);

@@ -17,6 +17,7 @@ extern "C" {
 
 #define WRAPPER_PLAYER_BUFFER_SIZE_VIDEO_DEFAULT 1024 * 1024 * 4L
 #define WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT 1024 * 1024 * 2L
+#define WRAPPER_PLAYER_BUFFER_SIZE_PCR_DEFAULT 1024 * 1024
 
 typedef enum {
     WP_VIDEO_STREAM_TYPE_UNDEFINED,
@@ -80,6 +81,7 @@ S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_paramete
 S8BIT Wrapper_Player_GetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter);
 S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_video_params *video_params, WRAPPER_PLAYER_VIDEO_STREAM_TYPE format);
 S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_audio_params *audio_params, WRAPPER_PLAYER_AUDIO_STREAM_TYPE format);
+S8BIT Wrapper_Player_SetPcrPid(jni_asplayer_handle handle, U16BIT pcr_pid);
 S8BIT Wrapper_Player_SetAudioLanguage(U32BIT pri_language_code, U32BIT sec_language_code);
 S8BIT Wrapper_Player_GetVideoInfo(jni_asplayer_handle handle, jni_asplayer_video_info *pInfo);
 S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode Mode);

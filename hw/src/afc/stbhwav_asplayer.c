@@ -3806,6 +3806,16 @@ static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
     video_param.height = 1080;
     video_param.width = 1920;
 
+    if (pcr_pid > 0)
+    {
+       ret = Wrapper_Player_SetPcrPid(player_handle, pcr_pid);
+       if (ret < 0)
+       {
+          VID_DBG("Set pcr pid failed, pcr_pid:%d err:%d", pcr_pid, ret);
+          return ret;
+       }
+    }
+
     if (v_pid != 0 && v_pid != INVALID_PID)
     {
         video_param.hasVideo = TRUE;

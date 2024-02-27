@@ -214,7 +214,7 @@ static AM_ErrorCode_t v4l2_set_prop (AM_FEND_Device_t *dev, const struct dtv_pro
     int fd = (long) dev->drv_data;
     struct v4l2_properties v4l2_prop;
     struct v4l2_property *property = NULL;
-    uint32_t i = 0;
+    U32BIT i = 0;
 
     property = (struct v4l2_property *) STB_MEMGetSysRAM(prop->num * sizeof(struct v4l2_property));
 
@@ -262,7 +262,7 @@ static AM_ErrorCode_t v4l2_get_prop (AM_FEND_Device_t *dev, struct dtv_propertie
     int fd = (long) dev->drv_data;
     struct v4l2_properties v4l2_prop;
     struct v4l2_property *property = NULL;
-    uint32_t i = 0;
+    U32BIT i = 0;
 
     property = (struct v4l2_property *) STB_MEMGetSysRAM(prop->num * sizeof(struct v4l2_property));
 

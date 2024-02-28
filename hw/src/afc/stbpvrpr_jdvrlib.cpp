@@ -1886,31 +1886,38 @@ static U8BIT to_index(U8BIT video_decoder, U8BIT audio_decoder)
 
 static ostream& operator<<(ostream& os, const S_PVR_PID_INFO& info)
 {
-   os << "(" << (int)info.pid << "," << (int)info.type << ")";
+   os << "(" << (int)info.pid << "," << (int)info.type;
+   if (info.type == PVR_PID_TYPE_VIDEO || info.type == PVR_PID_TYPE_AUDIO) {
+      os << "," << (int)info.u.video_codec;
+   }
+   os << ")";
    return os;
 }
 
 static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR& to_add, PID_VECTOR& to_remove)
 {
-   auto pred1 = [](const S_PVR_PID_INFO i1,const S_PVR_PID_INFO i2){return i1.pid < i2.pid;};
-   auto pred2 = [](const S_PVR_PID_INFO i1,const S_PVR_PID_INFO i2){return i1.pid == i2.pid;};
-   auto pred3 = [](const S_PVR_PID_INFO info){return info.type==PVR_PID_TYPE_PCR;};
+   auto pred1 = [](const S_PVR_PID_INFO i1,const S_PVR_PID_INFO i2){
+      return i1.pid < i2.pid
+         || (i1.pid == i2.pid && i1.type < i2.type)
+         || (i1.pid == i2.pid && i1.type == i2.type && i1.u.video_codec < i2.u.video_codec);
+   };
+   auto pred2 = [](const S_PVR_PID_INFO info){return info.type==PVR_PID_TYPE_PCR;};
    stringstream log_buf;
 
    sort(curr.begin(),curr.end(),pred1);
    sort(given.begin(),given.end(),pred1);
 
-   log_buf << "curr (pid,type): ";
+   log_buf << "curr (pid,type,codec): ";
    copy(curr.begin(),curr.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
    PVR_INFO("STB_PVR %s",log_buf.str().c_str());
    log_buf.str(""); log_buf.clear();
 
-   log_buf << "given (pid,type): ";
+   log_buf << "given (pid,type,codec): ";
    copy(given.begin(),given.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
    PVR_INFO("STB_PVR %s",log_buf.str().c_str());
    log_buf.str(""); log_buf.clear();
 
-   auto newEndIt = remove_if(given.begin(),given.end(),pred3);
+   auto newEndIt = remove_if(given.begin(),given.end(),pred2);
    given.erase(newEndIt,given.end());
 
    to_add.clear();
@@ -1918,13 +1925,13 @@ static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR
    set_difference(curr.begin(),curr.end(),given.begin(),given.end(),back_inserter(to_remove),pred1);
    set_difference(given.begin(),given.end(),curr.begin(),curr.end(),back_inserter(to_add),pred1);
 
-   log_buf << "to_add (pid,type): ";
-   copy(to_add.begin(),to_add.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
+   log_buf << "to_remove (pid,type): ";
+   copy(to_remove.begin(),to_remove.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
    PVR_INFO("STB_PVR %s",log_buf.str().c_str());
    log_buf.str(""); log_buf.clear();
 
-   log_buf << "to_remove (pid,type): ";
-   copy(to_remove.begin(),to_remove.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
+   log_buf << "to_add (pid,type): ";
+   copy(to_add.begin(),to_add.end(),ostream_iterator<S_PVR_PID_INFO>(log_buf,","));
    PVR_INFO("STB_PVR %s",log_buf.str().c_str());
    log_buf.str(""); log_buf.clear();
 }

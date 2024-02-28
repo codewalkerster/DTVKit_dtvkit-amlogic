@@ -2770,7 +2770,7 @@ static BOOLEAN SetSysType(S_TUNER_STATUS *tstatus, E_STB_TUNE_SIGNAL_TYPE sig_ty
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
 {
     BOOLEAN retval, istv;
-    int tuner_index = 0;
+    U8BIT tuner_index = 0;
     retval = TRUE;
 
     if (STB_TuneIsTvPlatform() && !resm_adc_requested && STB_Resman_Support())
@@ -2793,7 +2793,7 @@ static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus)
     }
     else
     {
-        tuner_index = aml_hw_cfg.tuners[tuner_index].frontend_idx;
+        tuner_index = tstatus->path >= aml_hw_cfg.tuner_num ? aml_hw_cfg.tuner_num-1 : tstatus->path;
         tstatus->frontend_fd = aml_frontend_open_tuner(aml_hw_cfg.tuners[tuner_index].frontend_idx);
         if (tstatus->frontend_fd < 0)
         {

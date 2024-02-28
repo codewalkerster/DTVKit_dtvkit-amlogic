@@ -3205,7 +3205,7 @@ static void* TunerTask(void *param)
                     STB_TimeConsumeDebug("Tune lock end");
                     goto Already_Tuned;
                 }
-
+                STB_OSMutexLock(tstatus->mutex);
                 tstatus->state = TUNER_TUNING;
                 stop = tstatus->stop;
                 STB_OSMutexUnlock(tstatus->mutex);

@@ -134,12 +134,16 @@ static AM_INLINE AM_ErrorCode_t vlfend_get_opened_dev(int dev_no, AM_FEND_Device
 {
     AM_TRY(vlfend_get_dev(dev_no, dev));
 
+    pthread_mutex_lock(&v4l2_gAdpLock);
+
     if ((*dev)->open_count <= 0)
     {
         DTV_LOGE(TAG, "vlfrontend device %d has not been opened", dev_no);
+        pthread_mutex_unlock(&v4l2_gAdpLock);
         return AM_FEND_ERR_INVALID_DEV_NO;
     }
 
+    pthread_mutex_unlock(&v4l2_gAdpLock);
     return AM_SUCCESS;
 }
 
@@ -897,7 +901,10 @@ static void vlfend_lock_cb(int dev_no, struct dvb_frontend_event *evt, void *use
     AM_FEND_Device_t *dev = NULL;
     fend_lock_para_t *para = (fend_lock_para_t*) user_data;
 
-    vlfend_get_opened_dev(dev_no, &dev);
+    if (vlfend_get_opened_dev(dev_no, &dev))
+    {
+        return;
+    }
 
     /*
         if (!fend_para_equal(dev->curr_mode, &evt->parameters, para->para))

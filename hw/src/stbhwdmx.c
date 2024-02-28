@@ -721,20 +721,23 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
             }
          }
 
-         chan_id = desc.params.alloc_params.ca_index;
-         dsc_channel->ref = 1;
-         dsc_channel->chan_id = chan_id;
-         dsc_channel->pid = pid;
-         dsc_channel->src = ts_src;
-         dsc_channel->dsc_type = dsc_type;
-         dsc_channel->even_key_id = -1;
-         dsc_channel->odd_key_id = -1;
-         dsc_channel->iv_even_key_id = -1;
-         dsc_channel->iv_odd_key_id = -1;
-         dsc_channel->one_key_id = -1;
-         dsc_channel->iv_one_key_id = -1;
-         dsc_channel->dev_id = dev_id;
+         if (dsc_channel)
+         {
+            chan_id = desc.params.alloc_params.ca_index;
+            dsc_channel->ref = 1;
+            dsc_channel->chan_id = chan_id;
+            dsc_channel->pid = pid;
+            dsc_channel->src = ts_src;
+            dsc_channel->dsc_type = dsc_type;
+            dsc_channel->even_key_id = -1;
+            dsc_channel->odd_key_id = -1;
+            dsc_channel->iv_even_key_id = -1;
+            dsc_channel->iv_odd_key_id = -1;
+            dsc_channel->one_key_id = -1;
+            dsc_channel->iv_one_key_id = -1;
+            dsc_channel->dev_id = dev_id;
          dsc->dsc_ref[dev_id]++;
+         }
       }
       STB_OSMutexUnlock(dsc->mutex);
       ca_dump_channel();
@@ -1036,6 +1039,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
             key_algo = KEY_ALGO_TDES;
             break;
          default:
+            key_algo = KEY_ALGO_AES;
             DMX_DBG("key type invalid");
             break;
       };
@@ -1181,7 +1185,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
 void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
 {
    BOOLEAN am_result = FALSE;
-   U16BIT i;
+   S32BIT i;
    U16BIT j;
 
    char buf[128];
@@ -1481,7 +1485,10 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
          if (demux_status[path].text_started)
          {
             /* Stop the filter and clear the callback */
-            DMX_StopFilter(path, demux_status[path].text_fhandle);
+            if (!DMX_StopFilter(path, demux_status[path].text_fhandle))
+            {
+                DMX_ERR("Failed to stop text filter");
+            }
             DMX_SetCallback(path, demux_status[path].text_fhandle, NULL, NULL);
             DMX_FreeFilter(path, demux_status[path].text_fhandle);
             demux_status[path].text_fhandle = -1;
@@ -2809,8 +2816,11 @@ void STB_DMXWriteDemux(U8BIT path, U8BIT *data, U32BIT size)
       DMX_ERR("Cannot write to DMX [%d]", path);
       return;
    }
-   ret = write(demux_status[path].dvr_fd, data, left);
-   left -= ret;
+   if (data)
+   {
+      ret = write(demux_status[path].dvr_fd, data, left);
+      left -= ret;
+   }
 
    if (left || (size % 188))
    {
@@ -3874,27 +3884,34 @@ static int DvbGetDemuxSource(int dmx_idx, DVB_DemuxSource_t *src)
     else
     {
         close(fd);
-        r = STB_File_Read(node, buf, sizeof(buf));
+        r = STB_File_Read(node, buf, sizeof(buf)-1);
         if (r != -1)
         {
+            buf[r] = '\0';
             if (strncmp(buf, "ts", 2) == 0 && strlen(buf) == 3)
             {
-                sscanf(buf, "ts%d", &source_no);
-                switch (source_no)
+                if (sscanf(buf, "ts%d", &source_no) == 1)
                 {
-                case 0:
-                    *src = DVB_DEMUX_SOURCE_TS0;
-                    break;
-                case 1:
-                    *src = DVB_DEMUX_SOURCE_TS1;
-                    break;
-                case 2:
-                    *src = DVB_DEMUX_SOURCE_TS2;
-                    break;
-                default:
-                    DMX_DBG("do not support demux source:%s", buf);
+                    switch (source_no)
+                    {
+                    case 0:
+                        *src = DVB_DEMUX_SOURCE_TS0;
+                        break;
+                    case 1:
+                        *src = DVB_DEMUX_SOURCE_TS1;
+                        break;
+                    case 2:
+                        *src = DVB_DEMUX_SOURCE_TS2;
+                        break;
+                    default:
+                        DMX_DBG("do not support demux source:%s", buf);
+                        r = -1;
+                        break;
+                    }
+                }
+                else
+                {
                     r = -1;
-                    break;
                 }
             }
             else if (strncmp(buf, "hiu", 3) == 0)

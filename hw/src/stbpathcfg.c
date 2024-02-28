@@ -91,7 +91,7 @@ BOOLEAN STB_StrCombiner(char *targetBuf, U16BIT BufLen, const char *str1, const 
 
     if (BufLen > strlen(str1)+strlen(str2))
     {
-        sprintf(targetBuf,"%s%s",str1,str2);
+        snprintf(targetBuf, BufLen, "%s%s", str1, str2);
         bRet = TRUE;
     }
     else
@@ -125,7 +125,12 @@ BOOLEAN STB_InitFilePathForDtvKit()
         return res;
     }
 
-    stat(DTVKIT_ANCHOR_FILE, &statbuf);
+    if (stat(DTVKIT_ANCHOR_FILE, &statbuf) == -1)
+    {
+        DTV_LOGE(TAG,"%s,%d, fail getting cfg file size!",__FUNCTION__,__LINE__);
+        fclose(fp);
+        return FALSE;
+    }
     fileSize = statbuf.st_size;
 
     jsonStr = (char *)cJSON_malloc(sizeof(char) * fileSize + 1);
@@ -175,7 +180,8 @@ BOOLEAN STB_InitFilePathForDtvKit()
     }
     if (0 == access(temp_path, F_OK))
     {
-        strcpy(datapath,temp_path);
+        strncpy(datapath, temp_path, MAX_PATHLEN - 1);
+        datapath[MAX_PATHLEN - 1] = '\0';
     }
 
     //init dbpath(dtvkit.sqlite3,dtvkit-isdb.sqlite3)

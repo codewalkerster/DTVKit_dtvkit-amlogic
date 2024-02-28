@@ -150,7 +150,8 @@ static int TunerDataUpdate(S_EMU_TUNER_DATA *tuner)
             {
                 CloseTsFile(tuner->ifd);
             }
-            strcpy(pConfig->name, config.name);
+            strncpy(pConfig->name, config.name, 255);
+            pConfig->name[255] = '\0';
             tuner->ifd = OpenTsFile(config.name);
         }
     }

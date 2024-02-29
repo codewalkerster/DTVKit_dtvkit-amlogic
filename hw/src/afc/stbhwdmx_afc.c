@@ -2073,6 +2073,12 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
                 section_size = 8 * MAX_SECTION_SIZE ;
            pid_filter->fhandle = DMX_OpenFilter(source_path, PidCallback, (void*)pid_filter,source_type,demux_cap ,section_size);
         }
+        else
+        {
+             /* flush the filter */
+            DMX_INFO("STB_DMX UpdateSectionFilter -#->  flush path: [%d] handle [0x%x] already exists, flush the cache,", path, pid_filter->fhandle);
+            DMX_FlushFilter(pid_filter->fhandle);
+        }
 
         if (pid_filter->fhandle != -1)
         {
@@ -2084,12 +2090,13 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
             16bit pid         1111 1111 1111 1111
             */
           demux_status[path].dev_no = (pid_filter->fhandle >> 16) & 0x0F;
-          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x] dev_no %d",path,pid_filter->fhandle , filter_index,\
+          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x] dev_no %d enbale_crc %d",path,pid_filter->fhandle , filter_index,\
            demux_status[path].source,\
            demux_status[path].source_param,\
           demux_status[path].demux_cap,\
            pid_filter->pid,\
-           demux_status[path].dev_no);
+           demux_status[path].dev_no,
+           dvb_filt_p.flags);
 
           DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, &dvb_filt_p);
           if (pid_filter->started)

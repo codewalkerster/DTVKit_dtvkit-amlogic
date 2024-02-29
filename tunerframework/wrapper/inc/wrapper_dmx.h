@@ -59,6 +59,7 @@ BOOLEAN DMX_CloseFilter(int un32filterID);
 BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filter_params *params);
 BOOLEAN DMX_StartFilter(int un32filterID );
 BOOLEAN DMX_StopFilter(int un32filterID );
+BOOLEAN DMX_FlushFilter(int un32filterID );
 
 
 void DMX_Route_TS(int cicamid,BOOLEAN pass_through);

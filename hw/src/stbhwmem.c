@@ -516,6 +516,7 @@ void* STB_NVMOpenFile(U8BIT *name, E_STB_DSK_FILE_MODE mode)
       switch (mode)
       {
       case FILE_MODE_OVERWRITE:
+      case FILE_MODE_SYNC_OVERWRITE:
          if (CreateDirectories(path) == TRUE)
          {
             file_p = fopen(path, "w");

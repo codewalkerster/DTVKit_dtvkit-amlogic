@@ -2709,6 +2709,23 @@ void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5])
 }
 
 /**
+ * @brief   Returns the current PTS from 33-bit System Time Clock.
+ * @param   stc an array and we can calculate pts from it.
+ *                stc[0] contains the MS bit (33) of the STC value and stc[4]
+ *                contains the LS bits (0-7).
+ */
+U64BIT STB_AVGetPTSBySTC(U8BIT stc[5])
+{
+    U64BIT pts = 0;
+    if (stc)
+    {
+        pts = (((uint64_t)stc[0] << 32) + ((uint64_t)stc[1] << 24) + ((uint64_t)stc[2] << 16) + ((uint64_t)stc[3] << 8) + (uint64_t)stc[4]);
+        AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], pts);
+    }
+    return pts;
+}
+
+/**
  * @brief   Sets the standby state of the HDMI output
  * @param   standby TRUE to put the HDMI in standby, FALSE to come out of standby
  */

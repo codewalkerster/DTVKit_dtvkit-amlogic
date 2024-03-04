@@ -933,9 +933,24 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
     }
     int result = Am_filter_configure(avFilter, tsFilterConfigurationObject);
     ALOGI("%s : filter configure result : %d", __FUNCTION__, result);
+    if (result == RETURN_ERROR)
+    {
+        ALOGE("%s : filter config fail", __FUNCTION__);
+        env->DeleteWeakGlobalRef(avFilter);
+        playerFailLeave(attached);
+        return INVALID_VALUE;
+    }
+
     //3.start filter
     result = Am_filter_start(avFilter);
     ALOGI("%s : filter start result : %d", __FUNCTION__, result);
+    if (result == RETURN_ERROR)
+    {
+        ALOGE("%s : filter start fail", __FUNCTION__);
+        env->DeleteWeakGlobalRef(avFilter);
+        playerFailLeave(attached);
+    }
+
     //4.get filter Id
     int filterId = Am_filter_getId(avFilter);
     ALOGI("%s : filter Id : %d", __FUNCTION__, filterId);
@@ -945,9 +960,7 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
         wp_player_av_status[av_path].playerWeakRefVideoFilter = avFilter;
     }
 
-    if (attached) {
-        Am_tuner_detachJNIEnv();
-    }
+    ReleaseEnv(attached);
     ALOGI("end:%s", __FUNCTION__);
     return filterId;
 }
@@ -1016,17 +1029,31 @@ static int player_GetADFilterId(int ad_pid, int audioStreamType, jni_asplayer_ha
     }
     int result = Am_filter_configure(avFilter, tsFilterConfigurationObject);
     ALOGI("%s : filter configure result : %d", __FUNCTION__, result);
+    if (result == RETURN_ERROR)
+    {
+        ALOGE("%s : filter config fail", __FUNCTION__);
+        env->DeleteWeakGlobalRef(avFilter);
+        playerFailLeave(attached);
+        return INVALID_VALUE;
+    }
+
     //3.start filter
     result = Am_filter_start(avFilter);
     ALOGI("%s : filter start result : %d", __FUNCTION__, result);
+    if (result == RETURN_ERROR)
+    {
+        ALOGE("%s : filter start fail", __FUNCTION__);
+        env->DeleteWeakGlobalRef(avFilter);
+        playerFailLeave(attached);
+        return INVALID_VALUE;
+    }
+
     //4.get filter Id
     int filterId = Am_filter_getId(avFilter);
     ALOGI("%s : filter Id : %d", __FUNCTION__, filterId);
     wp_player_av_status[av_path].playerWeakRefADFilter = avFilter;
 
-    if (attached) {
-        Am_tuner_detachJNIEnv();
-    }
+    ReleaseEnv(attached);
     ALOGI("end:%s", __FUNCTION__);
     return filterId;
 }

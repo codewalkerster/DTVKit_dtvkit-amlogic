@@ -15,6 +15,7 @@ extern "C" {
 #define MAX_SECTION_FILTERS         16
 #define MAX_FILTERS_PER_PID         8
 
+#define RETURN_ERROR    1
 
 typedef struct _ST_CALLBACK_T
 {

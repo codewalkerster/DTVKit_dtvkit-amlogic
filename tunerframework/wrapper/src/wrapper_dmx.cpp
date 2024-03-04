@@ -357,6 +357,11 @@ BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filte
             ALOGD("DMX_HAL_%s  Jfilter %p pid [0x%x]",  __FUNCTION__, it->second->Jfilter, pid);
             it->second->pid = pid ;
             int result = Am_filter_configure((it->second->Jfilter), tsFilterConfigurationObject);
+            if (result == RETURN_ERROR)
+            {
+                ReleaseEnv(attached);
+                return FALSE;
+            }
             ret = TRUE;
         }
         delete[] tsFilterConfiguration.setting.section_setting.filter;
@@ -379,6 +384,10 @@ BOOLEAN DMX_StartFilter(int un32filterID )
         {
             ALOGD("DMX_HAL_%s  filerInfo %p filterId 0x%x Jfilter %p pid [0x%x]",  __FUNCTION__,  it->second , un32filterID, it->second->Jfilter,it->second->pid);
             jint result = Am_filter_start(it->second->Jfilter);
+            if (result == RETURN_ERROR)
+            {
+                return FALSE;
+            }
             ret =  TRUE;
         }
     }

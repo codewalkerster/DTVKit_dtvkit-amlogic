@@ -2096,8 +2096,8 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
            demux_status[path].dev_no,
            dvb_filt_p.flags);
 
-          DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, &dvb_filt_p);
-          if (pid_filter->started)
+          success = DMX_SetupFilter(pid_filter->fhandle, pid_filter->pid, &dvb_filt_p);
+          if (success && pid_filter->started)
           {
              /* Restart the filter */
              DMX_StartFilter(pid_filter->fhandle);

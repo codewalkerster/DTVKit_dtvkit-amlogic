@@ -528,6 +528,7 @@ void* STB_DSKOpenFile(U16BIT disk_id, U8BIT *name, E_STB_DSK_FILE_MODE mode)
    S_DISK_INFO* disk;
    int pathlen;
    char* fullpath;
+   int fd;
 
    FUNCTION_START(STB_DSKOpenFile);
 
@@ -557,6 +558,14 @@ void* STB_DSKOpenFile(U16BIT disk_id, U8BIT *name, E_STB_DSK_FILE_MODE mode)
 
             case FILE_MODE_OVERWRITE :
                file = fopen((const char*)fullpath, "wb");
+               break;
+
+            case FILE_MODE_SYNC_OVERWRITE :
+               fd = open((const char*)fullpath, O_WRONLY | O_CREAT | O_SYNC, 0644);
+               if (fd != -1)
+               {
+                  file = fdopen(fd, "wb");
+               }
                break;
 
             default :

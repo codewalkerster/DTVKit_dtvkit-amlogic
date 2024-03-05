@@ -1485,13 +1485,22 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
 {
     //LOG_ENTER;
     U8BIT play_index = to_index(video_decoder,audio_decoder);
-
-    PVR_INFO("%u: pcr=%u, video=%u(fmt:%u), audio=%u(%u)(fmt:%u), ad=%u", play_index, pcr_pid, video_pid, video_fmt, audio_pid, audio_presentation_id, audio_fmt, ad_pid);
     if (play_index >= num_players)
     {
         PVR_ERR("Player index %d is invalid", play_index);
         return FALSE;
     }
+
+    if (audio_pid == 0x1fff)
+    {
+       audio_fmt = 0;
+       audio_presentation_id = 0;
+    }
+    if (video_pid == 0x1fff)
+    {
+       video_fmt = 0;
+    }
+    PVR_INFO("%u: pcr=%u, video=%u(fmt:%u), audio=%u(%u)(fmt:%u), ad=%u", play_index, pcr_pid, video_pid, video_fmt, audio_pid, audio_presentation_id, audio_fmt, ad_pid);
 
     if (s_recplay_status[play_index].audio_pid != audio_pid ||
           s_recplay_status[play_index].audio_presentation_id != audio_presentation_id ||

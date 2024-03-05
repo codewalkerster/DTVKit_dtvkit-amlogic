@@ -33,7 +33,7 @@
 #include "stbhwc.h"
 #include "stbhwos.h"
 #include "stbhwdmx.h"
-#include "stbdpc.h"
+
 #include "stb_utils.h"
 #include "stbhwdemux_usb.h"
 #include "usbcimoduleapi.h"

@@ -27,7 +27,8 @@
 
 #include "techtype.h"
 
-#include "stbheap.h"
+//#include "stbheap.h"
+#include "stbhwmem.h"
 #include "stbhwos.h"
 #include "stbos_timer.h"
 
@@ -37,7 +38,7 @@
 #include "stbhwtun_inner.h"
 #include "stbhwtun_ex.h"
 
-#include "cert_log.h"
+#include "dtv_log.h"
 
 #include "aml_frontend_api.h"
 
@@ -250,9 +251,9 @@ BOOLEAN stb_tune_fsm_init(U8BIT total_path)
     BOOLEAN ret = TRUE;
     U8BIT loop = 0;
 
-    sg_tune_task_msg_queue_ptr_array    = (void **)STB_GetMemory(sizeof(void *) * total_path);
-    sg_tune_task_ptr_array              = (void **)STB_GetMemory(sizeof(void *) * total_path);
-    sg_tune_fsm_ptr_array               = (FSM_INSTANCE **)STB_GetMemory(sizeof(FSM_INSTANCE *) * total_path);
+    sg_tune_task_msg_queue_ptr_array    = (void **)STB_MEMGetSysRAM(sizeof(void *) * total_path);
+    sg_tune_task_ptr_array              = (void **)STB_MEMGetSysRAM(sizeof(void *) * total_path);
+    sg_tune_fsm_ptr_array               = (FSM_INSTANCE **)STB_MEMGetSysRAM(sizeof(FSM_INSTANCE *) * total_path);
 
     memset(&sg_tune_fsm_timer, 0, sizeof(sg_tune_fsm_timer));
 
@@ -264,17 +265,17 @@ BOOLEAN stb_tune_fsm_init(U8BIT total_path)
 
         if (NULL != sg_tune_task_msg_queue_ptr_array)
         {
-            STB_FreeMemory(sg_tune_task_msg_queue_ptr_array);
+            STB_MEMFreeSysRAM(sg_tune_task_msg_queue_ptr_array);
         }
 
         if (NULL != sg_tune_task_ptr_array)
         {
-            STB_FreeMemory(sg_tune_task_ptr_array);
+            STB_MEMFreeSysRAM(sg_tune_task_ptr_array);
         }
 
         if (NULL != sg_tune_fsm_ptr_array)
         {
-            STB_FreeMemory(sg_tune_fsm_ptr_array);
+            STB_MEMFreeSysRAM(sg_tune_fsm_ptr_array);
         }
     }
     else
@@ -287,7 +288,7 @@ BOOLEAN stb_tune_fsm_init(U8BIT total_path)
         #endif
     }
 
-    CERT_LOG_INFO(TAG, "[%s] ret:%u", __FUNCTION__, ret);
+    DTV_LOGI(TAG, "[%s] ret:%u", __FUNCTION__, ret);
 
     return ret;
 }
@@ -303,7 +304,7 @@ BOOLEAN stb_tune_fsm_create(U8BIT path, S_TUNER_STATUS *tstatus, U32BIT state)
             sg_tune_task_msg_queue_ptr_array[path] = STB_OSCreateQueue(sizeof(STRU_FSM_TASK_MSG), TUNE_FSM_TASK_QUEUE_MAX_ENTRIES);
             if (NULL == sg_tune_task_msg_queue_ptr_array[path])
             {
-                CERT_LOG_ERROR(TAG, "[%s] Create Queue Err!", __FUNCTION__);
+                DTV_LOGE(TAG, "[%s] Create Queue Err!", __FUNCTION__);
                 ret = FALSE;
 
                 break;
@@ -319,7 +320,7 @@ BOOLEAN stb_tune_fsm_create(U8BIT path, S_TUNER_STATUS *tstatus, U32BIT state)
         {
             U8BIT taskname[16];
 
-            U8BIT *pU8 = STB_GetMemory(sizeof(U8BIT));
+            U8BIT *pU8 = STB_MEMGetSysRAM(sizeof(U8BIT));
             if (NULL != pU8)
             {
                 sprintf(taskname, "tune-%u", path);
@@ -327,16 +328,16 @@ BOOLEAN stb_tune_fsm_create(U8BIT path, S_TUNER_STATUS *tstatus, U32BIT state)
                 sg_tune_task_ptr_array[path] = STB_OSCreateTask(tune_fsm_task, (void *)pU8, TUNE_FSM_TASK_STACK_SIZE, TUNE_FSM_TASK_PRIORITY, taskname);
                 if (NULL == sg_tune_task_ptr_array[path])
                 {
-                    CERT_LOG_ERROR(TAG, "[%s] Create Task Err 1!", __FUNCTION__);
+                    DTV_LOGE(TAG, "[%s] Create Task Err 1!", __FUNCTION__);
 
-                    STB_FreeMemory(pU8);
+                    STB_MEMFreeSysRAM(pU8);
                     ret = FALSE;
                     break;
                 }
             }
             else
             {
-                CERT_LOG_ERROR(TAG, "[%s] Create Task Err 2!", __FUNCTION__);
+                DTV_LOGE(TAG, "[%s] Create Task Err 2!", __FUNCTION__);
 
                 ret = FALSE;
                 break;
@@ -353,7 +354,7 @@ BOOLEAN stb_tune_fsm_create(U8BIT path, S_TUNER_STATUS *tstatus, U32BIT state)
             sg_tune_fsm_ptr_array[path] = fsm_CreateInstance(sg_tune_state_map);
             if (NULL == sg_tune_fsm_ptr_array[path])
             {
-                CERT_LOG_ERROR(TAG, "[%s] Create FSM Err!", __FUNCTION__);
+                DTV_LOGE(TAG, "[%s] Create FSM Err!", __FUNCTION__);
 
                 ret = FALSE;
                 break;
@@ -392,7 +393,7 @@ BOOLEAN stb_tune_fsm_msg_handle(void *param_ptr)
 
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
 
-    CERT_LOG_DEBG(TAG, "[%s] cur-state[%s] msg: %s, %s", __FUNCTION__,
+    DTV_LOGD(TAG, "[%s] cur-state[%s] msg: %s, %s", __FUNCTION__,
                     tune_fsm_GetCurStateString(sg_tune_fsm_ptr_array[msg_ptr->path]->current_state_ptr->state),
                     tune_fsm_GetMsgTypeString(msg_ptr->type),
                     tune_fsm_GetMsgEventString(msg_ptr->type, msg_ptr->event));
@@ -480,20 +481,20 @@ BOOLEAN stb_tune_isdiff_systype(S_TUNER_STATUS *tstatus)
                ((fe_sys == SYS_DVBC_ANNEX_A) || (fe_sys == SYS_DVBC_ANNEX_B) || (fe_sys == SYS_DVBC_ANNEX_C))) ||
              ((tstatus->sys_type == TUNE_SYSTEM_TYPE_ISDBT) && (fe_sys == SYS_ISDBT)))
         {
-            CERT_LOG_INFO(TAG, "[%s] same sys_type %s, delivery system is %d", __FUNCTION__,
+            DTV_LOGI(TAG, "[%s] same sys_type %s, delivery system is %d", __FUNCTION__,
                                 GetSysTypeDebugString(tstatus->sys_type), fe_sys);
             is_diff = FALSE;
         }
         else
         {
-            CERT_LOG_INFO(TAG, "[%s] different sys_type %s, delivery system is %d", __FUNCTION__,
+            DTV_LOGI(TAG, "[%s] different sys_type %s, delivery system is %d", __FUNCTION__,
                                 GetSysTypeDebugString(tstatus->sys_type), fe_sys);
             is_diff = TRUE;
         }
     }
     else
     {
-        CERT_LOG_ERROR(TAG, "[%s] ERROR: FE_GET_PROPERTY is failed!", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] ERROR: FE_GET_PROPERTY is failed!", __FUNCTION__);
         is_diff = TRUE;
     }
 
@@ -571,7 +572,7 @@ BOOLEAN stb_tune_update_tune_parameter(S_TUNER_STATUS *tstatus, U32BIT freq, U32
 
     STB_OSMutexUnlock(tstatus->mutex);
 
-    CERT_LOG_INFO(TAG, "[%s] is_update:%d", __FUNCTION__, is_update);
+    DTV_LOGI(TAG, "[%s] is_update:%d", __FUNCTION__, is_update);
 
     return is_update;
 }
@@ -592,7 +593,7 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
                                                       freq_off, tmode, tbwidth,
                                                       cmode, anlg_vtype);
 
-        CERT_LOG_INFO(TAG, "[%s] tuning:%d, changded:%d, status:%d, state:%d", __FUNCTION__,
+        DTV_LOGI(TAG, "[%s] tuning:%d, changed:%d, status:%d, state:%d", __FUNCTION__,
                             start_tuning, tstatus->tuning_params_changed,
                             GetTunerLockStatus(tstatus->frontend_fd),
                             tstatus->state);
@@ -600,7 +601,7 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
         if (start_tuning || tstatus->tuning_params_changed || GetTunerLockStatus(tstatus->frontend_fd)!= TUNER_STATE_LOCKED )
         {
             // start tune
-            CERT_LOG_INFO(TAG, "[%s]start tune  ", __FUNCTION__);
+            DTV_LOGI(TAG, "[%s]start tune  ", __FUNCTION__);
             ret = stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_CNTRL_MSG, EN_TUNE_CNTRL_EVENT_START_TUNE, tstatus, NULL);
             if (!ret)
             {
@@ -609,7 +610,7 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
         }
         else
         {
-            CERT_LOG_INFO(TAG, "[%s]already locked ", __FUNCTION__);
+            DTV_LOGI(TAG, "[%s]already locked ", __FUNCTION__);
             stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_CNTRL_MSG, EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE, tstatus, NULL);
 
             STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
@@ -618,7 +619,7 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
     }
     else
     {
-        CERT_LOG_ERROR(TAG, "[%s] %u: system type %u not supported", __FUNCTION__,
+        DTV_LOGE(TAG, "[%s] %u: system type %u not supported", __FUNCTION__,
                                 tstatus->path, tstatus->sys_type);
 
         //STB_OSMutexLock(tstatus->mutex);
@@ -646,7 +647,7 @@ void stb_tune_stop_tuner(S_TUNER_STATUS *tstatus)
     ret = stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_CNTRL_MSG, EN_TUNE_CNTRL_EVENT_STOP_TUNE, tstatus, NULL);
     if (!ret)
     {
-        CERT_LOG_ERROR(TAG, "[%s] FAILED", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] FAILED", __FUNCTION__);
     }
 }
 
@@ -661,9 +662,9 @@ static void* tune_fsm_task(void *param)
 
     STRU_FSM_TASK_MSG msg;
 
-    STB_FreeMemory(param);
+    STB_MEMFreeSysRAM(param);
 
-    CERT_LOG_INFO(TAG, "START tune fsm task [%d]", path);
+    DTV_LOGI(TAG, "START tune fsm task [%d]", path);
 
     while (1)
     {
@@ -678,16 +679,16 @@ static void* tune_fsm_task(void *param)
 
         if (msg.free_para1 && NULL != msg.para1_ptr)
         {
-            STB_FreeMemory(msg.para1_ptr);
+            STB_MEMFreeSysRAM(msg.para1_ptr);
         }
 
         if (msg.free_para2 && NULL != msg.para2_ptr)
         {
-            STB_FreeMemory(msg.para2_ptr);
+            STB_MEMFreeSysRAM(msg.para2_ptr);
         }
     }
 
-    CERT_LOG_INFO(TAG, "EXIST tune fsm task [%d]", path);
+    DTV_LOGI(TAG, "EXIST tune fsm task [%d]", path);
 
     return NULL;
 }
@@ -710,11 +711,11 @@ static BOOLEAN _fsm_send_msg(U8BIT path, U32BIT type, U32BIT event, BOOLEAN free
     ret = STB_OSWriteQueue(sg_tune_task_msg_queue_ptr_array[path], (void *)&msg, sizeof(STRU_FSM_TASK_MSG), TIMEOUT_NEVER);
     if (!ret)
     {
-        CERT_LOG_ERROR(TAG, "[%s] Msg[%u, %u] Send Err", __FUNCTION__, type, event);
+        DTV_LOGE(TAG, "[%s] Msg[%u, %u] Send Err", __FUNCTION__, type, event);
     }
     else
     {
-        //CERT_LOG_DEBG(TAG, "[%s] Msg[%u, %u] Send", __FUNCTION__, type, event);
+        //DTV_LOGD(TAG, "[%s] Msg[%u, %u] Send", __FUNCTION__, type, event);
     }
 
     return ret;
@@ -752,12 +753,12 @@ static void _add_fsm_timer(ENUM_TIMERMODE timermode, U32BIT interval_ms, U32BIT 
     sg_tune_fsm_timer.expireCB              = _send_fsm_timeout_msg;
     sg_tune_fsm_timer.userptr               = &sg_timeout_msg;
 
-    //CERT_LOG_DEBG(TAG, "[%s:%d] timerid:%u, min:%u, us:%u", __FUNCTION__, __LINE__,
+    //DTV_LOGD(TAG, "[%s:%d] timerid:%u, min:%u, us:%u", __FUNCTION__, __LINE__,
     //               sg_tune_fsm_timer.id, min, us);
 
     STB_OSAddTimer(&sg_tune_fsm_timer);
 
-    //CERT_LOG_DEBG(TAG, "[%s:%d] timerid:%u, min:%u, us:%u", __FUNCTION__, __LINE__,
+    //DTV_LOGD(TAG, "[%s:%d] timerid:%u, min:%u, us:%u", __FUNCTION__, __LINE__,
     //                sg_tune_fsm_timer.id, min, us);
 }
 
@@ -765,7 +766,7 @@ static void _send_fsm_timeout_msg(void *arg)
 {
     STRU_TIMEOUT_MSG *msg_ptr = (STRU_TIMEOUT_MSG *)arg;
 
-    //CERT_LOG_DEBG(TAG, "[%s]", __FUNCTION__);
+    //DTV_LOGD(TAG, "[%s]", __FUNCTION__);
 
     stb_tune_fsm_send_msg(msg_ptr->path, msg_ptr->msg_type,
                           msg_ptr->msg_event, msg_ptr->tstatus, NULL);
@@ -780,7 +781,7 @@ static void _restart_fsm_timer()
 
 static void _delete_fsm_timer()
 {
-    //CERT_LOG_DEBG(TAG, "[%s] timerid:%u", __FUNCTION__, sg_tune_fsm_timer.id);
+    //DTV_LOGD(TAG, "[%s] timerid:%u", __FUNCTION__, sg_tune_fsm_timer.id);
 
     if (sg_tune_fsm_timer.id)
     {
@@ -805,7 +806,7 @@ static BOOLEAN _check_hw_lock_status(int frontend_fd, BOOLEAN *locked)
     {
        if (aml_frontend_get_event(frontend_fd, &fe_event))
        {
-           CERT_LOG_INFO(TAG, "[%s] status=0x%02x", __FUNCTION__, fe_event.status);
+           DTV_LOGI(TAG, "[%s] status=0x%02x", __FUNCTION__, fe_event.status);
 
            if ((fe_event.status & FE_HAS_LOCK) != 0)
            {
@@ -836,7 +837,7 @@ static BOOLEAN idle_state_enter(void *param_ptr)
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
     S_TUNER_STATUS *tstatus = (S_TUNER_STATUS *)msg_ptr->para1_ptr;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
     _set_tstatus_state(tstatus, TUNER_IDLE);
 
     return ret;
@@ -847,7 +848,7 @@ static BOOLEAN idle_state_exit(void *param_ptr)
 {
     BOOLEAN ret = TRUE;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
 
     return ret;
 }
@@ -915,7 +916,7 @@ static BOOLEAN tuning_state_enter(void *param_ptr)
 
     BOOLEAN locked = FALSE;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
     _set_tstatus_state(tstatus, TUNER_TUNING);
 
     sg_start_time = STB_OSGetClockMilliseconds();
@@ -945,7 +946,7 @@ static BOOLEAN tuning_state_exit(void *param_ptr)
 {
     BOOLEAN ret = TRUE;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
 
     _delete_fsm_timer();
 
@@ -1082,7 +1083,7 @@ static BOOLEAN tracking_state_enter(void *param_ptr)
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
     S_TUNER_STATUS *tstatus = (S_TUNER_STATUS *)msg_ptr->para1_ptr;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
     _set_tstatus_state(tstatus, TUNER_LOCKED);
 
     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path,
@@ -1099,7 +1100,7 @@ static BOOLEAN tracking_state_exit(void *param_ptr)
 {
     BOOLEAN ret = TRUE;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
 
     _delete_fsm_timer();
 
@@ -1208,34 +1209,34 @@ static BOOLEAN tracking_to_tracking_transition(void *param_ptr)
 
     BOOLEAN locked = FALSE;
 
-    //CERT_LOG_DEBG(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+    //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
 
     if (msg_ptr->type == EN_TUNE_TIMER_MSG && msg_ptr->event == EN_TUNE_TIMER_EVENT_TRACKING_CHK)
     {
-        //CERT_LOG_DEBG(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+        //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
 
         if (_check_hw_lock_status(tstatus->frontend_fd, &locked))
         {
-            //CERT_LOG_DEBG(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+            //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
 
             if (!locked)
             {
                 while (!stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_INNER_MSG, EN_TUNE_INNER_EVENT_UNLOCKED, tstatus, NULL));
 
-                //CERT_LOG_DEBG(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+                //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
             }
             else
             {
                 _restart_fsm_timer();
 
-                //CERT_LOG_DEBG(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+                //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
             }
         }
         else
         {
             _restart_fsm_timer();
 
-            //CERT_LOG_DEBG(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+            //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
         }
     }
 
@@ -1255,7 +1256,7 @@ static BOOLEAN relocking_state_enter(void *param_ptr)
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
     S_TUNER_STATUS *tstatus = (S_TUNER_STATUS *)msg_ptr->para1_ptr;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
     _set_tstatus_state(tstatus, TUNER_RELOCKING);
 
     STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_NOTLOCKED, &tstatus->path,
@@ -1273,7 +1274,7 @@ static BOOLEAN relocking_state_exit(void *param_ptr)
 {
     BOOLEAN ret = TRUE;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
 
     _delete_fsm_timer();
 
@@ -1417,7 +1418,7 @@ static BOOLEAN stopping_state_enter(void *param_ptr)
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
     S_TUNER_STATUS *tstatus = (S_TUNER_STATUS *)msg_ptr->para1_ptr;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
 
     // start tune
     while (!stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_INNER_MSG, EN_TUNE_INNER_EVENT_STOPPED, tstatus, NULL));
@@ -1429,7 +1430,7 @@ static BOOLEAN stopping_state_exit(void *param_ptr)
 {
     BOOLEAN ret = TRUE;
 
-    CERT_LOG_INFO(TAG, "[%s]", __FUNCTION__);
+    DTV_LOGI(TAG, "[%s]", __FUNCTION__);
 
     return ret;
 }

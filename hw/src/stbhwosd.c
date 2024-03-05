@@ -28,92 +28,86 @@
 #include <string.h>
 #include <math.h>
 #include "dtv_log.h"
-#define TAG  "STBHWOSD"
+#define TAG "STBHWOSD"
 
 #include "techtype.h"
 #include "dbgfuncs.h"
 
 #include "stbhwdef.h"
+#include "stbhwini.h"
 #include "stbhwmem.h"
 #include "stbhwos.h"
 #include "stbhwc.h"
 #include "stbhwosd.h"
 #include "stb_osd.h"
 
-#ifndef RDK_COMPILE
-#ifdef DTVKIT_IN_VENDOR_PARTITION
-#include "DTVKitInterface.h"
-#else
-#include "binderservice.h"
-#endif
-#endif
 
 /*---constant definitions for this file--------------------------------------*/
 
 /*---macro definitions for this file-----------------------------------------*/
 #ifdef OSD_DEBUG
-   #define OSD_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define OSD_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
-   #define OSD_DBG(x,...)
+#define OSD_DBG(x,...)
 #endif
 
 #ifdef SUBT_DEBUG
-   #define SUBT_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define SUBT_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
-   #define SUBT_DBG(x,...)
+#define SUBT_DBG(x,...)
 #endif
 
 #ifdef MHEG_DEBUG
-   #define MHEG_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define MHEG_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #else
-   #define MHEG_DBG(x,...)
+#define MHEG_DBG(x,...)
 #endif
 
 
 /*---local typedef structs for this file-------------------------------------*/
 typedef struct
 {
-   U8BIT *surface_data;
-   U16BIT width;
-   U16BIT height;
-   U8BIT depth;
-   U32BIT pitch;
+    U8BIT *surface_data;
+    U16BIT width;
+    U16BIT height;
+    U8BIT depth;
+    U32BIT pitch;
 } S_OSD_SURFACE;
 
 typedef struct
 {
-   U16BIT screen_width;
-   U16BIT screen_height;
+    U16BIT screen_width;
+    U16BIT screen_height;
 
-   S_OSD_SURFACE *subtitle_surface;
-   U16BIT subtitle_width;
-   U16BIT subtitle_height;
+    S_OSD_SURFACE *subtitle_surface;
+    U16BIT subtitle_width;
+    U16BIT subtitle_height;
 
-   S_OSD_SURFACE *mheg_screen;
-   S_OSD_SURFACE *mheg_backbuffer;
+    S_OSD_SURFACE *mheg_screen;
+    S_OSD_SURFACE *mheg_backbuffer;
 } S_OSD_STATUS;
 
 typedef struct
 {
-   U8BIT r;
-   U8BIT g;
-   U8BIT b;
-   U8BIT a;
+    U8BIT r;
+    U8BIT g;
+    U8BIT b;
+    U8BIT a;
 } S_OSD_COLOUR;
 
 typedef struct s_osd_region
 {
-   U8BIT *region_data;
-   U32BIT num_colours;
-   S_OSD_COLOUR *clut;
-   void *locked_sem;
-   U16BIT x;
-   U16BIT y;
-   U16BIT width;
-   U16BIT height;
-   U8BIT depth;
-   BOOLEAN visible;
-   struct s_osd_region *next;
+    U8BIT *region_data;
+    U32BIT num_colours;
+    S_OSD_COLOUR *clut;
+    void *locked_sem;
+    U16BIT x;
+    U16BIT y;
+    U16BIT width;
+    U16BIT height;
+    U8BIT depth;
+    BOOLEAN visible;
+    struct s_osd_region *next;
 } S_OSD_REGION;
 
 
@@ -138,6 +132,9 @@ static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE
 
 
 /*---global variable definitions---------------------------------------------*/
+extern OSD_OverlayClear_Func g_OverlayClear_Func;
+extern OSD_OverlayDraw_Func g_OverlayDraw_Func;
+extern OSD_OverlayDrawFinished_Func g_OverlayDrawFinished_Func;
 
 /*---global function definitions---------------------------------------------*/
 
@@ -147,28 +144,28 @@ static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE
  */
 void STB_OSDInitialise(U8BIT num_max_regions)
 {
-   FUNCTION_START(STB_OSDInitialise);
+    FUNCTION_START(STB_OSDInitialise);
 
-   USE_UNWANTED_PARAM(num_max_regions);
+    USE_UNWANTED_PARAM(num_max_regions);
 
-   if (update_mutex == NULL)
-   {
-      display_status.screen_width = SCREEN_WIDTH;
-      display_status.screen_height = SCREEN_HEIGHT;
+    if (update_mutex == NULL)
+    {
+        display_status.screen_width = SCREEN_WIDTH;
+        display_status.screen_height = SCREEN_HEIGHT;
 
-      display_status.subtitle_surface = NULL;
-      display_status.subtitle_width = 0;
-      display_status.subtitle_height = 0;
+        display_status.subtitle_surface = NULL;
+        display_status.subtitle_width = 0;
+        display_status.subtitle_height = 0;
 
-      display_status.mheg_screen = NULL;
-      display_status.mheg_backbuffer = NULL;
+        display_status.mheg_screen = NULL;
+        display_status.mheg_backbuffer = NULL;
 
-      update_mutex = STB_OSCreateMutex();
-      subtitle_mutex = STB_OSCreateMutex();
-      mheg_mutex = STB_OSCreateMutex();
-   }
+        update_mutex = STB_OSCreateMutex();
+        subtitle_mutex = STB_OSCreateMutex();
+        mheg_mutex = STB_OSCreateMutex();
+    }
 
-   FUNCTION_FINISH(STB_OSDInitialise);
+    FUNCTION_FINISH(STB_OSDInitialise);
 }
 
 /**
@@ -182,26 +179,26 @@ void STB_OSDInitialise(U8BIT num_max_regions)
  */
 void STB_OSDResize(BOOLEAN scaling, U16BIT width, U16BIT height, U16BIT x_offset, U16BIT y_offset)
 {
-   FUNCTION_START(STB_OSDResize);
+    FUNCTION_START(STB_OSDResize);
 
-   USE_UNWANTED_PARAM(scaling);
-   USE_UNWANTED_PARAM(x_offset);
-   USE_UNWANTED_PARAM(y_offset);
+    USE_UNWANTED_PARAM(scaling);
+    USE_UNWANTED_PARAM(x_offset);
+    USE_UNWANTED_PARAM(y_offset);
 
-   if ((display_status.screen_width != width) || (display_status.screen_height != height))
-   {
-      STB_OSMutexLock(update_mutex);
+    if ((display_status.screen_width != width) || (display_status.screen_height != height))
+    {
+        STB_OSMutexLock(update_mutex);
 
-      OSD_DBG("old=%ux%u, new=%ux%u", display_status.screen_width, display_status.screen_height,
-         width, height);
+        OSD_DBG("old=%ux%u, new=%ux%u", display_status.screen_width, display_status.screen_height,
+                width, height);
 
-      display_status.screen_width = width;
-      display_status.screen_height = height;
+        display_status.screen_width = width;
+        display_status.screen_height = height;
 
-      STB_OSMutexUnlock(update_mutex);
-   }
+        STB_OSMutexUnlock(update_mutex);
+    }
 
-   FUNCTION_FINISH(STB_OSDResize);
+    FUNCTION_FINISH(STB_OSDResize);
 }
 
 /**
@@ -211,44 +208,55 @@ void STB_OSDUpdate(void)
 {
 #ifndef RDK_COMPILE
 
-   BOOLEAN mheg_available = FALSE;
+    BOOLEAN mheg_available = FALSE;
 
-   FUNCTION_START(STB_OSDUpdate);
+    FUNCTION_START(STB_OSDUpdate);
 
-   STB_OSMutexLock(update_mutex);
+    STB_OSMutexLock(update_mutex);
 
-   //BinderService_OverlayClear();
+    //BinderService_OverlayClear();
 
-   /* Display MHEG */
-   STB_OSMutexLock(mheg_mutex);
+    /* Display MHEG */
+    STB_OSMutexLock(mheg_mutex);
 
-   if (display_status.mheg_screen != NULL)
-   {
-      mheg_available = TRUE;
-      BinderService_OverlayDraw(display_status.mheg_screen->width, display_status.mheg_screen->height,
-         0, 0, display_status.screen_width, display_status.screen_height,
-         display_status.mheg_screen->surface_data);
-   }
+    if (display_status.mheg_screen != NULL)
+    {
+        mheg_available = TRUE;
 
-   STB_OSMutexUnlock(mheg_mutex);
+        if (NULL !=g_OverlayDraw_Func)
+        {
+            g_OverlayDraw_Func(display_status.mheg_screen->width, display_status.mheg_screen->height,
+                               0, 0,
+                               display_status.screen_width, display_status.screen_height,
+                               display_status.mheg_screen->surface_data);
+        }
+    }
 
-   /* Display the subtitles */
-   STB_OSMutexLock(subtitle_mutex);
+    STB_OSMutexUnlock(mheg_mutex);
 
-   if (display_status.subtitle_surface != NULL && !mheg_available)
-   {
-      BinderService_OverlayDraw(display_status.subtitle_surface->width,
-         display_status.subtitle_surface->height, 0, 0, display_status.screen_width,
-         display_status.screen_height, display_status.subtitle_surface->surface_data);
-   }
+    /* Display the subtitles */
+    STB_OSMutexLock(subtitle_mutex);
 
-   STB_OSMutexUnlock(subtitle_mutex);
+    if (display_status.subtitle_surface != NULL && !mheg_available)
+    {
+        if (NULL !=g_OverlayDraw_Func)
+        {
+            g_OverlayDraw_Func(display_status.subtitle_surface->width, display_status.subtitle_surface->height,
+                               0, 0, display_status.screen_width,
+                               display_status.screen_height, display_status.subtitle_surface->surface_data);
+        }
+    }
 
-   BinderService_OverlayDrawFinished();
+    STB_OSMutexUnlock(subtitle_mutex);
 
-   STB_OSMutexUnlock(update_mutex);
+    if (NULL != g_OverlayDrawFinished_Func)
+    {
+        g_OverlayDrawFinished_Func();
+    }
 
-   FUNCTION_FINISH(STB_OSDUpdate);
+    STB_OSMutexUnlock(update_mutex);
+
+    FUNCTION_FINISH(STB_OSDUpdate);
 #endif
 }
 
@@ -259,11 +267,11 @@ void STB_OSDUpdate(void)
  */
 BOOLEAN STB_OSDEnable(BOOLEAN enable)
 {
-   FUNCTION_START(STB_OSDEnable);
-   USE_UNWANTED_PARAM(enable);
-   FUNCTION_FINISH(STB_OSDEnable);
+    FUNCTION_START(STB_OSDEnable);
+    USE_UNWANTED_PARAM(enable);
+    FUNCTION_FINISH(STB_OSDEnable);
 
-   return FALSE;
+    return FALSE;
 }
 
 /**
@@ -272,9 +280,9 @@ BOOLEAN STB_OSDEnable(BOOLEAN enable)
  */
 void STB_OSDSetTransparency(U8BIT trans)
 {
-   FUNCTION_START(STB_OSDSetTransparency);
-   USE_UNWANTED_PARAM(trans);
-   FUNCTION_FINISH(STB_OSDSetTransparency);
+    FUNCTION_START(STB_OSDSetTransparency);
+    USE_UNWANTED_PARAM(trans);
+    FUNCTION_FINISH(STB_OSDSetTransparency);
 }
 
 /**
@@ -283,9 +291,9 @@ void STB_OSDSetTransparency(U8BIT trans)
  */
 U8BIT STB_OSDGetTransparency(void)
 {
-   FUNCTION_START(STB_OSDGetTransparency);
-   FUNCTION_FINISH(STB_OSDGetTransparency);
-   return 0;
+    FUNCTION_START(STB_OSDGetTransparency);
+    FUNCTION_FINISH(STB_OSDGetTransparency);
+    return 0;
 }
 
 /**
@@ -296,11 +304,11 @@ U8BIT STB_OSDGetTransparency(void)
  */
 void STB_OSDSetPalette(U16BIT index, U16BIT num, U32BIT *trgb)
 {
-   FUNCTION_START(STB_OSDSetPalette);
-   USE_UNWANTED_PARAM(index);
-   USE_UNWANTED_PARAM(num);
-   USE_UNWANTED_PARAM(trgb);
-   FUNCTION_FINISH(STB_OSDSetPalette);
+    FUNCTION_START(STB_OSDSetPalette);
+    USE_UNWANTED_PARAM(index);
+    USE_UNWANTED_PARAM(num);
+    USE_UNWANTED_PARAM(trgb);
+    FUNCTION_FINISH(STB_OSDSetPalette);
 }
 
 /**
@@ -314,14 +322,14 @@ void STB_OSDSetPalette(U16BIT index, U16BIT num, U32BIT *trgb)
  */
 void STB_OSDDrawBitmap(U16BIT x, U16BIT y, U16BIT width, U16BIT height, U8BIT bits, U8BIT *data)
 {
-   FUNCTION_START(STB_OSDDrawBitmap);
-   USE_UNWANTED_PARAM(x);
-   USE_UNWANTED_PARAM(y);
-   USE_UNWANTED_PARAM(width);
-   USE_UNWANTED_PARAM(height);
-   USE_UNWANTED_PARAM(bits);
-   USE_UNWANTED_PARAM(data);
-   FUNCTION_FINISH(STB_OSDDrawBitmap);
+    FUNCTION_START(STB_OSDDrawBitmap);
+    USE_UNWANTED_PARAM(x);
+    USE_UNWANTED_PARAM(y);
+    USE_UNWANTED_PARAM(width);
+    USE_UNWANTED_PARAM(height);
+    USE_UNWANTED_PARAM(bits);
+    USE_UNWANTED_PARAM(data);
+    FUNCTION_FINISH(STB_OSDDrawBitmap);
 }
 
 /**
@@ -335,14 +343,14 @@ void STB_OSDDrawBitmap(U16BIT x, U16BIT y, U16BIT width, U16BIT height, U8BIT bi
  */
 void STB_OSDReadBitmap(U16BIT x, U16BIT y, U16BIT width, U16BIT height, U8BIT bits, U8BIT *data)
 {
-   FUNCTION_START(STB_OSDReadBitmap);
-   USE_UNWANTED_PARAM(x);
-   USE_UNWANTED_PARAM(y);
-   USE_UNWANTED_PARAM(width);
-   USE_UNWANTED_PARAM(height);
-   USE_UNWANTED_PARAM(bits);
-   USE_UNWANTED_PARAM(data);
-   FUNCTION_FINISH(STB_OSDReadBitmap);
+    FUNCTION_START(STB_OSDReadBitmap);
+    USE_UNWANTED_PARAM(x);
+    USE_UNWANTED_PARAM(y);
+    USE_UNWANTED_PARAM(width);
+    USE_UNWANTED_PARAM(height);
+    USE_UNWANTED_PARAM(bits);
+    USE_UNWANTED_PARAM(data);
+    FUNCTION_FINISH(STB_OSDReadBitmap);
 }
 
 /**
@@ -353,10 +361,10 @@ void STB_OSDReadBitmap(U16BIT x, U16BIT y, U16BIT width, U16BIT height, U8BIT bi
  */
 void STB_OSDDrawPixel(U16BIT x, U16BIT y, U32BIT colour)
 {
-   FUNCTION_START(STB_OSDDrawPixel);
-   USE_UNWANTED_PARAM(x);
-   USE_UNWANTED_PARAM(y);
-   FUNCTION_FINISH(STB_OSDDrawPixel);
+    FUNCTION_START(STB_OSDDrawPixel);
+    USE_UNWANTED_PARAM(x);
+    USE_UNWANTED_PARAM(y);
+    FUNCTION_FINISH(STB_OSDDrawPixel);
 }
 
 /**
@@ -367,11 +375,11 @@ void STB_OSDDrawPixel(U16BIT x, U16BIT y, U32BIT colour)
  */
 void STB_OSDReadPixel(U16BIT x, U16BIT y, U32BIT *colour)
 {
-   FUNCTION_START(STB_OSDReadPixel);
-   USE_UNWANTED_PARAM(x);
-   USE_UNWANTED_PARAM(y);
-   USE_UNWANTED_PARAM(colour);
-   FUNCTION_FINISH(STB_OSDReadPixel);
+    FUNCTION_START(STB_OSDReadPixel);
+    USE_UNWANTED_PARAM(x);
+    USE_UNWANTED_PARAM(y);
+    USE_UNWANTED_PARAM(colour);
+    FUNCTION_FINISH(STB_OSDReadPixel);
 }
 
 /**
@@ -383,12 +391,12 @@ void STB_OSDReadPixel(U16BIT x, U16BIT y, U32BIT *colour)
  */
 void STB_OSDDrawHLine(U16BIT x, U16BIT y, U16BIT width, U32BIT colour)
 {
-   FUNCTION_START(STB_OSDDrawHLine);
-   USE_UNWANTED_PARAM(x);
-   USE_UNWANTED_PARAM(y);
-   USE_UNWANTED_PARAM(width);
-   USE_UNWANTED_PARAM(colour);
-   FUNCTION_FINISH(STB_OSDDrawHLine);
+    FUNCTION_START(STB_OSDDrawHLine);
+    USE_UNWANTED_PARAM(x);
+    USE_UNWANTED_PARAM(y);
+    USE_UNWANTED_PARAM(width);
+    USE_UNWANTED_PARAM(colour);
+    FUNCTION_FINISH(STB_OSDDrawHLine);
 }
 
 /**
@@ -400,12 +408,12 @@ void STB_OSDDrawHLine(U16BIT x, U16BIT y, U16BIT width, U32BIT colour)
  */
 void STB_OSDDrawVLine(U16BIT x, U16BIT y, U16BIT height, U32BIT colour)
 {
-   FUNCTION_START(STB_OSDDrawHLine);
-   USE_UNWANTED_PARAM(x);
-   USE_UNWANTED_PARAM(y);
-   USE_UNWANTED_PARAM(height);
-   USE_UNWANTED_PARAM(colour);
-   FUNCTION_FINISH(STB_OSDDrawHLine);
+    FUNCTION_START(STB_OSDDrawHLine);
+    USE_UNWANTED_PARAM(x);
+    USE_UNWANTED_PARAM(y);
+    USE_UNWANTED_PARAM(height);
+    USE_UNWANTED_PARAM(colour);
+    FUNCTION_FINISH(STB_OSDDrawHLine);
 }
 
 /**
@@ -419,17 +427,17 @@ void STB_OSDDrawVLine(U16BIT x, U16BIT y, U16BIT height, U32BIT colour)
  * @param   fill - TRUE for solid (filled) rectangle
  */
 void STB_OSDDrawRectangle(U16BIT x, U16BIT y, U16BIT width, U16BIT height, U32BIT colour,
-   U8BIT thick, BOOLEAN fill)
+                          U8BIT thick, BOOLEAN fill)
 {
-   FUNCTION_START(STB_OSDDrawRectangle);
-   USE_UNWANTED_PARAM(x);
-   USE_UNWANTED_PARAM(y);
-   USE_UNWANTED_PARAM(width);
-   USE_UNWANTED_PARAM(height);
-   USE_UNWANTED_PARAM(colour);
-   USE_UNWANTED_PARAM(thick);
-   USE_UNWANTED_PARAM(fill);
-   FUNCTION_FINISH(STB_OSDDrawRectangle);
+    FUNCTION_START(STB_OSDDrawRectangle);
+    USE_UNWANTED_PARAM(x);
+    USE_UNWANTED_PARAM(y);
+    USE_UNWANTED_PARAM(width);
+    USE_UNWANTED_PARAM(height);
+    USE_UNWANTED_PARAM(colour);
+    USE_UNWANTED_PARAM(thick);
+    USE_UNWANTED_PARAM(fill);
+    FUNCTION_FINISH(STB_OSDDrawRectangle);
 }
 
 /**
@@ -439,12 +447,12 @@ void STB_OSDDrawRectangle(U16BIT x, U16BIT y, U16BIT width, U16BIT height, U32BI
  */
 void STB_OSDGetSize(U16BIT *width, U16BIT *height)
 {
-   FUNCTION_START(STB_OSDGetSize);
+    FUNCTION_START(STB_OSDGetSize);
 
-   *width = display_status.screen_width;
-   *height = display_status.screen_height;
+    *width = display_status.screen_width;
+    *height = display_status.screen_height;
 
-   FUNCTION_FINISH(STB_OSDGetSize);
+    FUNCTION_FINISH(STB_OSDGetSize);
 }
 
 /**
@@ -453,9 +461,9 @@ void STB_OSDGetSize(U16BIT *width, U16BIT *height)
  */
 void STB_OSDClear(U32BIT colour)
 {
-   FUNCTION_START(STB_OSDClear);
-   USE_UNWANTED_PARAM(colour);
-   FUNCTION_FINISH(STB_OSDClear);
+    FUNCTION_START(STB_OSDClear);
+    USE_UNWANTED_PARAM(colour);
+    FUNCTION_FINISH(STB_OSDClear);
 }
 
 /**
@@ -465,10 +473,10 @@ void STB_OSDClear(U32BIT colour)
  */
 void STB_OSDFill(U32BIT colour, E_BLIT_OP bflg)
 {
-   FUNCTION_START(STB_OSDFill);
-   USE_UNWANTED_PARAM(colour);
-   USE_UNWANTED_PARAM(bflg);
-   FUNCTION_FINISH(STB_OSDFill);
+    FUNCTION_START(STB_OSDFill);
+    USE_UNWANTED_PARAM(colour);
+    USE_UNWANTED_PARAM(bflg);
+    FUNCTION_FINISH(STB_OSDFill);
 }
 
 /**
@@ -477,8 +485,8 @@ void STB_OSDFill(U32BIT colour, E_BLIT_OP bflg)
  */
 void STB_OSDRegisterRefreshHandler(void (*func)(void))
 {
-   FUNCTION_START(STB_OSDRegisterRefreshHandler);
-   FUNCTION_FINISH(STB_OSDRegisterRefreshHandler);
+    FUNCTION_START(STB_OSDRegisterRefreshHandler);
+    FUNCTION_FINISH(STB_OSDRegisterRefreshHandler);
 }
 
 /**
@@ -486,8 +494,8 @@ void STB_OSDRegisterRefreshHandler(void (*func)(void))
  */
 void STB_OSDRefreshDisplayCallback(void)
 {
-   FUNCTION_START(STB_OSDRefreshDisplayCallback);
-   FUNCTION_FINISH(STB_OSDRefreshDisplayCallback);
+    FUNCTION_START(STB_OSDRefreshDisplayCallback);
+    FUNCTION_FINISH(STB_OSDRefreshDisplayCallback);
 }
 
 /**
@@ -496,9 +504,9 @@ void STB_OSDRefreshDisplayCallback(void)
  */
 U32BIT* STB_OSDGetCurrentPalette(void)
 {
-   FUNCTION_START(STB_OSDGetCurrentPalette);
-   FUNCTION_FINISH(STB_OSDGetCurrentPalette);
-   return(NULL);
+    FUNCTION_START(STB_OSDGetCurrentPalette);
+    FUNCTION_FINISH(STB_OSDGetCurrentPalette);
+    return(NULL);
 }
 
 
@@ -508,10 +516,10 @@ U32BIT* STB_OSDGetCurrentPalette(void)
  */
 BOOLEAN STB_OSDEnableUIRegion(void)
 {
-   FUNCTION_START(STB_OSDEnableUIRegion);
-   FUNCTION_FINISH(STB_OSDEnableUIRegion);
+    FUNCTION_START(STB_OSDEnableUIRegion);
+    FUNCTION_FINISH(STB_OSDEnableUIRegion);
 
-   return FALSE;
+    return FALSE;
 }
 
 /**
@@ -520,10 +528,10 @@ BOOLEAN STB_OSDEnableUIRegion(void)
  */
 BOOLEAN STB_OSDDisableUIRegion(void)
 {
-   FUNCTION_START(STB_OSDDisableUIRegion);
-   FUNCTION_FINISH(STB_OSDDisableUIRegion);
+    FUNCTION_START(STB_OSDDisableUIRegion);
+    FUNCTION_FINISH(STB_OSDDisableUIRegion);
 
-   return FALSE;
+    return FALSE;
 }
 
 /**
@@ -535,51 +543,54 @@ BOOLEAN STB_OSDDisableUIRegion(void)
  */
 void* STB_OSDCreateRegion(U16BIT width, U16BIT height, U8BIT depth)
 {
-   S_OSD_REGION *region;
+    S_OSD_REGION *region;
 
-   FUNCTION_START(STB_OSDCreateRegion);
+    FUNCTION_START(STB_OSDCreateRegion);
 
-   region = STB_MEMGetSysRAM(sizeof(S_OSD_REGION));
-   if (region != NULL)
-   {
-      SUBT_DBG("w=%u h=%u d=%u: region=%p", width, height, depth, region);
+    region = STB_MEMGetSysRAM(sizeof(S_OSD_REGION));
 
-      /* Create the region */
-      region->region_data = STB_MEMGetSysRAM(width * height * depth / 8);
-      if (region->region_data != NULL)
-      {
-         region->depth = depth;
-         region->num_colours = pow(2, depth);
-         region->clut = STB_MEMGetSysRAM(region->num_colours * sizeof(S_OSD_COLOUR));
-         if (region->clut != NULL)
-         {
-            region->width = width;
-            region->height = height;
-            region->visible = FALSE;
-            region->x = 0;
-            region->y = 0;
-            region->locked_sem = STB_OSCreateSemaphore();
+    if (region != NULL)
+    {
+        SUBT_DBG("w=%u h=%u d=%u: region=%p", width, height, depth, region);
 
-            region->next = osd_regions;
-            osd_regions = region;
-         }
-         else
-         {
-            STB_MEMFreeSysRAM(region->region_data);
+        /* Create the region */
+        region->region_data = STB_MEMGetSysRAM(width * height * depth / 8);
+
+        if (region->region_data != NULL)
+        {
+            region->depth = depth;
+            region->num_colours = pow(2, depth);
+            region->clut = STB_MEMGetSysRAM(region->num_colours * sizeof(S_OSD_COLOUR));
+
+            if (region->clut != NULL)
+            {
+                region->width = width;
+                region->height = height;
+                region->visible = FALSE;
+                region->x = 0;
+                region->y = 0;
+                region->locked_sem = STB_OSCreateSemaphore();
+
+                region->next = osd_regions;
+                osd_regions = region;
+            }
+            else
+            {
+                STB_MEMFreeSysRAM(region->region_data);
+                STB_MEMFreeSysRAM(region);
+                region = NULL;
+            }
+        }
+        else
+        {
             STB_MEMFreeSysRAM(region);
             region = NULL;
-         }
-      }
-      else
-      {
-         STB_MEMFreeSysRAM(region);
-         region = NULL;
-      }
-   }
+        }
+    }
 
-   FUNCTION_FINISH(STB_OSDCreateRegion);
+    FUNCTION_FINISH(STB_OSDCreateRegion);
 
-   return(region);
+    return(region);
 }
 
 /**
@@ -588,44 +599,44 @@ void* STB_OSDCreateRegion(U16BIT width, U16BIT height, U8BIT depth)
  */
 void STB_OSDDestroyRegion(void* handle)
 {
-   S_OSD_REGION *region, *prev_region;
+    S_OSD_REGION *region, *prev_region;
 
-   FUNCTION_START(STB_OSDDestroyRegion);
+    FUNCTION_START(STB_OSDDestroyRegion);
 
-   if (handle != NULL)
-   {
-      for (prev_region = osd_regions; prev_region != NULL; prev_region = prev_region->next)
-      {
-         if (prev_region->next == handle)
-         {
-            break;
-         }
-      }
+    if (handle != NULL)
+    {
+        for (prev_region = osd_regions; prev_region != NULL; prev_region = prev_region->next)
+        {
+            if (prev_region->next == handle)
+            {
+                break;
+            }
+        }
 
-      region = (S_OSD_REGION *)handle;
+        region = (S_OSD_REGION *)handle;
 
-      /* Remove the region from the list */
-      if (prev_region == NULL)
-      {
-         osd_regions = region->next;
-      }
-      else
-      {
-         prev_region->next = region->next;
-      }
+        /* Remove the region from the list */
+        if (prev_region == NULL)
+        {
+            osd_regions = region->next;
+        }
+        else
+        {
+            prev_region->next = region->next;
+        }
 
-      STB_OSSemaphoreWait(region->locked_sem);
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      SUBT_DBG("region=%p", handle);
+        SUBT_DBG("region=%p", handle);
 
-      /* Free the resources */
-      STB_MEMFreeSysRAM(region->region_data);
-      STB_MEMFreeSysRAM(region->clut);
-      STB_OSDeleteSemaphore(region->locked_sem);
-      STB_MEMFreeSysRAM(handle);
-   }
+        /* Free the resources */
+        STB_MEMFreeSysRAM(region->region_data);
+        STB_MEMFreeSysRAM(region->clut);
+        STB_OSDeleteSemaphore(region->locked_sem);
+        STB_MEMFreeSysRAM(handle);
+    }
 
-   FUNCTION_FINISH(STB_OSDDestroyRegion);
+    FUNCTION_FINISH(STB_OSDDestroyRegion);
 }
 
 /**
@@ -635,77 +646,78 @@ void STB_OSDDestroyRegion(void* handle)
  */
 void STB_OSDSetYCrCbPalette(void *handle, U32BIT *tycrcb)
 {
-   S_OSD_REGION *region;
-   U32BIT i;
-   S16BIT r, g, b;
-   U8BIT y;
-   U8BIT cr;
-   U8BIT cb;
+    S_OSD_REGION *region;
+    U32BIT i;
+    S16BIT r, g, b;
+    U8BIT y;
+    U8BIT cr;
+    U8BIT cb;
 
-   FUNCTION_START(STB_OSDSetYCrCbPalette);
+    FUNCTION_START(STB_OSDSetYCrCbPalette);
 
-   if (handle != NULL)
-   {
-      region = (S_OSD_REGION *)handle;
+    if (handle != NULL)
+    {
+        region = (S_OSD_REGION *)handle;
 
-      SUBT_DBG("region=%p", handle);
+        SUBT_DBG("region=%p", handle);
 
-      STB_OSSemaphoreWait(region->locked_sem);
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      /* Convert the OBS format palette to DirectFB ARGB format */
-      for (i = 0; i < region->num_colours; i++)
-      {
-         region->clut[i].a = (U8BIT)((~tycrcb[i] & 0xff000000) >> 24);
-         if (region->clut[i].a == 0)
-         {
-            /* Full transparency */
-            r = 0;
-            g = 0;
-            b = 0;
-         }
-         else
-         {
-            y = (U8BIT)((tycrcb[i] & 0x00ff0000) >> 16);
-            cr = (U8BIT)((tycrcb[i] & 0x0000ff00) >> 8);
-            cb = (U8BIT)((tycrcb[i] & 0x000000ff));
+        /* Convert the OBS format palette to DirectFB ARGB format */
+        for (i = 0; i < region->num_colours; i++)
+        {
+            region->clut[i].a = (U8BIT)((~tycrcb[i] & 0xff000000) >> 24);
 
-            if ((r = y + (cr - 128) * 1.40200) > 255)
+            if (region->clut[i].a == 0)
             {
-               r = 255;
+                /* Full transparency */
+                r = 0;
+                g = 0;
+                b = 0;
             }
-            else if (r < 0)
+            else
             {
-               r = 0;
+                y = (U8BIT)((tycrcb[i] & 0x00ff0000) >> 16);
+                cr = (U8BIT)((tycrcb[i] & 0x0000ff00) >> 8);
+                cb = (U8BIT)((tycrcb[i] & 0x000000ff));
+
+                if ((r = y + (cr - 128) * 1.40200) > 255)
+                {
+                    r = 255;
+                }
+                else if (r < 0)
+                {
+                    r = 0;
+                }
+
+                if ((g = y + (cb - 128) * -0.34414 + (cr - 128) * -0.71414) > 255)
+                {
+                    g = 255;
+                }
+                else if (g < 0)
+                {
+                    g = 0;
+                }
+
+                if ((b = y + (cb - 128) * 1.77200) > 255)
+                {
+                    b = 255;
+                }
+                else if (b < 0)
+                {
+                    b = 0;
+                }
             }
 
-            if ((g = y + (cb - 128) * -0.34414 + (cr - 128) * -0.71414) > 255)
-            {
-               g = 255;
-            }
-            else if (g < 0)
-            {
-               g = 0;
-            }
+            region->clut[i].r = r;
+            region->clut[i].g = g;
+            region->clut[i].b = b;
+        }
 
-            if ((b = y + (cb - 128) * 1.77200) > 255)
-            {
-               b = 255;
-            }
-            else if (b < 0)
-            {
-               b = 0;
-            }
-         }
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
 
-         region->clut[i].r = r;
-         region->clut[i].g = g;
-         region->clut[i].b = b;
-      }
-
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
-
-   FUNCTION_FINISH(STB_OSDSetYCrCbPalette);
+    FUNCTION_FINISH(STB_OSDSetYCrCbPalette);
 }
 
 /**
@@ -716,25 +728,25 @@ void STB_OSDSetYCrCbPalette(void *handle, U32BIT *tycrcb)
  */
 void STB_OSDMoveRegion(void *handle, U16BIT x, U16BIT y)
 {
-   S_OSD_REGION *region;
+    S_OSD_REGION *region;
 
-   FUNCTION_START(STB_OSDMoveRegion);
+    FUNCTION_START(STB_OSDMoveRegion);
 
-   if (handle != NULL)
-   {
-      region = (S_OSD_REGION *)handle;
+    if (handle != NULL)
+    {
+        region = (S_OSD_REGION *)handle;
 
-      STB_OSSemaphoreWait(region->locked_sem);
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      SUBT_DBG("region=%p to %u,%u", handle, x, y);
+        SUBT_DBG("region=%p to %u,%u", handle, x, y);
 
-      region->x = x;
-      region->y = y;
+        region->x = x;
+        region->y = y;
 
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
 
-   FUNCTION_FINISH(STB_OSDMoveRegion);
+    FUNCTION_FINISH(STB_OSDMoveRegion);
 }
 
 /**
@@ -743,24 +755,24 @@ void STB_OSDMoveRegion(void *handle, U16BIT x, U16BIT y)
  */
 void STB_OSDHideRegion(void* handle)
 {
-   S_OSD_REGION *region;
+    S_OSD_REGION *region;
 
-   FUNCTION_START(STB_OSDHideRegion);
+    FUNCTION_START(STB_OSDHideRegion);
 
-   if (handle != NULL)
-   {
-      region = (S_OSD_REGION *)handle;
+    if (handle != NULL)
+    {
+        region = (S_OSD_REGION *)handle;
 
-      STB_OSSemaphoreWait(region->locked_sem);
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      SUBT_DBG("region=%p", handle);
+        SUBT_DBG("region=%p", handle);
 
-      region->visible = FALSE;
+        region->visible = FALSE;
 
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
 
-   FUNCTION_FINISH(STB_OSDHideRegion);
+    FUNCTION_FINISH(STB_OSDHideRegion);
 }
 
 /**
@@ -769,24 +781,24 @@ void STB_OSDHideRegion(void* handle)
  */
 void STB_OSDShowRegion(void* handle)
 {
-   S_OSD_REGION *region;
+    S_OSD_REGION *region;
 
-   FUNCTION_START(STB_OSDShowRegion);
+    FUNCTION_START(STB_OSDShowRegion);
 
-   if (handle != NULL)
-   {
-      region = (S_OSD_REGION *)handle;
+    if (handle != NULL)
+    {
+        region = (S_OSD_REGION *)handle;
 
-      STB_OSSemaphoreWait(region->locked_sem);
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      SUBT_DBG("region=%p", handle);
+        SUBT_DBG("region=%p", handle);
 
-      region->visible = TRUE;
+        region->visible = TRUE;
 
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
 
-   FUNCTION_FINISH(STB_OSDShowRegion);
+    FUNCTION_FINISH(STB_OSDShowRegion);
 }
 
 /**
@@ -794,100 +806,100 @@ void STB_OSDShowRegion(void* handle)
  */
 void STB_OSDUpdateRegions(void)
 {
-   U32BIT bytes_per_pixel;
-   S_RECTANGLE rect;
-   S_OSD_REGION *region;
-   U8BIT *base, *dest_buff;
-   U8BIT *bitmap;
-   S_OSD_COLOUR *clut;
-   U16BIT x, y;
-   U32BIT dest_pitch;
-   U32BIT src_pitch;
+    U32BIT bytes_per_pixel;
+    S_RECTANGLE rect;
+    S_OSD_REGION *region;
+    U8BIT *base, *dest_buff;
+    U8BIT *bitmap;
+    S_OSD_COLOUR *clut;
+    U16BIT x, y;
+    U32BIT dest_pitch;
+    U32BIT src_pitch;
 
-   FUNCTION_START(STB_OSDUpdateRegions);
+    FUNCTION_START(STB_OSDUpdateRegions);
 
-   STB_OSMutexLock(subtitle_mutex);
+    STB_OSMutexLock(subtitle_mutex);
 
-   if (display_status.subtitle_surface != NULL)
-   {
-      bytes_per_pixel = SCREEN_COLOUR_DEPTH / 8;
+    if (display_status.subtitle_surface != NULL)
+    {
+        bytes_per_pixel = SCREEN_COLOUR_DEPTH / 8;
 
-      /* Clear the subtitle surface before drawing currently visible subtitle regions on to it */
-      rect.top = 0;
-      rect.left = 0;
-      rect.width = display_status.subtitle_surface->width;
-      rect.height = display_status.subtitle_surface->height;
+        /* Clear the subtitle surface before drawing currently visible subtitle regions on to it */
+        rect.top = 0;
+        rect.left = 0;
+        rect.width = display_status.subtitle_surface->width;
+        rect.height = display_status.subtitle_surface->height;
 
-      FillSurface((void*)display_status.subtitle_surface, &rect, 0, STB_BLIT_COPY);
+        FillSurface((void*)display_status.subtitle_surface, &rect, 0, STB_BLIT_COPY);
 
-      /* Blit the subtitles */
-      for (region = osd_regions; region != NULL; region = region->next)
-      {
-         if (region->visible)
-         {
-            STB_OSSemaphoreWait(region->locked_sem);
-
-            bitmap = (U8BIT *)region->region_data;
-            src_pitch = region->width * region->depth / 8;
-
-            dest_pitch = display_status.subtitle_surface->pitch;
-            dest_buff = display_status.subtitle_surface->surface_data + region->y * dest_pitch +
-               region->x * bytes_per_pixel;
-
-            base = dest_buff;
-
-            if (region->depth == 4)
+        /* Blit the subtitles */
+        for (region = osd_regions; region != NULL; region = region->next)
+        {
+            if (region->visible)
             {
-               for (y = 0; y < region->height; y++)
-               {
-                  for (x = 0; x < region->width; x += 2)
-                  {
-                     clut = &region->clut[(bitmap[x >> 1] >> 4)];
-                     *(base + (x << 2) + 0) = clut->a;
-                     *(base + (x << 2) + 1) = clut->r;
-                     *(base + (x << 2) + 2) = clut->g;
-                     *(base + (x << 2) + 3) = clut->b;
+                STB_OSSemaphoreWait(region->locked_sem);
 
-                     clut = &region->clut[(bitmap[x >> 1] & 0x0f)];
-                     *(base + (x << 2) + 4) = clut->a;
-                     *(base + (x << 2) + 5) = clut->r;
-                     *(base + (x << 2) + 6) = clut->g;
-                     *(base + (x << 2) + 7) = clut->b;
-                  }
+                bitmap = (U8BIT *)region->region_data;
+                src_pitch = region->width * region->depth / 8;
 
-                  base += dest_pitch;
-                  bitmap += src_pitch;
-               }
+                dest_pitch = display_status.subtitle_surface->pitch;
+                dest_buff = display_status.subtitle_surface->surface_data + region->y * dest_pitch +
+                            region->x * bytes_per_pixel;
+
+                base = dest_buff;
+
+                if (region->depth == 4)
+                {
+                    for (y = 0; y < region->height; y++)
+                    {
+                        for (x = 0; x < region->width; x += 2)
+                        {
+                            clut = &region->clut[(bitmap[x >> 1] >> 4)];
+                            *(base + (x << 2) + 0) = clut->a;
+                            *(base + (x << 2) + 1) = clut->r;
+                            *(base + (x << 2) + 2) = clut->g;
+                            *(base + (x << 2) + 3) = clut->b;
+
+                            clut = &region->clut[(bitmap[x >> 1] & 0x0f)];
+                            *(base + (x << 2) + 4) = clut->a;
+                            *(base + (x << 2) + 5) = clut->r;
+                            *(base + (x << 2) + 6) = clut->g;
+                            *(base + (x << 2) + 7) = clut->b;
+                        }
+
+                        base += dest_pitch;
+                        bitmap += src_pitch;
+                    }
+                }
+                else
+                {
+                    /* Assume a region depth of 8 bits/pixel */
+                    for (y = 0; y < region->height; y++)
+                    {
+                        for (x = 0; x < region->width; x++)
+                        {
+                            clut = &region->clut[bitmap[x]];
+                            *(base + (x << 2) + 0) = clut->a;
+                            *(base + (x << 2) + 1) = clut->r;
+                            *(base + (x << 2) + 2) = clut->g;
+                            *(base + (x << 2) + 3) = clut->b;
+                        }
+
+                        base += dest_pitch;
+                        bitmap += src_pitch;
+                    }
+                }
+
+                STB_OSSemaphoreSignal(region->locked_sem);
             }
-            else
-            {
-               /* Assume a region depth of 8 bits/pixel */
-               for (y = 0; y < region->height; y++)
-               {
-                  for (x = 0; x < region->width; x++)
-                  {
-                     clut = &region->clut[bitmap[x]];
-                     *(base + (x << 2) + 0) = clut->a;
-                     *(base + (x << 2) + 1) = clut->r;
-                     *(base + (x << 2) + 2) = clut->g;
-                     *(base + (x << 2) + 3) = clut->b;
-                  }
+        }
+    }
 
-                  base += dest_pitch;
-                  bitmap += src_pitch;
-               }
-            }
+    STB_OSMutexUnlock(subtitle_mutex);
 
-            STB_OSSemaphoreSignal(region->locked_sem);
-         }
-      }
-   }
+    STB_OSDUpdate();
 
-   STB_OSMutexUnlock(subtitle_mutex);
-
-   STB_OSDUpdate();
-
-   FUNCTION_FINISH(STB_OSDUpdateRegions);
+    FUNCTION_FINISH(STB_OSDUpdateRegions);
 }
 
 /**
@@ -901,43 +913,44 @@ void STB_OSDUpdateRegions(void)
  * @param   non_modifying_colour - not used
  */
 void STB_OSDDrawBitmapInRegion(void* handle, U16BIT x, U16BIT y, U16BIT w, U16BIT h,
-      U8BIT* bitmap, BOOLEAN non_modifying_colour)
+                               U8BIT* bitmap, BOOLEAN non_modifying_colour)
 {
-   S_OSD_REGION *region;
-   U32BIT src_pitch, dst_pitch;
-   U32BIT i;
-   U8BIT *src, *dst;
+    S_OSD_REGION *region;
+    U32BIT src_pitch, dst_pitch;
+    U32BIT i;
+    U8BIT *src, *dst;
 
-   FUNCTION_START(STB_OSDDrawBitmapInRegion);
+    FUNCTION_START(STB_OSDDrawBitmapInRegion);
 
-   USE_UNWANTED_PARAM(non_modifying_colour);
+    USE_UNWANTED_PARAM(non_modifying_colour);
 
-   if (handle != NULL)
-   {
-      region = handle;
+    if (handle != NULL)
+    {
+        region = handle;
 
-      if (y == 0)
-      {
-         SUBT_DBG("region=%p, x=%u, y=%u, w=%u, h=%u", handle, x, y, w, h);
-      }
+        if (y == 0)
+        {
+            SUBT_DBG("region=%p, x=%u, y=%u, w=%u, h=%u", handle, x, y, w, h);
+        }
 
-      STB_OSSemaphoreWait(region->locked_sem);
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      dst_pitch = region->width * region->depth / 8;
-      src_pitch = w * region->depth / 8;
-      dst = region->region_data + (y * dst_pitch) + (x * region->depth / 8);
-      src = bitmap;
-      for (i = 0; i < h; i++)
-      {
-         memcpy(dst, src, src_pitch);
-         dst += dst_pitch;
-         src += src_pitch;
-      }
+        dst_pitch = region->width * region->depth / 8;
+        src_pitch = w * region->depth / 8;
+        dst = region->region_data + (y * dst_pitch) + (x * region->depth / 8);
+        src = bitmap;
 
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
+        for (i = 0; i < h; i++)
+        {
+            memcpy(dst, src, src_pitch);
+            dst += dst_pitch;
+            src += src_pitch;
+        }
 
-   FUNCTION_FINISH(STB_OSDDrawBitmapInRegion);
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
+
+    FUNCTION_FINISH(STB_OSDDrawBitmapInRegion);
 }
 
 /**
@@ -947,29 +960,29 @@ void STB_OSDDrawBitmapInRegion(void* handle, U16BIT x, U16BIT y, U16BIT w, U16BI
  */
 void STB_OSDRegionToRegionCopy(void *handle_new, void *handle_orig)
 {
-   S_OSD_REGION *src_region;
-   S_OSD_REGION *dest_region;
+    S_OSD_REGION *src_region;
+    S_OSD_REGION *dest_region;
 
-   FUNCTION_START(STB_OSDRegionToRegionCopy);
+    FUNCTION_START(STB_OSDRegionToRegionCopy);
 
-   if ((handle_new != NULL) && (handle_orig != NULL))
-   {
-      src_region = (S_OSD_REGION *)handle_orig;
-      dest_region = (S_OSD_REGION *)handle_new;
+    if ((handle_new != NULL) && (handle_orig != NULL))
+    {
+        src_region = (S_OSD_REGION *)handle_orig;
+        dest_region = (S_OSD_REGION *)handle_new;
 
-      STB_OSSemaphoreWait(src_region->locked_sem);
-      STB_OSSemaphoreWait(dest_region->locked_sem);
+        STB_OSSemaphoreWait(src_region->locked_sem);
+        STB_OSSemaphoreWait(dest_region->locked_sem);
 
-      SUBT_DBG("from=%p, to=%p", handle_orig, handle_new);
+        SUBT_DBG("from=%p, to=%p", handle_orig, handle_new);
 
-      memcpy(dest_region->clut, src_region->clut, dest_region->num_colours * sizeof(S_OSD_COLOUR));
-      memcpy(dest_region->region_data, src_region->region_data, dest_region->width * dest_region->height * dest_region->depth / 8);
+        memcpy(dest_region->clut, src_region->clut, dest_region->num_colours * sizeof(S_OSD_COLOUR));
+        memcpy(dest_region->region_data, src_region->region_data, dest_region->width * dest_region->height * dest_region->depth / 8);
 
-      STB_OSSemaphoreSignal(dest_region->locked_sem);
-      STB_OSSemaphoreSignal(src_region->locked_sem);
-   }
+        STB_OSSemaphoreSignal(dest_region->locked_sem);
+        STB_OSSemaphoreSignal(src_region->locked_sem);
+    }
 
-   FUNCTION_FINISH(STB_OSDRegionToRegionCopy);
+    FUNCTION_FINISH(STB_OSDRegionToRegionCopy);
 }
 
 /**
@@ -979,38 +992,38 @@ void STB_OSDRegionToRegionCopy(void *handle_new, void *handle_orig)
  */
 void STB_OSDFillRegion(void *handle, U8BIT colour)
 {
-   S_OSD_REGION *region;
-   U16BIT pixels_per_byte;
-   U8BIT fill_value;
-   U16BIT x;
+    S_OSD_REGION *region;
+    U16BIT pixels_per_byte;
+    U8BIT fill_value;
+    U16BIT x;
 
-   FUNCTION_START(STB_OSDFillRegion);
+    FUNCTION_START(STB_OSDFillRegion);
 
-   SUBT_DBG("region=%p, colour=%u", handle, colour);
+    SUBT_DBG("region=%p, colour=%u", handle, colour);
 
-   region = (S_OSD_REGION *)handle;
+    region = (S_OSD_REGION *)handle;
 
-   if ((region != NULL) && (region->region_data != NULL))
-   {
-      STB_OSSemaphoreWait(region->locked_sem);
+    if ((region != NULL) && (region->region_data != NULL))
+    {
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      /* Calculate the fill colour as a whole byte */
-      fill_value = colour;
-      pixels_per_byte = 8 / region->depth;
+        /* Calculate the fill colour as a whole byte */
+        fill_value = colour;
+        pixels_per_byte = 8 / region->depth;
 
-      for (x = 1; x < pixels_per_byte; x++)
-      {
-         fill_value <<= region->depth;
-         fill_value |= colour;
-      }
+        for (x = 1; x < pixels_per_byte; x++)
+        {
+            fill_value <<= region->depth;
+            fill_value |= colour;
+        }
 
-      /* Fill the whole region with the colour */
-      memset(region->region_data, fill_value, region->width * region->height * region->depth / 8);
+        /* Fill the whole region with the colour */
+        memset(region->region_data, fill_value, region->width * region->height * region->depth / 8);
 
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
 
-   FUNCTION_FINISH(STB_OSDFillRegion);
+    FUNCTION_FINISH(STB_OSDFillRegion);
 }
 
 /**
@@ -1021,32 +1034,32 @@ void STB_OSDFillRegion(void *handle, U8BIT colour)
  */
 void STB_OSDSetRegionDisplaySize(U16BIT width, U16BIT height)
 {
-   FUNCTION_START(STB_OSDSetRegionDisplaySize);
+    FUNCTION_START(STB_OSDSetRegionDisplaySize);
 
-   SUBT_DBG("w=%u, h=%u", width, height);
+    SUBT_DBG("w=%u, h=%u", width, height);
 
-   if ((display_status.subtitle_width != width) || (display_status.subtitle_height != height))
-   {
-      STB_OSMutexLock(subtitle_mutex);
+    if ((display_status.subtitle_width != width) || (display_status.subtitle_height != height))
+    {
+        STB_OSMutexLock(subtitle_mutex);
 
-      DestroySurface(display_status.subtitle_surface);
+        DestroySurface(display_status.subtitle_surface);
 
-      if ((width != 0) && (height != 0))
-      {
-         display_status.subtitle_surface = CreateSurface(width, height, SCREEN_COLOUR_DEPTH);
-      }
-      else
-      {
-         display_status.subtitle_surface = NULL;
-      }
+        if ((width != 0) && (height != 0))
+        {
+            display_status.subtitle_surface = CreateSurface(width, height, SCREEN_COLOUR_DEPTH);
+        }
+        else
+        {
+            display_status.subtitle_surface = NULL;
+        }
 
-      display_status.subtitle_width = width;
-      display_status.subtitle_height = height;
+        display_status.subtitle_width = width;
+        display_status.subtitle_height = height;
 
-      STB_OSMutexUnlock(subtitle_mutex);
-   }
+        STB_OSMutexUnlock(subtitle_mutex);
+    }
 
-   FUNCTION_FINISH(STB_OSDSetRegionDisplaySize);
+    FUNCTION_FINISH(STB_OSDSetRegionDisplaySize);
 }
 
 /**
@@ -1059,40 +1072,40 @@ void STB_OSDSetRegionDisplaySize(U16BIT width, U16BIT height)
  * @param   colour - fill colour
  */
 void STB_OSDRegionFillRect(void *handle, U16BIT left, U16BIT top, U16BIT width,
-   U16BIT height, U8BIT colour)
+                           U16BIT height, U8BIT colour)
 {
-   S_OSD_REGION *region;
-   U16BIT y;
-   U8BIT *dest_ptr;
-   U32BIT src_pitch;
+    S_OSD_REGION *region;
+    U16BIT y;
+    U8BIT *dest_ptr;
+    U32BIT src_pitch;
 
-   FUNCTION_START(STB_OSDRegionFillRect);
+    FUNCTION_START(STB_OSDRegionFillRect);
 
-   region = (S_OSD_REGION *)handle;
+    region = (S_OSD_REGION *)handle;
 
-   if ((region != NULL) && (region->region_data != NULL))
-   {
-      STB_OSSemaphoreWait(region->locked_sem);
+    if ((region != NULL) && (region->region_data != NULL))
+    {
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      /* This function is used by the teletext decoder which uses a region of 8 bits/pixel,
-       * so this is assumed to simplify the code */
-      if ((left + width) > region->width)
-      {
-         width = region->width - left;
-      }
+        /* This function is used by the teletext decoder which uses a region of 8 bits/pixel,
+         * so this is assumed to simplify the code */
+        if ((left + width) > region->width)
+        {
+            width = region->width - left;
+        }
 
-      src_pitch = region->width * region->depth / 8;
-      dest_ptr = region->region_data + top * src_pitch + left;
+        src_pitch = region->width * region->depth / 8;
+        dest_ptr = region->region_data + top * src_pitch + left;
 
-      for (y = top; (y < height) && (y < region->height); dest_ptr += src_pitch, y++)
-      {
-         memset(dest_ptr, colour, width);
-      }
+        for (y = top; (y < height) && (y < region->height); dest_ptr += src_pitch, y++)
+        {
+            memset(dest_ptr, colour, width);
+        }
 
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
 
-   FUNCTION_FINISH(STB_OSDRegionFillRect);
+    FUNCTION_FINISH(STB_OSDRegionFillRect);
 }
 
 /**
@@ -1103,31 +1116,31 @@ void STB_OSDRegionFillRect(void *handle, U16BIT left, U16BIT top, U16BIT width,
  */
 void STB_OSDSetRGBPalette(void *handle, U32BIT *trgb)
 {
-   S_OSD_REGION *region;
-   U32BIT i;
+    S_OSD_REGION *region;
+    U32BIT i;
 
-   FUNCTION_START(STB_OSDSetRGBPalette);
+    FUNCTION_START(STB_OSDSetRGBPalette);
 
-   SUBT_DBG("region=%p", handle);
+    SUBT_DBG("region=%p", handle);
 
-   if (handle != NULL)
-   {
-      region = (S_OSD_REGION *)handle;
+    if (handle != NULL)
+    {
+        region = (S_OSD_REGION *)handle;
 
-      STB_OSSemaphoreWait(region->locked_sem);
+        STB_OSSemaphoreWait(region->locked_sem);
 
-      for (i = 0; i != region->num_colours; i++)
-      {
-         region->clut[i].r = (U8BIT)(trgb[i] >> 16) & 0xff;
-         region->clut[i].g = (U8BIT)(trgb[i] >> 8) & 0xff;
-         region->clut[i].b = (U8BIT)(trgb[i] & 0xff);
-         region->clut[i].a = (U8BIT)(255 - ((trgb[i] >> 24) & 0xff));
-      }
+        for (i = 0; i != region->num_colours; i++)
+        {
+            region->clut[i].r = (U8BIT)(trgb[i] >> 16) & 0xff;
+            region->clut[i].g = (U8BIT)(trgb[i] >> 8) & 0xff;
+            region->clut[i].b = (U8BIT)(trgb[i] & 0xff);
+            region->clut[i].a = (U8BIT)(255 - ((trgb[i] >> 24) & 0xff));
+        }
 
-      STB_OSSemaphoreSignal(region->locked_sem);
-   }
+        STB_OSSemaphoreSignal(region->locked_sem);
+    }
 
-   FUNCTION_FINISH(STB_OSDSetRGBPalette);
+    FUNCTION_FINISH(STB_OSDSetRGBPalette);
 }
 
 /**
@@ -1139,11 +1152,11 @@ void STB_OSDSetRGBPalette(void *handle, U32BIT *trgb)
  */
 void STB_OSDMhegSetPalette(U16BIT index, U16BIT number, const U32BIT *argb)
 {
-   FUNCTION_START(STB_OSDMhegSetPalette);
-   USE_UNWANTED_PARAM(index);
-   USE_UNWANTED_PARAM(number);
-   USE_UNWANTED_PARAM(argb);
-   FUNCTION_FINISH(STB_OSDMhegSetPalette);
+    FUNCTION_START(STB_OSDMhegSetPalette);
+    USE_UNWANTED_PARAM(index);
+    USE_UNWANTED_PARAM(number);
+    USE_UNWANTED_PARAM(argb);
+    FUNCTION_FINISH(STB_OSDMhegSetPalette);
 }
 
 /**
@@ -1158,44 +1171,46 @@ void STB_OSDMhegSetPalette(U16BIT index, U16BIT number, const U32BIT *argb)
  */
 void* STB_OSDMhegSetResolution(U16BIT width, U16BIT height, U8BIT bits)
 {
-   FUNCTION_START(STB_OSDMhegSetResolution);
+    FUNCTION_START(STB_OSDMhegSetResolution);
 
-   MHEG_DBG("%u x %u, depth %u", width, height, bits);
+    MHEG_DBG("%u x %u, depth %u", width, height, bits);
 
-   /*destroy the MHEG OSD region and backbuffer if they exists*/
-   STB_OSMutexLock(mheg_mutex);
+    /*destroy the MHEG OSD region and backbuffer if they exists*/
+    STB_OSMutexLock(mheg_mutex);
 
-   if(display_status.mheg_screen != NULL)
-   {
-      STB_OSDMhegDestroySurface((void*)display_status.mheg_screen);
-      display_status.mheg_screen = NULL;
-   }
+    if (display_status.mheg_screen != NULL)
+    {
+        STB_OSDMhegDestroySurface((void*)display_status.mheg_screen);
+        display_status.mheg_screen = NULL;
+    }
 
-   if(display_status.mheg_backbuffer != NULL)
-   {
-      STB_OSDMhegDestroySurface((void*)display_status.mheg_backbuffer);
-      display_status.mheg_backbuffer = NULL;
-   }
+    if (display_status.mheg_backbuffer != NULL)
+    {
+        STB_OSDMhegDestroySurface((void*)display_status.mheg_backbuffer);
+        display_status.mheg_backbuffer = NULL;
+    }
 
-   /*create/recreate the osd region*/
-   mheg_colourdepth = bits;
+    /*create/recreate the osd region*/
+    mheg_colourdepth = bits;
 
-   display_status.mheg_screen = STB_OSDMhegCreateSurface(width,height,FALSE,0);
-   if(display_status.mheg_screen != NULL)
-   {
-      display_status.mheg_backbuffer = STB_OSDMhegCreateSurface(width,height,FALSE,0);
-      if (display_status.mheg_backbuffer == NULL)
-      {
-         STB_OSDMhegDestroySurface((void*)display_status.mheg_screen);
-         display_status.mheg_screen = NULL;
-      }
-   }
+    display_status.mheg_screen = STB_OSDMhegCreateSurface(width,height,FALSE,0);
 
-   STB_OSMutexUnlock(mheg_mutex);
+    if (display_status.mheg_screen != NULL)
+    {
+        display_status.mheg_backbuffer = STB_OSDMhegCreateSurface(width,height,FALSE,0);
 
-   FUNCTION_FINISH(STB_OSDMhegSetResolution);
+        if (display_status.mheg_backbuffer == NULL)
+        {
+            STB_OSDMhegDestroySurface((void*)display_status.mheg_screen);
+            display_status.mheg_screen = NULL;
+        }
+    }
 
-   return (void*)display_status.mheg_backbuffer;
+    STB_OSMutexUnlock(mheg_mutex);
+
+    FUNCTION_FINISH(STB_OSDMhegSetResolution);
+
+    return (void*)display_status.mheg_backbuffer;
 }
 
 
@@ -1215,26 +1230,27 @@ void* STB_OSDMhegSetResolution(U16BIT width, U16BIT height, U8BIT bits)
  *          Failure  -  NULL (or zero)
  */
 void* STB_OSDMhegCreateSurface(U16BIT width, U16BIT height, BOOLEAN init, U32BIT colour)
-{ 
-   S_OSD_SURFACE *surface;
-   S_RECTANGLE rect;
+{
+    S_OSD_SURFACE *surface;
+    S_RECTANGLE rect;
 
-   FUNCTION_START(STB_OSDMhegCreateSurface);
+    FUNCTION_START(STB_OSDMhegCreateSurface);
 
-   surface = CreateSurface(width, height, mheg_colourdepth);
-   if ((surface != NULL) && init)
-   {
-      rect.top = 0;
-      rect.left = 0;
-      rect.width = width;
-      rect.height = height;
+    surface = CreateSurface(width, height, mheg_colourdepth);
 
-      FillSurface((void*)surface, &rect, colour, STB_BLIT_COPY);
-   }
+    if ((surface != NULL) && init)
+    {
+        rect.top = 0;
+        rect.left = 0;
+        rect.width = width;
+        rect.height = height;
 
-   FUNCTION_FINISH(STB_OSDMhegCreateSurface);
+        FillSurface((void*)surface, &rect, colour, STB_BLIT_COPY);
+    }
 
-   return (void*)surface;
+    FUNCTION_FINISH(STB_OSDMhegCreateSurface);
+
+    return (void*)surface;
 }
 
 /**
@@ -1251,20 +1267,20 @@ void* STB_OSDMhegCreateSurface(U16BIT width, U16BIT height, BOOLEAN init, U32BIT
  */
 void* STB_OSDMhegLockBuffer( void *surface, U32BIT *pPitch )
 {
-   S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
-   void* data = NULL;
+    S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
+    void* data = NULL;
 
-   FUNCTION_START(STB_OSDMhegLockBuffer);
+    FUNCTION_START(STB_OSDMhegLockBuffer);
 
-   if (buffer != NULL)
-   {
-      data = buffer->surface_data;
-      *pPitch = buffer->pitch;
-   }
+    if (buffer != NULL)
+    {
+        data = buffer->surface_data;
+        *pPitch = buffer->pitch;
+    }
 
-   FUNCTION_FINISH(STB_OSDMhegLockBuffer);
+    FUNCTION_FINISH(STB_OSDMhegLockBuffer);
 
-   return data;
+    return data;
 }
 
 /**
@@ -1274,9 +1290,9 @@ void* STB_OSDMhegLockBuffer( void *surface, U32BIT *pPitch )
  */
 void STB_OSDMhegUnlockBuffer( void *surface )
 {
-   FUNCTION_START(STB_OSDMhegUnlockBuffer);
-   USE_UNWANTED_PARAM(surface);
-   FUNCTION_FINISH(STB_OSDMhegUnlockBuffer);
+    FUNCTION_START(STB_OSDMhegUnlockBuffer);
+    USE_UNWANTED_PARAM(surface);
+    FUNCTION_FINISH(STB_OSDMhegUnlockBuffer);
 }
 
 /**
@@ -1287,11 +1303,11 @@ void STB_OSDMhegUnlockBuffer( void *surface )
  */
 void STB_OSDMhegDestroySurface(void *surface)
 {
-   FUNCTION_START(STB_OSDMhegDestroySurface);
+    FUNCTION_START(STB_OSDMhegDestroySurface);
 
-   DestroySurface(surface);
+    DestroySurface(surface);
 
-   FUNCTION_FINISH(STB_OSDMhegDestroySurface);
+    FUNCTION_FINISH(STB_OSDMhegDestroySurface);
 }
 
 
@@ -1315,55 +1331,57 @@ void STB_OSDMhegDestroySurface(void *surface)
  * @return  void
  */
 void STB_OSDMhegBlitBitmap( void *surface, S_RECTANGLE *pRect, U32BIT pitch,
-   U16BIT screen_x, U16BIT screen_y, E_BLIT_OP bflg )
+                            U16BIT screen_x, U16BIT screen_y, E_BLIT_OP bflg )
 {
-   S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
-   U8BIT* cursor_src;
-   U8BIT* cursor_dest;
-   U32BIT x,y;
-   S_RECTANGLE dest_rect;
+    S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
+    U8BIT* cursor_src;
+    U8BIT* cursor_dest;
+    U32BIT x,y;
+    S_RECTANGLE dest_rect;
 
-   FUNCTION_START(STB_OSDMhegBlitBitmap);
+    FUNCTION_START(STB_OSDMhegBlitBitmap);
 
-   if (display_status.mheg_backbuffer != NULL)
-   {
-      MHEG_DBG("");
+    if (display_status.mheg_backbuffer != NULL)
+    {
+        MHEG_DBG("");
 
-      if(bflg == STB_BLIT_A_BLEND)
-      {
-         dest_rect.top = screen_y;
-         dest_rect.left = screen_x;
-         dest_rect.width = pRect->width;
-         dest_rect.height = pRect->height;
-         BlitBlend32(buffer,pRect,display_status.mheg_backbuffer,&dest_rect);
-      }
-      else
-      {
-         cursor_src = buffer->surface_data;
-         cursor_dest = display_status.mheg_backbuffer->surface_data;
+        if (bflg == STB_BLIT_A_BLEND)
+        {
+            dest_rect.top = screen_y;
+            dest_rect.left = screen_x;
+            dest_rect.width = pRect->width;
+            dest_rect.height = pRect->height;
+            BlitBlend32(buffer,pRect,display_status.mheg_backbuffer,&dest_rect);
+        }
+        else
+        {
+            cursor_src = buffer->surface_data;
+            cursor_dest = display_status.mheg_backbuffer->surface_data;
 
-         cursor_dest +=  display_status.mheg_backbuffer->pitch * screen_y;
-         cursor_src += buffer->pitch * pRect->top;
+            cursor_dest +=  display_status.mheg_backbuffer->pitch * screen_y;
+            cursor_src += buffer->pitch * pRect->top;
 
-         for(y=0;y< pRect->height;y++)
-         {
-            /*jump to left edge*/
-            cursor_src += pRect->left * buffer->depth / 8;
-            cursor_dest += screen_x * display_status.mheg_backbuffer->depth / 8;
-            for(x=0;x < pRect->width * buffer->depth / 8;x+=4)
+            for (y=0; y< pRect->height; y++)
             {
-               *(cursor_dest+x+0)=*(cursor_src+x+0)&0xFF;
-               *(cursor_dest+x+1)=*(cursor_src+x+1)&0xFF;
-               *(cursor_dest+x+2)=*(cursor_src+x+2)&0xFF;
-               *(cursor_dest+x+3)=*(cursor_src+x+3)&0xFF;
-            }
-            cursor_src += buffer->pitch-(buffer->depth * pRect->left / 8);
-            cursor_dest += display_status.mheg_backbuffer->pitch-(screen_x * display_status.mheg_backbuffer->depth / 8);
-         }
-      }
-   }
+                /*jump to left edge*/
+                cursor_src += pRect->left * buffer->depth / 8;
+                cursor_dest += screen_x * display_status.mheg_backbuffer->depth / 8;
 
-   FUNCTION_FINISH(STB_OSDMhegBlitBitmap);
+                for (x=0; x < pRect->width * buffer->depth / 8; x+=4)
+                {
+                    *(cursor_dest+x+0)=*(cursor_src+x+0)&0xFF;
+                    *(cursor_dest+x+1)=*(cursor_src+x+1)&0xFF;
+                    *(cursor_dest+x+2)=*(cursor_src+x+2)&0xFF;
+                    *(cursor_dest+x+3)=*(cursor_src+x+3)&0xFF;
+                }
+
+                cursor_src += buffer->pitch-(buffer->depth * pRect->left / 8);
+                cursor_dest += display_status.mheg_backbuffer->pitch-(screen_x * display_status.mheg_backbuffer->depth / 8);
+            }
+        }
+    }
+
+    FUNCTION_FINISH(STB_OSDMhegBlitBitmap);
 }
 
 /**
@@ -1378,14 +1396,14 @@ void STB_OSDMhegBlitBitmap( void *surface, S_RECTANGLE *pRect, U32BIT pitch,
  */
 void STB_OSDMhegFillRectangle( S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg )
 {
-   FUNCTION_START(STB_OSDMhegFillRectangle);
+    FUNCTION_START(STB_OSDMhegFillRectangle);
 
-   if (display_status.mheg_backbuffer != NULL)
-   {
-      FillSurface((void*)display_status.mheg_backbuffer, pRect, colour, bflg);
-   }
+    if (display_status.mheg_backbuffer != NULL)
+    {
+        FillSurface((void*)display_status.mheg_backbuffer, pRect, colour, bflg);
+    }
 
-   FUNCTION_FINISH(STB_OSDMhegFillRectangle);
+    FUNCTION_FINISH(STB_OSDMhegFillRectangle);
 }
 
 /**
@@ -1402,10 +1420,10 @@ void STB_OSDMhegFillRectangle( S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg
  * @return  void
  */
 void STB_OSDMhegBlitStretch( S_RECTANGLE *pSrcRect, void *src_surf,
-   S_RECTANGLE *pDstRect, void *dst_surf, E_BLIT_OP bflg )
+                             S_RECTANGLE *pDstRect, void *dst_surf, E_BLIT_OP bflg )
 {
-   FUNCTION_START(STB_OSDMhegBlitStretch);
-   FUNCTION_FINISH(STB_OSDMhegBlitStretch);
+    FUNCTION_START(STB_OSDMhegBlitStretch);
+    FUNCTION_FINISH(STB_OSDMhegBlitStretch);
 }
 
 /**
@@ -1420,11 +1438,11 @@ void STB_OSDMhegBlitStretch( S_RECTANGLE *pSrcRect, void *src_surf,
  */
 void STB_OSDMhegFillSurface( void *surface, S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg )
 {
-   FUNCTION_START(STB_OSDMhegFillSurface);
+    FUNCTION_START(STB_OSDMhegFillSurface);
 
-   FillSurface(surface, pRect, colour, bflg);
+    FillSurface(surface, pRect, colour, bflg);
 
-   FUNCTION_FINISH(STB_OSDMhegFillSurface);
+    FUNCTION_FINISH(STB_OSDMhegFillSurface);
 }
 
 /**
@@ -1434,35 +1452,35 @@ void STB_OSDMhegFillSurface( void *surface, S_RECTANGLE *pRect, U32BIT colour, E
  */
 void STB_OSDMhegUpdate(void)
 {
-   U32BIT size_bytes;
-   U32BIT pixel;
+    U32BIT size_bytes;
+    U32BIT pixel;
 
-   FUNCTION_START(STB_OSDMhegUpdate);
+    FUNCTION_START(STB_OSDMhegUpdate);
 
-   STB_OSMutexLock(mheg_mutex);
+    STB_OSMutexLock(mheg_mutex);
 
-   if ((display_status.mheg_screen != NULL) && (display_status.mheg_backbuffer != NULL))
-   {
-      size_bytes = display_status.mheg_screen->width * display_status.mheg_screen->height *
-         display_status.mheg_screen->depth / 8;
+    if ((display_status.mheg_screen != NULL) && (display_status.mheg_backbuffer != NULL))
+    {
+        size_bytes = display_status.mheg_screen->width * display_status.mheg_screen->height *
+                     display_status.mheg_screen->depth / 8;
 
-      memcpy(display_status.mheg_screen->surface_data, display_status.mheg_backbuffer->surface_data, size_bytes);
-      /*
-      for(pixel=0; pixel < size_bytes; pixel += 4)
-      {
-         display_status.mheg_screen->surface_data[pixel+0] = display_status.mheg_backbuffer->surface_data[pixel+3];
-         display_status.mheg_screen->surface_data[pixel+1] = display_status.mheg_backbuffer->surface_data[pixel+2];
-         display_status.mheg_screen->surface_data[pixel+2] = display_status.mheg_backbuffer->surface_data[pixel+1];
-         display_status.mheg_screen->surface_data[pixel+3] = display_status.mheg_backbuffer->surface_data[pixel+0];
-      }
-      */
-   }
+        memcpy(display_status.mheg_screen->surface_data, display_status.mheg_backbuffer->surface_data, size_bytes);
+        /*
+        for (pixel=0; pixel < size_bytes; pixel += 4)
+        {
+           display_status.mheg_screen->surface_data[pixel+0] = display_status.mheg_backbuffer->surface_data[pixel+3];
+           display_status.mheg_screen->surface_data[pixel+1] = display_status.mheg_backbuffer->surface_data[pixel+2];
+           display_status.mheg_screen->surface_data[pixel+2] = display_status.mheg_backbuffer->surface_data[pixel+1];
+           display_status.mheg_screen->surface_data[pixel+3] = display_status.mheg_backbuffer->surface_data[pixel+0];
+        }
+        */
+    }
 
-   STB_OSMutexUnlock(mheg_mutex);
+    STB_OSMutexUnlock(mheg_mutex);
 
-   STB_OSDUpdate();
+    STB_OSDUpdate();
 
-   FUNCTION_FINISH(STB_OSDMhegUpdate);
+    FUNCTION_FINISH(STB_OSDMhegUpdate);
 }
 
 /**
@@ -1470,240 +1488,248 @@ void STB_OSDMhegUpdate(void)
  */
 void STB_OSDMhegClear(void)
 {
-   S_RECTANGLE rect;
+    S_RECTANGLE rect;
 
-   FUNCTION_START(STB_OSDMhegClear);
+    FUNCTION_START(STB_OSDMhegClear);
 
-   if (display_status.mheg_backbuffer != NULL)
-   {
-      MHEG_DBG("");
+    if (display_status.mheg_backbuffer != NULL)
+    {
+        MHEG_DBG("");
 
-      rect.top = 0;
-      rect.left = 0;
-      rect.width = display_status.mheg_backbuffer->width;
-      rect.height = display_status.mheg_backbuffer->height;
+        rect.top = 0;
+        rect.left = 0;
+        rect.width = display_status.mheg_backbuffer->width;
+        rect.height = display_status.mheg_backbuffer->height;
 
-      STB_OSDMhegFillRectangle(&rect, 0x00, STB_BLIT_COPY);
-   }
+        STB_OSDMhegFillRectangle(&rect, 0x00, STB_BLIT_COPY);
+    }
 
-   FUNCTION_FINISH(STB_OSDMhegClear);
+    FUNCTION_FINISH(STB_OSDMhegClear);
 }
 
 
 /*---local function definitions----------------------------------------------*/
 
 static void* CreateSurface(U16BIT width, U16BIT height, U8BIT depth)
-{ 
-   S_OSD_SURFACE *surface;
+{
+    S_OSD_SURFACE *surface;
 
-   FUNCTION_START(CreateSurface);
+    FUNCTION_START(CreateSurface);
 
-   surface = STB_MEMGetSysRAM(sizeof(S_OSD_SURFACE));
-   if (surface != NULL)
-   {
-      surface->surface_data = STB_MEMGetSysRAM(width * height * depth / 8);
-      if (surface->surface_data != NULL)
-      {
-         surface->depth = depth;
-         surface->width = width;
-         surface->height = height;
-         surface->pitch = surface->width * depth / 8;
-      }
-      else
-      {
-         STB_MEMFreeSysRAM(surface);
-         surface = NULL;
-      }
-   }
+    surface = STB_MEMGetSysRAM(sizeof(S_OSD_SURFACE));
 
-   FUNCTION_FINISH(CreateSurface);
+    if (surface != NULL)
+    {
+        surface->surface_data = STB_MEMGetSysRAM(width * height * depth / 8);
 
-   return (void*)surface;
+        if (surface->surface_data != NULL)
+        {
+            surface->depth = depth;
+            surface->width = width;
+            surface->height = height;
+            surface->pitch = surface->width * depth / 8;
+        }
+        else
+        {
+            STB_MEMFreeSysRAM(surface);
+            surface = NULL;
+        }
+    }
+
+    FUNCTION_FINISH(CreateSurface);
+
+    return (void*)surface;
 }
 
 static void DestroySurface(void *surface)
 {
-   FUNCTION_START(DestroySurface);
+    FUNCTION_START(DestroySurface);
 
-   if (surface != NULL)
-   {
-      STB_MEMFreeSysRAM(((S_OSD_SURFACE *)surface)->surface_data);
-      STB_MEMFreeSysRAM(surface);
-   }
+    if (surface != NULL)
+    {
+        STB_MEMFreeSysRAM(((S_OSD_SURFACE *)surface)->surface_data);
+        STB_MEMFreeSysRAM(surface);
+    }
 
-   FUNCTION_FINISH(DestroySurface);
+    FUNCTION_FINISH(DestroySurface);
 }
 
 static void FillSurface(void *surface, S_RECTANGLE *pRect, U32BIT colour, E_BLIT_OP bflg)
 {
-   U8BIT* cursor;
-   U32BIT x,y;
-   S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
-   U32BIT Bmask = 0xFF;
-   U32BIT Rmask = 0xFF00;
-   U32BIT Gmask = 0xFF0000;
-   U32BIT Amask = 0xFF000000;
-   U32BIT Ashift = 24;
-   U32BIT R, G, B, A;
-   U32BIT source_alpha;
-   U32BIT dc;
+    U8BIT* cursor;
+    U32BIT x,y;
+    S_OSD_SURFACE *buffer = (S_OSD_SURFACE*)surface;
+    U32BIT Bmask = 0xFF;
+    U32BIT Rmask = 0xFF00;
+    U32BIT Gmask = 0xFF0000;
+    U32BIT Amask = 0xFF000000;
+    U32BIT Ashift = 24;
+    U32BIT R, G, B, A;
+    U32BIT source_alpha;
+    U32BIT dc;
 
-   FUNCTION_START(FillSurface);
+    FUNCTION_START(FillSurface);
 
-   /*jump to the first line of the rectangle*/
-   cursor = buffer->surface_data;  
-   cursor += buffer->pitch * pRect->top;
+    /*jump to the first line of the rectangle*/
+    cursor = buffer->surface_data;
+    cursor += buffer->pitch * pRect->top;
 
-   for(y = 0; y < pRect->height; y++)
-   {
-      cursor += buffer->depth * pRect->left / 8; 
+    for (y = 0; y < pRect->height; y++)
+    {
+        cursor += buffer->depth * pRect->left / 8;
 
-      source_alpha = (colour & Amask) >> Ashift;
-      for(x = 0; x < pRect->width * buffer->depth / 8; x+=4)
-      {
-         if(bflg == STB_BLIT_A_BLEND && source_alpha !=0xFF)
-         {
-            U32BIT *pixel = (U32BIT *)(cursor+x);
+        source_alpha = (colour & Amask) >> Ashift;
 
+        for (x = 0; x < pRect->width * buffer->depth / 8; x+=4)
+        {
+            if (bflg == STB_BLIT_A_BLEND && source_alpha !=0xFF)
+            {
+                U32BIT *pixel = (U32BIT *)(cursor+x);
+
+                dc = *pixel;
+
+                R = colour & Rmask;
+                G = colour & Gmask;
+                B = colour & Bmask;
+                R = ((dc & Rmask) + ((R - (dc & Rmask)) * source_alpha >> 8)) & Rmask;
+                G = ((dc & Gmask) + ((G - (dc & Gmask)) * source_alpha >> 8)) & Gmask;
+                B = ((dc & Bmask) + ((B - (dc & Bmask)) * source_alpha >> 8)) & Bmask;
+
+                int dest_opacity = ((dc & Amask) >> Ashift);
+                int dest_transparency = 0xff - dest_opacity;
+                int source_transparency = 0xff - source_alpha;
+                int final_transparency = (dest_transparency * source_transparency) >> 8;
+                int final_opacity = 0xff - final_transparency;
+                A = final_opacity << Ashift;
+                *pixel = R | G | B | A;
+            }
+            else
+            {
+                *(cursor+x+0)=(colour>>0)&0xFF;
+                *(cursor+x+1)=(colour>>8)&0xFF;
+                *(cursor+x+2)=(colour>>16)&0xFF;
+                *(cursor+x+3)=(colour>>24)&0xFF;
+            }
+        }
+
+        cursor += buffer->pitch-(buffer->depth * pRect->left / 8);
+    }
+
+    FUNCTION_FINISH(FillSurface);
+}
+
+static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE *dest, S_RECTANGLE *drect)
+{
+    U32BIT lowSX, highSX, lowSY, highSY;
+    U32BIT lowDX, /*highDX,*/ lowDY, highDY;
+
+    // Ready the recycling loop variables
+    int sx = 0, sy = 0, dx = 0, dy = 0;
+
+    U32BIT Bmask = 0xFF;
+    U32BIT Rmask = 0xFF00;
+    U32BIT Gmask = 0xFF0000;
+    U32BIT Amask = 0xFF000000;
+    U32BIT Ashift= 24;
+
+    U32BIT colour;
+    U8BIT a;
+
+    if (srect)
+    {
+        lowSX = srect->left;
+        highSX = srect->left + srect->width;
+        lowSY = srect->top;
+        highSY = srect->top + srect->height;
+    }
+    else
+    {
+        lowSX = 0;
+        highSX = dest->width;
+        lowSY = 0;
+        highSY = dest->height;
+    }
+
+    if (drect)
+    {
+        lowDX = drect->left;
+        //highDX = drect->x + drect->w;
+        lowDY = drect->top;
+        highDY = drect->top + drect->height;
+    }
+    else
+    {
+        lowDX = 0;
+        //highDX = dest->w;
+        lowDY = 0;
+        highDY = dest->height;
+    }
+
+    // Go through the rect we made
+    for (sx = lowSX, sy = lowSY, dx = lowDX, dy = lowDY; (sy < (int)highSY) && (dy < (int)highDY); )
+    {
+        // Get the source colour
+        colour = *((U32BIT*)source->surface_data + (sy * source->pitch) / 4 + sx);
+
+        if (colour != 0)
+        {
+            a = (colour & Amask) >> Ashift;
+        }
+        else
+        {
+            a = 0;
+        }
+
+        // If not fully transparent, mix in the colour
+        if (a > 0)
+        {
+            U32BIT *pixel;
+            U32BIT R, G, B, A;
+            U32BIT dc;
+            pixel = (U32BIT *)dest->surface_data + (dy * dest->pitch) / 4 + dx;
             dc = *pixel;
 
             R = colour & Rmask;
             G = colour & Gmask;
             B = colour & Bmask;
-            R = ((dc & Rmask) + ((R - (dc & Rmask)) * source_alpha >> 8)) & Rmask;
-            G = ((dc & Gmask) + ((G - (dc & Gmask)) * source_alpha >> 8)) & Gmask;
-            B = ((dc & Bmask) + ((B - (dc & Bmask)) * source_alpha >> 8)) & Bmask;
+            A = 0xFF << Ashift;
 
-            int dest_opacity = ((dc & Amask) >> Ashift);
-            int dest_transparency = 0xff - dest_opacity;
-            int source_transparency = 0xff - source_alpha;
-            int final_transparency = (dest_transparency * source_transparency) >> 8;
-            int final_opacity = 0xff - final_transparency;
-            A = final_opacity << Ashift;
-            *pixel = R | G | B | A;
-         }
-         else
-         {
-            *(cursor+x+0)=(colour>>0)&0xFF;
-            *(cursor+x+1)=(colour>>8)&0xFF;
-            *(cursor+x+2)=(colour>>16)&0xFF;
-            *(cursor+x+3)=(colour>>24)&0xFF;
-         }
-      }
-      cursor += buffer->pitch-(buffer->depth * pRect->left / 8);       
-   }
-
-   FUNCTION_FINISH(FillSurface);
-}
-
-static void BlitBlend32(S_OSD_SURFACE *source, S_RECTANGLE *srect, S_OSD_SURFACE *dest, S_RECTANGLE *drect)
-{
-   U32BIT lowSX, highSX, lowSY, highSY;
-   U32BIT lowDX, /*highDX,*/ lowDY, highDY;
-
-   // Ready the recycling loop variables
-   int sx = 0, sy = 0, dx = 0, dy = 0;
-
-   U32BIT Bmask = 0xFF;
-   U32BIT Rmask = 0xFF00;
-   U32BIT Gmask = 0xFF0000;
-   U32BIT Amask = 0xFF000000;
-   U32BIT Ashift= 24;
-
-   U32BIT colour;
-   U8BIT a;
-
-   if (srect)
-   {
-      lowSX = srect->left;
-      highSX = srect->left + srect->width;
-      lowSY = srect->top;
-      highSY = srect->top + srect->height;
-   }
-   else
-   {
-      lowSX = 0;
-      highSX = dest->width;
-      lowSY = 0;
-      highSY = dest->height;
-   }
-
-   if (drect)
-   {
-      lowDX = drect->left;
-      //highDX = drect->x + drect->w;
-      lowDY = drect->top;
-      highDY = drect->top + drect->height;
-   }
-   else
-   {
-      lowDX = 0;
-      //highDX = dest->w;
-      lowDY = 0;
-      highDY = dest->height;
-   }
-
-   // Go through the rect we made
-   for (sx = lowSX, sy = lowSY, dx = lowDX, dy = lowDY; (sy < (int)highSY) && (dy < (int)highDY); )
-   {
-      // Get the source colour
-      colour = *((U32BIT*)source->surface_data + (sy * source->pitch) / 4 + sx);
-      if (colour != 0)
-      {
-         a = (colour & Amask) >> Ashift;
-      }
-      else
-      {
-         a = 0;
-      }
-    
-      // If not fully transparent, mix in the colour
-      if (a > 0)
-      {
-         U32BIT *pixel;
-         U32BIT R, G, B, A;
-         U32BIT dc;
-         pixel = (U32BIT *)dest->surface_data + (dy * dest->pitch) / 4 + dx;
-         dc = *pixel;
-
-         R = colour & Rmask;
-         G = colour & Gmask;
-         B = colour & Bmask;
-         A = 0xFF << Ashift;
-         if (a != 0xFF)
-         {
-            R = ((dc & Rmask) + ((R - (dc & Rmask)) * a >> 8)) & Rmask;
-            G = ((dc & Gmask) + ((G - (dc & Gmask)) * a >> 8)) & Gmask;
-            B = ((dc & Bmask) + ((B - (dc & Bmask)) * a >> 8)) & Bmask;
-            A = 0;
-            if (Amask)
+            if (a != 0xFF)
             {
-               int dest_opacity = ((dc & Amask) >> Ashift);
-               int dest_transparency = 0xff - dest_opacity;
-               int source_opacity = a;
-               int source_transparency = 0xff - source_opacity;
-               int final_transparency = (dest_transparency * source_transparency) >> 8;
-               int final_opacity = 0xff - final_transparency;
-               ASSERT(final_opacity >= 0 && final_opacity < 256);
-               A = final_opacity << Ashift; /*final_opacity << surface->format->Ashift;*/
+                R = ((dc & Rmask) + ((R - (dc & Rmask)) * a >> 8)) & Rmask;
+                G = ((dc & Gmask) + ((G - (dc & Gmask)) * a >> 8)) & Gmask;
+                B = ((dc & Bmask) + ((B - (dc & Bmask)) * a >> 8)) & Bmask;
+                A = 0;
+
+                if (Amask)
+                {
+                    int dest_opacity = ((dc & Amask) >> Ashift);
+                    int dest_transparency = 0xff - dest_opacity;
+                    int source_opacity = a;
+                    int source_transparency = 0xff - source_opacity;
+                    int final_transparency = (dest_transparency * source_transparency) >> 8;
+                    int final_opacity = 0xff - final_transparency;
+                    ASSERT(final_opacity >= 0 && final_opacity < 256);
+                    A = final_opacity << Ashift; /*final_opacity << surface->format->Ashift;*/
+                }
             }
-         }
 
-         *pixel = R | G | B | A;
-      }
-      // Increment here so we can use the auto test on dy
-      sx++;
-      dx++;
+            *pixel = R | G | B | A;
+        }
 
-      // Check sx bound to move on to the next horizontal line
-      if (sx >= (int)highSX)
-      {
-         sx = lowSX;
-         sy++;
-         dx = lowDX;
-         dy++;
-      }
-   }
+        // Increment here so we can use the auto test on dy
+        sx++;
+        dx++;
+
+        // Check sx bound to move on to the next horizontal line
+        if (sx >= (int)highSX)
+        {
+            sx = lowSX;
+            sy++;
+            dx = lowDX;
+            dy++;
+        }
+    }
 
 }
 

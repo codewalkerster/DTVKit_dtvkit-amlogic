@@ -54,8 +54,6 @@
 #include "stbhwos.h"
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
-//#include "linuxdvbdmx_wrapper.h"
-#include "stbdpc.h"
 #include "stb_utils.h"
 #include "stbci.h"
 #include "libdsm.h"

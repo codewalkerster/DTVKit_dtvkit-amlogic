@@ -17,14 +17,13 @@
 #include "dbgfuncs.h"
 #include "stbhwtun.h"
 #include "stbhwdmx.h"
-//#include "app_cfg.h"
-#include "cert_log.h"
-#include "stbheap.h"
+
 #include "stb_utils.h"
 #include "stbhwcfg.h"
 #include "stbhwmem.h"
 #include "stbpathcfg.h"
 #include "dtv_log.h"
+
 #define TAG  "STBHWCFG"
 
 #ifdef DTVKIT_IN_VENDOR_PARTITION

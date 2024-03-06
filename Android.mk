@@ -84,20 +84,6 @@ endif
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
-    ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
-        $(info "Build dtvkit-amlogic for AndroidR kernel 4.9")
-        #LOCAL_C_INCLUDES := vendor/amlogic/common/kernel/common/include/uapi/linux/dvb/
-    else
-        $(info "Build dtvkit-amlogic for AndroidR kernel > 4.9")
-        #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
-    endif
-else
-    $(info "Build dtvkit-amlogic for AndroidP/Q ")
-    #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
-endif
-
     LOCAL_C_INCLUDES += \
         $(MEDIAHAL_INCLUDE)
 
@@ -110,11 +96,8 @@ ifeq ($(SUPPORT_CAS), true)
     $(LOCAL_PATH)/../DVBCore/midware/stb/inc
 endif
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../DVBCore/inc \
-    $(LOCAL_PATH)/../DVBCore/platform/inc \
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
     $(LOCAL_PATH)/../CI-Plus/include \
-    $(LOCAL_PATH)/../MHEG5/include \
-    $(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \
     $(LOCAL_PATH)/../DVBCore/CERT/inc \
     $(LOCAL_PATH)/../DVBCore/dvb/inc \
     $(LOCAL_PATH)/hw/inc \
@@ -212,7 +195,6 @@ ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS
     LOCAL_SRC_FILES += hw/src/ca_glue_amlmp.c
     LOCAL_C_INCLUDES += $(TOP)/$(LOCAL_PATH)/../../../aml_mp_sdk/include
-    #LOCAL_C_INCLUDES += $(TOP)/vendor/amlogic/common/aml_mp_sdk/include
     LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
 endif
 
@@ -224,7 +206,6 @@ ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
         LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
         LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
         LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../aml_mp_sdk/include
-        #LOCAL_C_INCLUDES += vendor/amlogic/common/aml_mp_sdk/include
         LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
     endif
 else

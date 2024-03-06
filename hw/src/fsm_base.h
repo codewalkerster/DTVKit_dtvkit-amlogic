@@ -76,6 +76,15 @@ FSM_INSTANCE* fsm_CreateInstance(STATE_MAP *state_map_ptr);
 
 
 /**
+ * @brief   Release a FSM instance
+ * @param   FSM_INSTANCE *instance_ptr
+ *
+ *
+ */
+void fsm_ReleaseInstance(FSM_INSTANCE *instance_ptr);
+
+
+/**
  * @brief   Set the FSM initial state
  * @param   FSM_INSTANCE *fsm_instance_ptr: IN, the fsm instance
  * @param   U32BIT state                  : IN, the initial state value

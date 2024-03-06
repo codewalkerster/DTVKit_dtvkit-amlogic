@@ -21,7 +21,7 @@
 #include "stbhwos.h"
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
-#include "stbdpc.h"
+#include "stbhwini.h"
 
 #include "dmx.h"
 #include "emu_internal.h"
@@ -39,6 +39,8 @@ enum
 static S_EMU_TUNER_DATA tuner_data[TUNER_DEV_COUNT];
 static int  emu_tuner_init         = 0;
 static int  emu_support_soft_tuner = 0;
+
+extern DP_GetPathDemux_Func g_GetPathDemux_Func;
 
 static int OpenTsFile(char *name)
 {
@@ -335,7 +337,16 @@ int EmuTunerStart(unsigned char path, unsigned int freq, unsigned int modulation
     }
     tuner_data[path].ifd = fd;
 
-    dmx_no = STB_DPGetPathDemux(path);
+    if (NULL != g_GetPathDemux_Func)
+    {
+        dmx_no = g_GetPathDemux_Func(path);
+    }
+    else
+    {
+        DTV_LOGE(TAG, "Not Reg CB Func!");
+        dmx_no = 0;
+    }
+
     fd = EmuDmxOpen(path);
     if (fd < 0)
     {

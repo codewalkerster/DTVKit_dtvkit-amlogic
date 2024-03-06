@@ -189,5 +189,55 @@ E_HW_DTVSYSTEM_TYPE STB_HWGetDtvSystem()
 }
 
 
+// B:   Register Callback API, call by up level
+OSD_OverlayClear_Func g_OverlayClear_Func               = NULL;
+OSD_OverlayDraw_Func g_OverlayDraw_Func                 = NULL;
+OSD_OverlayDrawFinished_Func g_OverlayDrawFinished_Func = NULL;
+
+void STB_HWRegCB_OverlayClear_Func(OSD_OverlayClear_Func func)
+{
+    g_OverlayClear_Func = func;
+}
+
+void STB_HWRegCB_OverlayDraw_Func(OSD_OverlayDraw_Func func)
+{
+    g_OverlayDraw_Func = func;
+}
+
+void STB_HWRegCB_OverlayDrawFinished_Func(OSD_OverlayDrawFinished_Func func)
+{
+    g_OverlayDrawFinished_Func = func;
+}
+
+
+
+DP_GetSearchMode_Func g_GetSearchMode_Func      = NULL;
+DP_GetPathDemux_Func g_GetPathDemux_Func        = NULL;
+DP_IsDecodingPath_Func g_IsDecodingPath_Func    = NULL;
+DP_IsRecordingPath_Func g_IsRecordingPath_Func  = NULL;
+
+void STB_HWRegCB_GetSearchMode_Func(DP_GetSearchMode_Func func)
+{
+    g_GetSearchMode_Func = func;
+}
+
+void STB_HWRegCB_GetPathDemux_Func(DP_GetPathDemux_Func func)
+{
+    g_GetPathDemux_Func = func;
+}
+
+void STB_HWRegCB_IsDecodingPath_Func(DP_IsDecodingPath_Func func)
+{
+    g_IsDecodingPath_Func = func;
+}
+
+void STB_HWRegCB_IsRecordingPath_Func(DP_IsRecordingPath_Func func)
+{
+    g_IsRecordingPath_Func = func;
+}
+
+
+
+
 /*---local function definitions-----------------------------------------------*/
 

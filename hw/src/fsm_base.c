@@ -16,10 +16,9 @@
 
 #include "techtype.h"
 
-#include "stbheap.h"
+#include "stbhwmem.h"
+#include "dtv_log.h"
 
-
-#include "cert_log.h"
 #include "fsm_base.h"
 
 #define TAG "FSM"
@@ -40,15 +39,15 @@ FSM_INSTANCE* fsm_CreateInstance(STATE_MAP *state_map_ptr)
 
     if (NULL == state_map_ptr)
     {
-        CERT_LOG_ERROR(TAG, "[%s] Failed:No State Map!", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] Failed:No State Map!", __FUNCTION__);
 
         return new_fsm_ptr;
     }
 
-    new_fsm_ptr = (FSM_INSTANCE *)STB_GetMemory(sizeof(FSM_INSTANCE));
+    new_fsm_ptr = (FSM_INSTANCE *)STB_MEMGetSysRAM(sizeof(FSM_INSTANCE));
     if (NULL == new_fsm_ptr)
     {
-        CERT_LOG_ERROR(TAG, "[%s] Failed:No State Map!", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] Failed:No State Map!", __FUNCTION__);
     }
     else
     {
@@ -59,6 +58,17 @@ FSM_INSTANCE* fsm_CreateInstance(STATE_MAP *state_map_ptr)
     return new_fsm_ptr;
 }
 
+
+
+void fsm_ReleaseInstance(FSM_INSTANCE *instance_ptr)
+{
+    if (NULL != instance_ptr)
+    {
+        STB_MEMFreeSysRAM(instance_ptr);
+    }
+}
+
+
 BOOLEAN fsm_SetInitState(FSM_INSTANCE *fsm_instance_ptr, U32BIT state, STRU_FSM_TASK_MSG *msg_ptr)
 {
     BOOLEAN ret = FALSE;
@@ -66,7 +76,7 @@ BOOLEAN fsm_SetInitState(FSM_INSTANCE *fsm_instance_ptr, U32BIT state, STRU_FSM_
 
     if (NULL == fsm_instance_ptr)
     {
-        CERT_LOG_ERROR(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
 
         return ret;
     }
@@ -84,7 +94,7 @@ BOOLEAN fsm_SetInitState(FSM_INSTANCE *fsm_instance_ptr, U32BIT state, STRU_FSM_
     }
     else
     {
-        CERT_LOG_ERROR(TAG, "[%s] failed!", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] failed!", __FUNCTION__);
     }
 
     return ret;
@@ -99,7 +109,7 @@ BOOLEAN fsm_FsmMsgHandle(FSM_INSTANCE *fsm_instance_ptr, void *param_ptr)
 
     if (NULL == fsm_instance_ptr)
     {
-       CERT_LOG_ERROR(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
+       DTV_LOGE(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
 
        return FALSE;
     }
@@ -134,7 +144,7 @@ BOOLEAN fsm_DefaultStateEnterFunc(FSM_INSTANCE *fsm_instance_ptr, void *param_pt
 
     if (NULL == fsm_instance_ptr)
     {
-        CERT_LOG_ERROR(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
 
         return FALSE;
     }
@@ -144,9 +154,9 @@ BOOLEAN fsm_DefaultStateEnterFunc(FSM_INSTANCE *fsm_instance_ptr, void *param_pt
         state_name = GetStateName(fsm_instance_ptr, fsm_instance_ptr->current_state_ptr->state);
 
     if (NULL != state_name)
-        CERT_LOG_INFO(TAG, "[%s] enter state: <%s>", __FUNCTION__, (char *)state_name);
+        DTV_LOGI(TAG, "[%s] enter state: <%s>", __FUNCTION__, (char *)state_name);
     else
-        CERT_LOG_INFO(TAG, "[%s] enter state: <%s>", __FUNCTION__, (char *)"unknown");
+        DTV_LOGI(TAG, "[%s] enter state: <%s>", __FUNCTION__, (char *)"unknown");
 
     return TRUE;
 }
@@ -157,7 +167,7 @@ BOOLEAN fsm_DefaultStateExitFunc(FSM_INSTANCE *fsm_instance_ptr, void *param_ptr
 
     if (NULL == fsm_instance_ptr)
     {
-        CERT_LOG_ERROR(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
+        DTV_LOGE(TAG, "[%s] fsm_instance is NULL!", __FUNCTION__);
 
         return FALSE;
     }
@@ -166,9 +176,9 @@ BOOLEAN fsm_DefaultStateExitFunc(FSM_INSTANCE *fsm_instance_ptr, void *param_ptr
     state_name = GetStateName(fsm_instance_ptr, fsm_instance_ptr->current_state_ptr->state);
 
     if (NULL != state_name)
-        CERT_LOG_INFO(TAG, "[%s] exit state: <%s>", __FUNCTION__, (char *)state_name);
+        DTV_LOGI(TAG, "[%s] exit state: <%s>", __FUNCTION__, (char *)state_name);
     else
-        CERT_LOG_INFO(TAG, "[%s] exit state: <%s>", __FUNCTION__, (char *)"unknown");
+        DTV_LOGI(TAG, "[%s] exit state: <%s>", __FUNCTION__, (char *)"unknown");
 
     return TRUE;
 }

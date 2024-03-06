@@ -14,7 +14,7 @@
 #define TAG  "EMU_DMX"
 
 #include "stbhwdmx.h"
-#include "stbdpc.h"
+#include "stbhwini.h"
 
 #include "dmx.h"
 #include "emu_internal.h"
@@ -26,6 +26,10 @@
 static int dmx_driver_ver;
 static int dmx_no;
 static int search_mode;
+
+extern DP_GetSearchMode_Func g_GetSearchMode_Func;
+extern DP_GetPathDemux_Func g_GetPathDemux_Func;
+
 
 int EmuFileEcho(const char *name, const char *cmd)
 {
@@ -330,8 +334,18 @@ we must return a struct if multi instance
 */
 int EmuDmxOpen(unsigned char path)
 {
-    search_mode = STB_DPGetSearchMode(path);
-    dmx_no      = STB_DPGetPathDemux(path);
+    if (NULL != g_GetPathDemux_Func && NULL != g_GetSearchMode_Func)
+    {
+        search_mode = g_GetSearchMode_Func(path);
+        dmx_no      = g_GetPathDemux_Func(path);
+    }
+    else
+    {
+        DTV_LOGE(TAG, "Not Reg CB Func!");
+
+        search_mode = 0;
+        dmx_no      = 0;
+    }
 
     if (dmx_driver_ver == DMX_X4)
     {

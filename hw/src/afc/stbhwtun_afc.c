@@ -42,7 +42,7 @@
 /* STB header files */
 #include "techtype.h"
 #include "dbgfuncs.h"
-#include "cert_log.h"
+
 
 #include "stbhwdef.h"
 #include "stbhwtun.h"

@@ -310,6 +310,7 @@ typedef struct
     int standard;
     int vcm;
     int scan_type;
+    unsigned long end_frequency;
     Dvbs_Code_Rate code_rate;
 }Dvbs_Frontend_Settings;
 

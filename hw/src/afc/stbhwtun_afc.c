@@ -1229,6 +1229,12 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
 
     FUNCTION_START(STB_Tune_BlindScan);
 
+    if (start_freq >= stop_freq)
+    {
+        TUN_ERR( "freq range is incorrect");
+        return FALSE;
+    }
+
     if (sys_type == TUNE_SYSTEM_TYPE_DVBS || sys_type == TUNE_SYSTEM_TYPE_DVBS2)
     {
         terr_type = E_TERR_TYPE_DVBS;

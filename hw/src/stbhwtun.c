@@ -1543,9 +1543,11 @@ U16BIT STB_TuneGetMPLPIDList(U8BIT tuner_id, U8BIT *plp_list, U16BIT listlen)
             {
                 if (GetTunerLockStatus(tuner_status[tuner_id].frontend_fd) == TUNER_STATE_LOCKED)
                 {
+                    U32BIT plp_list_num = 0;
                     if (aml_frontend_get_dvbt2_plp_id_list(tuner_status[tuner_id].frontend_fd,
-                                                           MAX_PLP_NUMBER, plp_ids, (U32BIT *)&retval))
+                                                           MAX_PLP_NUMBER, plp_ids, &plp_list_num))
                     {
+                        retval = (U16BIT)plp_list_num;
                         if (retval != 0)
                         {
                             if (listlen >= retval)
@@ -2518,7 +2520,7 @@ static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz)
 BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue_BlindCallback_t cb, void *user_data,
                                  unsigned int start_freq, unsigned int stop_freq, E_STB_TUNE_BlindUnicable_t unicable)
 {
-    if (start_freq == stop_freq)
+    if (start_freq >= stop_freq)
     {
         TUN_DBG( "AM_FEND_BlindScan start_freq equal stop_freq\n");
         return FALSE;
@@ -2531,14 +2533,19 @@ BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue
 
     if (sys_type == TUNE_SYSTEM_TYPE_DVBS)
     {
-        tuner_status[path].bs_setting.bsPara.minfrequency = M_BS_START_FREQ * 1000;		    /*Default Set Blind scan start frequency*/
-        tuner_status[path].bs_setting.bsPara.maxfrequency = M_BS_STOP_FREQ * 1000;		    /*Default Set Blind scan stop frequency*/
+        tuner_status[path].bs_setting.bsPara.minfrequency = M_BS_START_FREQ * 1000;         /*Default Set Blind scan start frequency*/
+        tuner_status[path].bs_setting.bsPara.maxfrequency = M_BS_STOP_FREQ * 1000;          /*Default Set Blind scan stop frequency*/
         tuner_status[path].bs_setting.bsPara.maxSymbolRate = M_BS_MAX_SYMB * 1000 * 1000;   /*Set MAX symbol rate*/
         tuner_status[path].bs_setting.bsPara.minSymbolRate = M_BS_MIN_SYMB * 1000 * 1000;   /*Set MIN symbol rate*/
         tuner_status[path].bs_setting.bsPara.timeout = FEND_WAIT_TIMEOUT;
-        tuner_status[path].bs_setting.bsPara.minfrequency = start_freq/1000;		        /*Change default start frequency*/
-        tuner_status[path].bs_setting.bsPara.maxfrequency = stop_freq/1000;			        /*Change default end frequency*/
-
+        if (start_freq > M_BS_START_FREQ)
+        {
+            tuner_status[path].bs_setting.bsPara.minfrequency = start_freq * 1000;          /*Change default start frequency*/
+        }
+        if (stop_freq < M_BS_STOP_FREQ)
+        {
+            tuner_status[path].bs_setting.bsPara.maxfrequency = stop_freq * 1000;           /*Change default end frequency*/
+        }
         tuner_status[path].bs_setting.singlecablePara.version = unicable.unicable;
         tuner_status[path].bs_setting.singlecablePara.userband = unicable.channel;
         tuner_status[path].bs_setting.singlecablePara.frequency = unicable.frequency;

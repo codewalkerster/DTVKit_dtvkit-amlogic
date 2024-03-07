@@ -10,12 +10,6 @@
 
 #define TAG "wrapper_frontend"
 
-using namespace android;
-using namespace std;
-
-using ::android::sp;
-using ::android::RefBase;
-
 #define MAP_INSERT_ITEM(__MAP__, __KEY__, __VALUE__) __MAP__.insert(std::make_pair(__KEY__, __VALUE__))
 #define KEY_CONTAINED_IN_MAP(__MAP__, __KEY__) (__MAP__.find(__KEY__) != __MAP__.end())
 
@@ -52,7 +46,6 @@ typedef struct
     BOOLEAN tuning_params_changed = FALSE;
     BOOLEAN auto_relock= FALSE;
     BOOLEAN tune_lock = FALSE;
-    BOOLEAN tune_stop = TRUE;
 
     BOOLEAN blindscan_mode = FALSE;
     Wrapper_Tune_BlindCallback_t blindscan_event_cb = NULL;
@@ -61,7 +54,7 @@ typedef struct
     std::vector<U32BIT> blindscan_tp_srate;
 } WRAPPER_TUNER_STATUS;
 
-typedef map<U8BIT/*path*/, WRAPPER_TUNER_STATUS/*tuner status*/> TUNER_STATUS_MAP;
+typedef std::map<U8BIT/*path*/, WRAPPER_TUNER_STATUS/*tuner status*/> TUNER_STATUS_MAP;
 
 static TUNER_STATUS_MAP tuner_status_map;
 static std::vector<int> frontend_list;
@@ -238,8 +231,8 @@ static S64BIT getCurrentFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM par
         jfieldID fType = env->GetFieldID(fe_info_class, "mType", "I");
         E_TTYPE type = (E_TTYPE)(env->GetIntField(frontendInfo, fType));
         if (getSignalType(path) == type) {
-            string get_param_range;
-            string ValueClass_type;
+            std::string get_param_range;
+            std::string ValueClass_type;
             if (param == FRONTEND_PARAM_MAX_FREQ || param == FRONTEND_PARAM_MIN_FREQ) {
                 get_param_range = "getFrequencyRangeLong";
                 ValueClass_type = LONG_CLASS;
@@ -260,7 +253,7 @@ static S64BIT getCurrentFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM par
                 return 0;
             }
 
-            string get_value_func;
+            std::string get_value_func;
             if (param == FRONTEND_PARAM_MIN_SRATE|| param == FRONTEND_PARAM_MIN_FREQ) {
                 get_value_func = "getLower";
             }
@@ -894,6 +887,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
     }
 
     tuner_status_map[path].tuner_client = client_id;
+    tuner_status_map[path].tune_lock = FALSE;
 
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -988,8 +982,6 @@ void Wrapper_TuneStopTuner(U8BIT path)
         ALOGE("%s path:%d is invalid", __FUNCTION__, path);
         return;
     }
-
-    tuner_status_map[path].tune_stop = TRUE;
 
     if (tuner_status_map[path].tuner_search_mode) {
         Am_tuner_cancelScanning(tuner_client);
@@ -1129,7 +1121,7 @@ EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path)
 
     EW_TUNER_EVENT lock_st = WRAPPER_TUNER_STATE_UNKNOWN;
 
-    if (TRUE == tuner_status_map[path].tune_lock && !tuner_status_map[path].tune_stop) {
+    if (TRUE == tuner_status_map[path].tune_lock) {
         lock_st = WRAPPER_TUNER_STATE_LOCKED;
     }
     else {
@@ -1720,7 +1712,6 @@ void Wrapper_TuneAllStop()
         ALOGD("%s: tuner_client: %d", __FUNCTION__, tuner_client);
         Am_tuner_closeFrontend(tuner_client);
 
-        iter->second.tune_stop = TRUE;
         iter->second.tuner_client = INVALID_TUNER_ID;
         iter->second.current_tuning = FALSE;
         iter->second.tune_lock = FALSE;
@@ -1921,8 +1912,6 @@ void Wrapper_TuneSendDISEQCMessage(U8BIT path, U8BIT *data, U8BIT size)
         }
         Am_lnb_sendDiseqcMessage(tuner_status_map[path].tuner_lnb, message);
     }
-
-    ALOGD("end:%s", __FUNCTION__);
 }
 void Wrapper_TuneSendBurstMessage(U8BIT path, U8BIT data)
 {
@@ -1960,6 +1949,7 @@ BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindC
         return FALSE;
     }
 
+    tuner_status_map[path].tune_lock = FALSE;
     tuner_status_map[path].tuner_client = client_id;
     tuner_status_map[path].blindscan_tp_freq.clear();
     tuner_status_map[path].blindscan_tp_srate.clear();
@@ -1976,7 +1966,8 @@ BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindC
         return FALSE;
     }
 
-    ALOGD("%s: signal_type:%d", __FUNCTION__, tuner_status_map[path].signal_type);
+    ALOGD("%s: signal_type:%d freq range[%u,%u]", __FUNCTION__, tuner_status_map[path].signal_type, start_freq, stop_freq);
+
     if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBC) {
         // TODO
     }
@@ -1986,6 +1977,10 @@ BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindC
 
         Dvbs_Frontend_Settings dvbsFrontendSettings;
         memset(&dvbsFrontendSettings, 0, sizeof(Dvbs_Frontend_Settings));
+
+        dvbsFrontendSettings.frequency = start_freq * 1000 * 1000;      //MHz to Hz
+        dvbsFrontendSettings.end_frequency = stop_freq * 1000 * 1000;   //MHz to Hz
+
         jobject dvbsSettingObject = dvb_utils_getDvbsFrontendSettingsObject(env, dvbsFrontendSettings);
         if (NULL == dvbsSettingObject) {
             ALOGE("%s: not get dvbs frontend settings object", __FUNCTION__);

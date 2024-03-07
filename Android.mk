@@ -4,7 +4,7 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Config.mk
 
 ifeq ($(DTVKIT_INCLUDE_TEMI),1)
-LOCAL_CFLAGS += -DTEMI_TIMELINES
+    LOCAL_CFLAGS += -DTEMI_TIMELINES
 endif
 
 #LOCAL_SANITIZE := address
@@ -24,9 +24,9 @@ endif
 
 DTVKIT_OPTIMISATION_OPTION?=-O2
 ifeq ($(DTVKIT_BUILD_MODE),release)
-LOCAL_CFLAGS += $(DTVKIT_OPTIMISATION_OPTION)
+    LOCAL_CFLAGS += $(DTVKIT_OPTIMISATION_OPTION)
 else
-LOCAL_CFLAGS += -g
+    LOCAL_CFLAGS += -g
 endif
 ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
     LOCAL_LDFLAGS := $(LOCAL_PATH)/../releaseDTVKit/libsmit_usbcam.a
@@ -67,17 +67,17 @@ LOCAL_CFLAGS += -DCOLOUR_DEPTH=$(DTVKIT_COLOUR_DEPTH)
 LOCAL_CFLAGS += -D_FILE_OFFSET_BITS=64
 
 ifeq ($(DTVKIT_INCLUDE_TEST_KEYS),1)
-LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
+    LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
 endif
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
-LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
+    LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
 endif
 
 MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
 
 ifneq (,$(wildcard media_hal))
-  MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
+    MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
 endif
 
 #LOCAL_CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
@@ -85,7 +85,7 @@ LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     LOCAL_C_INCLUDES += \
-        $(MEDIAHAL_INCLUDE)
+    $(MEDIAHAL_INCLUDE)
 
     LOCAL_CFLAGS += -DUSE_TSPLAYER
 endif
@@ -97,33 +97,33 @@ ifeq ($(SUPPORT_CAS), true)
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
-    $(LOCAL_PATH)/../CI-Plus/include \
-    $(LOCAL_PATH)/../DVBCore/CERT/inc \
-    $(LOCAL_PATH)/../DVBCore/dvb/inc \
-    $(LOCAL_PATH)/hw/inc \
-    $(LOCAL_PATH)/os/inc \
-    external/sqlite/dist \
-    $(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
-    $(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include \
-    system/core/libutils/include \
-    bionic/libc/kernel/uapi \
-    bionic/libc/kernel/android/uapi \
-    bionic/libc/stdio \
-    bionic/libc/include \
-    bionic/libc/../libm/include
+$(LOCAL_PATH)/../CI-Plus/include \
+$(LOCAL_PATH)/../DVBCore/CERT/inc \
+$(LOCAL_PATH)/../DVBCore/dvb/inc \
+$(LOCAL_PATH)/hw/inc \
+$(LOCAL_PATH)/os/inc \
+external/sqlite/dist \
+$(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
+$(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include \
+system/core/libutils/include \
+bionic/libc/kernel/uapi \
+bionic/libc/kernel/android/uapi \
+bionic/libc/stdio \
+bionic/libc/include \
+bionic/libc/../libm/include
 
 LOCAL_CFLAGS += \
-    -Wno-unused-function \
-    -Wno-unused-parameter \
-    -Wno-unused-variable \
-    -Wno-pointer-sign \
-    -Werror=implicit-function-declaration \
-    -Wno-typedef-redefinition \
-    -Wno-unknown-attributes \
-    -Werror=int-to-pointer-cast \
-    -Werror=pointer-to-int-cast \
-    -Werror=incompatible-pointer-types \
-    -Werror
+-Wno-unused-function \
+-Wno-unused-parameter \
+-Wno-unused-variable \
+-Wno-pointer-sign \
+-Werror=implicit-function-declaration \
+-Wno-typedef-redefinition \
+-Wno-unknown-attributes \
+-Werror=int-to-pointer-cast \
+-Werror=pointer-to-int-cast \
+-Werror=incompatible-pointer-types \
+-Werror
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux
@@ -144,51 +144,51 @@ ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
 endif
 
 LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
-    hw/src/stbhwini.c \
-    hw/src/stbhwmem.c \
-    hw/src/stbhwdsk.c \
-    hw/src/stbhwfp.c  \
-    hw/src/stbhwsp.c  \
-    hw/src/stbhwcrypt.c \
-    hw/src/stbhwupg.c \
-    hw/src/stbhwci.c \
-    hw/src/stbhwosd.c \
-    hw/src/stbhwnet.c \
-    hw/src/stbhwvbi.c \
-    hw/src/stbhwcfg.c \
-    hw/src/stbhwutils.c \
-    hw/src/stbswcfg.c \
-    hw/src/stbhwdemux_usb.c \
-    hw/src/stbhwresm.c \
-    hw/src/stbpathcfg.c \
-    hw/src/systemcontrol.cpp \
-    hw/src/stbhwtun.c \
-    hw/src/stbhwtun_ex.c \
-    hw/src/stbhwdmx.c \
-    hw/src/fsm_base.c \
-    hw/src/afd_ctrl.c \
-    hw/src/linuxdvbdmx_wrapper.c \
-    hw/hal/aml_frontend_api.c \
-    hw/atv/linux_v4l2.c \
-    hw/atv/atv_vlfend.c \
-    hw/atv/atv_vlfend_test.c \
-    hw/atv/atv_vdin_tvafe.c \
-    os/src/stbos_timer.c \
-    os/src/stbos_event.c      \
-    os/src/stbos_mutex.c      \
-    os/src/stbos_queue.c      \
-    os/src/stbos_rtc.c        \
-    os/src/stbos_semaphore.c  \
-    os/src/stbos_task.c       \
-    os/src/stbos_utils.c      \
-    os/src/dtv_log.c
+hw/src/stbhwini.c \
+hw/src/stbhwmem.c \
+hw/src/stbhwdsk.c \
+hw/src/stbhwfp.c  \
+hw/src/stbhwsp.c  \
+hw/src/stbhwcrypt.c \
+hw/src/stbhwupg.c \
+hw/src/stbhwci.c \
+hw/src/stbhwosd.c \
+hw/src/stbhwnet.c \
+hw/src/stbhwvbi.c \
+hw/src/stbhwcfg.c \
+hw/src/stbhwutils.c \
+hw/src/stbswcfg.c \
+hw/src/stbhwdemux_usb.c \
+hw/src/stbhwresm.c \
+hw/src/stbpathcfg.c \
+hw/src/systemcontrol.cpp \
+hw/src/stbhwtun.c \
+hw/src/stbhwtun_ex.c \
+hw/src/stbhwdmx.c \
+hw/src/fsm_base.c \
+hw/src/afd_ctrl.c \
+hw/src/linuxdvbdmx_wrapper.c \
+hw/hal/aml_frontend_api.c \
+hw/atv/linux_v4l2.c \
+hw/atv/atv_vlfend.c \
+hw/atv/atv_vlfend_test.c \
+hw/atv/atv_vdin_tvafe.c \
+os/src/stbos_timer.c \
+os/src/stbos_event.c      \
+os/src/stbos_mutex.c      \
+os/src/stbos_queue.c      \
+os/src/stbos_rtc.c        \
+os/src/stbos_semaphore.c  \
+os/src/stbos_task.c       \
+os/src/stbos_utils.c      \
+os/src/dtv_log.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
-LOCAL_SRC_FILES += hw/src/emu_tuner.c \
-                   hw/src/emu_dmx.c \
-                   hw/src/emu_config.c
+    LOCAL_SRC_FILES += hw/src/emu_tuner.c \
+    hw/src/emu_dmx.c \
+    hw/src/emu_config.c
 
-LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
+    LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
 
 ifeq ($(SUPPORT_CAS), true)
@@ -237,6 +237,6 @@ LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
 include $(BUILD_STATIC_LIBRARY)
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
-include $(LOCAL_PATH)/atf.mk
-include $(LOCAL_PATH)/tunerframework/wrapper/Android.mk
+    include $(LOCAL_PATH)/atf.mk
+    include $(LOCAL_PATH)/tunerframework/wrapper/Android.mk
 endif

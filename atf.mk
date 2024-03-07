@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Config.mk
 
 ifeq ($(DTVKIT_INCLUDE_TEMI),1)
-LOCAL_CFLAGS += -DTEMI_TIMELINES
+    LOCAL_CFLAGS += -DTEMI_TIMELINES
 endif
 
 #LOCAL_SANITIZE := address
@@ -23,9 +23,9 @@ endif
 
 DTVKIT_OPTIMISATION_OPTION?=-O2
 ifeq ($(DTVKIT_BUILD_MODE),release)
-LOCAL_CFLAGS += $(DTVKIT_OPTIMISATION_OPTION)
+    LOCAL_CFLAGS += $(DTVKIT_OPTIMISATION_OPTION)
 else
-LOCAL_CFLAGS += -g
+    LOCAL_CFLAGS += -g
 endif
 ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
     LOCAL_LDFLAGS := $(LOCAL_PATH)/../releaseDTVKit/libsmit_usbcam.a
@@ -66,17 +66,17 @@ LOCAL_CFLAGS += -DCOLOUR_DEPTH=$(DTVKIT_COLOUR_DEPTH)
 LOCAL_CFLAGS += -D_FILE_OFFSET_BITS=64
 
 ifeq ($(DTVKIT_INCLUDE_TEST_KEYS),1)
-LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
+    LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
 endif
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
-LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
+    LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
 endif
 
 MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
 
 ifneq (,$(wildcard media_hal))
-  MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
+    MEDIAHAL_INCLUDE:=media_hal/AmTsplayer/include
 endif
 
 #LOCAL_CFLAGS += -DCONFIG_AMLOGIC_DVB_COMPAT
@@ -84,21 +84,21 @@ LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
 
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
-    ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
-        $(info "Build dtvkit-amlogic for AndroidR kernel 4.9")
-        #LOCAL_C_INCLUDES := vendor/amlogic/common/kernel/common/include/uapi/linux/dvb/
+    ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
+        ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
+            $(info "Build dtvkit-amlogic for AndroidR kernel 4.9")
+            #LOCAL_C_INCLUDES := vendor/amlogic/common/kernel/common/include/uapi/linux/dvb/
+        else
+            $(info "Build dtvkit-amlogic for AndroidR kernel > 4.9")
+            #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
+        endif
     else
-        $(info "Build dtvkit-amlogic for AndroidR kernel > 4.9")
+        $(info "Build dtvkit-amlogic for AndroidP/Q ")
         #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
     endif
-else
-    $(info "Build dtvkit-amlogic for AndroidP/Q ")
-    #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
-endif
 
     LOCAL_C_INCLUDES += \
-        $(MEDIAHAL_INCLUDE)
+    $(MEDIAHAL_INCLUDE)
 
     LOCAL_CFLAGS += -DUSE_TSPLAYER
 endif
@@ -110,45 +110,45 @@ ifeq ($(SUPPORT_CAS), true)
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
-    $(LOCAL_PATH)/../DVBCore/platform/inc \
-    $(LOCAL_PATH)/../CI-Plus/include \
-    $(LOCAL_PATH)/../MHEG5/include \
-    $(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \
-    $(LOCAL_PATH)/../DVBCore/CERT/inc \
-    $(LOCAL_PATH)/../DVBCore/dvb/inc \
-    $(LOCAL_PATH)/hw/inc \
-    $(LOCAL_PATH)/os/inc \
-    external/sqlite/dist \
-    $(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
-    $(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include \
-    system/core/libutils/include \
-    bionic/libc/kernel/uapi \
-    bionic/libc/kernel/android/uapi \
-    bionic/libc/stdio \
-    bionic/libc/include \
-    bionic/libc/../libm/include
+$(LOCAL_PATH)/../DVBCore/platform/inc \
+$(LOCAL_PATH)/../CI-Plus/include \
+$(LOCAL_PATH)/../MHEG5/include \
+$(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \
+$(LOCAL_PATH)/../DVBCore/CERT/inc \
+$(LOCAL_PATH)/../DVBCore/dvb/inc \
+$(LOCAL_PATH)/hw/inc \
+$(LOCAL_PATH)/os/inc \
+external/sqlite/dist \
+$(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
+$(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include \
+system/core/libutils/include \
+bionic/libc/kernel/uapi \
+bionic/libc/kernel/android/uapi \
+bionic/libc/stdio \
+bionic/libc/include \
+bionic/libc/../libm/include
 ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
     LOCAL_C_INCLUDES += \
-        vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
-        vendor/amlogic/common/prebuilt/libmediadrm/jcas/include \
-        vendor/amlogic/reference/apps/JDvrLib/jni/include
+    vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
+    vendor/amlogic/common/prebuilt/libmediadrm/jcas/include \
+    vendor/amlogic/reference/apps/JDvrLib/jni/include
 else
     LOCAL_C_INCLUDES += \
-        $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
-        $(LOCAL_PATH)/tunerframework/JNI_cas/include \
-        $(LOCAL_PATH)/tunerframework/JNI_dvr/include
+    $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
+    $(LOCAL_PATH)/tunerframework/JNI_cas/include \
+    $(LOCAL_PATH)/tunerframework/JNI_dvr/include
 endif
 LOCAL_CFLAGS += \
-    -Wno-unused-function \
-    -Wno-unused-parameter \
-    -Wno-unused-variable \
-    -Wno-pointer-sign \
-    -Werror=implicit-function-declaration \
-    -Wno-typedef-redefinition \
-    -Wno-unknown-attributes \
-    -Werror=int-to-pointer-cast \
-    -Werror=pointer-to-int-cast \
-    -Werror=incompatible-pointer-types
+-Wno-unused-function \
+-Wno-unused-parameter \
+-Wno-unused-variable \
+-Wno-pointer-sign \
+-Werror=implicit-function-declaration \
+-Wno-typedef-redefinition \
+-Wno-unknown-attributes \
+-Werror=int-to-pointer-cast \
+-Werror=pointer-to-int-cast \
+-Werror=incompatible-pointer-types
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux
@@ -169,59 +169,59 @@ ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
 endif
 
 LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
-    hw/src/stbhwini.c \
-    hw/src/stbhwmem.c \
-    hw/src/stbhwdsk.c \
-    hw/src/stbhwfp.c  \
-    hw/src/stbhwsp.c  \
-    hw/src/stbhwcrypt.c \
-    hw/src/stbhwupg.c \
-    hw/src/stbhwci.c \
-    hw/src/stbhwosd.c \
-    hw/src/stbhwnet.c \
-    hw/src/stbhwvbi.c \
-    hw/src/stbhwcfg.c \
-    hw/src/stbhwutils.c \
-    hw/src/stbswcfg.c \
-    hw/src/stbhwdemux_usb.c \
-    hw/src/systemcontrol.cpp \
-    hw/src/stbhwtun_ex.c \
-    hw/src/fsm_base.c \
-    hw/src/afd_ctrl.c \
-    hw/atv/linux_v4l2.c \
-    hw/atv/atv_vlfend.c \
-    hw/atv/atv_vlfend_test.c \
-    hw/atv/atv_vdin_tvafe.c \
-    os/src/stbos_timer.c \
-    os/src/stbos_event.c      \
-    os/src/stbos_mutex.c      \
-    os/src/stbos_queue.c      \
-    os/src/stbos_rtc.c        \
-    os/src/stbos_semaphore.c  \
-    os/src/stbos_task.c       \
-    os/src/stbos_utils.c      \
-    os/src/dtv_log.c          \
-    hw/src/stbpathcfg.c
+hw/src/stbhwini.c \
+hw/src/stbhwmem.c \
+hw/src/stbhwdsk.c \
+hw/src/stbhwfp.c  \
+hw/src/stbhwsp.c  \
+hw/src/stbhwcrypt.c \
+hw/src/stbhwupg.c \
+hw/src/stbhwci.c \
+hw/src/stbhwosd.c \
+hw/src/stbhwnet.c \
+hw/src/stbhwvbi.c \
+hw/src/stbhwcfg.c \
+hw/src/stbhwutils.c \
+hw/src/stbswcfg.c \
+hw/src/stbhwdemux_usb.c \
+hw/src/systemcontrol.cpp \
+hw/src/stbhwtun_ex.c \
+hw/src/fsm_base.c \
+hw/src/afd_ctrl.c \
+hw/atv/linux_v4l2.c \
+hw/atv/atv_vlfend.c \
+hw/atv/atv_vlfend_test.c \
+hw/atv/atv_vdin_tvafe.c \
+os/src/stbos_timer.c \
+os/src/stbos_event.c      \
+os/src/stbos_mutex.c      \
+os/src/stbos_queue.c      \
+os/src/stbos_rtc.c        \
+os/src/stbos_semaphore.c  \
+os/src/stbos_task.c       \
+os/src/stbos_utils.c      \
+os/src/dtv_log.c          \
+hw/src/stbpathcfg.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
-LOCAL_SRC_FILES += hw/src/emu_tuner.c \
-                   hw/src/emu_dmx.c \
-                   hw/src/emu_config.c
+    LOCAL_SRC_FILES += hw/src/emu_tuner.c \
+    hw/src/emu_dmx.c \
+    hw/src/emu_config.c
 
-LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
+    LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
 LOCAL_HEADER_LIBRARIES := jni_headers
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../aml_mp_sdk/include \
-                $(LOCAL_PATH)/hw/src \
-                $(LOCAL_PATH)/tunerframework/wrapper/inc \
-                vendor/amlogic/common/libdsm \
+$(LOCAL_PATH)/hw/src \
+$(LOCAL_PATH)/tunerframework/wrapper/inc \
+vendor/amlogic/common/libdsm \
 
 LOCAL_SRC_FILES += hw/src/afc/stbhwtun_afc.c \
-                   hw/src/afc/stbhwdmx_afc.c \
-                   hw/src/afc/stbhwav_asplayer.c \
-                   hw/src/afc/stbpvrpr_jdvrlib.cpp \
-                   hw/src/afc/ca_glue.c
+hw/src/afc/stbhwdmx_afc.c \
+hw/src/afc/stbhwav_asplayer.c \
+hw/src/afc/stbpvrpr_jdvrlib.cpp \
+hw/src/afc/ca_glue.c
 
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false

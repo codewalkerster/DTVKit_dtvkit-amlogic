@@ -845,6 +845,35 @@ BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
 }
 
 /**
+ * @brief   Returns whether a PVR playback is starting.
+ * @param   audio_decoder audio decoder being used for playback
+ * @param   video_decoder video decoder being used for playback
+ * @return  TRUE if playback is starting with the given decoders
+ */
+BOOLEAN STB_PVRIsPlayStarting(U8BIT audio_decoder, U8BIT video_decoder)
+{
+   BOOLEAN retval;
+   U8BIT play_index;
+
+   FUNCTION_START(STB_PVRIsPlayStarted);
+
+   retval = FALSE;
+
+   play_index = getPlayIndex(audio_decoder, video_decoder);
+   if (play_index != INVALID_RES_ID)
+   {
+      if (s_recplay_status[play_index].play_state == PLAY_STARTING)
+      {
+         retval = TRUE;
+      }
+   }
+
+   FUNCTION_FINISH(STB_PVRIsPlayStarted);
+
+   return(retval);
+}
+
+/**
  * @brief   Returns status of playback with the given decoders
  * @param   audio_decoder audio decoder being used for playback
  * @param   video_decoder video decoder being used for playback

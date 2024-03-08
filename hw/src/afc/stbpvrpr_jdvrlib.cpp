@@ -540,7 +540,31 @@ BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    BOOLEAN ret = ((prps->state >= 2 && prps->state <= 5) ? TRUE : FALSE);
-   STB_SPDebugWrite("[%s][state: %d] [ret: %d]", __FUNCTION__,  prps->state, ret);
+
+   //PVR_DBG(" returns %s",(ret == TRUE ? "TRUE" : "FALSE"));
+
+   //LOG_LEAVE;
+   return ret;
+}
+
+/**
+ * @brief   Returns whether a PVR playback is starting.
+ * @param   audio_decoder audio decoder being used for playback
+ * @param   video_decoder video decoder being used for playback
+ * @return  TRUE if playback is starting with the given decoders
+ */
+BOOLEAN STB_PVRIsPlayStarting(U8BIT audio_decoder, U8BIT video_decoder)
+{
+   //LOG_ENTER;
+   const int play_index = to_index(video_decoder,audio_decoder);
+   if ( play_index >= num_players )
+   {
+      PVR_ERR("Player index %d is invalid",play_index);
+      return FALSE;
+   }
+   S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
+
+   BOOLEAN ret = ((prps->state == 1) ? TRUE : FALSE);
 
    //PVR_DBG(" returns %s",(ret == TRUE ? "TRUE" : "FALSE"));
 
@@ -567,7 +591,6 @@ BOOLEAN STB_PVRIsPlayStopped(U8BIT audio_decoder, U8BIT video_decoder)
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    BOOLEAN ret = ((prps->state < 2 || prps->state > 5) ? TRUE : FALSE);
-   STB_SPDebugWrite("[%s][state: %d] [ret: %d]", __FUNCTION__, prps->state, ret);
 
    //LOG_LEAVE;
    return ret;
@@ -1622,7 +1645,6 @@ BOOLEAN STB_PVRIsPlayInitialled(U8BIT audio_decoder, U8BIT video_decoder)
     S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
     BOOLEAN ret = ((prps->state > 0) ? TRUE : FALSE);
-    STB_SPDebugWrite("[%s][state: %d] [ret: %d]", __FUNCTION__,  prps->state, ret);
 
     //LOG_LEAVE;
     return ret;

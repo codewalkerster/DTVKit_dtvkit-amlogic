@@ -176,6 +176,14 @@ BOOLEAN STB_PVRPlayChangeAudio(U8BIT audio_decoder, U8BIT video_decoder, U16BIT 
 BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder);
 
 /**
+ *  * @brief   Returns whether a PVR playback is starting.
+ *   * @param   audio_decoder audio decoder being used for playback
+ *    * @param   video_decoder video decoder being used for playback
+ *     * @return  TRUE if playback is starting with the given decoders
+ *      */
+BOOLEAN STB_PVRIsPlayStarting(U8BIT audio_decoder, U8BIT video_decoder);
+
+/**
  * @brief   Returns status of playback with the given decoders
  * @param   audio_decoder audio decoder being used for playback
  * @param   video_decoder video decoder being used for playback

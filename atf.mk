@@ -110,7 +110,7 @@ ifeq ($(SUPPORT_CAS), true)
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
-$(LOCAL_PATH)/../DVBCore/platform/inc \
+$(LOCAL_PATH)/../dtvkit-amlogic/inc \
 $(LOCAL_PATH)/../CI-Plus/include \
 $(LOCAL_PATH)/../MHEG5/include \
 $(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \

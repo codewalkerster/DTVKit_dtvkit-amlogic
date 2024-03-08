@@ -11,9 +11,9 @@ ifdef DTVKIT_INCLUDE_TEMI
     endif
 endif
 
-INCLUDES = ./inc \
+INCLUDES =  ../inc \
+          ./inc \
           $(DTVKIT_DVBCORE_ROOT)/inc \
-          $(DTVKIT_DVBCORE_ROOT)/platform/inc \
           $(DTVKIT_DVBCORE_ROOT)/midware/CA/inc \
           $(DTVKIT_DVBCORE_ROOT)/midware/stb/inc \
           $(DTVKIT_DVBCORE_ROOT)/CERT/inc \

@@ -871,7 +871,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         ALOGE("%s: path:%d isn't contained in map", __FUNCTION__, path);
         return;
     }
-    tuner_status_map[path].tune_stop = FALSE;
+
     U16BIT client_id = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
     BOOLEAN search_mode = tuner_status_map[path].tuner_search_mode;
     ALOGD("%s path:%d client_id:%d search:%u freq:%d cmode:%d srate:%d",

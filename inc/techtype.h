@@ -88,6 +88,7 @@ typedef int32_t S32BIT;
 typedef uint64_t U64BIT;
 typedef intptr_t   SINTPTR;
 typedef uintptr_t  UINTPTR;
+typedef signed long long S64BIT;
 #else
 typedef unsigned char U8BIT;
 typedef unsigned short U16BIT;
@@ -100,6 +101,7 @@ typedef unsigned char  uint8_t;
 typedef long long int64_t;
 typedef unsigned long long uint64_t;
 typedef unsigned long long U64BIT;
+typedef signed long long S64BIT;
 
 /* Types for pointers */
 #ifndef __sintptr_defined

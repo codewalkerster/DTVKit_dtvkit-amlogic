@@ -814,18 +814,18 @@ static void AV_GetInstance()
 #endif
     FUNCTION_FINISH(AV_GetInstance);
 }
-
+#define INVALID_A_V_PID 0x1FFF
 /**
  * @brief set color frame
  */
 static void AV_EventCallback(int color)
 {
     FUNCTION_START(AV_EventCallback);
-#ifndef RDK_COMPILE
     VID_DBG("FLAGS=%d",FLAGS);
-    if ((FLAGS == VIDEO_SIGNAL_LOSS) || (STB_DPGetVideoPID(0) == INVALID_A_V_PID && STB_DPGetAudioPID(0) != INVALID_A_V_PID))
+    if ((FLAGS == VIDEO_SIGNAL_LOSS) || (av_paths_status[0].video_pid == INVALID_A_V_PID && av_paths_status[0].audio_pid != INVALID_A_V_PID))
     {
         VID_DBG("color=%d",color);
+#ifndef RDK_COMPILE
         if (color)
         {
             SC_setVideoColor(1, 1);//blue
@@ -834,8 +834,8 @@ static void AV_EventCallback(int color)
         {
             SC_setVideoColor(1, 0);//black
         }
-    }
 #endif
+    }
     FUNCTION_FINISH(AV_EventCallback);
 }
 

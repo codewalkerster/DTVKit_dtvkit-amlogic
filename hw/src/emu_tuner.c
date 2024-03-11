@@ -40,7 +40,12 @@ static S_EMU_TUNER_DATA tuner_data[TUNER_DEV_COUNT];
 static int  emu_tuner_init         = 0;
 static int  emu_support_soft_tuner = 0;
 
-extern DP_GetPathDemux_Func g_GetPathDemux_Func;
+static U8BIT _GetPathDemux(U8BIT path)
+{
+    U8BIT dev_no = 0 ;
+    STB_DMXGetDevNo(path , &dev_no);
+    return(dev_no);
+}
 
 static int OpenTsFile(char *name)
 {
@@ -337,16 +342,7 @@ int EmuTunerStart(unsigned char path, unsigned int freq, unsigned int modulation
     }
     tuner_data[path].ifd = fd;
 
-    if (NULL != g_GetPathDemux_Func)
-    {
-        dmx_no = g_GetPathDemux_Func(path);
-    }
-    else
-    {
-        DTV_LOGE(TAG, "Not Reg CB Func!");
-        dmx_no = 0;
-    }
-
+    dmx_no = _GetPathDemux(path);
     fd = EmuDmxOpen(path);
     if (fd < 0)
     {

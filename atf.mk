@@ -83,61 +83,16 @@ endif
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-
-    ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30&& echo OK),OK)
-        ifeq ($(TARGET_BUILD_KERNEL_4_9), true)
-            $(info "Build dtvkit-amlogic for AndroidR kernel 4.9")
-            #LOCAL_C_INCLUDES := vendor/amlogic/common/kernel/common/include/uapi/linux/dvb/
-        else
-            $(info "Build dtvkit-amlogic for AndroidR kernel > 4.9")
-            #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
-        endif
-    else
-        $(info "Build dtvkit-amlogic for AndroidP/Q ")
-        #LOCAL_C_INCLUDES := common/include/uapi/linux/dvb/
-    endif
-
     LOCAL_C_INCLUDES += \
     $(MEDIAHAL_INCLUDE)
 
     LOCAL_CFLAGS += -DUSE_TSPLAYER
 endif
 
-ifeq ($(SUPPORT_CAS), true)
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include \
-    $(LOCAL_PATH)/../DVBCore/midware/CA/inc \
-    $(LOCAL_PATH)/../DVBCore/midware/stb/inc
-endif
-
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
-$(LOCAL_PATH)/../dtvkit-amlogic/inc \
-$(LOCAL_PATH)/../CI-Plus/include \
-$(LOCAL_PATH)/../MHEG5/include \
-$(LOCAL_PATH)/../android-rpcservice/modules/binderservice/inc \
-$(LOCAL_PATH)/../DVBCore/CERT/inc \
-$(LOCAL_PATH)/../DVBCore/dvb/inc \
 $(LOCAL_PATH)/hw/inc \
-$(LOCAL_PATH)/os/inc \
-external/sqlite/dist \
-$(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
-$(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include \
-system/core/libutils/include \
-bionic/libc/kernel/uapi \
-bionic/libc/kernel/android/uapi \
-bionic/libc/stdio \
-bionic/libc/include \
-bionic/libc/../libm/include
-ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
-    LOCAL_C_INCLUDES += \
-    vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
-    vendor/amlogic/common/prebuilt/libmediadrm/jcas/include \
-    vendor/amlogic/reference/apps/JDvrLib/jni/include
-else
-    LOCAL_C_INCLUDES += \
-    $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
-    $(LOCAL_PATH)/tunerframework/JNI_cas/include \
-    $(LOCAL_PATH)/tunerframework/JNI_dvr/include
-endif
+$(LOCAL_PATH)/os/inc
+
 LOCAL_CFLAGS += \
 -Wno-unused-function \
 -Wno-unused-parameter \
@@ -185,7 +140,6 @@ hw/src/stbhwutils.c \
 hw/src/stbswcfg.c \
 hw/src/stbhwdemux_usb.c \
 hw/src/systemcontrol.cpp \
-hw/src/stbhwtun_ex.c \
 hw/src/fsm_base.c \
 hw/src/afd_ctrl.c \
 hw/atv/linux_v4l2.c \
@@ -212,7 +166,20 @@ ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
 endif
 LOCAL_HEADER_LIBRARIES := jni_headers
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../aml_mp_sdk/include \
+
+ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
+    LOCAL_C_INCLUDES += \
+    vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
+    vendor/amlogic/common/prebuilt/libmediadrm/jcas/include \
+    vendor/amlogic/reference/apps/JDvrLib/jni/include
+else
+    LOCAL_C_INCLUDES += \
+    $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
+    $(LOCAL_PATH)/tunerframework/JNI_cas/include \
+    $(LOCAL_PATH)/tunerframework/JNI_dvr/include
+endif
+
+LOCAL_C_INCLUDES += \
 $(LOCAL_PATH)/hw/src \
 $(LOCAL_PATH)/tunerframework/wrapper/inc \
 vendor/amlogic/common/libdsm \
@@ -231,11 +198,10 @@ LOCAL_STATIC_LIBRARIES+=libexpat libcutils
 LOCAL_SHARED_LIBRARIES+=libmediahal_resman
 LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni
 LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni_wrapper
-ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
-    LOCAL_SHARED_LIBRARIES+=liblog libswdemux
-else
-    LOCAL_SHARED_LIBRARIES+=liblog
-endif
+LOCAL_SHARED_LIBRARIES+=liblog
+LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
 
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_VENDOR_MODULE := true
@@ -244,8 +210,6 @@ endif
 
 LOCAL_CFLAGS += -DUSE_AFD_DEVICE
 
-LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
-LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
-LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
+
 include $(BUILD_STATIC_LIBRARY)
 ##############################################################

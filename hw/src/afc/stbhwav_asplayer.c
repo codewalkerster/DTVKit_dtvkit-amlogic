@@ -87,6 +87,7 @@
 #undef  INVALID_RES_ID
 #endif
 #define INVALID_RES_ID   255
+#define INVALID_A_V_PID 0x1FFF
 
 #define MIN_AV_SPEED    -600
 #define MAX_AV_SPEED     600

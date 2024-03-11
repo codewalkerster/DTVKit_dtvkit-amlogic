@@ -49,7 +49,7 @@
 #include "stbhwos.h"
 #include "stbhwmem.h"
 #include "stbhwnet.h"
-#include "stbci.h"
+//#include "stbci.h"
 #include "stbhwdef.h"
 
 /*---constant definitions for this file--------------------------------------*/

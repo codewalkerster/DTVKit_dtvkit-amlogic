@@ -139,6 +139,9 @@
 #define HW_EV_TYPE_PVR_TIMESHIFT_FF_REACHED_END     60
 #define HW_EV_TYPE_PVR_START_DECODE                 61
 
+#define EV_TYPE_CAS_HW                                            62
+#define EV_TYPE_CAS_LONG_HW                                       63
+
 // timeouts for queues, semaphores etc
 #define TIMEOUT_NOW     0
 #define TIMEOUT_NEVER   0xffff

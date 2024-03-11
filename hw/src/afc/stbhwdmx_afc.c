@@ -55,7 +55,7 @@
 #include "stbhwdmx.h"
 #include "stbhwmem.h"
 #include "stb_utils.h"
-#include "stbci.h"
+//#include "stbci.h"
 #include "libdsm.h"
 #include <jni.h>
 

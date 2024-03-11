@@ -257,11 +257,6 @@ static BOOLEAN support_tsd = TRUE;
 static int ciplus_enable = 0;
 static int g_max_dev_num;
 
-
-extern DP_IsDecodingPath_Func g_IsDecodingPath_Func;
-extern DP_IsRecordingPath_Func g_IsRecordingPath_Func;
-
-
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index);
 
@@ -2442,28 +2437,8 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       {
          if (dmx_model_sc2)
          {
-            #if 0
-            if (STB_DPIsDecodingPath(i))
-               param = DMX_CAPS_LIVE;
-            if (STB_DPIsRecordingPath(i))
-               param = DMX_CAPS_RECORDING;
             if ((plug == 1) && (STB_CIUsbModuleInserted()))
                param = DMX_CAPS_USBCAM;
-            #endif
-
-            if (NULL != g_IsDecodingPath_Func && NULL != g_IsRecordingPath_Func)
-            {
-                if (g_IsDecodingPath_Func(i))
-                    param = DMX_CAPS_LIVE;
-                else if (g_IsRecordingPath_Func(i))
-                    param = DMX_CAPS_RECORDING;
-                else if ((plug == 1) && (STB_CIUsbModuleInserted()))
-                    param = DMX_CAPS_USBCAM;
-            }
-            else
-            {
-                DTV_LOGE(TAG, "Not Reg CB Func!");
-            }
 
             STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);
          }

@@ -43,16 +43,10 @@
 #include <dbgfuncs.h>
 #include <stbhwc.h>
 #include "stbhwos.h"
-#include "stbheap.h"
+#include "stbhwmem.h"
 #include "ca_glue.h"
 #include "stbhwcfg.h"
-#include "stbca.h"
 
-#ifdef SUPPORT_CAS
-#include "stbsiflt.h"
-#include "stbsitab.h"
-/*#include "am_cas.h"*/
-#endif
 #include "cJSON.h"
 
 #include "JNICasTypes.h"
@@ -99,6 +93,39 @@ typedef struct
     int match_ca_id;
 } CA_HANDLE;
 
+#define CA_DTAG     0x09
+#define SCRAMBLING_DTAG             0x65     /* scramble flag try to get algorithm */
+
+typedef struct ca_desc
+{
+    U16BIT ca_id;
+    U16BIT ca_pid;
+    U16BIT private_data_length;
+    U8BIT *private_data;
+} CA_DESC;
+
+typedef struct stream_entry
+{
+    struct stream_entry *next;
+    U16BIT pid;
+    U16BIT num_ca_entries;
+    CA_DESC *ca_desc_array;
+
+} STREAM_ENTRY;
+
+typedef struct ca_list
+{
+    U16BIT serv_id;
+    U16BIT num_ca_entries;
+    CA_DESC *ca_desc_array;
+    U8BIT scramble_algo; /* nagra cas need algo to check can descramble or not */
+
+    U16BIT num_streams;
+    STREAM_ENTRY *stream_list;
+    STREAM_ENTRY *last_stream_entry;
+} CA_LIST;
+
+
 /*---global function definitions-----------------------------------------------*/
 /*!**************************************************************************
  * @brief   Called once on system startup to allow initialisation of the CA systems
@@ -137,7 +164,7 @@ static void STB_FreePidList(UINTPTR handle)
     while (pid_entry != NULL)
     {
         head = pid_entry->next;
-        STB_FreeMemory(pid_entry);
+        STB_MEMFreeSysRAM(pid_entry);
         pid_entry = head;
     }
 
@@ -250,7 +277,7 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
 
     STB_OSMutexLock(cas_mutex);
 
-    *handle = (UINTPTR)STB_GetMemory(sizeof(CA_HANDLE));
+    *handle = (UINTPTR)STB_MEMGetSysRAM(sizeof(CA_HANDLE));
     ASSERT(*handle);
     memset((void *)*handle, 0x0, sizeof(CA_HANDLE));
     ((CA_HANDLE *)(*handle))->path = path;
@@ -344,7 +371,7 @@ BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
         STB_FreePidList(handle);
     }
 
-    STB_FreeMemory((void *)handle);
+    STB_MEMFreeSysRAM((void *)handle);
 
     STB_OSMutexUnlock(cas_mutex);
 
@@ -523,6 +550,329 @@ void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session, const char* inJson, c
     FUNCTION_FINISH(STB_CADescrambleIoctl);
 }
 
+BOOLEAN STB_CACheckSessionStatus(UINTPTR handle, UINTPTR session)
+{
+    ASSERT(handle);
+    BOOLEAN ret = FALSE;
+    return ret;
+}
+
+static U8BIT* _STB_ParseCaDescriptor(U8BIT *dptr, U16BIT *num_ptr, CA_DESC **array_ptr,
+                                BOOLEAN db_print)
+{
+    U8BIT dlen;
+    U8BIT *end_ptr;
+    U16BIT num_entries;
+    CA_DESC *array;
+    U16BIT ca_id;
+    U16BIT ca_pid;
+
+    FUNCTION_START(_STB_ParseCaDescriptor);
+
+    ASSERT(dptr != NULL);
+    ASSERT(num_ptr != NULL);
+    ASSERT(array_ptr != NULL);
+
+    dlen = *dptr;
+    dptr++;
+    end_ptr = dptr + dlen;
+
+    if (dlen >= 4)
+    {
+        ca_id = (dptr[0] << 8) | dptr[1];
+        ca_pid = ((dptr[2] & 0x1f) << 8) | dptr[3];
+#ifdef DEBUG_CA_DESC
+
+        if (db_print == TRUE)
+        {
+            CA_DBG("   CA desc: (%d bytes) id=0x%04x, pid=0x%04x", dlen, ca_id, ca_pid);
+        }
+
+#else
+        USE_UNWANTED_PARAM(db_print);
+#endif
+
+        // check if there are already entries in the array (i.e. already received a descriptor)
+        // if so add to the existing array, otherwise create new array
+        if (*array_ptr == NULL)
+        {
+            // no entries already - create new array
+            num_entries = 1;
+            array = (CA_DESC *)STB_MEMGetSysRAM(sizeof(CA_DESC));
+            // memset(array, 0, sizeof(CA_DESC));
+        }
+        else
+        {
+            // already got entries - make array bigger
+            num_entries = *num_ptr + 1;
+            array = (CA_DESC *)STB_MEMGetSysRAM(num_entries * sizeof(CA_DESC));
+            // memset(array, 0, sizeof(num_entries * sizeof(CA_DESC)));
+
+            if (array != NULL)
+            {
+                // copy over previous entries and free old array
+                memcpy(array, *array_ptr, (*num_ptr * sizeof(CA_DESC)));
+                STB_MEMFreeSysRAM(*array_ptr);
+            }
+        }
+
+        // add new entry to array
+        if (array != NULL)
+        {
+            array[num_entries - 1].ca_id = ca_id;
+            array[num_entries - 1].ca_pid = ca_pid;
+            dlen -= 4;
+            dptr += 4;
+            if (dlen != 0)
+            {
+                /* The rest is private data */
+                array[num_entries - 1].private_data = STB_MEMGetSysRAM(dlen);
+
+                if (array[num_entries - 1].private_data != NULL)
+                {
+                    array[num_entries - 1].private_data_length = dlen;
+                    memcpy(array[num_entries - 1].private_data, dptr, dlen);
+                    dlen = 0;
+                }
+            }
+            else
+            {
+                array[num_entries - 1].private_data = NULL;
+                array[num_entries - 1].private_data_length = 0;
+            }
+            *array_ptr = array;
+            *num_ptr = num_entries;
+        }
+        else
+        {
+#ifdef DEBUG_CA_DESC
+
+            if (db_print == TRUE)
+            {
+                CA_DBG("   CAN'T ALLOCATE MEMORY FOR DESCRIPTOR ARRAY ENTRY");
+            }
+
+#endif
+        }
+    }
+    else
+    {
+#ifdef DEBUG_CA_DESC
+
+        if (db_print == TRUE)
+        {
+            CA_DBG("   Invalid CA desc: (%d bytes)", dlen);
+        }
+
+#endif
+    }
+
+    FUNCTION_FINISH(_STB_ParseCaDescriptor);
+    return(end_ptr);
+}
+
+static CA_LIST * _STB_CAGetPmtDescArrayList(U8BIT *pmt_data)
+{
+    U8BIT *data_ptr;
+    U16BIT sec_len;
+    U8BIT *data_end;
+    U16BIT dloop_len;
+    U8BIT *dloop_end;
+    U8BIT dtag;
+    U16BIT i, num_ca_entries;
+    U16BIT stream_entry_pid;
+    CA_DESC *ca_desc_array;
+    STREAM_ENTRY *stream_entry;
+    CA_LIST * ca_list = NULL;
+    U8BIT scramble_algo = 0;
+    U16BIT program_number;
+    FUNCTION_START(_STB_CAGetPmtDescArrayList);
+
+    if (pmt_data == NULL)
+    {
+        return NULL;
+    }
+
+    ca_list = (CA_LIST *)STB_MEMGetSysRAM(sizeof(CA_LIST));
+    memset(ca_list, 0, sizeof(CA_LIST));
+
+    /* Get pointer to section data and end of section */
+    data_ptr = pmt_data;
+    sec_len = (((data_ptr[1] & 0x0f) << 8) | data_ptr[2]) + 3;
+    data_end = data_ptr + sec_len - 4;   // -4 for crc
+
+    /* Skip section header */
+    data_ptr += 8;
+
+    /* Get descriptor loop length */
+    dloop_len = ((data_ptr[2] & 0x0f) << 8) | data_ptr[3];
+    data_ptr += 4;
+    program_number = pmt_data[3] << 8 | pmt_data[4];
+
+    num_ca_entries = 0;
+    ca_desc_array = NULL;
+
+    /* Process first descriptor loop */
+    dloop_end = data_ptr + dloop_len;
+
+    while (data_ptr < dloop_end)
+    {
+        dtag = data_ptr[0];
+        data_ptr++;
+
+        switch (dtag)
+        {
+            case CA_DTAG:
+            {
+                data_ptr = _STB_ParseCaDescriptor(data_ptr, &num_ca_entries, &ca_desc_array, FALSE);
+                break;
+            }
+            case SCRAMBLING_DTAG:
+            {
+                /* record scramble algorithm */
+                scramble_algo = data_ptr[1];
+                data_ptr += (*data_ptr + 1);
+                break;
+            }
+            default:
+            {
+                /* Skip the descriptor */
+                data_ptr += (*data_ptr + 1);
+                break;
+            }
+        }
+    }
+
+    if (num_ca_entries > 0)
+    {
+        ca_list->num_ca_entries = num_ca_entries;
+        ca_list->ca_desc_array = ca_desc_array;
+    }
+    ca_list->serv_id = program_number;
+    ca_list->scramble_algo = scramble_algo;
+    /* Read entry for each stream */
+    while (data_ptr < data_end)
+    {
+        dloop_len = ((data_ptr[3] & 0x0f) << 8) | data_ptr[4];
+        stream_entry_pid = ((data_ptr[1] & 0x1f) << 8) | data_ptr[2];
+        data_ptr += 5;
+
+        num_ca_entries = 0;
+        ca_desc_array = NULL;
+        /* Process stream descriptor loop */
+        dloop_end = data_ptr + dloop_len;
+
+        while ((data_ptr < dloop_end) && (data_ptr < data_end))
+        {
+            dtag = data_ptr[0];
+            data_ptr++;
+
+            switch (dtag)
+            {
+                case CA_DTAG:
+                {
+                    data_ptr = _STB_ParseCaDescriptor(data_ptr, &num_ca_entries, &ca_desc_array, FALSE);
+                    break;
+                }
+
+                default:
+                {
+                    /* Skip the descriptor */
+                    data_ptr += (*data_ptr + 1);
+                    break;
+                }
+            }
+        }
+
+        {
+            stream_entry = (STREAM_ENTRY *)STB_MEMGetSysRAM(sizeof(STREAM_ENTRY));
+
+            if (stream_entry != NULL)
+            {
+                // initialise new stream structure
+                memset(stream_entry, 0, sizeof(STREAM_ENTRY));
+
+                // add to the end of the stream list in the pmt table
+                if (ca_list->last_stream_entry == NULL)
+                {
+                    // first entry in the list
+                    ca_list->stream_list = stream_entry;
+                }
+                else
+                {
+                    // not the first entry
+                    ca_list->last_stream_entry->next = stream_entry;
+                }
+
+                ca_list->last_stream_entry = stream_entry;
+                ca_list->num_streams++;
+                stream_entry->num_ca_entries = num_ca_entries;
+                stream_entry->ca_desc_array = ca_desc_array;
+                stream_entry->pid = stream_entry_pid;
+            }
+        }
+    }
+
+    if (ca_list != NULL)
+    {
+        for (i = 0; i < ca_list->num_ca_entries; i++)
+        {
+            CA_DBG("CAS_  ca_list->ca_desc_array[%d].ca_id 0x%x", i, ca_list->ca_desc_array[i].ca_id);
+        }
+
+        STREAM_ENTRY *stream_list = ca_list->stream_list;
+        U16BIT num = 0;
+        while (stream_list != NULL)
+        {
+            CA_DBG("CAS_ ES ID 0x%x", stream_list->pid);
+            for (i = 0; i < stream_list->num_ca_entries; i++)
+            {
+                CA_DBG("CAS_  %d   ca_list->ca_desc_array[%d].ca_id 0x%x ",
+                        num, i, stream_list->ca_desc_array[i].ca_id);
+            }
+            num++;
+            stream_list = stream_list->next;
+        }
+    }
+
+    FUNCTION_FINISH(_STB_CAGetPmtDescArrayList);
+    return ca_list;
+}
+static void  _STB_CAFreeDescArrayList(CA_LIST * ca_list)
+{
+    U16BIT i, num_ca_entries;
+    STREAM_ENTRY *stream_entry = NULL;
+    STREAM_ENTRY *next_entry = NULL;
+    if (ca_list == NULL)
+    {
+        return;
+    }
+//first loop ca descriptor free
+    num_ca_entries = ca_list->num_ca_entries;
+    for (i= 0 ; i < num_ca_entries ; i++)
+    {
+        STB_MEMFreeSysRAM(ca_list->ca_desc_array[i].private_data);
+    }
+    STB_MEMFreeSysRAM(ca_list->ca_desc_array);
+//second loop ca descriptor free
+    stream_entry = ca_list->stream_list ;
+    while (stream_entry != NULL)
+    {
+        next_entry = stream_entry->next;
+        //ca
+        num_ca_entries= stream_entry->num_ca_entries;
+        for (i= 0 ; i < num_ca_entries ; i++)
+        {
+            STB_MEMFreeSysRAM(stream_entry->ca_desc_array[i].private_data);
+        }
+        STB_MEMFreeSysRAM(stream_entry->ca_desc_array)  ;
+        //last
+        STB_MEMFreeSysRAM(stream_entry)    ;
+        stream_entry = next_entry;
+    }
+    STB_MEMFreeSysRAM(ca_list)    ;
+}
+
 /*!**************************************************************************
  * @brief   When there's an update to the PMT for a service, the updated PMT
  *          will be reported to the CA system using this function.
@@ -530,17 +880,17 @@ void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session, const char* inJson, c
  * @param   pmt_data - raw PMT section data
  * @param   data_len - number of bytes in the PMT
  ****************************************************************************/
-static void STB_CollectPmtStreamsCaInfo(UINTPTR handle, CA_PMT_INFO *pmt_info, SI_PMT_TABLE *pmt_table,U16BIT global_ecm_pid, U8BIT *private_data, U16BIT private_data_length)
+static void _STB_CollectESCaInfo(UINTPTR handle, CA_PMT_INFO *pmt_info, CA_LIST * ca_list,U16BIT global_ecm_pid, U8BIT *private_data, U16BIT private_data_length)
 {
-    SI_PMT_STREAM_ENTRY *stream_entry;
+    STREAM_ENTRY *stream_entry;
     ES_PID_INFO *ca_pid_info;
     int i;
 
-    stream_entry = pmt_table->stream_list;
+    stream_entry = ca_list->stream_list;
 
     while (stream_entry != NULL)
     {
-        ca_pid_info = (ES_PID_INFO *)STB_GetMemory(sizeof(ES_PID_INFO));
+        ca_pid_info = (ES_PID_INFO *)STB_MEMGetSysRAM(sizeof(ES_PID_INFO));
         memset(ca_pid_info, 0, sizeof(ES_PID_INFO));
 
         if (pmt_info->has_global_ca)
@@ -605,7 +955,7 @@ static void STB_CollectPmtStreamsCaInfo(UINTPTR handle, CA_PMT_INFO *pmt_info, S
     }
 
     /* record the scramble algorithm */
-    pmt_info->scramble_algo = pmt_table->scramble_algo;
+    pmt_info->scramble_algo = ca_list->scramble_algo;
 }
 
 /*!**************************************************************************
@@ -615,15 +965,11 @@ static void STB_CollectPmtStreamsCaInfo(UINTPTR handle, CA_PMT_INFO *pmt_info, S
  * @param   pmt_data - raw PMT section data
  * @param   data_len - number of bytes in the PMT
  ****************************************************************************/
-
 void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
 {
     U8BIT i;
     CA_PMT_INFO pmt_info;
-    SI_PMT_TABLE *pmt_table=NULL;
-    SI_SECTION_RECORD *sect=NULL;
-    SI_TABLE_RECORD table_rec;
-    U16BIT section_size;
+    CA_LIST *ca_list =NULL;
     U16BIT global_ecm_pid = 0x1fff;
     U16BIT private_data_length = 0;
     U8BIT *private_data = NULL;
@@ -645,84 +991,54 @@ void STB_CAReportPMT(UINTPTR handle, U8BIT *pmt_data, U16BIT data_len)
 
     STB_OSMutexLock(cas_mutex);
 
-    memset(&table_rec, 0x0, sizeof(SI_TABLE_RECORD));
-    section_size = ((pmt_data[1] & 0xf) << 8) + pmt_data[2] + 3;
-
-    CA_DBG("%s %d, section_size=%u)", __FUNCTION__, __LINE__, section_size);
-    if (section_size <= data_len)
+    ca_list = _STB_CAGetPmtDescArrayList(pmt_data);
+    if (NULL != ca_list)
     {
-        sect = (SI_SECTION_RECORD *)STB_GetMemory(sizeof(SI_SECTION_RECORD) + section_size);
+        CA_DBG("%s svc_id[%#x], num_ca_entries[%d], num_streams[%d]",
+                __FUNCTION__, ca_list->serv_id, ca_list->num_ca_entries, ca_list->num_streams);
 
-        if (sect != NULL)
+        memset(&pmt_info, 0, sizeof(CA_PMT_INFO));
+        for (i = 0; i < ca_list->num_ca_entries; i++)
         {
-            sect->next = NULL;
-            sect->sect_num = pmt_data[6];
-            sect->data_len = section_size;
-            memcpy(&sect->data_start, pmt_data, section_size);
-
-            table_rec.num_sect++;
-            table_rec.path = INVALID_RES_ID;
-            table_rec.tid = pmt_data[0];
-            table_rec.version = (pmt_data[5] >> 1) & 0x1f;
-            table_rec.xtid = (pmt_data[3] << 8) + pmt_data[4];
-            table_rec.section_list = sect;
-            pmt_table = STB_SIParsePmtTable(&table_rec);
-            STB_FreeMemory(sect);
-            sect = NULL;
+            if (((CA_HANDLE *)handle)->match_ca_id == ca_list->ca_desc_array[i].ca_id)
+            {
+                CA_DBG("Found supported global CA Id[%#x]", ca_list->ca_desc_array[i].ca_id);
+                pmt_info.has_global_ca = TRUE;
+                global_ecm_pid = ca_list->ca_desc_array[i].ca_pid;
+                if (ca_list->ca_desc_array[i].private_data != NULL)
+                {
+                    private_data_length = ca_list->ca_desc_array[i].private_data_length;
+                    private_data = ca_list->ca_desc_array[i].private_data;
+                    DebugPrintBuffer(private_data, private_data_length);
+                }
+                break;
+            }
+            else
+            {
+                CA_DBG("ca_id not match CA Id[%#x]",ca_list->ca_desc_array[i].ca_id);
+            }
         }
 
-        if (NULL != pmt_table)
+        if (i >= ca_list->num_ca_entries)
         {
-            CA_DBG("%s svc_id[%#x], num_ca_entries[%d], num_streams[%d]",
-                    __FUNCTION__, pmt_table->serv_id, pmt_table->num_ca_entries, pmt_table->num_streams);
+            CA_DBG("%s not found supported global CA desc", __FUNCTION__);
+        }
 
-            memset(&pmt_info, 0, sizeof(CA_PMT_INFO));
-            for (i = 0; i < pmt_table->num_ca_entries; i++)
-            {
-                if (((CA_HANDLE *)handle)->match_ca_id == pmt_table->ca_desc_array[i].ca_id)
-                {
-                    CA_DBG("Found supported global CA Id[%#x]", pmt_table->ca_desc_array[i].ca_id);
-                    pmt_info.has_global_ca = TRUE;
-                    global_ecm_pid = pmt_table->ca_desc_array[i].ca_pid;
-                    if (pmt_table->ca_desc_array[i].private_data != NULL)
-                    {
-                        private_data_length = pmt_table->ca_desc_array[i].private_data_length;
-                        private_data = pmt_table->ca_desc_array[i].private_data;
-                        DebugPrintBuffer(private_data, private_data_length);
-                    }
-                    break;
-                }
-                else
-                {
-                    CA_DBG("ca_id not match CA Id[%#x]",pmt_table->ca_desc_array[i].ca_id);
-                }
-            }
+        if (((CA_HANDLE *)handle)->pmt_info.ca_pid_list)
+        {
+            CA_DBG("%s free previous pmt pid list", __FUNCTION__);
+            STB_FreePidList(handle);
+        }
 
-            if (i >= pmt_table->num_ca_entries)
-            {
-                CA_DBG("%s not found supported global CA desc", __FUNCTION__);
-            }
+        _STB_CollectESCaInfo(handle, &pmt_info, ca_list, global_ecm_pid, private_data, private_data_length);
+        memcpy(&(((CA_HANDLE *)handle)->pmt_info), &pmt_info, sizeof(CA_PMT_INFO));
+        ((CA_HANDLE *)handle)->service_id = ca_list->serv_id;
 
-            if (((CA_HANDLE *)handle)->pmt_info.ca_pid_list)
-            {
-                CA_DBG("%s free previous pmt pid list", __FUNCTION__);
-                STB_FreePidList(handle);
-            }
-
-            STB_CollectPmtStreamsCaInfo(handle, &pmt_info, pmt_table, global_ecm_pid, private_data, private_data_length);
-            memcpy(&(((CA_HANDLE *)handle)->pmt_info), &pmt_info, sizeof(CA_PMT_INFO));
-            ((CA_HANDLE *)handle)->service_id = pmt_table->serv_id;
-            STB_SIReleasePmtTable(pmt_table);
-       }
-    }
-
+        _STB_CAFreeDescArrayList(ca_list);
+   }
     STB_OSMutexUnlock(cas_mutex);
-
     FUNCTION_FINISH(STB_CAReportPMT);
-
 }
-
-
 /*!**************************************************************************
  * @brief   When there's an update to the CAT for a service, the updated CAT
  *          will be reported to the CA system using this function. The data is

@@ -13,7 +13,7 @@ extern "C" {
 #include "stb_utils.h"
 #include "linuxdvbdmx_wrapper.h"
 #include "systemcontrol.h"
-#include "ap_cfg.h"
+//#include "ap_cfg.h"
 
 
 #ifdef __cplusplus

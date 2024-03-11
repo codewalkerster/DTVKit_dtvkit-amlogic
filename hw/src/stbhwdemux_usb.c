@@ -37,7 +37,7 @@
 #include "stb_utils.h"
 #include "stbhwdemux_usb.h"
 #include "usbcimoduleapi.h"
-#include <Aml_MP/Aml_MP.h>
+//#include <Aml_MP/Aml_MP.h>
 
 /*---constant definitions for this file--------------------------------------*/
 //#define INJECT_FROM_FILE

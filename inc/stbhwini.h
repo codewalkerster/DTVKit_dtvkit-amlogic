@@ -151,22 +151,6 @@ typedef void (*OSD_OverlayDrawFinished_Func)();
 void STB_HWRegCB_OverlayClear_Func(OSD_OverlayClear_Func func);
 void STB_HWRegCB_OverlayDraw_Func(OSD_OverlayDraw_Func func);
 void STB_HWRegCB_OverlayDrawFinished_Func(OSD_OverlayDrawFinished_Func func);
-
-typedef BOOLEAN (*DP_GetSearchMode_Func)(U8BIT path);
-typedef U8BIT (*DP_GetPathDemux_Func)(U8BIT path);
-
-void STB_HWRegCB_GetSearchMode_Func(DP_GetSearchMode_Func func);
-void STB_HWRegCB_GetPathDemux_Func(DP_GetPathDemux_Func func);
-
-
-typedef BOOLEAN (*DP_IsDecodingPath_Func)(U8BIT path);
-typedef BOOLEAN (*DP_IsRecordingPath_Func)(U8BIT path);
-
-void STB_HWRegCB_IsDecodingPath_Func(DP_IsDecodingPath_Func func);
-void STB_HWRegCB_IsRecordingPath_Func(DP_IsRecordingPath_Func func);
-
-
-
 // E:   Register Callback API, call by up level
 
 #endif //  _STBHWINI_H

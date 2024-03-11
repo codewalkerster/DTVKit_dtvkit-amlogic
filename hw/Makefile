@@ -12,21 +12,7 @@ ifdef DTVKIT_INCLUDE_TEMI
 endif
 
 INCLUDES =  ../inc \
-          ./inc \
-          $(DTVKIT_DVBCORE_ROOT)/inc \
-          $(DTVKIT_DVBCORE_ROOT)/midware/CA/inc \
-          $(DTVKIT_DVBCORE_ROOT)/midware/stb/inc \
-          $(DTVKIT_DVBCORE_ROOT)/CERT/inc \
-          $(DTVKIT_DVBCORE_ROOT)/dvb/inc \
-          $(DTVKIT_CIPLUS_ROOT)/include \
-          $(DTVKIT_MHEG5_ROOT)/include
-
-ifneq ($(RDK_COMPILE),1)
-INCLUDES += \
-           $(DTVKIT_RPCSERVICE_ROOT)/modules/binderservice/inc
-endif
-
-
+          ./inc
 
 SRCDIR = src:hal:atv
 SRCS = stbhwplatform.c \

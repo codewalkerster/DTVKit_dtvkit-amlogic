@@ -2330,6 +2330,8 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
       if (source == DMX_TUNER)
       {
          AV_StopInjection(path);
+         DMX_DBG("set tsn_source to DEMOD");
+         STB_File_Echo("/sys/class/stb/tsn_source", "demod");
          ret = DvbSetDemuxSource(path, dmx_src_cfg);
          if (ret == -1)
          {

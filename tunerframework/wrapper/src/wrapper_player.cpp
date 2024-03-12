@@ -725,7 +725,7 @@ S8BIT Wrapper_Player_SetAudioMute(jni_asplayer_handle handle, BOOLEAN audio_mute
     S8BIT ret = -1;
     ALOGI("%s : start", __FUNCTION__);
 
-    if (JniASPlayer_setAudioMute(handle, audio_mute, audio_mute) == JNI_ASPLAYER_OK)
+    if (JniASPlayer_setAudioMute(handle, audio_mute) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
         ALOGI("%s : audio_mute = %d, handle = %u", __FUNCTION__, audio_mute, handle);

@@ -3547,8 +3547,15 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
         }
         case JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS:
         {
-            AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS!\n", status->decoder);
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
+            AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS, av_pid: %d|%d, type: %d.\n", status->decoder, status->video_pid, status->audio_pid, event->event.stream_type);
+            if (status->video_pid > 0 && status->video_pid < INVALID_A_V_PID && event->event.stream_type == JNI_ASPLAYER_TS_STREAM_VIDEO)
+            {
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
+            }
+            else if (status->audio_pid > 0 && status->audio_pid < INVALID_A_V_PID && status->video_pid == INVALID_A_V_PID && event->event.stream_type == JNI_ASPLAYER_TS_STREAM_AUDIO)
+            {
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
+            }
             break;
         }
         case JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_RESUME:

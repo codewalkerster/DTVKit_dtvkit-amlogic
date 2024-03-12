@@ -31,7 +31,7 @@ typedef enum {
     JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_VIDEO, //The video decoder render the first frame
     JNI_ASPLAYER_EVENT_TYPE_RENDER_FIRST_FRAME_AUDIO, //The audio decoder render the first frame
     JNI_ASPLAYER_EVENT_TYPE_AV_SYNC_DONE,       //Av sync done
-    JNI_ASPLAYER_EVENT_TYPE_VIDEO_DECODER_INIT_COMPLETED,       // The video decoder init completed
+    JNI_ASPLAYER_EVENT_TYPE_DECODER_INIT_COMPLETED,     // The decoder init completed - video/audio
     JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS,          // Decoder data loss
     JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_RESUME         // Decoder data resume
 } jni_asplayer_event_type;
@@ -318,6 +318,7 @@ typedef struct {
     uint32_t frame_height;
     uint32_t frame_rate;
     uint32_t frame_aspectratio;
+    int32_t vf_type;
 } jni_asplayer_video_format_t;
 
 typedef struct {
@@ -368,6 +369,8 @@ typedef struct {
         void* bufptr;
         /*If Audio/Video overflow/underflow count the num*/
         av_flow_t av_flow_cnt;
+        /*Stream type of event*/
+        jni_asplayer_stream_type stream_type;
     } event;
 }jni_asplayer_event;
 
@@ -528,24 +531,6 @@ jni_asplayer_result  JniASPlayer_resetWorkMode(jni_asplayer_handle handle);
 jni_asplayer_result  JniASPlayer_setPIPMode(jni_asplayer_handle handle, jni_asplayer_pip_mode mode);
 
 /*AV sync*/
-/**
- *@brief:        Get the playing time of specified JniASPlayer instance.
- *@param:        handle     JniASPlayer handle.
- *@param:        *time      Playing time.
- *@return:       The JniASPlayer result.
- */
-jni_asplayer_result  JniASPlayer_getCurrentTime(jni_asplayer_handle handle, int64_t *time);
-
-/**
- *@brief:        Get the pts of specified JniASPlayer instance.
- *@param:        handle     JniASPlayer handle.
- *@param:        StrType    stream type.
- *@param:        *pts       pts.
- *@return:       The JniASPlayer result.
- */
-jni_asplayer_result  JniASPlayer_getPts(jni_asplayer_handle handle,
-                                        jni_asplayer_stream_type StrType,
-                                        uint64_t *pts);
 
 /**
  *@brief:        Set the tsync mode for specified JniASPlayer instance.
@@ -754,25 +739,19 @@ jni_asplayer_result  JniASPlayer_getAudioDualMonoMode(jni_asplayer_handle handle
 /**
  *@brief:        Set audio output mute to specified JniASPlayer instance .
  *@param:        handle         JniASPlayer handle.
- *@param:        analog_mute    If analog mute or unmute .
- *@param:        digital_mute   If digital mute or unmute .
+ *@param:        mute    mute or not.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_setAudioMute(jni_asplayer_handle handle,
-                                              bool_t analog_mute,
-                                              bool_t digital_mute);
+jni_asplayer_result  JniASPlayer_setAudioMute(jni_asplayer_handle handle, bool_t mute);
 
 /**
  *@brief:        Get audio output mute status from specified
                  JniASPlayer instance .
  *@param:        handle            JniASPlayer handle.
- *@param:        *analog_unmute    If analog mute or unmute .
- *@param:        *digital_unmute   If digital mute or unmute .
+ *@param:        *mute             mute or not.
  *@return:       The JniASPlayer result.
  */
-jni_asplayer_result  JniASPlayer_getAudioMute(jni_asplayer_handle handle,
-                                              bool_t *analog_unmute,
-                                              bool_t *digital_unmute);
+jni_asplayer_result  JniASPlayer_getAudioMute(jni_asplayer_handle handle, bool_t *mute);
 
 /**
  *@brief:        Set audio params need by demuxer and audio decoder
@@ -896,15 +875,6 @@ jni_asplayer_result  JniASPlayer_getADMixLevel(jni_asplayer_handle handle, int32
  */
 jni_asplayer_result  JniASPlayer_getADInfo(jni_asplayer_handle handle, jni_asplayer_audio_info *pInfo);
 
-/*Subtitle interface*/
-/**
- *@brief:        Set subtitle pid for specified JniASPlayer instance .
- *@param:        handle    JniASPlayer handle.
- *@param:        pid       The pid of subtitle.
- *@return:       The JniASPlayer result.
- */
-jni_asplayer_result  JniASPlayer_setSubPid(jni_asplayer_handle handle, uint32_t pid);
-
 /**
  *@brief:        get Params for specified JniASPlayer instance .
  *@param:        handle    JniASPlayer handle.
@@ -925,40 +895,6 @@ jni_asplayer_result  JniASPlayer_getParams(jni_asplayer_handle handle,
 jni_asplayer_result  JniASPlayer_setParams(jni_asplayer_handle handle,
                                            jni_asplayer_parameter type,
                                            void* arg);
-
-/**
- *@brief:        get State for specified JniASPlayer instance .
- *@param:        handle    JniASPlayer handle.
- *@return:       The JniASPlayer result.
- */
-jni_asplayer_result JniASPlayer_getState(jni_asplayer_handle handle,
-                                         jni_asplayer_state_t* state);
-
-/**
- *@brief:        Start subtitle for specified JniASPlayer instance .
- *@param:        handle    JniASPlayer handle.
- *@return:       The JniASPlayer result.
- */
-jni_asplayer_result  JniASPlayer_startSub(jni_asplayer_handle handle);
-
-/**
- *@brief:        Stop subtitle for specified JniASPlayer instance .
- *@param:        handle    JniASPlayer handle.
- *@return:       The JniASPlayer result.
- */
-jni_asplayer_result  JniASPlayer_stopSub(jni_asplayer_handle handle);
-
-/**
- *@brief:        Get the first pts of specified JniASPlayer instance.
- *@param:        handle    JniASPlayer handle.
- *@param:        StrType   stream type.
- *@param:        *pts      output pts.
- *@return:       The JniASPlayer result.
- */
-jni_asplayer_result  JniASPlayer_getFirstPts(jni_asplayer_handle handle,
-                                             jni_asplayer_stream_type StrType,
-                                             uint64_t *pts);
-
 
 #ifdef __cplusplus
 };

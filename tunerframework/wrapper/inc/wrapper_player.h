@@ -84,9 +84,9 @@ S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_aud
 S8BIT Wrapper_Player_SetPcrPid(jni_asplayer_handle handle, U16BIT pcr_pid);
 S8BIT Wrapper_Player_SetAudioLanguage(U32BIT pri_language_code, U32BIT sec_language_code);
 S8BIT Wrapper_Player_GetVideoInfo(jni_asplayer_handle handle, jni_asplayer_video_info *pInfo);
-S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode Mode);
+S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode mode);
 S8BIT Wrapper_Player_GetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode *pMode);
-S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle);
+S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle, BOOLEAN is_pip);
 S8BIT Wrapper_Player_RegisterEventCallBack(jni_asplayer_handle handle, event_callback cb, void* userData);
 S8BIT Wrapper_Player_StartVideoDecoding(jni_asplayer_handle handle);
 S8BIT Wrapper_Player_StopVideoDecoding(jni_asplayer_handle handle);

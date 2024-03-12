@@ -1992,7 +1992,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
             return ret;
         }
 
-        ret = Wrapper_Player_SetSurface(player_handle);
+        ret = Wrapper_Player_SetSurface(player_handle, FALSE);
         if (ret < 0)
         {
             PVR_ERR("set surface failed, err:%d, player[0x%u]", ret, player_handle);

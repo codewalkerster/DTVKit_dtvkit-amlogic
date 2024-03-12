@@ -424,15 +424,15 @@ S8BIT Wrapper_Player_GetVideoInfo(jni_asplayer_handle handle, jni_asplayer_video
     return ret;
 }
 
-S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode Mode)
+S8BIT Wrapper_Player_SetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplayer_audio_dual_mono_mode mode)
 {
     S8BIT ret = -1;
     ALOGI("%s : start", __FUNCTION__);
 
-    if (JniASPlayer_setAudioDualMonoMode(handle, Mode) == JNI_ASPLAYER_OK)
+    if (JniASPlayer_setAudioDualMonoMode(handle, mode) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
-        ALOGI("%s : mode= %d, handle = %u", __FUNCTION__, Mode, handle);
+        ALOGI("%s : mode= %d, handle = %u", __FUNCTION__, mode, handle);
     }
     else
     {
@@ -458,13 +458,18 @@ S8BIT Wrapper_Player_GetAudioDualMonoMode(jni_asplayer_handle handle, jni_asplay
     return ret;
 }
 
-S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle)
+S8BIT Wrapper_Player_SetSurface(jni_asplayer_handle handle, BOOLEAN is_pip)
 {
     S8BIT ret = -1;
+    jobject surface = NULL;
     ALOGI("%s : start", __FUNCTION__);
 
     U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
-    jobject surface = Am_tuner_getSurfaceByTunerClient(wp_player_av_status[av_path].playerClient);
+    if (is_pip)
+        surface = Am_tuner_getPipSurfaceByTunerClient(wp_player_av_status[av_path].playerClient);
+    else
+        surface = Am_tuner_getSurfaceByTunerClient(wp_player_av_status[av_path].playerClient);
+
     if (JniASPlayer_setSurface(handle, (void *)surface) == JNI_ASPLAYER_OK)
     {
         Am_tuner_DeleteSurfaceRef(surface);

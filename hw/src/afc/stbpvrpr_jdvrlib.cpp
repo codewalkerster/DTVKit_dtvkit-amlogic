@@ -2008,6 +2008,9 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
             PVR_ERR("Start video decode failed, v_pid:%d pcr_pid:%d fmt:%d err:%d, player[0x%u]", video_pid, video_format, ret, player_handle);
             return ret;
         }
+
+        if (STB_AVGetStaticFrameEnable())
+            Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE);
     }
 
     if (audio_pid != 0 && audio_pid != INVALID_PID)

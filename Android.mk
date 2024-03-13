@@ -90,27 +90,9 @@ ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
     LOCAL_CFLAGS += -DUSE_TSPLAYER
 endif
 
-ifeq ($(SUPPORT_CAS), true)
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../cas_hal/libamcas/include \
-    $(LOCAL_PATH)/../DVBCore/midware/CA/inc \
-    $(LOCAL_PATH)/../DVBCore/midware/stb/inc
-endif
-
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
-$(LOCAL_PATH)/../CI-Plus/include \
-$(LOCAL_PATH)/../DVBCore/CERT/inc \
-$(LOCAL_PATH)/../DVBCore/dvb/inc \
 $(LOCAL_PATH)/hw/inc \
-$(LOCAL_PATH)/os/inc \
-external/sqlite/dist \
-$(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
-$(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include \
-system/core/libutils/include \
-bionic/libc/kernel/uapi \
-bionic/libc/kernel/android/uapi \
-bionic/libc/stdio \
-bionic/libc/include \
-bionic/libc/../libm/include
+$(LOCAL_PATH)/os/inc
 
 LOCAL_CFLAGS += \
 -Wno-unused-function \
@@ -159,16 +141,9 @@ hw/src/stbhwcfg.c \
 hw/src/stbhwutils.c \
 hw/src/stbswcfg.c \
 hw/src/stbhwdemux_usb.c \
-hw/src/stbhwresm.c \
-hw/src/stbpathcfg.c \
 hw/src/systemcontrol.cpp \
-hw/src/stbhwtun.c \
-hw/src/stbhwtun_ex.c \
-hw/src/stbhwdmx.c \
 hw/src/fsm_base.c \
 hw/src/afd_ctrl.c \
-hw/src/linuxdvbdmx_wrapper.c \
-hw/hal/aml_frontend_api.c \
 hw/atv/linux_v4l2.c \
 hw/atv/atv_vlfend.c \
 hw/atv/atv_vlfend_test.c \
@@ -181,7 +156,8 @@ os/src/stbos_rtc.c        \
 os/src/stbos_semaphore.c  \
 os/src/stbos_task.c       \
 os/src/stbos_utils.c      \
-os/src/dtv_log.c
+os/src/dtv_log.c          \
+hw/src/stbpathcfg.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
     LOCAL_SRC_FILES += hw/src/emu_tuner.c \
@@ -191,48 +167,42 @@ ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
     LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
 
+
+LOCAL_C_INCLUDES += $(TOP)/$(LOCAL_PATH)/../../../aml_mp_sdk/include
+LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
 ifeq ($(SUPPORT_CAS), true)
     LOCAL_CFLAGS += -DSUPPORT_CAS
     LOCAL_SRC_FILES += hw/src/ca_glue_amlmp.c
-    LOCAL_C_INCLUDES += $(TOP)/$(LOCAL_PATH)/../../../aml_mp_sdk/include
-    LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
 endif
 
-ifeq ($(DTVKIT_WITH_TSPLAYER), 1)
-    ifneq ($(DTVKIT_WITH_AML_MP_SDK), true)
-        LOCAL_SRC_FILES += hw/src/stbhwav_tsplayer.c
-        LOCAL_SRC_FILES += hw/src/stbpvrpr_tsplayer.c
-    else
-        LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
-        LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
-        LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../aml_mp_sdk/include
-        LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
-    endif
-else
-    LOCAL_SRC_FILES += hw/src/stbhwav.c
-    LOCAL_SRC_FILES += hw/src/stbpvrpr.c
-endif
+LOCAL_SRC_FILES += hw/src/stbhwtun.c
+LOCAL_SRC_FILES += hw/src/stbhwtun_ex.c
+LOCAL_SRC_FILES += hw/src/stbhwdmx.c
+LOCAL_SRC_FILES += hw/src/linuxdvbdmx_wrapper.c
+LOCAL_SRC_FILES += hw/hal/aml_frontend_api.c
+LOCAL_SRC_FILES += hw/src/stbhwresm.c
+LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
+LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
 
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
 SUPPORT_DTVKIT_IN_VENDOR := true
+
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
+
 LOCAL_SHARED_LIBRARIES+=libmediahal_resman
-ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
-    LOCAL_SHARED_LIBRARIES+=liblog libswdemux
-else
-    LOCAL_SHARED_LIBRARIES+=liblog
-endif
+LOCAL_SHARED_LIBRARIES+=liblog
+LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
+LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
 
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_VENDOR_MODULE := true
     LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION
 endif
 
-LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
-LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
-LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
+
 
 include $(BUILD_STATIC_LIBRARY)
 

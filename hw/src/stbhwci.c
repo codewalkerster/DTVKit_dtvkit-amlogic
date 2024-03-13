@@ -43,9 +43,9 @@
 #include "dbgfuncs.h"
 #include "stbhwmem.h"
 #include "stbhwdef.h"
-#include "stbhwci.h"
-#include "stbhwnvm.h"
-#include "stbcios.h" /*for STB_CIDebugPrintf()*/
+//#include "stbhwci.h"
+//#include "stbhwnvm.h"
+//#include "stbcios.h" /*for STB_CIDebugPrintf()*/
 #include "stbhwdmx.h"
 #include "dtv_log.h"
 #define TAG  "STBHWCI"
@@ -227,7 +227,7 @@ BOOLEAN STB_CIRouteTS(U8BIT tuner, U8BIT slot_id, BOOLEAN pass_through)
 
     FUNCTION_START(STB_CIRouteTS);
 
-    STB_CIDebugPrintf("STB_CIRouteTS(%u, %u, %u)", tuner, slot_id, pass_through);
+    STB_SPDebugWrite("STB_CIRouteTS(%u, %u, %u)", tuner, slot_id, pass_through);
 
     if(TRUE == pass_through)
     {
@@ -243,7 +243,7 @@ BOOLEAN STB_CIRouteTS(U8BIT tuner, U8BIT slot_id, BOOLEAN pass_through)
 
     return(TRUE);
 }
-
+#if 0
 /**
  * @brief   Return CI+ host key
  * @param   type type of host key
@@ -309,7 +309,7 @@ void STB_CIGetHostKey(E_STB_CI_KEY_TYPE type, U8BIT **key, U16BIT *length)
 
    FUNCTION_FINISH(STB_CIGetHostKey);
 }
-
+#endif
 /**
  * @brief   Read data from secure non-volatile area
  * @param   buffer pointer to data buffer to read into

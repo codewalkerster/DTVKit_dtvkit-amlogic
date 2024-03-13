@@ -57,7 +57,7 @@ $(error Please set DTVKIT_DVBCORE_ROOT to point to the DVBCore source tree)
 endif
 
 
-#QUIET ?= @
+QUIET ?= @
 
 DFLAG = -MMD
 

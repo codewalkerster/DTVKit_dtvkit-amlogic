@@ -73,7 +73,8 @@ extern "C" {
 
 #define LOG_NOT_IMPLEMENTED PVR_DBG("*NOT IMPLEMENTED*")
 
-#define INVALID_PID 0x1fff
+#define INVALID_PID                 0x1fff
+#define INVALID_RES_ID           255
 
 struct S_REC_STATUS
 {

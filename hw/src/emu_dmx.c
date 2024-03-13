@@ -27,9 +27,12 @@ static int dmx_driver_ver;
 static int dmx_no;
 static int search_mode;
 
-extern DP_GetSearchMode_Func g_GetSearchMode_Func;
-extern DP_GetPathDemux_Func g_GetPathDemux_Func;
-
+static U8BIT _GetPathDemux(U8BIT path)
+{
+    U8BIT dev_no = 0 ;
+    STB_DMXGetDevNo(path , &dev_no);
+    return(dev_no);
+}
 
 int EmuFileEcho(const char *name, const char *cmd)
 {
@@ -334,25 +337,13 @@ we must return a struct if multi instance
 */
 int EmuDmxOpen(unsigned char path)
 {
-    if (NULL != g_GetPathDemux_Func && NULL != g_GetSearchMode_Func)
-    {
-        search_mode = g_GetSearchMode_Func(path);
-        dmx_no      = g_GetPathDemux_Func(path);
-    }
-    else
-    {
-        DTV_LOGE(TAG, "Not Reg CB Func!");
-
-        search_mode = 0;
-        dmx_no      = 0;
-    }
-
     if (dmx_driver_ver == DMX_X4)
     {
         return X4DmxOpen(dmx_no);
     }
     else if (dmx_driver_ver == DMX_X2)
     {
+        search_mode = 0;
         return X2DmxOpen(dmx_no, search_mode);
     }
 

@@ -327,6 +327,7 @@ static int AV_SetAudioVolumeAndMute_l(AML_MP_PLAYER player_handle, U8BIT vol, BO
 static int AV_SetAudioVolume_l(AML_MP_PLAYER player_handle, U8BIT vol);
 static int AV_SetAudioMute_l(AML_MP_PLAYER player_handle, BOOLEAN mute);
 static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN mute);
+static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black, BOOLEAN mode);
 
 /**
  * @brief   add auto detection function
@@ -2269,7 +2270,9 @@ BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
          av_path,
          av_paths_status[av_path].video_decoder,
          av_paths_status[av_path].audio_decoder);
-      success = FALSE;
+      ret = AV_SetVideoColor(av_path, is_black, TRUE);
+      if (ret <0)
+          success = FALSE;
    }
 
     pthread_rwlock_unlock(_l);
@@ -4720,6 +4723,68 @@ static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT av_path, E_AV_OUT_CONTROL_FLAG f
     }
 
     return audio_mute;
+}
+
+static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black, BOOLEAN mode)
+{
+    int ret = -1;
+    Aml_MP_PlayerCreateParams parm;
+    AML_MP_PLAYER player_handle;
+    int color;
+
+    if (av_path >= num_paths)
+    {
+        AV_DBG("Invalid path: %d", av_path);
+        return AML_MP_ERROR;
+    }
+
+    memset(&parm, 0, sizeof(parm));
+    parm.channelId = av_path;
+    parm.demuxId = (Aml_MP_DemuxId)av_paths_status[av_path].demux;
+    parm.sourceType = AML_MP_INPUT_SOURCE_TS_MEMORY;
+    parm.drmMode = AML_MP_INPUT_STREAM_NORMAL;
+    ret = Aml_MP_Player_Create(&parm, &player_handle);
+    if (ret == 0)
+    {
+        AV_DBG("creat player success, handle:%p", player_handle);
+    }
+    else
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+        return ret;
+    }
+
+    ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_SURFACE_HANDLE, video_surface[av_path]);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+    }
+
+    ret = AV_StartVideoDecode_l(player_handle, 0x1ffe, 0x1ffe, AML_MP_VIDEO_CODEC_MPEG12, AML_MP_AVSYNC_SOURCE_PCR);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+    }
+
+    ret = Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_BLACK_OUT, &is_black);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+    }
+
+    ret = Aml_MP_Player_StopVideoDecoding(player_handle);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+    }
+
+    ret = Aml_MP_Player_Destroy(player_handle);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+        return ret;
+    }
+    return ret;
 }
 
 static Aml_MP_StreamType toStreamType(E_DECODER_INDEX index) {

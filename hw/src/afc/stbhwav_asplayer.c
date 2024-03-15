@@ -87,7 +87,6 @@
 #undef  INVALID_RES_ID
 #endif
 #define INVALID_RES_ID   255
-#define INVALID_A_V_PID 0x1FFF
 
 #define MIN_AV_SPEED    -600
 #define MAX_AV_SPEED     600
@@ -305,6 +304,7 @@ U8BIT STB_AVGetPath(U8BIT video_decoder, U8BIT audio_decoder);
 static int AV_SetAudioVolumeAndMute_l(jni_asplayer_handle player_handle, U8BIT vol, BOOLEAN mute);
 static int AV_SetAudioMute_l(jni_asplayer_handle player_handle, BOOLEAN mute);
 static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT av_path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN mute);
+static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black_color, BOOLEAN mode);
 
 /*---global function definitions----------------------------------------------*/
 
@@ -677,14 +677,12 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
     }
     VID_DBG("force_all:%d blank:%d force_black:%d,av_path:%d,mode:%d " , force_all, blank, force_black, av_path, mode);
 
-    switch (mode) {
-        case 0:
-            asplayer_mode = JNI_ASPLAYER_COLOR_ONCE_TRANSITION;
-            break;
-        case 1:
-            asplayer_mode = JNI_ASPLAYER_COLOR_ONCE_SOLID;
-            break;
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        VID_DBG("Can't get lock, video decoder[%d]", path);
+        return;
     }
+    pthread_rwlock_rdlock(_l);
 
     ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
     if (ret == 0)
@@ -692,6 +690,7 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
         BOOLEAN is_pvr = STB_PVRIsPlayInitialled(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder);
         if (blank == TRUE && is_pvr == FALSE)
         {
+            asplayer_mode = mode ? JNI_ASPLAYER_COLOR_ONCE_SOLID : JNI_ASPLAYER_COLOR_ONCE_TRANSITION;
             color = force_black? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
             switch (color) {
                 case 0:
@@ -715,6 +714,7 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
             av_paths_status[av_path].video_decoder,
             av_paths_status[av_path].audio_decoder);
     }
+    pthread_rwlock_unlock(_l);
 }
 
 /**
@@ -1693,7 +1693,10 @@ BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
             av_path,
             av_paths_status[av_path].video_decoder,
             av_paths_status[av_path].audio_decoder);
-        success = FALSE;
+
+        ret = AV_SetVideoColor(av_path, FALSE, TRUE);
+        if (ret <0)
+            success = FALSE;
     }
 
     pthread_rwlock_unlock(_l);
@@ -3549,11 +3552,11 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
         case JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS:
         {
             AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_DECODER_DATA_LOSS, av_pid: %d|%d, type: %d.\n", status->decoder, status->video_pid, status->audio_pid, event->event.stream_type);
-            if (status->video_pid > 0 && status->video_pid < INVALID_A_V_PID && event->event.stream_type == JNI_ASPLAYER_TS_STREAM_VIDEO)
+            if (status->video_pid > 0 && status->video_pid < INVALID_PID && event->event.stream_type == JNI_ASPLAYER_TS_STREAM_VIDEO)
             {
                 STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
             }
-            else if (status->audio_pid > 0 && status->audio_pid < INVALID_A_V_PID && status->video_pid == INVALID_A_V_PID && event->event.stream_type == JNI_ASPLAYER_TS_STREAM_AUDIO)
+            else if (status->audio_pid > 0 && status->audio_pid < INVALID_PID && status->video_pid == INVALID_PID && event->event.stream_type == JNI_ASPLAYER_TS_STREAM_AUDIO)
             {
                 STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_NO_DATA, &status->decoder, sizeof(U8BIT));
             }
@@ -4019,4 +4022,65 @@ static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT av_path, E_AV_OUT_CONTROL_FLAG f
     return audio_mute;
 }
 
+static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black_color, BOOLEAN mode)
+{
+    int ret = -1;
+    jni_asplayer_init_params parm;
+    jni_asplayer_handle player_handle;
+    int color;
+
+    if (av_path >= num_paths)
+    {
+        AV_DBG("Invalid path: %d", av_path);
+        return ret;
+    }
+
+    Wrapper_Player_Initialise(av_path, WP_TUNER_TYPE_LIVE_0);
+    memset(&parm, 0, sizeof(parm));
+    parm.event_mask= av_path;
+    parm.source = JNI_ASPLAYER_TS_DEMOD;
+    parm.playback_mode = JNI_ASPLAYER_PLAYBACK_MODE_PASSTHROUGH;
+
+    ret = Wrapper_Player_Create(parm, &player_handle, av_path);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+        return ret;
+    }
+    ret = AV_StartVideoDecode_l(av_path, player_handle, INVALID_PID, INVALID_PID, WP_VIDEO_STREAM_TYPE_UNDEFINED);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+    }
+
+    BOOLEAN is_pvr = STB_PVRIsPlayInitialled(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder);
+    if (is_pvr == FALSE)
+    {
+        jni_asplayer_screen_color_mode asplayer_mode = mode ? JNI_ASPLAYER_COLOR_ONCE_SOLID : JNI_ASPLAYER_COLOR_ONCE_TRANSITION;
+        color = is_black_color? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
+        switch (color) {
+            case 0:
+                Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_MUTE);
+                break;
+            case 1:
+                Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
+                Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
+                Wrapper_Player_SetVideoColor(player_handle, asplayer_mode, JNI_ASPLAYER_COLOR_BLUE);
+                VID_DBG("set blue color mode=%d", asplayer_mode);
+                break;
+        }
+    }
+
+    ret = Wrapper_Player_StopVideoDecoding(player_handle);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+    }
+    ret = Wrapper_Player_Destroy(player_handle);
+    if (ret < 0)
+    {
+        AV_DBG("Set color failed, err:%d", ret);
+    }
+    return ret;
+}
 

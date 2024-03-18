@@ -413,6 +413,14 @@ int Am_tuner_disconnectFrontendToCiCam(int tunerClientId, int ciCamId);
 jobject Am_tuner_getSurfaceByTunerClient(int tunerClientId);
 
 /**
+ * Get PIP surfece instance by tuner client id.
+ *
+ * @param tunerClientId the current open tuner clientId map pip surface.
+ * @return result surface object or null.
+ */
+jobject Am_tuner_getPipSurfaceByTunerClient(int tunerClientId);
+
+/**
  * Delete surface global reference
  *
  * @param surface the global reference.

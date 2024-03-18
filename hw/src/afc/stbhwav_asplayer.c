@@ -1622,7 +1622,7 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
         ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
         if (ret == 0)
         {
-            Wrapper_Player_SetSurface(player_handle);
+            //Wrapper_Player_SetSurface(player_handle, FALSE);
             AV_DBG("set surface %d:[%d:%d] ret= %d, surface: %p,  player_handle= %u",
                 av_path,
                 av_paths_status[av_path].video_decoder,
@@ -3876,7 +3876,7 @@ static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
 
         if (work_mode == JNI_ASPLAYER_WORK_MODE_NORMAL)
         {
-            ret = Wrapper_Player_SetSurface(player_handle);
+            ret = Wrapper_Player_SetSurface(player_handle, FALSE);
             if (ret < 0)
             {
                 VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
@@ -3891,18 +3891,23 @@ static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
     }
     else if (STB_Is_PIP_Enabled())
     {
-        ret = Wrapper_Player_SetSurface(player_handle);
-        if (ret < 0)
-        {
-            VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
-        }
 
         if (av_paths_status[av_path].pip_index == 1)
         {
+            ret = Wrapper_Player_SetSurface(player_handle, TRUE);
+            if (ret < 0)
+            {
+                VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
+            }
             ret = Wrapper_Player_SetPIPMode(player_handle, JNI_ASPLAYER_PIP_MODE_PIP);
         }
         else
         {
+            ret = Wrapper_Player_SetSurface(player_handle, FALSE);
+            if (ret < 0)
+            {
+                VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);
+            }
             ret = Wrapper_Player_SetPIPMode(player_handle, JNI_ASPLAYER_PIP_MODE_NORMAL);
         }
         if (ret < 0)
@@ -3912,7 +3917,7 @@ static int AV_StartVideoDecode_l(U8BIT av_path, jni_asplayer_handle player_handl
     }
     else
     {
-        ret = Wrapper_Player_SetSurface(player_handle);
+        ret = Wrapper_Player_SetSurface(player_handle, FALSE);
         if (ret < 0)
         {
             VID_DBG("set surface failed, err:%d, player[0x%u]", ret, player_handle);

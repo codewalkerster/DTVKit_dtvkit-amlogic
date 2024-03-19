@@ -1097,7 +1097,7 @@ BOOLEAN STB_GetDemoCapabilityByType(E_STB_TUNE_SIGNAL_TYPE eType, U_STB_DEMO_CAP
  */
 void STB_Set_Prop(const char *name, const char *value)
 {
-    if (name == NULL || value == NULL) {
+    if (name == NULL || value == NULL || STB_Is_TunerFramework_Enabled()) {
         return;
     }
 #ifdef DTVKIT_IN_VENDOR_PARTITION

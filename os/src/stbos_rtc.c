@@ -33,6 +33,8 @@
 #include <cutils/properties.h>
 #include "stb_utils.h"
 
+#include "stbhwcfg.h"
+
 #ifndef RDK_COMPILE
 #include <sys/system_properties.h>
 #endif
@@ -89,30 +91,30 @@ void STB_OSInitialise(void)
  */
 void STB_OSSetClockRTC(U32BIT num_seconds)
 {
-   FUNCTION_START(STB_OSSetClockRTC);
+    FUNCTION_START(STB_OSSetClockRTC);
 
-   char prop_time[64] = {0};
-   int64_t local_time,temp_time;
+    char prop_time[64] = {0};
+    int64_t local_time,temp_time;
 
-   utc_seconds = num_seconds;
+    utc_seconds = num_seconds;
 
-   /* Save the system time at the point the clock has been set */
-   sync_time = SysBootTimeSeconds();
+    /* Save the system time at the point the clock has been set */
+    sync_time = SysBootTimeSeconds();
 
-   local_time = (int64_t)(STB_OSGetSystemUnixTimeStamp());
-   //minus current timezone and app will translate it stream time by adding current timezone
-   temp_time = (int64_t)num_seconds - local_time;
+    local_time = (int64_t)(STB_OSGetSystemUnixTimeStamp());
+    //minus current timezone and app will translate it stream time by adding current timezone
+    temp_time = (int64_t)num_seconds - local_time;
 
-   sprintf(prop_time, "%ld000", (LONG)temp_time);//prop need ms
+    sprintf(prop_time, "%ld000", (LONG)temp_time);//prop need ms
 #ifdef DTVKIT_IN_VENDOR_PARTITION
-   property_set("vendor.sys.tv.stream.localtime", prop_time);
+    STB_Set_Prop("vendor.sys.tv.stream.localtime", prop_time);
 #else
-      STB_DVRProp_Set("vendor.sys.tv.stream.localtime", prop_time);
+    STB_DVRProp_Set("vendor.sys.tv.stream.localtime", prop_time);
 #endif
 
-   RTC_DBG("Time set to %u secs at %u msecs", num_seconds, sync_time);
+    RTC_DBG("Time set to %u secs at %u msecs", num_seconds, sync_time);
 
-   FUNCTION_FINISH(STB_OSSetClockRTC);
+    FUNCTION_FINISH(STB_OSSetClockRTC);
 }
 
 /**
@@ -192,23 +194,23 @@ U32BIT STB_OSGetClockMilliseconds(void)
  */
 void STB_OSSetClockGMT(U32BIT num_seconds)
 {
-   FUNCTION_START(STB_OSSetClockGMT);
-   char prop_time[64] = {0};
-   int64_t system_time,temp_time;
+    FUNCTION_START(STB_OSSetClockGMT);
+    char prop_time[64] = {0};
+    int64_t system_time,temp_time;
 
-   system_time = (int64_t)(STB_OSGetSystemUnixTimeStamp()/*STB_OSGetSystemTime()*/);
-   temp_time = (int64_t)num_seconds - system_time;
+    system_time = (int64_t)(STB_OSGetSystemUnixTimeStamp()/*STB_OSGetSystemTime()*/);
+    temp_time = (int64_t)num_seconds - system_time;
 
-   sprintf(prop_time, "%ld000", (LONG)temp_time);//prop need ms
-   //use time that contains timezone instead in STB_OSSetClockRTC
+    sprintf(prop_time, "%ld000", (LONG)temp_time);//prop need ms
+    //use time that contains timezone instead in STB_OSSetClockRTC
 #ifdef DTVKIT_IN_VENDOR_PARTITION
-   property_set("vendor.sys.tv.stream.realtime", prop_time);
+    STB_Set_Prop("vendor.sys.tv.stream.realtime", prop_time);
 #else
-      STB_DVRProp_Set("vendor.sys.tv.stream.realtime", prop_time);
+    STB_DVRProp_Set("vendor.sys.tv.stream.realtime", prop_time);
 #endif
-   RTC_DBG("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
+    RTC_DBG("prop_time[%d] = ts_time[%d] - system_time[%d]\n", (U32BIT)temp_time, num_seconds, (U32BIT)system_time);
 
-   FUNCTION_FINISH(STB_OSSetClockGMT);
+    FUNCTION_FINISH(STB_OSSetClockGMT);
 }
 
 /**
@@ -234,20 +236,20 @@ U32BIT STB_OSGetClockGMT(void)
  */
 void STB_OSSetClockOffsetChange(U32BIT num_seconds)
 {
-   char prop_time[64] = {0};
-   int64_t system_time,temp_time;
+    char prop_time[64] = {0};
+    int64_t system_time,temp_time;
 
-   FUNCTION_START(STB_OSSetClockOffsetChange);
+    FUNCTION_START(STB_OSSetClockOffsetChange);
 
-   sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
+    sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
 
 #ifdef DTVKIT_IN_VENDOR_PARTITION
-   property_set("vendor.sys.tv.stream.offsetchange", prop_time);
+    STB_Set_Prop("vendor.sys.tv.stream.offsetchange", prop_time);
 #else
-      STB_DVRProp_Set("vendor.sys.tv.stream.offsetchange", prop_time);
+    STB_DVRProp_Set("vendor.sys.tv.stream.offsetchange", prop_time);
 #endif
 
-   FUNCTION_FINISH(STB_OSSetClockOffsetChange);
+    FUNCTION_FINISH(STB_OSSetClockOffsetChange);
 }
 
 /**
@@ -256,18 +258,18 @@ void STB_OSSetClockOffsetChange(U32BIT num_seconds)
  */
 void STB_OSSetClockTimeZoneDiff(S32BIT num_seconds)
 {
-   FUNCTION_START(STB_OSSetClockTimeZoneDiff);
+    FUNCTION_START(STB_OSSetClockTimeZoneDiff);
 
-   char prop_time[64] = {0};
+    char prop_time[64] = {0};
 
-   sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
+    sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
 #ifdef DTVKIT_IN_VENDOR_PARTITION
-   property_set("vendor.sys.tv.stream.timeozone", prop_time);
+    STB_Set_Prop("vendor.sys.tv.stream.timeozone", prop_time);
 #else
-      STB_DVRProp_Set("vendor.sys.tv.stream.timeozone", prop_time);
+    STB_DVRProp_Set("vendor.sys.tv.stream.timeozone", prop_time);
 #endif
 
-   FUNCTION_FINISH(STB_OSSetClockTimeZoneDiff);
+    FUNCTION_FINISH(STB_OSSetClockTimeZoneDiff);
 }
 
 /**
@@ -276,18 +278,18 @@ void STB_OSSetClockTimeZoneDiff(S32BIT num_seconds)
  */
 void STB_OSSetClockTimeZoneNext(S32BIT num_seconds)
 {
-   char prop_time[64] = {0};
+    char prop_time[64] = {0};
 
-   FUNCTION_START(STB_OSSetClockTimeZoneNext);
+    FUNCTION_START(STB_OSSetClockTimeZoneNext);
 
-   sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
+    sprintf(prop_time, "%ld000", (LONG)num_seconds);//prop need ms
 #ifdef DTVKIT_IN_VENDOR_PARTITION
-       property_set("vendor.sys.tv.stream.timeozone.next", prop_time);
+    STB_Set_Prop("vendor.sys.tv.stream.timeozone.next", prop_time);
 #else
-       STB_DVRProp_Set("vendor.sys.tv.stream.timeozone.next", prop_time);
+    STB_DVRProp_Set("vendor.sys.tv.stream.timeozone.next", prop_time);
 #endif
 
-   FUNCTION_FINISH(STB_OSSetClockTimeZoneNext);
+    FUNCTION_FINISH(STB_OSSetClockTimeZoneNext);
 }
 
 

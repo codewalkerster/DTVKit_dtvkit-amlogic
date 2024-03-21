@@ -670,9 +670,9 @@ U16BIT STB_TuneGetActualTerrCellId(U8BIT path)
 E_STB_TUNE_TBWIDTH STB_TuneGetActualIsdbtBwidth(U8BIT path)
 {
     FUNCTION_START(STB_TuneGetActualIsdbtBwidth);
-    E_STB_TUNE_TBWIDTH bwidth = TUNE_TBWIDTH_8MHZ;
+    E_STB_TUNE_TBWIDTH bwidth = TUNE_TBWIDTH_6MHZ;
 
-    //bwidth = Wrapper_TuneGetActualIsdbtBwidth(path);
+    bwidth = (E_STB_TUNE_TBWIDTH)Wrapper_TuneGetActualTerrBwidth(path);
 
     FUNCTION_FINISH(STB_TuneGetActualIsdbtBwidth);
     return bwidth;
@@ -1259,7 +1259,12 @@ BOOLEAN STB_Tune_BlindContinue(U8BIT path)
     return ret;
 }
 
+int STB_TuneGetEwbsFlag(U8BIT path)
+{
+    int ret = 0;
 
+    return ret;
+}
 /*---local function definitions----------------------------------------------*/
 
 /*static*/ U8BIT* GetSysTypeDebugString(E_STB_TUNE_SYSTEM_TYPE sys_type)

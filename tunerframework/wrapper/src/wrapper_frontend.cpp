@@ -5,6 +5,7 @@
 #include "JNI_tuner.h"
 #include "filter_utils.h"
 #include "dvb_frontend_setting_utils.h"
+#include "isdb_frontend_setting_utils.h"
 #include "type_change_utils.h"
 #include "frontend_utils.h"
 
@@ -459,6 +460,34 @@ static DVBS_INNER_FEC getSatelliteFec(EW_STB_TUNE_FEC fec)
     return inner_fec;
 }
 
+static ISDBT_BANDWIDTH getIsdbtBwidth(EW_STB_TUNE_TBWIDTH tbwidth)
+{
+    ISDBT_BANDWIDTH ret = ISDBT_BANDWIDTH_UNDEFINED;
+    switch (tbwidth)
+    {
+        case WRAPPER_TUNE_TBWIDTH_8MHZ:
+        {
+            ret = ISDBT_BANDWIDTH_8M;
+            break;
+        }
+        case WRAPPER_TUNE_TBWIDTH_7MHZ:
+        {
+            ret = ISDBT_BANDWIDTH_7M;
+            break;
+        }
+        case WRAPPER_TUNE_TBWIDTH_6MHZ:
+        {
+            ret = ISDBT_BANDWIDTH_6M;
+            break;
+        }
+        default:
+        {
+            ret = ISDBT_BANDWIDTH_AUTO;
+            break;
+        }
+    }
+    return ret;
+}
 
 static void lnbCallback(jobject lnb, int tuner_client, int eventType, jbyteArray diseqcMessage) {
     ALOGD("%s: lnb: %p tuner_client:%d eventType:%d", __FUNCTION__, lnb, tuner_client, eventType);
@@ -874,8 +903,8 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
 
     U16BIT client_id = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
     BOOLEAN search_mode = tuner_status_map[path].tuner_search_mode;
-    ALOGD("%s path:%d client_id:%d search:%u freq:%d cmode:%d srate:%d",
-          __FUNCTION__, path, search_mode, client_id, freq, cmode, srate);
+    ALOGD("%s path:%d client_id:%d search:%u freq:%d cmode:%d srate:%d tbwidth:%u",
+          __FUNCTION__, path, client_id, search_mode, freq, cmode, srate, tbwidth);
 
     if (IsAlreadyTuned(path, client_id, freq, srate, fec, tmode, tbwidth, cmode)) {
         ALOGD("%s path:%d Already_tuned", __FUNCTION__, path);
@@ -904,7 +933,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
     tuner_status_map[path].cable_mode = cmode;
     tuner_status_map[path].fec = fec;
 
-    jobject dvbSettingObject = NULL;
+    jobject frontendSettingObject = NULL;
     if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBT) {
 
         Dvbt_Frontend_Settings dvbtFrontendSettings;
@@ -920,7 +949,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
             dvbtFrontendSettings.plpId = tuner_status_map[path].tuner_plp;
         }
 
-        dvbSettingObject = dvb_utils_getDvbtFrontendSettingsObject(env, dvbtFrontendSettings);
+        frontendSettingObject = dvb_utils_getDvbtFrontendSettingsObject(env, dvbtFrontendSettings);
     }
     else if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBC) {
         Dvbc_Frontend_Settings dvbcFrontendSettings;
@@ -929,7 +958,7 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         dvbcFrontendSettings.modulation = getCableModulation(cmode);
         dvbcFrontendSettings.symbolRate = srate;
 
-        dvbSettingObject = dvb_utils_getDvbcFrontendSettingsObject(env, dvbcFrontendSettings);
+        frontendSettingObject = dvb_utils_getDvbcFrontendSettingsObject(env, dvbcFrontendSettings);
     }
     else if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBS) {
         Dvbs_Frontend_Settings dvbsFrontendSettings;
@@ -945,23 +974,31 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         dvbsFrontendSettings.code_rate.bitsPer1000Symbol = 0;
         dvbsFrontendSettings.standard = DVBS_STANDARD_AUTO;
 
-        dvbSettingObject = dvb_utils_getDvbsFrontendSettingsObject(env, dvbsFrontendSettings);
+        frontendSettingObject = dvb_utils_getDvbsFrontendSettingsObject(env, dvbsFrontendSettings);
+    }
+    else if (tuner_status_map[path].signal_type == E_TERR_TYPE_ISDBT) {
+        Isdbt_Frontend_Settings isdbtFrontendSettings;
+        memset(&isdbtFrontendSettings, 0, sizeof(Isdbt_Frontend_Settings));
+        isdbtFrontendSettings.frequency = freq;
+        isdbtFrontendSettings.bandwidth = getIsdbtBwidth(tbwidth);
+
+        frontendSettingObject = isdb_utils_getIsdbtFrontendSettingsObject(env, isdbtFrontendSettings);
     }
     else {
         ALOGE("%s: error signal type %u", __FUNCTION__, tuner_status_map[path].signal_type);
     }
 
-    if (dvbSettingObject != NULL)
+    if (frontendSettingObject != NULL)
     {
         if (search_mode) {
             if (tuner_status_map[path].sys_type == WRAPPER_TUNE_SYSTEM_TYPE_DVBT2) {
                 tuner_status_map[path].t2_plp_list.clear();
             }
-            Am_tuner_scan(client_id, dvbSettingObject, SCAN_TYPE_AUTO, (long)scanCallback);
+            Am_tuner_scan(client_id, frontendSettingObject, SCAN_TYPE_AUTO, (long)scanCallback);
         }
         else {
             Am_tuner_setOnTuneEventListener(client_id, (long)tuneCallback);
-            Am_tuner_tune(client_id, dvbSettingObject);
+            Am_tuner_tune(client_id, frontendSettingObject);
         }
 
         tuner_status_map[path].current_tuning = TRUE;
@@ -1269,6 +1306,8 @@ void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type)
         signal_type = E_TERR_TYPE_DVBT;
     }else if (WRAPPER_TUNE_SIGNAL_QAM == type) {
         signal_type = E_TERR_TYPE_DVBC;
+    }else if (WRAPPER_TUNE_SIGNAL_ISDBT == type) {
+        signal_type = E_TERR_TYPE_ISDBT;
     }
 
     ALOGD("start:%s path:%d type:%d signal_type:%d", __FUNCTION__, path, type, signal_type);

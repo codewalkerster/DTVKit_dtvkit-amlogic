@@ -2926,6 +2926,19 @@ E_STB_AV_SRM_REPLY STB_AVApplySRM(U8BIT path, U8BIT *data, U32BIT len)
     return SRM_NOT_REQUIRED;
 }
 
+BOOLEAN STB_SetFullScreen(void)
+{
+    FUNCTION_START(STB_SetFullScreen);
+    FUNCTION_FINISH(STB_SetFullScreen);
+    return FALSE;
+}
+
+void STB_ClearFullScreen(void)
+{
+    FUNCTION_START(STB_ClearFullScreen);
+    FUNCTION_FINISH(STB_ClearFullScreen);
+}
+
 /**
  * @brief   Returns the frame rate of the video being decoded
  * @param   path video path

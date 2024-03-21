@@ -232,6 +232,63 @@ BOOLEAN aml_frontend_get_signal_strength(S32BIT frontend_fd, U16BIT *strength)
     return TRUE;
 }
 
+BOOLEAN aml_frontend_get_signal_strength_property(S32BIT frontend_fd, U16BIT *strength, U16BIT *dBmV)
+{
+    if (frontend_fd == INVALID_FD)
+        return FALSE;
+
+    struct dtv_property prop;
+    struct dtv_properties props;
+
+    memset(&prop, 0, sizeof(struct dtv_property));
+
+    /* start get Signal Strength .*/
+    prop.cmd = DTV_STAT_SIGNAL_STRENGTH;
+    props.num = 1;
+    props.props = &prop;
+
+    if (ioctl(frontend_fd, FE_GET_PROPERTY, &props) < 0)
+    {
+        FD_API_ERR("Fail to get signal property (fd:%d cmd:%u) errno %d (%s)",
+                   frontend_fd, prop.cmd, errno, strerror(errno));
+        return FALSE;
+    }
+
+    U16BIT strength_value = 0;
+    U16BIT dBmV_value = 0;
+
+    U8BIT len = prop.u.st.len;
+    for (U8BIT i = 0; i < len; i++)
+    {
+        U8BIT scale = prop.u.st.stat[i].scale;
+        U64BIT value = prop.u.st.stat[i].uvalue;
+        if (scale == FE_SCALE_RELATIVE)
+        {
+            strength_value = (U16BIT)value;
+        }
+        else if (scale == FE_SCALE_DECIBEL)
+        {
+            dBmV_value = (U16BIT)value;
+        }
+    }
+
+    FD_API_INFO("Okay to get signal property (fd:%d strength:%u dBmV:%u)",
+                frontend_fd, strength_value, dBmV_value);
+
+    if (strength != NULL)
+    {
+        *strength = strength_value;
+    }
+
+    if (dBmV != NULL)
+    {
+        *dBmV = dBmV_value;
+    }
+
+    return TRUE;
+}
+
+
 BOOLEAN aml_frontend_get_signal_ber(S32BIT frontend_fd, U32BIT *ber)
 {
     if (frontend_fd == INVALID_FD)

@@ -982,12 +982,12 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
     return(max_freq);
 }
 
-static BOOLEAN IsPercentConversionRequired(U8BIT path)
+static BOOLEAN IsExternalDemod(U8BIT path)
 {
-    BOOLEAN retval = TRUE;
+    BOOLEAN retval = FALSE;
     if (NULL != strstr(tuner_status[path].fe_info.name, "cxd2856"))
     {
-       retval = FALSE;  //For cxd2856, not need to convert to percentage
+       retval = TRUE;  //For cxd2856, not need to convert to percentage
     }
 
     return retval;
@@ -998,20 +998,12 @@ static BOOLEAN IsPercentConversionRequired(U8BIT path)
  * @param   path the tuner path to query
  * @return  the signal dBuV as percentage of maximum (0-100)
  */
-U8BIT STB_TuneGetSignaldBuV(U8BIT path)
+S16BIT STB_TuneGetSignaldBuV(U8BIT path)
 {
-    U8BIT retval = 0;
+    S16BIT retval = 0;
     S16BIT strength;
 
     FUNCTION_START(STB_TuneGetSignaldBuV);
-
-#ifdef EMUTUNNER_ENABLE
-    retval = EmuTunerGetSignalStrength(path);
-    if (retval > 0)
-    {
-        return retval;
-    }
-#endif
 
     if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
     {
@@ -1019,7 +1011,7 @@ U8BIT STB_TuneGetSignaldBuV(U8BIT path)
         {
             if (aml_frontend_get_signal_strength(tuner_status[path].frontend_fd, (U16BIT *)&strength))
             {
-                retval = (U8BIT)(109 + strength); // plus 108.75(dBm to dBuV for 75 ohms)
+                retval = 109 + strength; // plus 108.75(dBm to dBuV for 75 ohms)
                 TUN_DBG("%u: dBuV:%u(strength:%d)", path, retval, strength);
             }
             else
@@ -1030,6 +1022,50 @@ U8BIT STB_TuneGetSignaldBuV(U8BIT path)
     }
 
     FUNCTION_FINISH(STB_TuneGetSignaldBuV);
+
+    return retval;
+}
+
+S16BIT STB_TuneGetSignaldBmV(U8BIT path)
+{
+    S16BIT retval = 0;
+    S16BIT dBmV = 0;
+    S16BIT dBm = 0;
+
+    FUNCTION_START(STB_TuneGetSignaldBmV);
+
+    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    {
+        if (IsTunerLocked(&tuner_status[path]))
+        {
+            if (IsExternalDemod(path))
+            {
+                if (aml_frontend_get_signal_strength_property(tuner_status[path].frontend_fd, NULL, (U16BIT *)&dBmV))
+                {
+                    retval = dBmV;
+                    TUN_DBG("%u: dBmV(x1000):%u", path, retval, dBmV);
+                }
+                else
+                {
+                    TUN_ERR("%u: Failed to get signal dBm", path);
+                }
+            }
+            else
+            {
+                if (aml_frontend_get_signal_strength(tuner_status[path].frontend_fd, (U16BIT *)&dBm))
+                {
+                    retval = 49 + dBm; // plus 48.75(dBm to dBmV for 75 ohms)
+                    TUN_DBG("%u: dBmV:%u(dBm:%d)", path, retval, dBm);
+                }
+                else
+                {
+                    TUN_ERR("%u: Failed to get signal dBm", path);
+                }
+            }
+        }
+    }
+
+    FUNCTION_FINISH(STB_TuneGetSignaldBmV);
 
     return retval;
 }
@@ -1076,23 +1112,29 @@ U8BIT STB_TuneReadSignalStrength(U8BIT path)
 
     if (path < num_paths && tuner_status[path].frontend_fd != INVALID_FD)
     {
-        if (aml_frontend_get_signal_strength(tuner_status[path].frontend_fd, (U16BIT *)&strength))
+        if (IsExternalDemod(path))
         {
-            /* Strength is returned as a percentage */
-            if (IsPercentConversionRequired(path))
+            if (aml_frontend_get_signal_strength_property(tuner_status[path].frontend_fd, (U16BIT *)&strength, NULL))
             {
-                retval = STB_Utils_StrengthToSSI(path, strength);
+                retval = (U8BIT)strength;
+                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
             }
             else
             {
-                retval = (U8BIT)strength;
+                TUN_ERR("%u: Failed to get signal strength", path);
             }
-
-            TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
         }
         else
         {
-            TUN_ERR("%u: Failed to get signal strength", path);
+            if (aml_frontend_get_signal_strength(tuner_status[path].frontend_fd, (U16BIT *)&strength))
+            {
+                retval = STB_Utils_StrengthToSSI(path, strength);
+                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
+            }
+            else
+            {
+                TUN_ERR("%u: Failed to get signal strength", path);
+            }
         }
     }
 
@@ -1182,13 +1224,13 @@ U8BIT STB_TuneReadSignalQuality(U8BIT path)
     {
         if (aml_frontend_get_signal_snr(tuner_status[path].frontend_fd, (U16BIT *)&quality))
         {
-            if (IsPercentConversionRequired(path))
+            if (IsExternalDemod(path))
             {
-                retval = STB_Utils_SNR10ToSQI(path, quality);
+                retval = (U8BIT)quality;
             }
             else
             {
-                retval = (U8BIT)quality;
+                retval = STB_Utils_SNR10ToSQI(path, quality);
             }
 
             TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);

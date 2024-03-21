@@ -364,7 +364,10 @@ void STB_TuneStopTuner(U8BIT path);
  * @param   path the tuner path to query
  * @return  the signal dBuV of maximum (0-100)
  */
-U8BIT STB_TuneGetSignaldBuV(U8BIT path);
+S16BIT STB_TuneGetSignaldBuV(U8BIT path);
+
+
+S16BIT STB_TuneGetSignaldBmV(U8BIT path);
 
 /**
  * @brief   Returns the current signal strength

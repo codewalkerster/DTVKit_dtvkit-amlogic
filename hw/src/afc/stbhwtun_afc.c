@@ -75,15 +75,6 @@ static void Tuner_EventCallback(BOOLEAN repeat, U16BIT event_class, U16BIT event
     STB_OSSendEvent(repeat, event_class, event_type, data, data_size);
 }
 
-static BOOLEAN IsPercentConversionRequired(U8BIT path)
-{
-    BOOLEAN retval = TRUE;
-
-    // TODO
-
-    return retval;
-}
-
 /*---global function definitions---------------------------------------------*/
 
 /**
@@ -332,14 +323,27 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
  * @param   path the tuner path to query
  * @return  the signal dBuV as percentage of maximum (0-100)
  */
-U8BIT STB_TuneGetSignaldBuV(U8BIT path)
+S16BIT STB_TuneGetSignaldBuV(U8BIT path)
 {
-    U8BIT retval = 0;
+    S16BIT retval = 0;
 
     FUNCTION_START(STB_TuneGetSignaldBuV);
 
 
     FUNCTION_FINISH(STB_TuneGetSignaldBuV);
+
+    return retval;
+}
+
+
+S16BIT STB_TuneGetSignaldBmV(U8BIT path)
+{
+    S16BIT retval = 0;
+
+    FUNCTION_START(STB_TuneGetSignaldBmV);
+
+
+    FUNCTION_FINISH(STB_TuneGetSignaldBmV);
 
     return retval;
 }
@@ -375,16 +379,8 @@ U8BIT STB_TuneReadSignalStrength(U8BIT path)
     FUNCTION_START(STB_TuneReadSignalStrength);
 
     strength = (S16BIT)Wrapper_TuneGetSignalStrength(path);
-    if (IsPercentConversionRequired(path))
-    {
-        retval = STB_Utils_StrengthToSSI(path, strength);
-        TUN_DBG("%u: Percent=%u%%(strength:%d)", path, retval, strength);
-    }
-    else
-    {
-        retval = (U8BIT)strength;
-        TUN_DBG("%u: Strength:%d", path, retval);
-    }
+    retval = STB_Utils_StrengthToSSI(path, strength);
+    TUN_DBG("%u: Percent=%u%%(strength:%d)", path, retval, strength);
 
     FUNCTION_FINISH(STB_TuneReadSignalStrength);
 
@@ -447,16 +443,8 @@ U8BIT STB_TuneReadSignalQuality(U8BIT path)
     FUNCTION_START(STB_TuneReadSignalQuality);
 
     quality = (S16BIT)Wrapper_TuneGetSignalQuality(path);
-    if (IsPercentConversionRequired(path))
-    {
-        retval = STB_Utils_SNR10ToSQI(path, quality);
-        TUN_DBG("%u: Percent=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
-    }
-    else
-    {
-        retval = (U8BIT)quality;
-        TUN_DBG("%u: Snr=%d.%d", path, retval / 10, retval % 10);
-    }
+    retval = STB_Utils_SNR10ToSQI(path, quality);
+    TUN_DBG("%u: Percent=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
 
     FUNCTION_FINISH(STB_TuneReadSignalQuality);
 

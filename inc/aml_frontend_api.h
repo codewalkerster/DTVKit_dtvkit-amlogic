@@ -11,6 +11,7 @@ BOOLEAN aml_frontend_get_fe_property(S32BIT frontend_fd, fe_delivery_system_t *f
 BOOLEAN aml_frontend_get_tsinput(S32BIT frontend_fd, U32BIT *index);
 BOOLEAN aml_frontend_get_support_delivery_system_list(S32BIT frontend_fd, U8BIT *system_list, U32BIT *list_len);
 BOOLEAN aml_frontend_get_signal_strength(S32BIT frontend_fd, U16BIT *strength);
+BOOLEAN aml_frontend_get_signal_strength_property(S32BIT frontend_fd, U16BIT *strength, U16BIT *dBmV);
 BOOLEAN aml_frontend_get_signal_ber(S32BIT frontend_fd, U32BIT *ber);
 BOOLEAN aml_frontend_get_signal_snr(S32BIT frontend_fd, U16BIT *snr);
 BOOLEAN aml_frontend_get_frequency(S32BIT frontend_fd, U32BIT *frequency);

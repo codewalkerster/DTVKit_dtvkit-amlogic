@@ -1526,6 +1526,28 @@ static U32BIT getDSKConfigInt(const char *config, U32BIT def)
     return property_get_int32(config, def);
 }
 
+static void UnescapeMountPath(char *mount_path)
+{
+    if (!mount_path || strlen(mount_path) < 5)
+        return;
+
+    /*fixed unescapes, 4 chars to 1 char*/
+    char *unescapes[4][3] = {
+        {"\\040", " "},
+        {"\\011", "\t"},
+        {"\\012", "\n"},
+        {"\\134", "\\"}};
+
+    int i;
+    for (i = 0; i < 4; i++) {
+        char *p = mount_path;
+        while ((p = strstr(p, unescapes[i][0]))) {
+            *p = *unescapes[i][1];
+            memmove(p + 1, p + 4, strlen(p + 4) + 1);
+        }
+    }
+}
+
 static void RefreshDiskList(BOOLEAN send_events)
 {
    FILE* fp;
@@ -1564,6 +1586,8 @@ static void RefreshDiskList(BOOLEAN send_events)
          if (SupportedFSType(fs_type) && (strcmp(read_write, "rw") == 0))
          {
             BOOLEAN found = FALSE;
+
+            UnescapeMountPath(mount_path);
 
             /* Check to see if this disk is already known */
             STB_OSMutexLock(disk_mutex);

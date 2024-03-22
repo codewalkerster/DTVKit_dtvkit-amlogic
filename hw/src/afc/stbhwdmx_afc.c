@@ -2554,7 +2554,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
 
           struct dsm_keyslot keyslot_iv;
           keyslot_iv.parity = (parity = KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
-          keyslot_iv.algo = CA_ALGO_AES_CBC_CLR_END;
+          keyslot_iv.algo = (enum dsm_algo)CA_ALGO_AES_CBC_CLR_END;
           keyslot_iv.id = dsc_channel->iv_key_id;
           keyslot_iv.is_iv = TRUE;
           keyslot_iv.is_enc = FALSE ;

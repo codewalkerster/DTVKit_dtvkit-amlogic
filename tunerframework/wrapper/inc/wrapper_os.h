@@ -22,7 +22,7 @@ extern "C" {
 
 #define TIMEOUT_NEVER   0xffff
 #define TIMEOUT_NOW     0
-#define ASSERT(condition)   assert(condition);
+
 
 
 typedef struct queue

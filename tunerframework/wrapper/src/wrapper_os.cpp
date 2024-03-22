@@ -4,6 +4,8 @@
 //wrapper os api
 #define WRAPPER_DBG(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
+#define ASSERT(condition)   assert(condition);
+
 static char debug_msg_buff[512];
 
 void* wrapper_OSCreateQueue(U16BIT msg_size, U16BIT num_msgs)

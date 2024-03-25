@@ -301,7 +301,7 @@ BOOLEAN DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_pa
     {
         if (TRUE == STB_GetCustomCFGForA_A_1())
         {
-            int real_dev_no = (params->pid == 0x10) ? 2 : dev_no;
+            int real_dev_no = (params->pid == 0x10) ? 1 : dev_no;
             if (filter->dev_no != real_dev_no)
             {
                 char name[64];

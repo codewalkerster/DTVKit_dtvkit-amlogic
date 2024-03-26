@@ -50,8 +50,6 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29 && echo OK),OK)
             libutils
 
 	    LOCAL_SHARED_LIBRARIES += \
-			libaml_mp_sdk.vendor \
-			libmediahal_resman \
 			libdsm
 
 	    include $(BUILD_SHARED_LIBRARY)

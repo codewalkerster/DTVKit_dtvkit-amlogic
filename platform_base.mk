@@ -174,7 +174,6 @@ SUPPORT_DTVKIT_IN_VENDOR := true
 
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
 
-LOCAL_SHARED_LIBRARIES+=libmediahal_resman
 
 LOCAL_SHARED_LIBRARIES+=liblog
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice

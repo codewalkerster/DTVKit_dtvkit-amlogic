@@ -1622,7 +1622,7 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
         ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
         if (ret == 0)
         {
-            //Wrapper_Player_SetSurface(player_handle, FALSE);
+            Wrapper_Player_SetSurface(player_handle, FALSE);
             AV_DBG("set surface %d:[%d:%d] ret= %d, surface: %p,  player_handle= %u",
                 av_path,
                 av_paths_status[av_path].video_decoder,

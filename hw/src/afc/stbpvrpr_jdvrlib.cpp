@@ -52,31 +52,27 @@ extern "C" {
 #include "ca_glue.h"
 #endif
 
-#define PVR_DEBUG
-#define DEBUG_FUNCTIONS
+#include "dtv_log.h"
 
-#ifdef PVR_DEBUG
-#define PVR_DBG(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
-#else
-#define PVR_DBG(x,...)
-#endif
-#define PVR_ERR(x,...)      STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
-#define PVR_INFO(x,...)     STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define TAG "STB_PVR/JDvrLib"
+#define PVR_DBG(x,...)      DTV_LOGD(TAG,"%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define PVR_INFO(x,...)     DTV_LOGI(TAG,"%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define PVR_ERR(x,...)      DTV_LOGE(TAG,"%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
+//#define DEBUG_FUNCTIONS
 #ifdef DEBUG_FUNCTIONS
 #define LOG_ENTER PVR_DBG("enter")
 #define LOG_LEAVE PVR_DBG("leave")
-#define LOG_LEAVE_EARLY PVR_DBG("leave early")
 #else
 #define LOG_ENTER
 #define LOG_LEAVE
-#define LOG_LEAVE_EARLY
 #endif
+#define LOG_LEAVE_EARLY PVR_ERR("leave early")
 
 #define LOG_NOT_IMPLEMENTED PVR_DBG("*NOT IMPLEMENTED*")
 
-#define INVALID_PID                 0x1fff
-#define INVALID_RES_ID           255
+#define INVALID_PID     0x1fff
+#define INVALID_RES_ID  255
 
 struct S_REC_STATUS
 {
@@ -410,7 +406,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
-   PVR_DBG("Calling Wrapper_Player_Initialise(WP_TUNER_TYPE_DVR_PLAY)");
+   PVR_INFO("Calling Wrapper_Player_Initialise(WP_TUNER_TYPE_DVR_PLAY)");
    U8BIT av_path = STB_AVGetPath(video_decoder, audio_decoder);
    Wrapper_Player_Initialise(av_path, WP_TUNER_TYPE_DVR_PLAY);
 
@@ -419,7 +415,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    asplayer_params.source = JNI_ASPLAYER_TS_MEMORY;
    asplayer_params.playback_mode = JNI_ASPLAYER_PLAYBACK_MODE_PASSTHROUGH;
    asplayer_params.event_mask = 1;
-   PVR_DBG("Calling Wrapper_Player_Create");
+   PVR_INFO("Calling Wrapper_Player_Create");
    int ret = Wrapper_Player_Create(asplayer_params, &asplayer_handle, av_path);
    if (ret != 0)
    {
@@ -544,8 +540,6 @@ BOOLEAN STB_PVRIsPlayStarted(U8BIT audio_decoder, U8BIT video_decoder)
 
    BOOLEAN ret = ((prps->state >= 2 && prps->state <= 5) ? TRUE : FALSE);
 
-   //PVR_DBG(" returns %s",(ret == TRUE ? "TRUE" : "FALSE"));
-
    //LOG_LEAVE;
    return ret;
 }
@@ -568,8 +562,6 @@ BOOLEAN STB_PVRIsPlayStarting(U8BIT audio_decoder, U8BIT video_decoder)
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    BOOLEAN ret = ((prps->state == 1) ? TRUE : FALSE);
-
-   //PVR_DBG(" returns %s",(ret == TRUE ? "TRUE" : "FALSE"));
 
    //LOG_LEAVE;
    return ret;
@@ -875,7 +867,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
          }
          else
          {
-            PVR_DBG("wait successfully, state:%d",prs->state);
+            PVR_INFO("wait successfully, state:%d",prs->state);
          }
       }
    }
@@ -1109,7 +1101,7 @@ BOOLEAN STB_PVRSetPlaySpeed(U8BIT audio_decoder, U8BIT video_decoder, S16BIT spe
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
-   PVR_DBG("input speed: %hd",speed);
+   PVR_INFO("input speed: %hd",speed);
    double speed2 = ((double)speed)/100.0;
    prps->speed2 = speed;
    prps->speed2_just_set = TRUE;
@@ -1189,7 +1181,7 @@ BOOLEAN STB_PVRIsValidRecording(U16BIT disk_id, U8BIT *basename)
    }
 
    ret = ((recording_duration>0) ? TRUE : FALSE);
-   PVR_DBG(" checking recording %s, result %s",path_prefix,(ret==TRUE ? "TRUE" : "FALSE"));
+   PVR_INFO(" checking recording %s, result %s",path_prefix,(ret==TRUE ? "TRUE" : "FALSE"));
 
    //LOG_LEAVE;
    return ret;
@@ -1680,7 +1672,7 @@ static void on_recorder_evt_cb(am_dvr_recorder_handle handle, am_dvr_recorder_ev
       if (evt != NULL) {
          it->progress = *evt;
          it->state = (U8BIT)evt->state;
-         PVR_DBG("AM_DVR_RECORDER_EVENT_PROGRESS: "
+         PVR_INFO("AM_DVR_RECORDER_EVENT_PROGRESS: "
                "sessionNumber:%d, state:%d, "
                "duration:%lld, startTime:%lld, endTime:%lld, "
                "numberOfSegments:%d, firstSegmentId:%d, lastSegmentId:%d, size:%lld",
@@ -1692,38 +1684,38 @@ static void on_recorder_evt_cb(am_dvr_recorder_handle handle, am_dvr_recorder_ev
          }
       }
    } else if (event == AM_DVR_RECORDER_EVENT_INITIAL_STATE) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_INITIAL_STATE");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_INITIAL_STATE");
       {
          lock_guard<mutex> lock(it->state_mutex);
          it->state = 1;
       }
       it->state_cond.notify_all();
    } else if (event == AM_DVR_RECORDER_EVENT_STARTING_STATE) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_STARTING_STATE");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_STARTING_STATE");
       it->state = 2;
    } else if (event == AM_DVR_RECORDER_EVENT_STARTED_STATE) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_STARTED_STATE");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_STARTED_STATE");
       if (it->state == 2) {
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_START,&(it->rec_index),1);
-         PVR_DBG("signal PVR_REC_START");
+         PVR_INFO("signal PVR_REC_START");
       }
       it->state = 3;
    } else if (event == AM_DVR_RECORDER_EVENT_PAUSED_STATE) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_PAUSED_STATE");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_PAUSED_STATE");
       it->state = 4;
    } else if (event == AM_DVR_RECORDER_EVENT_STOPPING_STATE) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_STOPPING_STATE");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_STOPPING_STATE");
       STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_REC_STOP,&(it->rec_index),1);
-      PVR_DBG("signal PVR_REC_STOP");
+      PVR_INFO("signal PVR_REC_STOP");
       it->state = 5;
    } else if (event == AM_DVR_RECORDER_EVENT_NO_DATA_ERROR) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_NO_DATA_ERROR");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_NO_DATA_ERROR");
    } else if (event == AM_DVR_RECORDER_EVENT_IO_ERROR) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_IO_ERROR");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_IO_ERROR");
    } else if (event == AM_DVR_RECORDER_EVENT_DISK_FULL_ERROR) {
-      PVR_DBG("AM_DVR_RECORDER_EVENT_DISK_FULL_ERROR");
+      PVR_INFO("AM_DVR_RECORDER_EVENT_DISK_FULL_ERROR");
    } else {
-      PVR_DBG("unknown event: %d",event);
+      PVR_INFO("unknown event: %d",event);
    }
 }
 
@@ -1747,7 +1739,7 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
          it->speed = (S16BIT)(100*evt->speed);
          it->speed2 = it->speed;
          it->speed2_just_set = FALSE;
-         PVR_DBG("AM_DVR_PLAYER_EVENT_PROGRESS: "
+         PVR_INFO("AM_DVR_PLAYER_EVENT_PROGRESS: "
                "sessionNumber:%d, state:%d, speed:%.2f, "
                "currTime:%lld, startTime:%lld, endTime:%lld, duration:%lld, "
                "currSegmentId:%d, firstSegmentId:%d, lastSegmentId:%d, numberOfSegments:%d",
@@ -1756,7 +1748,7 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
                evt->currSegmentId,evt->firstSegmentId,evt->lastSegmentId,evt->numberOfSegments);
       }
    } else if (event == AM_DVR_PLAYER_EVENT_EOS) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_EOS");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_EOS");
       jni_asplayer_handle player_handle;
       STB_AVGetPlayerHandle(it->audio_decoder, it->audio_decoder, &player_handle);
       if (player_handle != WRAPPER_PLAYER_INVALID_HANDLE)
@@ -1768,41 +1760,41 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       }
       it->reset();
    } else if (event == AM_DVR_PLAYER_EVENT_EDGE_LEAVING) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_EDGE_LEAVING");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_EDGE_LEAVING");
    } else if (event == AM_DVR_PLAYER_EVENT_INITIAL_STATE) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_INITIAL_STATE");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_INITIAL_STATE");
       it->state = 1;
    } else if (event == AM_DVR_PLAYER_EVENT_STARTING_STATE) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_STARTING_STATE");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_STARTING_STATE");
       it->state = 2;
    } else if (event == AM_DVR_PLAYER_EVENT_SMOOTH_PLAYING_STATE) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_SMOOTH_PLAYING_STATE");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_SMOOTH_PLAYING_STATE");
       if (it->state == 2) {
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START,&(it->audio_decoder),1);
-         PVR_DBG("signal PVR_PLAY_START");
+         PVR_INFO("signal PVR_PLAY_START");
       }
       it->state = 3;
    } else if (event == AM_DVR_PLAYER_EVENT_SKIPPING_PLAYING_STATE) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_SKIPPING_PLAYING_STATE");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_SKIPPING_PLAYING_STATE");
       if (it->state == 2) {
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START,&(it->audio_decoder),1);
-         PVR_DBG("signal PVR_PLAY_START");
+         PVR_INFO("signal PVR_PLAY_START");
       }
       it->state = 4;
    } else if (event == AM_DVR_PLAYER_EVENT_PAUSED_STATE) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_PAUSED_STATE");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_PAUSED_STATE");
       if (it->state == 2) {
          STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_START,&(it->audio_decoder),1);
-         PVR_DBG("signal PVR_PLAY_START");
+         PVR_INFO("signal PVR_PLAY_START");
       }
       it->state = 5;
    } else if (event == AM_DVR_PLAYER_EVENT_STOPPING_STATE) {
-      PVR_DBG("AM_DVR_PLAYER_EVENT_STOPPING_STATE");
+      PVR_INFO("AM_DVR_PLAYER_EVENT_STOPPING_STATE");
       STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP,&(it->audio_decoder),1);
-      PVR_DBG("signal PVR_PLAY_STOP");
+      PVR_INFO("signal PVR_PLAY_STOP");
       it->state = 6;
    } else {
-      PVR_DBG("unknown event: %d",event);
+      PVR_INFO("unknown event: %d",event);
    }
 }
 

@@ -69,9 +69,6 @@ ifeq ($(DTVKIT_INCLUDE_TEST_KEYS),1)
     LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
 endif
 
-ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
-    LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
-endif
 
 MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
 
@@ -91,7 +88,9 @@ endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
 $(LOCAL_PATH)/hw/inc \
-$(LOCAL_PATH)/os/inc
+$(LOCAL_PATH)/os/inc \
+$(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
+$(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include
 
 LOCAL_CFLAGS += \
 -Wno-unused-function \
@@ -106,23 +105,6 @@ LOCAL_CFLAGS += \
 -Werror=incompatible-pointer-types \
 -Werror
 
-ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
-    SWDMX_PATH := vendor/amlogic/common/external/libswdemux
-    LOCAL_C_INCLUDES += $(SWDMX_PATH)/
-endif
-
-
-ifeq ($(TARGET_ARCH),"arm")
-    ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm/include"
-    ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm"
-else
-    ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm64/include"
-    ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm64"
-endif
-
-ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
-    LOCAL_LDFLAGS := $(LOCAL_PATH)/../releaseDTVKit/libsmit_usbcam.a
-endif
 
 LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
 hw/src/stbhwini.c \

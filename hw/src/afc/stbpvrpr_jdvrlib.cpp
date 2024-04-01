@@ -34,6 +34,8 @@ extern "C" {
 #include "stbhwos.h"
 #include "stbhwdsk.h"
 #include "stbhwcfg.h"
+#include "stbhwc.h"
+
 //#include "stbhwdef.h"
 //#include "stbhwmem.h"
 //#include "stbhwdmx.h"

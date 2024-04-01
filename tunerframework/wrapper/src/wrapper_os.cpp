@@ -2,7 +2,7 @@
 #include "wrapper_os.h"
 
 //wrapper os api
-#define WRAPPER_DBG(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+//#define WRAPPER_DBG(x,...)          STB_SPDebugWrite("%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 #define ASSERT(condition)   assert(condition);
 
@@ -243,7 +243,7 @@ void* wrapper_MEMGetSysRAM(U32BIT bytes)
       retval = malloc((size_t)bytes);
       if (retval == NULL)
       {
-         WRAPPER_DBG("Get Memory Failed!");
+         //WRAPPER_DBG("Get Memory Failed!");
       }
    }
 
@@ -324,17 +324,5 @@ static BOOLEAN WaitTimeout(S_QUEUE *queue, struct timespec *abstime)
    }
 
    return signalled;
-}
-void STB_SPDebugWrite(const char *format, ... )
-{
-   va_list vparams;
-
-   ASSERT(format != NULL);
-
-   va_start(vparams, format);
-   vsnprintf(debug_msg_buff, sizeof(debug_msg_buff), format, vparams);
-   va_end(vparams);
-
-
 }
 

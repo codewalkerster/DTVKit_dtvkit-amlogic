@@ -2070,13 +2070,7 @@ void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5])
         return;
     }
     STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
-
-    #ifdef RDK_COMPILE
-         ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_STC, &video_pts);
-    #else
-         ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_PCR, &video_pts);
-    #endif
-
+    ret = Aml_MP_Player_GetCurrentPts(player_handle, AML_MP_STREAM_TYPE_STC, &video_pts);
     AUD_DBG("the ret value = %d",ret);
     STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
     if (ret == 0)

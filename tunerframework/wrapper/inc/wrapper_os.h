@@ -51,7 +51,6 @@ void wrapper_MEMFreeSysRAM(void *block_ptr);
 static void CalcAbstime(U32BIT timeout, struct timespec *ts);
 static BOOLEAN WaitNoTimeout(S_QUEUE *queue);
 static BOOLEAN WaitTimeout(S_QUEUE *queue, struct timespec *abstime);
-void STB_SPDebugWrite(const char *format, ... );
 
 
 #ifdef __cplusplus

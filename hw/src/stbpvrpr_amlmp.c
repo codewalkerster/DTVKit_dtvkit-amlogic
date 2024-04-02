@@ -2568,8 +2568,21 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *
          *elapsed_mins = seconds / 60 - (*elapsed_hours * 60);
          *elapsed_secs = seconds - (*elapsed_hours * 3600) - (*elapsed_mins * 60);
 
-         PLAY_DBG("%08u:%02u:%02u:%p:chl:%ld", *elapsed_hours, *elapsed_mins,
-            *elapsed_secs, elapsed_ms, status.infoCur.time + status.infoObsolete.time);
+         PLAY_DBG("%08u:%02u:%02u:%08u (:%ld)", *elapsed_hours, *elapsed_mins,
+            *elapsed_secs, *elapsed_ms, status.infoCur.time + status.infoObsolete.time);
+
+         if (s_recplay_status[play_index].has_video)
+         {
+             U16BIT fake_pid = getFakePid();
+             if (fake_pid != 0xffff && s_recplay_status[play_index].video_pid == fake_pid)
+             {
+                 PLAY_DBG("force elapsed 0");
+                 *elapsed_ms = 0;
+                 *elapsed_hours = 0;
+                 *elapsed_mins = 0;
+                 *elapsed_secs = 0;
+             }
+         }
 
          retval = TRUE;
       }

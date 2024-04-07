@@ -158,7 +158,8 @@ os/src/stbos_semaphore.c  \
 os/src/stbos_task.c       \
 os/src/stbos_utils.c      \
 os/src/dtv_log.c          \
-hw/src/stbpathcfg.c
+hw/src/stbpathcfg.c      \
+hw/src/cam_manager.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
     LOCAL_SRC_FILES += hw/src/emu_tuner.c \

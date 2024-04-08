@@ -2,6 +2,7 @@
 #include <utils/threads.h>
 #include <SystemControlClient.h>
 #include <android/log.h>
+#include <cutils/properties.h>
 #include "dtv_log.h"
 #ifdef __cplusplus
 extern "C" {
@@ -157,7 +158,16 @@ extern "C"  int SC_setVideoColor(int window, int color)
 {
 #if ANDROID_PLATFORM_SDK_VERSION >= 30
     int s32Ret = -1;
+    int fixed_tunnel = -1;
+    char value[92];
     const sp<SystemControlClient> &sws = getSystemControlService();
+
+    if (property_get("vendor.tv.fixed_tunnel", value, NULL) > 0)
+    {
+        fixed_tunnel = atoi(value);
+        SCDBG("fixed_tunnel = %d", fixed_tunnel);
+    }
+
     if (sws != nullptr) {
 /*
    window�� 0: reserved;   1: main_window;    2: sub_window.
@@ -174,7 +184,7 @@ frequency:  4: only show once,will recovery when receive new frame.
             if (color == VIDEO_LAYER_COLOR_MAX)
             {
                 SCDBG("@@@@@@@@@@@@@ UNMUTE");
-                if (STB_IsNewHW())
+                if (STB_IsNewHW() || (fixed_tunnel == 1))
                 {
                     if (4 == SC_getDisplayMode())
                     {
@@ -186,6 +196,7 @@ frequency:  4: only show once,will recovery when receive new frame.
                 else
                 {
                     s32Ret = sws->setVideoScreenColor(color);
+                    SCDBG("@@@@@@@@@@@@@ UNMUTE color[%d]",color);
                 }
             }
             else
@@ -199,7 +210,7 @@ frequency:  4: only show once,will recovery when receive new frame.
                     SCDBG("@@@@@@@@@@@@@ MUTE black [%d]", color);
                 }
 
-                if (STB_IsNewHW())
+                if (STB_IsNewHW() || (fixed_tunnel == 1))
                 {
                     s32Ret = sws->setVideoScreenColorByVT(window,color,5);
                 }

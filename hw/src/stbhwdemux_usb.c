@@ -113,7 +113,7 @@ static void init_mutex()
 
 static void reset_resource()
 {
-    DMX_USB_DBG("enter");
+    // DMX_USB_DBG("enter");
     if (cmd_r_fd > 0)
     {
         close(cmd_r_fd);
@@ -547,7 +547,7 @@ int STB_CIUsbOpen()
                 goto ERR;
             }
     } else {
-        DMX_USB_DBG("access %s failed", cmd_node);
+        // DMX_USB_DBG("access %s failed", cmd_node);
         goto ERR;
     }
 #ifndef ATF_USBCAM
@@ -600,7 +600,7 @@ int STB_CIUsbOpen()
     return TRUE;
 
 ERR:
-    DMX_USB_DBG("error occur, go exit.");
+    // DMX_USB_DBG("error occur, go exit.");
     reset_resource();
 
     module_inserted = FALSE;

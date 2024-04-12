@@ -80,6 +80,18 @@ typedef enum e_stb_av_audio_codec
     AV_AUDIO_CODEC_AC4 = 9
 } E_STB_AV_AUDIO_CODEC;
 
+typedef enum
+{
+    AV_SHOW = 0,
+    AV_HIDDEN
+} SET_AV_BLANK;
+
+typedef enum
+{
+    AUTO = 0,
+    OVERRIDE_BY_BLACK
+} AV_MUTE_OPTION;
+
 typedef enum avout_control_bits
 {
     AVOUT_VOL = 0,
@@ -211,6 +223,7 @@ typedef enum
     DRM_SECURE_INPUT_BUFFER,
     DRM_NORMAL_INPUT_BUFFER
 } E_STB_DRM_TYPE;
+
 //---Global type defs for public use-------------------------------------------
 
 typedef struct
@@ -272,13 +285,6 @@ typedef void (*CC_DATA_CALLBACK)(U8BIT path, void* context, U8BIT* data, U16BIT 
  */
 void STB_AVInitialise(U8BIT audio_paths, U8BIT video_paths);
 
-/**
- * @brief   Blanks or unblanks the video display
- * @param   path video path
- * @param   blank TRUE to blank, FALSE to unblank
- */
-void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank);
-
 U32BIT STB_AVGetBlankFlag(U8BIT path);
 
 void STB_AVSetVideoBlankLock(BOOLEAN enable);
@@ -297,19 +303,18 @@ BOOLEAN STB_SetFullScreen(void);
 
 /**
  * @brief   Blanks or unblanks the video display
- * @param   path video path
- * @param   blank TRUE to blank, FALSE to unblank
-* @param   is_black_color  TRUE use black color, FALSE use system setting color
- * @param   TRUE to force on all window, regardless of the path
-*/
-void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank,BOOLEAN is_black_color, BOOLEAN force_all);
-/**
- * @brief   Blanks or unblanks the video display
  * @param   window VT id
  * @param   blank TRUE to blank, FALSE to unblank
  * @param   force_black  TRUE to force black, else with user setting
-*/
+ */
 void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOLEAN force_all, U8BIT path, BOOLEAN mode);
+
+/**
+ * @brief   Blanks or unblanks the video display
+ * @param   path video path
+ * @param   blank TRUE to blank, FALSE to unblank
+ */
+BOOLEAN STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank);
 
 /**
  * @brief   clearlastframe or unclearlastframe the video display
@@ -345,14 +350,21 @@ void STB_AVSetVideoSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
  */
 BOOLEAN STB_AVSetSurface(U8BIT path, void *surface);
 
-
 /**
  * @brief   Whether the black screen when the device signal disappears
  * @param   path video path
  * @param   is_black TRUE is Black screen when the signal disappears, FALSE is still frame
  * @return  TRUE if the codec is supported and is set correctly, FALSE otherwise
  */
-BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black);
+BOOLEAN STB_AVSetStillFrame(U8BIT path, BOOLEAN is_black);
+
+/**
+ * @brief   control video display
+ * @param   mute: av hidden or show
+ * @param   mute_option: auto or force set color
+ * @param   av_out_flag
+*/
+void STB_AVMuteControl(U8BIT window, U8BIT path , SET_AV_BLANK mute, AV_MUTE_OPTION mute_option, E_AV_OUT_CONTROL_FLAG av_out_flag);
 
 /**
  * @brief   Gets the video surface  with the given video decoder path

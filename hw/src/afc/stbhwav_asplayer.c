@@ -304,7 +304,7 @@ U8BIT STB_AVGetPath(U8BIT video_decoder, U8BIT audio_decoder);
 static int AV_SetAudioVolumeAndMute_l(jni_asplayer_handle player_handle, U8BIT vol, BOOLEAN mute);
 static int AV_SetAudioMute_l(jni_asplayer_handle player_handle, BOOLEAN mute);
 static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT av_path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN mute);
-static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black_color, BOOLEAN mode);
+static int _AVSetWindowColor_NoHandle(U8BIT av_path, BOOLEAN blank, BOOLEAN is_black_color, BOOLEAN mode);
 
 /*---global function definitions----------------------------------------------*/
 
@@ -600,57 +600,6 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 
 /**
  * @brief   Blanks or unblanks the video display
- * @param   path video path
- * @param   blank TRUE to blank, FALSE to unblank
- * @param   force_black_color  set blank AV color
-*/
-void STB_AVSetVideoColor(U8BIT path, BOOLEAN blank, BOOLEAN is_black_color, BOOLEAN force_all)
-{
-    //this function is only supported for CVTE/CTV bluescreen feature
-    if (video_blank_lock)
-    {
-        VID_DBG("video path[%d] Video blank locked, can not change", path);
-        return;
-    }
-
-#if 0
-    U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
-    if (av_path != INVALID_RES_ID || force_all)
-    {
-        long surface = -1;
-        int win = 0;
-
-        if (!force_all)
-        {
-            surface = (long)video_surface[av_path];
-            win = (surface < 0)? -1 : (surface + 1);
-        }
-        else
-        {
-            win = 1;
-        }
-        VID_DBG("%d:[%d:-] surface:%ld, win:%d, force_all:%d", av_path, path, surface, win, force_all);
-
-        if (win > 0)
-        {
-            int color = VIDEO_LAYER_COLOR_MAX;
-            VID_DBG("===========>blank=%u force_black_color %d", blank, is_black_color);
-            if (blank == TRUE)
-            {
-                color = is_black_color ? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
-                SC_setVideoColor(win, color);
-            }
-            else
-            {
-                SC_setVideoColor(win, VIDEO_LAYER_COLOR_MAX);
-            }
-        }
-    }
-#endif
-}
-
-/**
- * @brief   Blanks or unblanks the video display
  * @param   window VT id
  * @param   blank TRUE to blank, FALSE to unblank
  * @param   force_black  TRUE to force black, else with user setting
@@ -695,16 +644,21 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
             switch (color) {
                 case 0:
                     Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_MUTE);
-                    VID_DBG("set black color mode=%d",asplayer_mode);
+                    VID_DBG("set black color");
                     break;
                 case 1:
                     asplayer_color = JNI_ASPLAYER_COLOR_BLUE;
                     Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
                     Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
                     Wrapper_Player_SetVideoColor(player_handle, asplayer_mode, asplayer_color);
-                    VID_DBG("set blue color mode=%d",asplayer_mode);
+                    VID_DBG("set blue color mode=%d", asplayer_mode);
                     break;
             }
+        }
+        else if (blank == FALSE && is_pvr == FALSE)
+        {
+            VID_DBG("asplayer_unmute");
+            Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
         }
     }
     else
@@ -713,9 +667,78 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
             av_path,
             av_paths_status[av_path].video_decoder,
             av_paths_status[av_path].audio_decoder);
+
+        ret = _AVSetWindowColor_NoHandle(av_path, blank, force_black, mode);
+        if (ret <0)
+            VID_DBG(" set color failed");
+        else
+            VID_DBG(" set window color ok");
+
     }
     pthread_rwlock_unlock(_l);
 }
+
+/**
+ * @brief   control video display
+ * @param   mute: av hidden or show
+ * @param   mute_option: auto or force set color
+ * @param   av_out_flag
+*/
+void STB_AVMuteControl(U8BIT window, U8BIT path , SET_AV_BLANK mute, AV_MUTE_OPTION mute_option, E_AV_OUT_CONTROL_FLAG av_out_flag)
+{
+    BOOLEAN get_player_handle = FALSE;
+    int system_color = 0;
+
+    system_color = SC_getScreenColorSetting();
+
+    VID_DBG("(av_hidden=1): %d, system_color(blue=1): %d, av_out_flag=%d, video_pid = 0x%x",
+        mute, system_color, av_out_flag, av_paths_status[path].video_pid);
+
+    if (mute == AV_HIDDEN)
+    {
+        if ((system_color == VIDEO_LAYER_COLOR_BLACK) && (av_paths_status[path].video_pid != INVALID_PID))
+        {
+            get_player_handle = STB_AVBlankVideo(path, av_out_flag, TRUE);
+            VID_DBG("mute hidden (handle = %d)", get_player_handle);
+            if (get_player_handle == FALSE)
+            {
+                STB_AVSetWindowColor(window, TRUE, TRUE, FALSE, path, TRUE);
+                VID_DBG("mute_option(set black color)");
+            }
+        }
+        else
+        {
+            VID_DBG("mute_option(auto=0): %d", mute_option);
+            if (mute_option == AUTO)
+            {
+                STB_AVSetWindowColor(window, TRUE, FALSE, FALSE, path, TRUE);
+            }
+            else if(mute_option == OVERRIDE_BY_BLACK)
+            {
+                STB_AVSetWindowColor(window, TRUE, TRUE, FALSE, path, TRUE);
+            }
+        }
+    }
+    else if (mute == AV_SHOW)
+    {
+        if ((system_color == VIDEO_LAYER_COLOR_BLACK) && (av_paths_status[path].video_pid != INVALID_PID))
+        {
+            get_player_handle = STB_AVBlankVideo(path, av_out_flag, FALSE);
+            VID_DBG("black unmute (handle = %d)", get_player_handle);
+            if (get_player_handle == FALSE)
+            {
+                VID_DBG("black unmute ");
+                STB_AVSetWindowColor(window, FALSE, FALSE, FALSE, path, TRUE);
+            }
+        }
+        else
+        {
+            VID_DBG("blue unmute ");
+            STB_AVSetWindowColor(window, FALSE, FALSE, FALSE, path, TRUE);
+        }
+    }
+}
+
 
 /**
  * @brief   Get Static Frame Enable or not
@@ -760,7 +783,7 @@ BOOLEAN STB_AVGetIsBlackTransitionColor(void)
  * @param   path the video path to be configured
  * @param   blank TRUE to blank, FALSE to unblank
  */
-void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
+BOOLEAN STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
 {
     int ret;
     jni_asplayer_handle player_handle;
@@ -771,9 +794,9 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
     if (video_blank_lock || path >= num_paths)
     {
         VID_DBG("Video blank locked or path is invalid, can not change(%d)", path);
-        return;
+        return FALSE;
     }
-    VID_DBG("path[%u], blank[%d], flag[%x], av_out_flag[%x]", path, av_blank, flag, av_paths_status[path].video_out_control);
+    VID_DBG("path[%u], blank[%d], av_out_flag[%x], video_out_control[%x]", path, av_blank, flag, av_paths_status[path].video_out_control);
 
     if (av_blank) {
         av_paths_status[path].video_out_control |= (1<<flag);
@@ -790,7 +813,7 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
     pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
     if (_l == NULL) {
         VID_DBG("Can't get lock, video decoder[%d]", path);
-        return;
+        return FALSE;
     }
 
     pthread_rwlock_rdlock(_l);
@@ -798,7 +821,7 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
     if (ret < 0) {
         VID_DBG("Cannot get player video decoder[%d]", path);
         pthread_rwlock_unlock(_l);
-        return;
+        return FALSE;
     }
 
     if (blank == TRUE) {
@@ -817,6 +840,7 @@ void STB_AVBlankVideo(U8BIT path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN av_blank)
     pthread_rwlock_unlock(_l);
 
     FUNCTION_FINISH(STB_AVBlankVideo);
+    return TRUE;
 }
 
 U32BIT STB_AVGetBlankFlag(U8BIT path)
@@ -1652,12 +1676,12 @@ BOOLEAN STB_AVSetSurface(U8BIT path, void *surface)
  * @param   is_black TRUE is Black screen when the signal disappears, FALSE is still frame
  * @return  TRUE if the codec is supported and is set correctly, FALSE otherwise
  */
-BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
+BOOLEAN STB_AVSetStillFrame(U8BIT path, BOOLEAN is_black)
 {
     BOOLEAN success = TRUE;
     U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
 
-    FUNCTION_START(STB_AVSetVideoBlackOut);
+    FUNCTION_START(STB_AVSetStillFrame);
 
     if (av_path == INVALID_RES_ID) {
         VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
@@ -1679,7 +1703,7 @@ BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
     if (ret == 0) {
         jni_asplayer_transition_mode_before mode = is_black ? JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK : JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE;
         Wrapper_Player_SetVideoBlackOut(player_handle, mode);
-        AV_DBG("set asplayer black out %d:[%d:%d]:[%d] = %d, player[0x%u]",
+        AV_DBG("Set Still Frame VideoBlackOut %d:[%d:%d]:[%d] = %d, player[0x%u]",
             av_path,
             av_paths_status[av_path].video_decoder,
             av_paths_status[av_path].audio_decoder,
@@ -1693,15 +1717,12 @@ BOOLEAN STB_AVSetVideoBlackOut(U8BIT path, BOOLEAN is_black)
             av_path,
             av_paths_status[av_path].video_decoder,
             av_paths_status[av_path].audio_decoder);
-
-        ret = AV_SetVideoColor(av_path, FALSE, TRUE);
-        if (ret <0)
             success = FALSE;
     }
 
     pthread_rwlock_unlock(_l);
 
-    FUNCTION_FINISH(STB_AVSetVideoBlackOut);
+    FUNCTION_FINISH(STB_AVSetStillFrame);
 
     return success;
 }
@@ -4041,7 +4062,7 @@ static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT av_path, E_AV_OUT_CONTROL_FLAG f
     return audio_mute;
 }
 
-static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black_color, BOOLEAN mode)
+static int _AVSetWindowColor_NoHandle(U8BIT av_path, BOOLEAN blank, BOOLEAN is_black_color, BOOLEAN mode)
 {
     int ret = -1;
     jni_asplayer_init_params parm;
@@ -4073,13 +4094,14 @@ static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black_color, BOOLEAN mode)
     }
 
     BOOLEAN is_pvr = STB_PVRIsPlayInitialled(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder);
-    if (is_pvr == FALSE)
+    if (blank == TRUE && is_pvr == FALSE)
     {
         jni_asplayer_screen_color_mode asplayer_mode = mode ? JNI_ASPLAYER_COLOR_ONCE_SOLID : JNI_ASPLAYER_COLOR_ONCE_TRANSITION;
         color = is_black_color? VIDEO_LAYER_COLOR_BLACK : SC_getScreenColorSetting();
         switch (color) {
             case 0:
                 Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_MUTE);
+                VID_DBG("set black color");
                 break;
             case 1:
                 Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
@@ -4088,6 +4110,11 @@ static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black_color, BOOLEAN mode)
                 VID_DBG("set blue color mode=%d", asplayer_mode);
                 break;
         }
+    }
+    else if(blank == FALSE && is_pvr == FALSE)
+    {
+        VID_DBG("asplayer_unmute");
+        Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
     }
 
     ret = Wrapper_Player_StopVideoDecoding(player_handle);

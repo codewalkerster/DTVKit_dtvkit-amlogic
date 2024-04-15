@@ -33,7 +33,7 @@
 #define TUNER_USELESS_TIMEOUT    (10)               /*second*/
 #define FEND_FL_LOCK             (1)
 #define TUNER_POLLING_TIMEOUT    (50)               /*ms*/
-#define TUNER_LOST_LOCK_TIMES    (400)              /*check times in search mode*/
+#define TUNER_LOST_LOCK_TIMES    (40)              /*check times in search mode*/
 
 #define BLINDSCAN_UPDATERESULT_OTHERS (0x000)/* blind scan update result others  */
 

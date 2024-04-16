@@ -26,6 +26,7 @@
 #include "techtype.h"
 #include "dtv_log.h"
 #include "cJSON.h"
+#include "stbhwcfg.h"
 #include "stbpathcfg.h"
 
 #define TAG         "dtvkit-amlogic:filepath"
@@ -113,9 +114,10 @@ BOOLEAN STB_InitFilePathForDtvKit()
     char cmdstr[100];
     char *jsonStr = NULL;
     cJSON *root = NULL;
+    cJSON *config = NULL;
     cJSON *item = NULL;
     struct stat statbuf;
-    char* rwlimitpath[] = {"/data/"};
+    const char* rwlimitpath[] = {(const char*)("/data/")};
 
     /* 1 - Open file and get contents */
     fp = fopen(DTVKIT_ANCHOR_FILE, "r");
@@ -158,66 +160,95 @@ BOOLEAN STB_InitFilePathForDtvKit()
     }
     cJSON_free(jsonStr);
 
-    /* 3 - Parse json object and init path */
+    /* 3 - ATF/NOATF differ */
+    if (STB_Is_TunerFramework_Enabled())    // new flow
+    {
+        config = cJSON_GetObjectItem(root, "atf");
+        DTV_LOGE(TAG,"%s,%d, Read atf config",__FUNCTION__,__LINE__);
+    }
+    else
+    {
+        config = cJSON_GetObjectItem(root, "common");
+        DTV_LOGE(TAG,"%s,%d, Read common config",__FUNCTION__,__LINE__);
+    }
+
+    if (!config)    // original flow
+    {
+        DTV_LOGE(TAG,"%s,%d, Old version! Read original config",__FUNCTION__,__LINE__);
+        config = root;
+    }
+
+    /* 4 - Parse json object and init path */
 
     //init datapath(DvbSDatebase.json,LnbDatabase.json,LocationDatabase.json,TVDatebase.json)
-    item = cJSON_GetObjectItem(root, "datapath");
-    temp_path = cJSON_GetStringValue(item);
 
-    if (0 != access(temp_path, F_OK))   //create path if it's permitted
+    item = cJSON_GetObjectItem(config, "datapath");
+
+    if (NULL != item)
     {
-        DTV_LOGE(TAG,"%s,%d, datapath:%s not exist",__FUNCTION__,__LINE__,temp_path);
-        for (i = 0; i < sizeof(rwlimitpath)/sizeof(char*); i++)
+        temp_path = cJSON_GetStringValue(item);
+
+        if (0 != access(temp_path, F_OK))   //create path if it's permitted
         {
-            if (NULL != strstr(temp_path,rwlimitpath[i]))
+            DTV_LOGE(TAG,"%s,%d, datapath:%s not exist",__FUNCTION__,__LINE__,temp_path);
+            for (i = 0; i < sizeof(rwlimitpath)/sizeof(char*); i++)
             {
-                sprintf(cmdstr, "mkdir -p -m 766 %s", temp_path);
-                system(cmdstr);
-                DTV_LOGI(TAG,"%s,%d, try to create:[%s]",__FUNCTION__,__LINE__, temp_path);
-                break;
+                if (NULL != strstr(temp_path,rwlimitpath[i]))
+                {
+                    sprintf(cmdstr, "mkdir -p -m 766 %s", temp_path);
+                    system(cmdstr);
+                    DTV_LOGE(TAG,"%s,%d, try to create:[%s]",__FUNCTION__,__LINE__, temp_path);
+                    break;
+                }
             }
         }
-    }
-    if (0 == access(temp_path, F_OK))
-    {
-        strncpy(datapath, temp_path, MAX_PATHLEN - 1);
-        datapath[MAX_PATHLEN - 1] = '\0';
+        if (0 == access(temp_path, F_OK))
+        {
+            strncpy(datapath, temp_path, MAX_PATHLEN - 1);
+            datapath[MAX_PATHLEN - 1] = '\0';
+        }
     }
 
     //init dbpath(dtvkit.sqlite3,dtvkit-isdb.sqlite3)
-    item = cJSON_GetObjectItem(root, "dbpath");
-    temp_path = cJSON_GetStringValue(item);
-
-    if (0 != access(temp_path, F_OK))   //create path if it's permitted
+    item = cJSON_GetObjectItem(config, "dbpath");
+    if (NULL != item)
     {
-        DTV_LOGE(TAG,"%s,%d, dbpath:%s not exist",__FUNCTION__,__LINE__, temp_path);
-        for (i = 0; i < sizeof(rwlimitpath)/sizeof(char*); i++)
+        temp_path = cJSON_GetStringValue(item);
+
+        if (0 != access(temp_path, F_OK))   //create path if it's permitted
         {
-            if (NULL != strstr(temp_path,rwlimitpath[i]))
+            DTV_LOGE(TAG,"%s,%d, dbpath:%s not exist",__FUNCTION__,__LINE__, temp_path);
+            for (i = 0; i < sizeof(rwlimitpath)/sizeof(char*); i++)
             {
-                sprintf(cmdstr, "mkdir -p -m 766 %s", temp_path);
-                system(cmdstr);
-                DTV_LOGE(TAG,"%s,%d, try to create:[%s]",__FUNCTION__,__LINE__, temp_path);
-                break;
+                if (NULL != strstr(temp_path,rwlimitpath[i]))
+                {
+                    sprintf(cmdstr, "mkdir -p -m 766 %s", temp_path);
+                    system(cmdstr);
+                    DTV_LOGE(TAG,"%s,%d, try to create:[%s]",__FUNCTION__,__LINE__, temp_path);
+                    break;
+                }
             }
         }
-    }
-    if (0 == access(temp_path, F_OK))
-    {
-        strcpy(dbpath,temp_path);
+        if (0 == access(temp_path, F_OK))
+        {
+            strcpy(dbpath,temp_path);
+        }
     }
 
     //init configpath(dvbcountry.json, dvbtscancfg.json ...)
-    item = cJSON_GetObjectItem(root, "configpath");
-    temp_path = cJSON_GetStringValue(item);
-
-    if (0 == access(temp_path, F_OK))
+    item = cJSON_GetObjectItem(config, "configpath");
+    if (NULL != item)
     {
-        strcpy(configpath,temp_path);
+        temp_path = cJSON_GetStringValue(item);
+
+        if (0 == access(temp_path, F_OK))
+        {
+            strcpy(configpath,temp_path);
+        }
     }
 
     //End init
-    cJSON_free(root);
+    cJSON_Delete(root);
 
     DTV_LOGE(TAG,"%s, datapath: [%s]",__FUNCTION__, datapath);
     DTV_LOGE(TAG,"%s, dbpath: [%s]",__FUNCTION__, dbpath);

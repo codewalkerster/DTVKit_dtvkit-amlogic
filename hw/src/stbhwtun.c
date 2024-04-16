@@ -597,6 +597,11 @@ static void TuneStopTuner(S_TUNER_STATUS *tstatus)
 
         TUN_DBG("%u: Stopping tuning...", tstatus->path);
 
+        if (HW_ISDB_SYSTEM == STB_HWGetDtvSystem())
+        {
+            stb_tune_stop_tuner(tstatus);
+        }
+
         if (state != TUNER_IDLE && state != TUNER_EXITED)
         {
             STB_OSMutexLock(tstatus->mutex);
@@ -864,11 +869,6 @@ void STB_TuneStopTuner(U8BIT path)
 
     if (path < num_paths)
     {
-        if (HW_ISDB_SYSTEM == STB_HWGetDtvSystem())
-        {
-            stb_tune_stop_tuner(&tuner_status[path]);
-        }
-
         tstatus = &tuner_status[path];
 
         #ifdef EMUTUNNER_ENABLE

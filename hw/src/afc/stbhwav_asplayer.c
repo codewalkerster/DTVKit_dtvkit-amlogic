@@ -3520,6 +3520,12 @@ BOOLEAN STB_AVSetPlayIndex(U8BIT path, U8BIT index)
     return TRUE;
 }
 
+void STB_AVRegisterCcCallback(U8BIT path, void* context, CC_DATA_CALLBACK callback)
+{
+   FUNCTION_START(STB_AVRegisterCcCallback);
+   FUNCTION_FINISH(STB_AVRegisterCcCallback);
+}
+
 /*---local function definitions----------------------------------------------*/
 //Dtvkit will check int and pointer convert, need convert to intptr_t or uintptr_t first
 static void AVEventHandler(void *user_data, jni_asplayer_event *event)

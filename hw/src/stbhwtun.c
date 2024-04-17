@@ -107,6 +107,7 @@ static fe_delivery_system_t SysTypeToFeMode(E_STB_TUNE_SYSTEM_TYPE sys_type);
 static E_STB_TUNE_MODULATION GetTuneModulation(enum fe_modulation modulation);
 static E_STB_TUNE_TCODERATE TuneGetActualTerrCodeRate(U8BIT path);
 static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz);
+static void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol);
 static BOOLEAN GetRealParamFromDriver(U8BIT path);
 static void TuneStopTuner(S_TUNER_STATUS *tstatus);
 
@@ -1816,7 +1817,7 @@ E_STB_TUNE_LNB_VOLTAGE STB_TuneGetLNBVoltage(U8BIT path)
  * @param   path tuner path
  * @param   voltage voltage setting
  */
-void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune)
+void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune, E_TUNER_SETTING_MODE mode)
 {
     FUNCTION_START(STB_TuneSetLNBVoltage);
 
@@ -1831,7 +1832,10 @@ void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN r
             }
         }
 
-        STB_TuneSetVoltageInterface(path, voltage);
+        if (mode == MODE_IMMEDIATE)
+        {
+            STB_TuneSetVoltageInterface(path, voltage);
+        }
     }
 
     FUNCTION_FINISH(STB_TuneSetLNBVoltage);
@@ -1889,7 +1893,7 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetActualSysType(U8BIT path)
 }
 
 
-void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
+static void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
 {
     FUNCTION_START(STB_TuneSetVoltageInterface);
     fe_sec_voltage_t voltage;
@@ -1958,7 +1962,7 @@ BOOLEAN STB_TuneGet22kState(U8BIT path)
  * @param   path tuner path
  * @param   state TRUE to turn the tone on, FALSE to turn it off
  */
-void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
+void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune, E_TUNER_SETTING_MODE mode)
 {
     FUNCTION_START(STB_TuneSet22kState);
 
@@ -1973,7 +1977,10 @@ void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
             }
         }
 
-        STB_TuneSetTone(path, state);
+        if (mode == MODE_IMMEDIATE)
+        {
+            STB_TuneSetTone(path, state);
+        }
     }
 
     FUNCTION_FINISH(STB_TuneSet22kState);
@@ -2874,8 +2881,11 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
         // if (tstatus->signal_type == TUNE_SIGNAL_QPSK)
         {
             TUN_DBG("path %u: lnb power and 22khz off frontend_fd:%d", tstatus->path,tstatus->frontend_fd);
-            STB_TuneSetLNBVoltage(tstatus->path, LNB_VOLTAGE_OFF, FALSE);
-            STB_TuneSet22kState(tstatus->path, FALSE, FALSE);
+
+            // It may cause system issue when in not DVBS mode
+            // kernel set power and 22khz off while closing fronend
+            STB_TuneSetLNBVoltage(tstatus->path, LNB_VOLTAGE_OFF, FALSE, MODE_DELAYED);
+            STB_TuneSet22kState(tstatus->path, FALSE, FALSE, MODE_DELAYED);
         }
 
         SetFeProperty(tstatus->frontend_fd, TUNE_SYSTEM_TYPE_ANALOG);

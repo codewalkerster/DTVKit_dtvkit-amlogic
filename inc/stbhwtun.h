@@ -203,6 +203,11 @@ typedef enum
     TUNER_STATE_UNKNOWN
 } E_TUNER_EVENT;
 
+typedef enum
+{
+    MODE_IMMEDIATE,
+    MODE_DELAYED, // controlled by kernel self
+} E_TUNER_SETTING_MODE;
 
 /**\brief Blindscan event*/
 typedef struct
@@ -542,14 +547,7 @@ E_STB_TUNE_LNB_VOLTAGE STB_TuneGetLNBVoltage(U8BIT path);
  * @param   path tuner path
  * @param   voltage voltage setting
  */
-void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune);
-
-/**
- * @brief   Sets the voltage for the diseqc
- * @param   path tuner path
- * @param   voltage voltage setting
- */
-void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage);
+void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune, E_TUNER_SETTING_MODE mode);
 
 /**
  * @brief   Gets the 22 kHz tone on or off
@@ -562,7 +560,7 @@ BOOLEAN STB_TuneGet22kState(U8BIT path);
  * @param   path tuner path
  * @param   state TRUE to turn the tone on, FALSE to turn it off
  */
-void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune);
+void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune, E_TUNER_SETTING_MODE mode);
 
 /**
  * @brief   Sets the 12V switch for the given tuner

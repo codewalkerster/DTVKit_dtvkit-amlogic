@@ -709,9 +709,11 @@ E_STB_TUNE_LNB_VOLTAGE STB_TuneGetLNBVoltage(U8BIT path)
  * @param   path tuner path
  * @param   voltage voltage setting
  */
-void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune)
+void STB_TuneSetLNBVoltage(U8BIT path, E_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune, E_TUNER_SETTING_MODE mode)
 {
     FUNCTION_START(STB_TuneSetLNBVoltage);
+
+    USE_UNWANTED_PARAM(mode);
 
     Wrapper_TuneSetLNBVoltage(path, (EW_STB_TUNE_LNB_VOLTAGE)voltage, retune);
 
@@ -729,12 +731,6 @@ E_STB_TUNE_SYSTEM_TYPE STB_TuneGetActualSysType(U8BIT path)
     E_STB_TUNE_SYSTEM_TYPE sys_type = TUNE_SYSTEM_TYPE_UNKNOWN;
 
     return sys_type;
-}
-
-void STB_TuneSetVoltageInterface(U8BIT path, E_STB_TUNE_LNB_VOLTAGE vol)
-{
-    USE_UNWANTED_PARAM(path);
-    USE_UNWANTED_PARAM(vol);
 }
 
 /**
@@ -769,9 +765,11 @@ BOOLEAN STB_TuneGet22kState(U8BIT path)
  * @param   path tuner path
  * @param   state TRUE to turn the tone on, FALSE to turn it off
  */
-void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
+void STB_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune, E_TUNER_SETTING_MODE mode)
 {
     FUNCTION_START(STB_TuneSet22kState);
+
+    USE_UNWANTED_PARAM(mode);
 
     Wrapper_TuneSet22kState(path, state, retune);
 

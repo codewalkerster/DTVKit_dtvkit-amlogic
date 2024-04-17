@@ -43,10 +43,8 @@ typedef struct
 
 static WRAPPER_PLAYER_AV_STATUS *wp_player_av_status = NULL;
 
-static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int audioStreamType, jni_asplayer_handle handle);
-static int player_GetAVSyncHwId(jni_asplayer_handle handle);
-static int player_GetADFilterId(int ad_pid, int audioStreamType, jni_asplayer_handle handle);
-static int player_GetADSyncHwId(jni_asplayer_handle handle);
+static int player_GetAVFilterId(bool isAudio, bool isAD, int pid, int videoStreamType, int audioStreamType, jni_asplayer_handle handle);
+static int player_GetAVSyncHwId(bool isAudio, bool isAD, jni_asplayer_handle handle);
 static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
 static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
 static void player_PcrFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
@@ -55,7 +53,7 @@ static void player_PcrFilterCallback(jobject filter, jobjectArray filterEventArr
 /******************************************************************/
 S8BIT Wrapper_Player_AVInit(U8BIT player_paths)
 {
-    U16BIT av_path;
+    U8BIT av_path;
 
     if (wp_player_av_status == NULL)
     {
@@ -94,7 +92,7 @@ S8BIT Wrapper_Player_Initialise(U8BIT av_path, WRAPPER_TUNER_TYPE tunerType)
     }
     else
     {
-        ALOGI("%s : tuner type: %d, get env success!", __FUNCTION__, tunerType);
+        //ALOGI("%s : tuner type: %d, get env success!", __FUNCTION__, tunerType);
     }
 
     //Set JNI evn, need create by ASPlayer self?
@@ -111,38 +109,14 @@ S8BIT Wrapper_Player_Initialise(U8BIT av_path, WRAPPER_TUNER_TYPE tunerType)
     }
     else
     {
-        switch (wp_player_av_status[av_path].player_no)
-        {
-            case 0:
-            {
-                tunerType = WP_TUNER_TYPE_LIVE_0;
-                break ;
-            }
-            case 1:
-            {
-                tunerType = WP_TUNER_TYPE_LIVE_1;
-                break ;
-            }
-            case 2 :
-            {
-                tunerType = WP_TUNER_TYPE_LIVE_2;
-                break ;
-            }
-            default:
-            {
-                tunerType = WP_TUNER_TYPE_LIVE_0;
-                break;
-            }
-        }
         wp_player_av_status[av_path].playerClient = Am_tuner_getTunerClientIdByType((int)tunerType);
-
         if (INVALID_TUNER_ID == wp_player_av_status[av_path].playerClient) {
             ALOGI("%s : get fail", __FUNCTION__);
             return -1 ;
         }
         wp_player_av_status[av_path].playerTuner = Am_tuner_getOriginalTuner(wp_player_av_status[av_path].playerClient);
     }
-    ALOGI("%s : playerClient = %d, tunerType: %d, av_path: %d", __FUNCTION__, wp_player_av_status[av_path].playerClient, tunerType, av_path);
+    ALOGI("%s : playerClientId: %d, tunerType: %d, av_path: %d", __FUNCTION__, wp_player_av_status[av_path].playerClient, tunerType, av_path);
 
     if (NULL == wp_player_av_status[av_path].playerTuner) {
         ALOGI("%s : get fail, get Tuner object is null", __FUNCTION__);
@@ -164,7 +138,8 @@ S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle
     if (JniASPlayer_create(params, (void *)wp_player_av_status[av_path].playerTuner, &wp_player_av_status[av_path].player_handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
-        ALOGI("%s : player_handle = %u, av_path: %d", __FUNCTION__, wp_player_av_status[av_path].player_handle, av_path);
+        ALOGI("%s : player_handle = %u, tunerType: %d, av_path: %u", __FUNCTION__,
+            wp_player_av_status[av_path].player_handle, wp_player_av_status[av_path].tunerType, av_path);
         JniASPlayer_prepare(wp_player_av_status[av_path].player_handle);
         * handle = wp_player_av_status[av_path].player_handle;
     }
@@ -210,7 +185,7 @@ S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle)
     if (JniASPlayer_release(handle) == JNI_ASPLAYER_OK)
     {
         ret = JNI_ASPLAYER_OK;
-        ALOGI("%s : handle = %u", __FUNCTION__, handle);
+        ALOGI("%s : handle = %u, av_path: %u", __FUNCTION__, handle, av_path);
     }
     else
     {
@@ -219,22 +194,46 @@ S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle)
     return ret;
 }
 
-BOOLEAN Wrapper_Player_SetPlayerNo(U8BIT player_no)
+S8BIT Wrapper_Player_SetPlayerNo(U8BIT av_path, U8BIT player_no)
 {
-   U8BIT i;
-   BOOLEAN acquired = FALSE;
+    if (wp_player_av_status != NULL && av_path < num_paths)
+    {
+        wp_player_av_status[av_path].player_no = player_no;
+    }
+    return 0;
+}
 
-   for (i = 0; i < num_paths; i++)
-   {
-       if (wp_player_av_status[i].player_no == WRAPPER_PLAYER_INVALID_RES_ID)
-       {
-           wp_player_av_status[i].player_no = player_no;
-           acquired = TRUE;
-           break;
-       }
-   }
-
-   return acquired;
+WRAPPER_TUNER_TYPE Wrapper_Player_GetPlayerTunerType(U8BIT av_path)
+{
+    WRAPPER_TUNER_TYPE tunerType = WP_TUNER_TYPE_MAX;
+    if (wp_player_av_status != NULL && av_path < num_paths)
+    {
+        switch (wp_player_av_status[av_path].player_no)
+        {
+            case 0:
+            {
+                tunerType = WP_TUNER_TYPE_LIVE_0;
+                break ;
+            }
+            case 1:
+            {
+                tunerType = WP_TUNER_TYPE_LIVE_1;
+                break ;
+            }
+            case 2 :
+            {
+                tunerType = WP_TUNER_TYPE_LIVE_2;
+                break ;
+            }
+            default:
+            {
+                tunerType = WP_TUNER_TYPE_LIVE_0;
+                break;
+            }
+        }
+        ALOGI("%s : tunerType: %d, av_path: %u", __FUNCTION__, tunerType, av_path);
+    }
+    return tunerType;
 }
 
 U8BIT Wrapper_Player_GetPlayerPathByNo(U8BIT player_no)
@@ -249,7 +248,6 @@ U8BIT Wrapper_Player_GetPlayerPathByNo(U8BIT player_no)
           av_path = i;
        }
     }
-
    return av_path;
 }
 
@@ -293,8 +291,8 @@ S8BIT Wrapper_Player_SetVideoParams(jni_asplayer_handle handle, jni_asplayer_vid
 
     if (video_params != NULL)
     {
-        video_params->filterId = player_GetAVFilterId(false, video_params->pid, format, WP_AUDIO_STREAM_TYPE_UNDEFINED, handle);
-        video_params->avSyncHwId = player_GetAVSyncHwId(handle);
+        video_params->filterId = player_GetAVFilterId(false, false, video_params->pid, format, WP_AUDIO_STREAM_TYPE_UNDEFINED, handle);
+        video_params->avSyncHwId = player_GetAVSyncHwId(false, false, handle);
         if (JniASPlayer_setVideoParams(handle, video_params) == JNI_ASPLAYER_OK)
         {
             ret = JNI_ASPLAYER_OK;
@@ -319,8 +317,8 @@ S8BIT Wrapper_Player_SetAudioParams(jni_asplayer_handle handle, jni_asplayer_aud
 
     if (audio_params != NULL)
     {
-        audio_params->filterId = player_GetAVFilterId(true, audio_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
-        audio_params->avSyncHwId = player_GetAVSyncHwId(handle);
+        audio_params->filterId = player_GetAVFilterId(true, false, audio_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
+        audio_params->avSyncHwId = player_GetAVSyncHwId(true, false, handle);
         audio_params->language.first_lang = (int)first_lang;
         audio_params->language.second_lang = (int)second_lang;
         if (JniASPlayer_setAudioParams(handle, audio_params) == JNI_ASPLAYER_OK)
@@ -538,7 +536,7 @@ S8BIT Wrapper_Player_StopVideoDecoding(jni_asplayer_handle handle)
                 wp_player_av_status[av_path].playerWeakRefVideoFilter = NULL;
             }
         }
-        ALOGI("%s : av_path = %d, handle = %u", __FUNCTION__, av_path, handle);
+        ALOGI("%s : handle = %u, av_path: %u", __FUNCTION__, handle, av_path);
     }
     else
     {
@@ -586,7 +584,7 @@ S8BIT Wrapper_Player_StopAudioDecoding(jni_asplayer_handle handle)
                 wp_player_av_status[av_path].playerWeakRefAudioFilter = NULL;
             }
         }
-        ALOGI("%s : av_path = %d, handle = %u", __FUNCTION__, av_path, handle);
+        ALOGI("%s : handle = %u, av_path: %u", __FUNCTION__, handle, av_path);
     }
     else
     {
@@ -602,8 +600,8 @@ S8BIT Wrapper_Player_SwitchAudioTrack(jni_asplayer_handle handle, jni_asplayer_a
 
     if (audio_params != NULL)
     {
-        audio_params->filterId = player_GetAVFilterId(true, audio_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
-        audio_params->avSyncHwId = player_GetAVSyncHwId(handle);
+        audio_params->filterId = player_GetAVFilterId(true, false, audio_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
+        audio_params->avSyncHwId = player_GetAVSyncHwId(true, false, handle);
         audio_params->language.first_lang = (int)first_lang;
         audio_params->language.second_lang = (int)second_lang;
         if (JniASPlayer_switchAudioTrack(handle, audio_params) == JNI_ASPLAYER_OK)
@@ -630,8 +628,8 @@ S8BIT Wrapper_Player_SetADParams(jni_asplayer_handle handle, jni_asplayer_audio_
 
     if (ad_params != NULL)
     {
-        ad_params->filterId = player_GetADFilterId(ad_params->pid, format, handle);
-        ad_params->avSyncHwId = player_GetADSyncHwId(handle);
+        ad_params->filterId = player_GetAVFilterId(true, true, ad_params->pid, WP_VIDEO_STREAM_TYPE_UNDEFINED, format, handle);
+        ad_params->avSyncHwId = player_GetAVSyncHwId(true, true, handle);
         if (JniASPlayer_setADParams(handle, ad_params) == JNI_ASPLAYER_OK)
         {
             ret = JNI_ASPLAYER_OK;
@@ -683,7 +681,7 @@ S8BIT Wrapper_Player_DisableADMix(jni_asplayer_handle handle)
                 wp_player_av_status[av_path].playerWeakRefADFilter = NULL;
             }
         }
-        ALOGI("%s : av_path = %d, handle = %u", __FUNCTION__, av_path, handle);
+        ALOGI("%s : handle = %u, av_path: %u", __FUNCTION__, handle, av_path);
     }
     else
     {
@@ -869,20 +867,20 @@ U8BIT Wrapper_Player_GetPlayerPathByHandle(jni_asplayer_handle handle)
             }
         }
     }
-    ALOGI("%s : handle = %u, player_handle = %u, av_path: %d", __FUNCTION__, handle, wp_player_av_status[av_path].player_handle, av_path);
+    //ALOGI("%s : handle = %u, player_handle = %u, av_path: %d", __FUNCTION__, handle, wp_player_av_status[av_path].player_handle, av_path);
 
     return av_path;
 }
 
-jni_asplayer_handle Wrapper_Player_GetPlayerHandleByPath(U16BIT av_path)
+jni_asplayer_handle Wrapper_Player_GetPlayerHandleByPath(U8BIT av_path)
 {
     ALOGI("%s : player_handle = %u, av_path: %d", __FUNCTION__, wp_player_av_status[av_path].player_handle, av_path);
     return wp_player_av_status[av_path].player_handle;
 }
 
-static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int audioStreamType, jni_asplayer_handle handle)
+static int player_GetAVFilterId(bool isAudio, bool isAD, int pid, int videoStreamType, int audioStreamType, jni_asplayer_handle handle)
 {
-    ALOGI("start:%s, isAudio: %d, pid:%d, videoStreamType: %d, audioStreamType: %d ", __FUNCTION__, isAudio, pid, videoStreamType, audioStreamType);
+    ALOGI("start:%s, isAudio: %d, isAD: %d, pid: %d, video type: %d, audio type: %d ", __FUNCTION__, isAudio, isAD, pid, videoStreamType, audioStreamType);
 
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -893,15 +891,31 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
 
     jobject avFilter;
     U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
-    if (true == isAudio) {
-        if (wp_player_av_status[av_path].playerWeakRefAudioFilter != NULL)
+    if (true == isAudio)
+    {
+        if (true == isAD)
         {
-            Am_filter_close(wp_player_av_status[av_path].playerWeakRefAudioFilter);
-            wp_player_av_status[av_path].playerWeakRefAudioFilter = NULL;
+            if (wp_player_av_status[av_path].playerWeakRefADFilter != NULL)
+            {
+                Am_filter_close(wp_player_av_status[av_path].playerWeakRefADFilter);
+                wp_player_av_status[av_path].playerWeakRefADFilter = NULL;
+            }
+            Am_filter_callback audioFilterCallback = player_AudioFilterCallback;
+            avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback, 0);
         }
-        Am_filter_callback audioFilterCallback = player_AudioFilterCallback;
-        avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback, 0);
-    } else {
+        else
+        {
+            if (wp_player_av_status[av_path].playerWeakRefAudioFilter != NULL)
+            {
+                Am_filter_close(wp_player_av_status[av_path].playerWeakRefAudioFilter);
+                wp_player_av_status[av_path].playerWeakRefAudioFilter = NULL;
+            }
+            Am_filter_callback audioFilterCallback = player_AudioFilterCallback;
+            avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback, 0);
+        }
+    }
+    else
+    {
         if (wp_player_av_status[av_path].playerWeakRefVideoFilter != NULL)
         {
             Am_filter_close(wp_player_av_status[av_path].playerWeakRefVideoFilter);
@@ -936,8 +950,9 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
         playerFailLeave(attached);
         return INVALID_VALUE;
     }
+
     int result = Am_filter_configure(avFilter, tsFilterConfigurationObject);
-    ALOGI("%s : filter configure result : %d", __FUNCTION__, result);
+    ALOGI("%s : filter configure result: %d", __FUNCTION__, result);
     if (result == RETURN_ERROR)
     {
         ALOGE("%s : filter config fail", __FUNCTION__);
@@ -948,7 +963,7 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
 
     //3.start filter
     result = Am_filter_start(avFilter);
-    ALOGI("%s : filter start result : %d", __FUNCTION__, result);
+    ALOGI("%s : filter start result: %d", __FUNCTION__, result);
     if (result == RETURN_ERROR)
     {
         ALOGE("%s : filter start fail", __FUNCTION__);
@@ -958,10 +973,16 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
 
     //4.get filter Id
     int filterId = Am_filter_getId(avFilter);
-    ALOGI("%s : filter Id : %d", __FUNCTION__, filterId);
-    if (true == isAudio) {
-        wp_player_av_status[av_path].playerWeakRefAudioFilter = avFilter;
-    } else {
+    ALOGI("%s : filter Id: %d", __FUNCTION__, filterId);
+    if (true == isAudio)
+    {
+        if (true == isAD)
+            wp_player_av_status[av_path].playerWeakRefADFilter = avFilter;
+        else
+            wp_player_av_status[av_path].playerWeakRefAudioFilter = avFilter;
+    }
+    else
+    {
         wp_player_av_status[av_path].playerWeakRefVideoFilter = avFilter;
     }
 
@@ -970,9 +991,9 @@ static int player_GetAVFilterId(bool isAudio, int pid, int videoStreamType, int 
     return filterId;
 }
 
-static int player_GetAVSyncHwId(jni_asplayer_handle handle)
+static int player_GetAVSyncHwId(bool isAudio, bool isAD, jni_asplayer_handle handle)
 {
-    ALOGI("start:%s", __FUNCTION__);
+    ALOGI("start:%s, isAudio: %d, isAD: %d", __FUNCTION__, isAudio, isAD);
 
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -980,106 +1001,25 @@ static int player_GetAVSyncHwId(jni_asplayer_handle handle)
         ALOGI("%s : test fail, env is null", __FUNCTION__);
         return INVALID_VALUE;
     }
-    U16BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
-    int avSyncHwId = Am_tuner_getAvSyncHwId(wp_player_av_status[av_path].playerClient,
-        wp_player_av_status[av_path].playerWeakRefVideoFilter != NULL ? wp_player_av_status[av_path].playerWeakRefVideoFilter : wp_player_av_status[av_path].playerWeakRefAudioFilter);
 
-    if (attached) {
-        Am_tuner_detachJNIEnv();
-    }
-    ALOGI("end:%s, playerClient: %d, AV SyncHwId : %d", __FUNCTION__, wp_player_av_status[av_path].playerClient, avSyncHwId);
-    return avSyncHwId;
-}
-
-static int player_GetADFilterId(int ad_pid, int audioStreamType, jni_asplayer_handle handle)
-{
-    ALOGI("start:%s, ad_pid: %d, audioStreamType: %d", __FUNCTION__, ad_pid, audioStreamType);
-
-    bool attached = false;
-    JNIEnv *env = Am_tuner_getJNIEnv(&attached);
-    if (NULL == env) {
-        ALOGI("%s : get filter fail, env is null", __FUNCTION__);
-        return INVALID_VALUE;
-    }
-
-    jobject avFilter;
+    int avSyncHwId = INVALID_VALUE;
     U8BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
-    if (wp_player_av_status[av_path].playerWeakRefADFilter != NULL)
+    if (true == isAudio)
     {
-        Am_filter_close(wp_player_av_status[av_path].playerWeakRefADFilter);
-        wp_player_av_status[av_path].playerWeakRefADFilter = NULL;
+        if (true == isAD)
+            avSyncHwId = Am_tuner_getAvSyncHwId(wp_player_av_status[av_path].playerClient, wp_player_av_status[av_path].playerWeakRefADFilter);
+        else
+            avSyncHwId = Am_tuner_getAvSyncHwId(wp_player_av_status[av_path].playerClient, wp_player_av_status[av_path].playerWeakRefAudioFilter);
     }
-    Am_filter_callback audioFilterCallback = player_AudioFilterCallback;
-    avFilter = Am_tuner_openFilter(wp_player_av_status[av_path].playerClient, MAIN_TYPE_TS, SUBTYPE_AUDIO, WRAPPER_PLAYER_BUFFER_SIZE_AUDIO_DEFAULT, (long)audioFilterCallback, 0);
-
-    if (NULL == avFilter) {
-        ALOGI("%s : get filter fail, ADFilter is null", __FUNCTION__);
-        playerFailLeave(attached);
-        return INVALID_VALUE;
-    }
-
-    TS_Filter_Configuration tsFilterConfiguration;
-    memset(&tsFilterConfiguration, 0, sizeof(TS_Filter_Configuration));
-    tsFilterConfiguration.pid = ad_pid;
-    tsFilterConfiguration.type = MAIN_TYPE_TS;
-    tsFilterConfiguration.setting.av_setting.is_passthrough = true;
-    tsFilterConfiguration.setting.av_setting.is_audio = true;
-    tsFilterConfiguration.setting.av_setting.audio_strem_type = audioStreamType;
-    jobject tsFilterConfigurationObject = filter_utils_getAVTsFilterConfiguration(env, tsFilterConfiguration);
-    if (NULL == tsFilterConfigurationObject) {
-        ALOGI("%s : get filter fail, get AVTsFilterConfigurationObject object error", __FUNCTION__);
-        env->DeleteWeakGlobalRef(avFilter);
-        playerFailLeave(attached);
-        return INVALID_VALUE;
-    }
-    int result = Am_filter_configure(avFilter, tsFilterConfigurationObject);
-    ALOGI("%s : filter configure result : %d", __FUNCTION__, result);
-    if (result == RETURN_ERROR)
+    else
     {
-        ALOGE("%s : filter config fail", __FUNCTION__);
-        env->DeleteWeakGlobalRef(avFilter);
-        playerFailLeave(attached);
-        return INVALID_VALUE;
+        avSyncHwId = Am_tuner_getAvSyncHwId(wp_player_av_status[av_path].playerClient, wp_player_av_status[av_path].playerWeakRefVideoFilter);
     }
-
-    //3.start filter
-    result = Am_filter_start(avFilter);
-    ALOGI("%s : filter start result : %d", __FUNCTION__, result);
-    if (result == RETURN_ERROR)
-    {
-        ALOGE("%s : filter start fail", __FUNCTION__);
-        env->DeleteWeakGlobalRef(avFilter);
-        playerFailLeave(attached);
-        return INVALID_VALUE;
-    }
-
-    //4.get filter Id
-    int filterId = Am_filter_getId(avFilter);
-    ALOGI("%s : filter Id : %d", __FUNCTION__, filterId);
-    wp_player_av_status[av_path].playerWeakRefADFilter = avFilter;
-
-    ReleaseEnv(attached);
-    ALOGI("end:%s", __FUNCTION__);
-    return filterId;
-}
-
-static int player_GetADSyncHwId(jni_asplayer_handle handle)
-{
-    ALOGI("start:%s", __FUNCTION__);
-
-    bool attached = false;
-    JNIEnv *env = Am_tuner_getJNIEnv(&attached);
-    if (NULL == env) {
-        ALOGI("%s : test fail, env is null", __FUNCTION__);
-        return INVALID_VALUE;
-    }
-    U16BIT av_path = Wrapper_Player_GetPlayerPathByHandle(handle);
-    int avSyncHwId = Am_tuner_getAvSyncHwId(wp_player_av_status[av_path].playerClient, wp_player_av_status[av_path].playerWeakRefADFilter);
 
     if (attached) {
         Am_tuner_detachJNIEnv();
     }
-    ALOGI("end:%s, playerClient: %d, AD SyncHwId : %d", __FUNCTION__, wp_player_av_status[av_path].playerClient, avSyncHwId);
+    ALOGI("end:%s, playerClientId: %d, AV SyncHwId: %d, av_path: %u", __FUNCTION__, wp_player_av_status[av_path].playerClient, avSyncHwId, av_path);
     return avSyncHwId;
 }
 

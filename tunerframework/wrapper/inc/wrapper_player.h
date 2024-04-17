@@ -68,6 +68,7 @@ typedef enum {
     WP_TUNER_TYPE_DVR_PLAY             = 4,
     WP_TUNER_TYPE_SCAN                 = 5,
     WP_TUNER_TYPE_LIVE_2               = 6,
+    WP_TUNER_TYPE_BACKGROUND           = 7,
     WP_TUNER_TYPE_MAX                  = 255
 }WRAPPER_TUNER_TYPE;
 
@@ -75,7 +76,8 @@ S8BIT Wrapper_Player_AVInit(U8BIT player_paths);
 S8BIT Wrapper_Player_Initialise(U8BIT av_path, WRAPPER_TUNER_TYPE tunerType);
 S8BIT Wrapper_Player_Create(jni_asplayer_init_params params, jni_asplayer_handle *handle, U8BIT av_path);
 S8BIT Wrapper_Player_Destroy(jni_asplayer_handle handle);
-BOOLEAN Wrapper_Player_SetPlayerNo(U8BIT player_no);
+S8BIT Wrapper_Player_SetPlayerNo(U8BIT av_path, U8BIT player_no);
+WRAPPER_TUNER_TYPE Wrapper_Player_GetPlayerTunerType(U8BIT av_path);
 U8BIT Wrapper_Player_GetPlayerPathByNo(U8BIT player_no);
 S8BIT Wrapper_Player_SetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter);
 S8BIT Wrapper_Player_GetParams(jni_asplayer_handle handle, jni_asplayer_parameter type, void *parameter);

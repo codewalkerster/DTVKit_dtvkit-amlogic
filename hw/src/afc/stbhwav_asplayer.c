@@ -1567,15 +1567,15 @@ void STB_AVSetVideoSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
         return;
     }
 
-    if (path < num_paths)
+    if (av_path < num_paths)
     {
         if (source == AV_DEMUX)
         {
             av_paths_status[av_path].demux = param & 0xff;
             av_paths_status[av_path].tuner_no = (param >> 8) & 0x7f;
         }
-        Wrapper_Player_SetPlayerNo(av_paths_status[av_path].tuner_no);
-        VID_DBG("video codec demux =%u tuner_no = %u", av_paths_status[av_path].demux, av_paths_status[av_path].tuner_no);
+        Wrapper_Player_SetPlayerNo(av_path, av_paths_status[av_path].tuner_no);
+        VID_DBG("video codec demux =%u tuner_no = %u, av_path = %u", av_paths_status[av_path].demux, av_paths_status[av_path].tuner_no, av_path);
     }
 
     FUNCTION_FINISH(STB_AVSetVideoSource);
@@ -1600,7 +1600,7 @@ void STB_AVSetAudioSource(U8BIT path, E_STB_AV_DECODE_SOURCE source, U32BIT para
       return;
    }
 
-   if (path < num_paths)
+   if (av_path < num_paths)
    {
       if (source == AV_DEMUX)
       {
@@ -3643,7 +3643,7 @@ static int AV_CreatePlayer_l(U8BIT av_path,
     int ret;
     jni_asplayer_init_params parm;
     jni_asplayer_handle player_handle;
-    WRAPPER_TUNER_TYPE tunerType = WP_TUNER_TYPE_LIVE_0;
+    WRAPPER_TUNER_TYPE tunerType = WP_TUNER_TYPE_MAX;
 
     if (av_path >= num_paths)
     {
@@ -3651,6 +3651,7 @@ static int AV_CreatePlayer_l(U8BIT av_path,
         return -1;
     }
 
+    tunerType = Wrapper_Player_GetPlayerTunerType(av_path);
     Wrapper_Player_Initialise(av_path, tunerType);
     memset(&parm, 0, sizeof(parm));
     parm.event_mask= av_path;
@@ -3661,7 +3662,7 @@ static int AV_CreatePlayer_l(U8BIT av_path,
     if (ret == 0)
     {
         av_paths_status[av_path].player_handle = player_handle;
-        AV_DBG("path: %d, player_handle= %u", av_path, av_paths_status[av_path].player_handle);
+        AV_DBG("av_path: %d, player_handle= %u", av_path, av_paths_status[av_path].player_handle);
 
         Wrapper_Player_RegisterEventCallBack(player_handle, AVEventHandler, &av_paths_status[av_path]);
         AV_DBG("Create asplayer success. path= %d, player_handle= %u, dxm_id:%d", av_path, player_handle, dmx_dev_id);

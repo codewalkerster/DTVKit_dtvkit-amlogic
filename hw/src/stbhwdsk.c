@@ -1651,6 +1651,11 @@ static void RefreshDiskList(BOOLEAN send_events)
          if (!disk->found)
          {
             U16BIT disk_id = disk->disk_id;
+            U8BIT path[128];
+
+            strncpy(path, disk->mount_path, 126);
+            path[127] = '\0';
+
             DISK_DBG("Removed disk 0x%04x, mounted on %s", disk->disk_id, disk->mount_path);
 
             /* Now the disk has disappeared, delete it from the list of known disks */
@@ -1667,6 +1672,105 @@ static void RefreshDiskList(BOOLEAN send_events)
                   &disk_id, sizeof(disk_id));
 
                STB_OSMutexLock(disk_mutex);
+            }
+
+            {
+               /*
+                 Remove:
+                 1. all disks with same disk_id
+                 2. all disks with related sub-dir mount path
+               */
+               S_DISK_INFO *disk2;
+               S_DISK_INFO* next_disk2;
+               U16BIT disk_id2;
+
+               typedef struct _m_path_s {
+                  U8BIT path[128];
+                  struct _m_path_s *next;
+               } m_path_t;
+
+               m_path_t *mpath;
+               m_path_t mpaths;
+
+               memcpy(mpaths.path, path, 128);
+               mpaths.next = NULL;
+
+               /*collect the paths with same disk_id*/
+               for (disk2 = disk_list; disk2 != NULL; disk2 = disk2->next)
+               {
+                  if (disk2->disk_id == disk_id)
+                  {
+                     for (mpath = &mpaths; mpath->next != NULL; )
+                        mpath = mpath->next;
+
+                     mpath->next = (m_path_t *)STB_MEMGetSysRAM(sizeof(m_path_t));
+                     if (mpath->next != NULL)
+                     {
+                        mpath = mpath->next;
+                        mpath->next = NULL;
+
+                        strncpy(mpath->path, disk2->mount_path, 126);
+                        mpath->path[127] = '\0';
+                     }
+                  }
+               }
+
+               DISK_DBG("(RM Disk) Paths with disk_id(%x):", disk_id);
+               for (mpath = &mpaths; mpath != NULL; mpath = mpath->next)
+               {
+                  DISK_DBG("(RM Disk) [] %s", mpath->path);
+               }
+
+               /*remove all the disks mounted with the related path(sub-dir or self)*/
+               for (mpath = &mpaths; mpath != NULL; mpath = mpath->next)
+               {
+                  for (disk2 = disk_list; disk2 != NULL; )
+                  {
+                     if (debug_loop)
+                     {
+                        DISK_DBGLOOP("(RM Disk) check disk[%s] path[%s]", disk2->mount_path, mpath->path);
+                     }
+                     if (IsSubDirectoryOf(disk2->mount_path, mpath->path)
+                        || strcmp(disk2->mount_path, mpath->path) == 0)
+                     {
+                        disk_id2 = disk2->disk_id;
+
+                        DISK_DBG("Removed disk 0x%04x, mounted on %s, (sub-dir) of (%s)",
+                           disk_id2, disk2->mount_path, mount_path);
+
+                        /*manage the 1st loop,
+                          as the current in 1st loop will be removed*/
+                        if (disk == disk2)
+                           disk = disk2->next;
+
+                        next_disk2 = disk2->next;
+                        RemoveDisk(disk2);
+                        disk2 = next_disk2;
+
+                        if (send_events)
+                        {
+                           STB_OSMutexUnlock(disk_mutex);
+
+                           /* Send an event to indicate a device has been removed */
+                           STB_OSSendEvent(FALSE, HW_EV_CLASS_DISK, HW_EV_TYPE_DISK_REMOVED,
+                              &disk_id2, sizeof(disk_id2));
+
+                           STB_OSMutexLock(disk_mutex);
+                        }
+                     }
+                     else
+                     {
+                        disk2 = disk2->next;
+                     }
+                  }
+               }
+
+               for (mpath = mpaths.next; mpath != NULL; )
+               {
+                  m_path_t *next_mpath = mpath->next;
+                  STB_MEMFreeSysRAM(mpath);
+                  mpath = next_mpath;
+               }
             }
          }
          else

@@ -9,7 +9,6 @@ LOCAL_SRC_FILES += hw/src/stbhwtun.c
 LOCAL_SRC_FILES += hw/src/stbhwtun_ex.c
 LOCAL_SRC_FILES += hw/src/stbhwdmx.c
 LOCAL_SRC_FILES += hw/src/linuxdvbdmx_wrapper.c
-LOCAL_SRC_FILES += hw/hal/aml_frontend_api.c
 LOCAL_SRC_FILES += hw/src/stbhwresm.c
 LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
 LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c

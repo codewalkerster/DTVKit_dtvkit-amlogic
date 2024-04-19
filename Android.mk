@@ -41,7 +41,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 33 && echo OK),OK)
     endif
 
 	ifeq ($(SUPPORT_PLATFORM_SHARED_LIB), true)
-        $(warning "build noatf platform share lib")
+        $(warning "build atf platform share lib")
 
 	    include $(LOCAL_PATH)/platform_base.mk
 	    include $(LOCAL_PATH)/platform_atf.mk

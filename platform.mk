@@ -42,6 +42,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28&& echo OK),OK)
     DTVKIT_WITH_TSPLAYER = 1
 endif
 
+LOCAL_MODULE := libdtvkit_platform
 LOCAL_MODULE_TAGS := optional
 
 ifneq ($(DTVKIT_USE_STDINT),1)
@@ -167,6 +168,23 @@ ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
     LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
 
+
+LOCAL_C_INCLUDES += $(TOP)/$(LOCAL_PATH)/../../../aml_mp_sdk/include
+LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
+ifeq ($(SUPPORT_CAS), true)
+    LOCAL_CFLAGS += -DSUPPORT_CAS
+    LOCAL_SRC_FILES += hw/src/ca_glue_amlmp.c
+endif
+
+LOCAL_SRC_FILES += hw/src/stbhwtun.c
+LOCAL_SRC_FILES += hw/src/stbhwtun_ex.c
+LOCAL_SRC_FILES += hw/src/stbhwdmx.c
+LOCAL_SRC_FILES += hw/src/linuxdvbdmx_wrapper.c
+LOCAL_SRC_FILES += hw/hal/aml_frontend_api.c
+LOCAL_SRC_FILES += hw/src/stbhwresm.c
+LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
+LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
+
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
@@ -174,7 +192,7 @@ SUPPORT_DTVKIT_IN_VENDOR := true
 
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
 
-
+LOCAL_SHARED_LIBRARIES+=libmediahal_resman
 LOCAL_SHARED_LIBRARIES+=liblog
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0

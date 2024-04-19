@@ -1,6 +1,5 @@
-LOCAL_PATH:= $(call my-dir)
+#####################################################################
 include $(CLEAR_VARS)
-
 include $(LOCAL_PATH)/Config.mk
 
 ifeq ($(DTVKIT_INCLUDE_TEMI),1)
@@ -42,6 +41,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28&& echo OK),OK)
     DTVKIT_WITH_TSPLAYER = 1
 endif
 
+LOCAL_MODULE := libdtvkit_platform_ATF
 LOCAL_MODULE_TAGS := optional
 
 ifneq ($(DTVKIT_USE_STDINT),1)
@@ -103,8 +103,7 @@ LOCAL_CFLAGS += \
 -Wno-unknown-attributes \
 -Werror=int-to-pointer-cast \
 -Werror=pointer-to-int-cast \
--Werror=incompatible-pointer-types \
--Werror
+-Werror=incompatible-pointer-types
 
 ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
     SWDMX_PATH := vendor/amlogic/common/external/libswdemux
@@ -143,7 +142,6 @@ hw/src/stbhwdemux_usb.c \
 hw/src/systemcontrol.cpp \
 hw/src/fsm_base.c \
 hw/src/afd_ctrl.c \
-hw/src/cJSON.c \
 hw/atv/linux_v4l2.c \
 hw/atv/atv_vlfend.c \
 hw/atv/atv_vlfend_test.c \
@@ -166,15 +164,40 @@ ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
 
     LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
+LOCAL_HEADER_LIBRARIES := jni_headers
+
+
+ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
+    LOCAL_C_INCLUDES += \
+    vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
+    vendor/amlogic/common/prebuilt/libmediadrm/jcas/include \
+    vendor/amlogic/reference/apps/JDvrLib/jni/include
+else
+    LOCAL_C_INCLUDES += \
+    $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
+    $(LOCAL_PATH)/tunerframework/JNI_cas/include \
+    $(LOCAL_PATH)/tunerframework/JNI_dvr/include
+endif
+
+LOCAL_C_INCLUDES += \
+$(LOCAL_PATH)/hw/src \
+$(LOCAL_PATH)/tunerframework/wrapper/inc \
+vendor/amlogic/common/libdsm \
+
+LOCAL_SRC_FILES += hw/src/afc/stbhwtun_afc.c \
+hw/src/afc/stbhwdmx_afc.c \
+hw/src/afc/stbhwav_asplayer.c \
+hw/src/afc/stbpvrpr_jdvrlib.cpp \
+hw/src/afc/ca_glue.c
 
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
 SUPPORT_DTVKIT_IN_VENDOR := true
-
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
-
-
+LOCAL_SHARED_LIBRARIES+=libmediahal_resman
+LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni
+LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni_wrapper
 LOCAL_SHARED_LIBRARIES+=liblog
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
@@ -185,4 +208,8 @@ ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_CFLAGS += -DDTVKIT_IN_VENDOR_PARTITION
 endif
 
-LOCAL_LDLIBS := -llog
+LOCAL_CFLAGS += -DUSE_AFD_DEVICE
+
+
+include $(BUILD_STATIC_LIBRARY)
+##############################################################

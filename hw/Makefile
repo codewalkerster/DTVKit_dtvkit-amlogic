@@ -47,8 +47,7 @@ SRCS = stbhwplatform.c \
     atv_vlfend.c \
     atv_vlfend_test.c \
     linux_v4l2.c \
-    cJSON.c \
-    cam_manager.c
+    cJSON.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
 SRCS += emu_tuner.c \

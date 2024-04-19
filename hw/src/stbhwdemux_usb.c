@@ -25,7 +25,7 @@
 #include <dmx.h>
 #include "techtype.h"
 #include "dbgfuncs.h"
-#include "stbhwdmx.h"
+
 #include "stbhwmem.h"
 #include "stbhwcfg.h"
 #include "internal.h"
@@ -86,7 +86,6 @@ static BOOLEAN module_inserted = FALSE;
 static BOOLEAN module_init = FALSE;
 static BOOLEAN mutex_init = FALSE;
 
-enum aml_usbcam_device_state device_state;
 
 static pthread_t media_read_taskid;
 static pthread_t media_write_taskid;
@@ -124,7 +123,6 @@ static void reset_resource()
         close(cmd_w_fd);
         cmd_w_fd = -1;
     }
-#ifndef ATF_USBCAM
     if (media_readbuf)
     {
         STB_MEMFreeSysRAM(media_readbuf);
@@ -162,7 +160,6 @@ static void reset_resource()
         close(inj_dvr_fd);
         inj_dvr_fd = -1;
     }
-#endif
 }
 
 static void *cimodule_media_read_task(void *args)
@@ -447,8 +444,7 @@ static BOOLEAN prepare_working_demuxes()
         return FALSE;
     }
     ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_LOCAL);
-    ioctl(inj_dvr_fd, DMX_SET_BUFFER_SIZE, USB_CIMODULE_MEDIA_MAX_SIZE * 100);
-    STB_DMXSetSource(inj_dev_id, DVB_DEMUX_SOURCE_DMA0 + inj_dev_id);
+
     snprintf(rec_dvr_path, sizeof(rec_dvr_path), "/dev/dvb0.dvr%d", rec_dev_id);
     if (rec_dvr_fd < 0)
         rec_dvr_fd = open(rec_dvr_path, O_RDONLY);
@@ -468,7 +464,7 @@ static BOOLEAN prepare_working_demuxes()
     }
     ioctl(rec_dvr_fd, DMX_SET_BUFFER_SIZE, REC_BUFF_SIZE);
 
-    return set_usbcam_recording_demux(aml_hw_cfg.tuners[aml_hw_cfg.tuner_num - 1].ori_tsinput_idx);
+    return set_usbcam_recording_demux(aml_hw_cfg.tuners[aml_hw_cfg.tuner_num - 1].ts_input_idx);
 }
 
 static int record_from_tsin(void *buff, int buff_len)
@@ -540,17 +536,11 @@ int STB_CIUsbOpen()
                 DMX_USB_DBG("open %s failed", cmd_node);
                 goto ERR;
             }
-            ioctl(cmd_r_fd, AML_USBCAM_IOC_GET_MODULE_STATE, &device_state);
-            DMX_USB_DBG("device_state %u", device_state);
-            if (device_state == DEVICE_DISCONNECT) {
-                DMX_USB_DBG("driver disconnect");
-                goto ERR;
-            }
     } else {
         // DMX_USB_DBG("access %s failed", cmd_node);
         goto ERR;
     }
-#ifndef ATF_USBCAM
+
     if (media_read_fd < 0)
         media_read_fd = open(media_node, O_RDONLY);
     if (media_write_fd < 0)
@@ -560,10 +550,6 @@ int STB_CIUsbOpen()
         DMX_USB_DBG("Failed to open media device, read fd: %d write: %d", media_read_fd, media_write_fd);
         goto ERR;
     }
-
-    media_writebuf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE);
-    media_readbuf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE);
-#endif
 
     ioctl(cmd_r_fd, AML_USBCAM_IOC_GET_DRIVER_VERSION, &driver_version);
     DMX_USB_DBG("usbcimodule driver version: %d.%d.%d.%d",
@@ -578,23 +564,23 @@ int STB_CIUsbOpen()
     DBG("ci_plus_supported = %d\n",usbci_module_capabilities.ci_plus_supported);
     DBG("op_profile_supported = %d\n",usbci_module_capabilities.op_profile_supported);
 
-    module_init = TRUE;
-    module_inserted = TRUE;
-    thread_running = TRUE;
-#ifndef ATF_USBCAM
+    media_writebuf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE);
+    media_readbuf = STB_MEMGetSysRAM(USB_CIMODULE_MEDIA_MAX_SIZE);
+
     if (prepare_working_demuxes() == FALSE)
     {
         DMX_USB_DBG("prepare_working_demuxes() failed");
         goto ERR;
     }
-
+    module_init = TRUE;
+    module_inserted = TRUE;
+    thread_running = TRUE;
     ret = pthread_create(&media_read_taskid, NULL, (void *)cimodule_media_read_task, NULL);
     if (ret != 0)
         goto ERR;
     ret = pthread_create(&media_write_taskid, NULL, (void *)cimodule_media_write_task, NULL);
     if (ret != 0)
         goto ERR;
-#endif
 
     pthread_mutex_unlock(&resource_mutex);
     return TRUE;
@@ -633,7 +619,6 @@ int STB_CIUsbClose()
 
     pthread_mutex_lock(&resource_mutex);
 
-#ifndef ATF_USBCAM
     if (pthread_join(media_read_taskid, &status) != 0)
     {
         DMX_USB_DBG("media read task join failed");
@@ -642,10 +627,6 @@ int STB_CIUsbClose()
     {
         DMX_USB_DBG("media write task join failed");
     }
-#endif
-
-    device_state = DEVICE_DISCONNECT;
-    ioctl(cmd_r_fd, AML_USBCAM_IOC_SET_MODULE_STATE, &device_state);
 
     reset_resource();
     module_init = FALSE;

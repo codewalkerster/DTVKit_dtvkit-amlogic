@@ -22,6 +22,5 @@ LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni
 LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni_wrapper
 
 LOCAL_CFLAGS += -DUSE_AFD_DEVICE
-LOCAL_CFLAGS += -DATF_USBCAM
 
 LOCAL_MODULE := libdtvkit_platform_ATF

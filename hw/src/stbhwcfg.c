@@ -229,7 +229,7 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
     } else if (!strcmp(name, "recorder")) {
         cfg->recorder_num ++;
     } else if (!strcmp(name, "ci_slot")) {
-        cfg->ci_slot_num = 16;
+        cfg->ci_slot_num ++;
     } else if (!strcmp(name, "vdec")) {
         cfg->vdec_num ++;
     } else if (!strcmp(name, "adec")) {

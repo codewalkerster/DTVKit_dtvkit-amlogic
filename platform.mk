@@ -42,6 +42,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28&& echo OK),OK)
     DTVKIT_WITH_TSPLAYER = 1
 endif
 
+LOCAL_MODULE := libdtvkit_platform
 LOCAL_MODULE_TAGS := optional
 
 ifneq ($(DTVKIT_USE_STDINT),1)
@@ -69,6 +70,9 @@ ifeq ($(DTVKIT_INCLUDE_TEST_KEYS),1)
     LOCAL_CFLAGS += -DINCLUDE_TEST_KEYS
 endif
 
+ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
+    LOCAL_CFLAGS += -DMEDIACODEC_PLAYER
+endif
 
 MEDIAHAL_INCLUDE:=vendor/amlogic/common/mediahal_sdk/include
 
@@ -88,9 +92,7 @@ endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc \
 $(LOCAL_PATH)/hw/inc \
-$(LOCAL_PATH)/os/inc \
-$(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
-$(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include
+$(LOCAL_PATH)/os/inc
 
 LOCAL_CFLAGS += \
 -Wno-unused-function \
@@ -105,6 +107,23 @@ LOCAL_CFLAGS += \
 -Werror=incompatible-pointer-types \
 -Werror
 
+ifeq ($(PRODUCT_SUPPORT_SWDEMUX),true)
+    SWDMX_PATH := vendor/amlogic/common/external/libswdemux
+    LOCAL_C_INCLUDES += $(SWDMX_PATH)/
+endif
+
+
+ifeq ($(TARGET_ARCH),"arm")
+    ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm/include"
+    ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm"
+else
+    ANDROID_HEADERS+=" -I${BIONIC_LIB}/arch-arm64/include"
+    ANDROID_HEADERS+=" -I${BIONIC_LIB}/kernel/uapi/asm-arm64"
+endif
+
+ifeq ($(DTVKIT_CI_PHYS_TYPE), usb)
+    LOCAL_LDFLAGS := $(LOCAL_PATH)/../releaseDTVKit/libsmit_usbcam.a
+endif
 
 LOCAL_SRC_FILES := hw/src/stbhwplatform.c \
 hw/src/stbhwini.c \
@@ -149,15 +168,31 @@ ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
     LOCAL_CFLAGS += -DEMUTUNNER_ENABLE
 endif
 
+
+LOCAL_C_INCLUDES += $(TOP)/$(LOCAL_PATH)/../../../aml_mp_sdk/include
+LOCAL_CFLAGS += -DDTVKIT_WITH_AML_MP_SDK
+ifeq ($(SUPPORT_CAS), true)
+    LOCAL_CFLAGS += -DSUPPORT_CAS
+    LOCAL_SRC_FILES += hw/src/ca_glue_amlmp.c
+endif
+
+LOCAL_SRC_FILES += hw/src/stbhwtun.c
+LOCAL_SRC_FILES += hw/src/stbhwtun_ex.c
+LOCAL_SRC_FILES += hw/src/stbhwdmx.c
+LOCAL_SRC_FILES += hw/src/linuxdvbdmx_wrapper.c
+LOCAL_SRC_FILES += hw/hal/aml_frontend_api.c
+LOCAL_SRC_FILES += hw/src/stbhwresm.c
+LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
+LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
+
 LOCAL_CFLAGS+=-DANDROID $(DTVKIT_OPTIMISATION_OPTION)
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
-LOCAL_MULTILIB := 32
 SUPPORT_DTVKIT_IN_VENDOR := true
 
 LOCAL_STATIC_LIBRARIES+=libexpat libcutils
 
-
+LOCAL_SHARED_LIBRARIES+=libmediahal_resman
 LOCAL_SHARED_LIBRARIES+=liblog
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0

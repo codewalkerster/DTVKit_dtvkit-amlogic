@@ -170,7 +170,7 @@ typedef struct
    U16BIT caps;
 
    void *config_mutex;
-   DVB_DemuxSource_t usb_source;
+
    E_STB_DMX_DEMUX_SOURCE source;
    U8BIT source_param;
 U16BIT demux_cap;
@@ -283,7 +283,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                   /* All demuxes are not capable of everything ,get cap from cfg*/
                   demux_status[i].caps = aml_hw_cfg.dmx_cap[i];
                   DMX_ERR("dmx%dcap:0x%x", i, demux_status[i].caps);
-                  demux_status[i].usb_source = DVB_DEMUX_SOURCE_MAX;
+
                   for (j = 0; j < DMX_PID_COUNT; j++)
                   {
                      demux_status[i].pids[j] = 0;
@@ -1343,16 +1343,6 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
 
    FUNCTION_FINISH(STB_DMXGetDemuxSource);
 }
-
-void STB_DMXSetSourceUsb(DVB_DemuxSource_t source)
-{
-   int i;
-   for (i=0;i<num_paths;i++)
-   {
-      demux_status[i].usb_source = source;
-   }
-}
-
 void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
 {
    FUNCTION_START(STB_DMXSetDemuxSource);

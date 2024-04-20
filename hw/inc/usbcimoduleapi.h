@@ -19,6 +19,11 @@ struct usb_cimodule_info
    unsigned char arreserve[31];
 };
 
+enum aml_usbcam_device_state {
+	DEVICE_CONNECT = 0,
+	DEVICE_DISCONNECT = 1
+};
+
 #define USBCAM_MAX_NAME_LEN 30
 typedef struct
 {
@@ -35,7 +40,8 @@ typedef struct
 #define AML_USBCAM_IOC_RESET                  _IO(AML_USBCAM_IOC_MAGIC, 2)
 #define AML_USBCAM_IOC_CANCEL_TRANSFER        _IO(AML_USBCAM_IOC_MAGIC, 3)
 #define AML_USBCAM_IOC_MODULE_CAPABILITIES    _IOR(AML_USBCAM_IOC_MAGIC, 4, usbci_module_capabilities_t)
-
+#define AML_USBCAM_IOC_GET_MODULE_STATE       _IOR(AML_USBCAM_IOC_MAGIC, 5, uint32_t)
+#define AML_USBCAM_IOC_SET_MODULE_STATE       _IOR(AML_USBCAM_IOC_MAGIC, 6, uint32_t)
 
 
 #endif

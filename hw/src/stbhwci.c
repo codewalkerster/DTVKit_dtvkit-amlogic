@@ -48,6 +48,7 @@
 //#include "stbcios.h" /*for STB_CIDebugPrintf()*/
 #include "stbhwdmx.h"
 #include "dtv_log.h"
+#include "cam_manager.h"
 #define TAG  "STBHWCI"
 
 #ifdef INCLUDE_TEST_KEYS
@@ -231,12 +232,14 @@ BOOLEAN STB_CIRouteTS(U8BIT tuner, U8BIT slot_id, BOOLEAN pass_through)
 
     if(TRUE == pass_through)
     {
-        STB_DMXChangeAllDemuxSource(slot_id, 1);
+        CAM_SetTsStatus(slot_id, 1);
+      //   STB_DMXChangeAllDemuxSource(slot_id, 1);
         STB_SPDebugWrite("======>TS change to passthough");
     }
     else
     {
-        STB_DMXChangeAllDemuxSource(slot_id, 0);
+        CAM_SetTsStatus(slot_id, 0);
+      //   STB_DMXChangeAllDemuxSource(slot_id, 0);
         STB_SPDebugWrite("======>TS change to bypass");
     }
     FUNCTION_FINISH(STB_CIRouteTS);

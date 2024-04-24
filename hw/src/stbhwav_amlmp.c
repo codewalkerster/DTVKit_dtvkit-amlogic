@@ -4893,6 +4893,8 @@ static E_STB_AV_VIDEO_CODEC toVideoCodec(Aml_MP_CodecID codec)
       case AML_MP_VIDEO_CODEC_H264: return AV_VIDEO_CODEC_H264;
       case AML_MP_VIDEO_CODEC_HEVC: return AV_VIDEO_CODEC_H265;
       case AML_MP_VIDEO_CODEC_VP9: return AV_VIDEO_CODEC_VP9;
+      case AML_MP_VIDEO_CODEC_DVES_AVC: return AV_VIDEO_CODEC_DVES_AVC;
+      case AML_MP_VIDEO_CODEC_DVES_HEVC: return AV_VIDEO_CODEC_DVES_HEVC;
       default:                      return AV_VIDEO_CODEC_AUTO;
    }
    return AV_VIDEO_CODEC_AUTO;

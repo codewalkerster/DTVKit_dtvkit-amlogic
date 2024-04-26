@@ -123,6 +123,7 @@ hw/src/stbhwutils.c \
 hw/src/stbswcfg.c \
 hw/src/stbhwdemux_usb.c \
 hw/src/systemcontrol.cpp \
+hw/src/sideband.cpp \
 hw/src/fsm_base.c \
 hw/src/afd_ctrl.c \
 hw/src/cJSON.c \
@@ -163,6 +164,12 @@ LOCAL_SHARED_LIBRARIES+=liblog
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -eq 30 -o $(PLATFORM_SDK_VERSION) -ge 33 && echo OK),OK)
+    $(info "Build HBBTV broadband play on Android R or Android T or greater than Android T ")
+    LOCAL_SHARED_LIBRARIES+=libmeson_display_adapter_remote
+    LOCAL_SHARED_LIBRARIES+=libmeson_display_service
+endif
 
 ifeq ($(SUPPORT_DTVKIT_IN_VENDOR), true)
     LOCAL_VENDOR_MODULE := true

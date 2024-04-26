@@ -142,6 +142,7 @@ hw/src/stbhwutils.c \
 hw/src/stbswcfg.c \
 hw/src/stbhwdemux_usb.c \
 hw/src/systemcontrol.cpp \
+hw/src/sideband.cpp \
 hw/src/fsm_base.c \
 hw/src/afd_ctrl.c \
 hw/src/cJSON.c \

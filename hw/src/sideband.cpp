@@ -1,4 +1,4 @@
-#if (30 == ANDROID_PLATFORM_SDK_VERSION || 33 <= ANDROID_PLATFORM_SDK_VERSION)
+#if (30 == ANDROID_PLATFORM_SDK_VERSION || 33 == ANDROID_PLATFORM_SDK_VERSION)
 #include "DisplayAdapter.h"
 using meson::DisplayAdapter;
 using std::unique_ptr;
@@ -23,7 +23,7 @@ extern "C" {
 
 void STB_SetDisableSidebandStream(int enable)
 {
-#if (30 == ANDROID_PLATFORM_SDK_VERSION || 33 <= ANDROID_PLATFORM_SDK_VERSION)   //only for T5D android R and T
+#if (30 == ANDROID_PLATFORM_SDK_VERSION || 33 == ANDROID_PLATFORM_SDK_VERSION)   //only for T5D android R and T
     unique_ptr<DisplayAdapter> adapter = meson::DisplayAdapterCreateRemote();
     if (enable)
     {

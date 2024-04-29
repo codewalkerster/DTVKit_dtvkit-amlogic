@@ -169,6 +169,8 @@ extern AM_ErrorCode_t AM_VLFEND_GetStatus(int dev_no, fe_status_t *status);
 extern AM_ErrorCode_t AM_VLFEND_GetAFC(int dev_no, int *afc);
 extern AM_ErrorCode_t AM_VLFEND_EnableAFC(int dev_no, int enable);
 extern AM_ErrorCode_t AM_VLFEND_AFCState(int dev_no, int *state);
+extern AM_ErrorCode_t AM_VLFEND_SetSlowSearchMode(int dev_no, int enable);
+
 
 /**\brief get frontend sound system
  * \param dev_no frontend device number

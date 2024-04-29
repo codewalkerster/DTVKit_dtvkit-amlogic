@@ -659,6 +659,25 @@ AM_ErrorCode_t AM_VLFEND_EnableAFC(int dev_no, int enable)
     return AM_VLFEND_SetProp(dev_no, &props);
 }
 
+AM_ErrorCode_t AM_VLFEND_SetSlowSearchMode(int dev_no, int enable)
+{
+    AM_ErrorCode_t ret = AM_SUCCESS;
+    struct dtv_properties props;
+    struct dtv_property prop;
+
+    memset(&props, 0, sizeof(props));
+    memset(&prop, 0, sizeof(prop));
+
+    prop.cmd = V4L2_SLOW_SEARCH_MODE;
+    prop.u.data = enable;
+
+    props.num = 1;
+    props.props = &prop;
+
+    return AM_VLFEND_SetProp(dev_no, &props);
+}
+
+
 AM_ErrorCode_t AM_VLFEND_AFCState(int dev_no, int *state)
 {
     AM_ErrorCode_t ret = AM_SUCCESS;

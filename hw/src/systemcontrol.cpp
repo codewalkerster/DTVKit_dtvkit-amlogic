@@ -306,6 +306,8 @@ extern "C"  int SC_getStaticFrameEnable()
 extern "C" int SC_setATVVideoColor(int forceColor, int setColor, int freq)
 {
     int s32Ret = 0;
+    int fixed_tunnel = -1;
+    char value[92];
 #if ANDROID_PLATFORM_SDK_VERSION >= 30
     const sp<SystemControlClient> &sws = getSystemControlService();
     if (sws != nullptr) {
@@ -315,7 +317,14 @@ extern "C" int SC_setATVVideoColor(int forceColor, int setColor, int freq)
             color = setColor;
         }
         SCDBG(" color: %d freq: %d!\n", color, freq);
-        if (STB_IsNewHW())
+
+        if (property_get("vendor.tv.fixed_tunnel", value, NULL) > 0)
+        {
+            fixed_tunnel = atoi(value);
+            SCDBG("fixed_tunnel = %d", fixed_tunnel);
+        }
+
+        if (STB_IsNewHW() || (fixed_tunnel == 1))
         {
             switch (freq) {
                 case 4://VIDEO_LAYER_COLOR_SHOW_ONCE

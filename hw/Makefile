@@ -11,8 +11,8 @@ ifdef DTVKIT_INCLUDE_TEMI
     endif
 endif
 
-INCLUDES =  ../inc \
-          ./inc
+INCLUDES =  ./inc \
+            ../inc
 
 SRCDIR = src:hal:atv
 SRCS = stbhwplatform.c \

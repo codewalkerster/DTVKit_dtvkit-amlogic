@@ -1,6 +1,7 @@
+
 /*******************************************************************************
- * Copyright ?2014 The DTVKit Open Software Foundation Ltd (www.dtvkit.org)
- * Copyright ?2006 Ocean Blue Software Ltd
+ * Copyright © 2014 The DTVKit Open Software Foundation Ltd (www.dtvkit.org)
+ * Copyright © 2006 Ocean Blue Software Ltd
  *
  * This file is part of a DTVKit Software Component
  * You are permitted to copy, modify or distribute this file subject to the terms
@@ -86,9 +87,9 @@ typedef int16_t S16BIT;
 typedef uint32_t U32BIT;
 typedef int32_t S32BIT;
 typedef uint64_t U64BIT;
+typedef signed long long S64BIT;
 typedef intptr_t   SINTPTR;
 typedef uintptr_t  UINTPTR;
-typedef signed long long S64BIT;
 #else
 typedef unsigned char U8BIT;
 typedef unsigned short U16BIT;

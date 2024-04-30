@@ -14,7 +14,8 @@ LOCAL_SRC_FILES := src/wrapper_dmx.cpp \
 
 LOCAL_C_INCLUDES += frameworks/base/core/jni/include \
                                            $(LOCAL_PATH)/inc
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../hw/inc/
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../inc/ \
+                    $(LOCAL_PATH)/../../hw/inc/
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \

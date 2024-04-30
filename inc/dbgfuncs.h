@@ -46,12 +46,11 @@
 
 // function profiling macros
 #ifdef DEBUG_FUNCTIONS
-
-#define FUNCTION_START(x,...) DTV_LOGI("DBG","START: " # x)
-#define FUNCTION_FINISH(x,...) DTV_LOGI("DBG", "END : " # x)
+#define FUNCTION_START(X,...)    DTV_LOGI(TAG, X, ##__VA_ARGS__))
+#define FUNCTION_FINISH(X,...)    DTV_LOGI(TAG, X, ##__VA_ARGS__))
 #else
-#define FUNCTION_START(x,...)
-#define FUNCTION_FINISH(x,...)
+#define FUNCTION_START(X,...)
+#define FUNCTION_FINISH(X,...)
 #endif
 
 

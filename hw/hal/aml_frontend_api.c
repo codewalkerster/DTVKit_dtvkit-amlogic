@@ -360,7 +360,7 @@ BOOLEAN aml_frontend_get_terr_constellation(S32BIT frontend_fd, U32BIT *fe_mode,
 
     U32BIT data;
     U32BIT reserved[3] = {0};
-    if (!get_property_data_ex(frontend_fd, DTV_TRANSMISSION_MODE, &data, reserved))
+    if (!get_property_data_ex(frontend_fd, DTV_DELIVERY_SYSTEM, &data, reserved))
     {
         FD_API_ERR("Fail to get terr constellation (fd:%d)", frontend_fd);
         return FALSE;

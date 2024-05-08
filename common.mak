@@ -105,8 +105,10 @@ endif
 
 DEPF = $(OBJDIR)/$(*F)
 CSRCS = $(filter %.c,$(SRCS))
-DSRCS = $(filter-out %.c,$(SRCS))
+CPPSRCS = $(filter %.cpp,$(SRCS))
+DSRCS = $(filter-out %.c %.cpp,$(SRCS))
 OBJS  = ${CSRCS:%.c=$(OBJDIR)/%.o}
+OBJS  += ${CPPSRCS:%.cpp=$(OBJDIR)/%.o}
 OBJS += ${DSRCS:%=$(OBJDIR)/%.o}
 
 # default version numbers
@@ -144,6 +146,9 @@ $(TRGT_LIB): $(OBJS)
 VPATH = $(SRCDIR)
 
 $(OBJDIR)/%.o: %.c | $(OBJDIR)
+	$(compile)
+
+$(OBJDIR)/%.o: %.cpp | $(OBJDIR)
 	$(compile)
 
 #

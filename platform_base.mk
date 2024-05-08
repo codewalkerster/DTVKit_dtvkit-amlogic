@@ -92,6 +92,13 @@ $(LOCAL_PATH)/os/inc \
 $(LOCAL_PATH)/../../../frameworks/services/systemcontrol \
 $(LOCAL_PATH)/../../../frameworks/services/systemcontrol/PQ/include
 
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -le 30 && echo OK),OK)
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../frameworks/services/subtitleserver/client
+LOCAL_CPPFLAGS += -std=c++17
+else
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../subtitle/client
+endif
+
 LOCAL_CFLAGS += \
 -Wno-unused-function \
 -Wno-unused-parameter \
@@ -122,6 +129,7 @@ hw/src/stbhwcfg.c \
 hw/src/stbhwutils.c \
 hw/src/stbswcfg.c \
 hw/src/stbhwdemux_usb.c \
+hw/src/aml_subtitle_android.cpp \
 hw/src/systemcontrol.cpp \
 hw/src/sideband.cpp \
 hw/src/fsm_base.c \
@@ -164,6 +172,13 @@ LOCAL_SHARED_LIBRARIES+=liblog
 LOCAL_SHARED_LIBRARIES+=libsystemcontrolservice
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.0
 LOCAL_SHARED_LIBRARIES+=vendor.amlogic.hardware.systemcontrol@1.1
+
+#subtitle
+LOCAL_STATIC_LIBRARIES += libsubtitleclient_static
+LOCAL_SHARED_LIBRARIES += \
+    vendor.amlogic.hardware.subtitleserver@1.0 \
+    libhidlbase \
+    libhidlmemory
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -eq 30 -o $(PLATFORM_SDK_VERSION) -eq 33 && echo OK),OK)
     $(info "Build HBBTV broadband play on Android R or Android T or greater than Android T ")

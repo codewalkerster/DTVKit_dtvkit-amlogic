@@ -538,10 +538,10 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
    snprintf(dst_name, sizeof(dst_name), "dmx%d", dmx_id);
    r = STB_File_Echo(dev_name, dst_name);
 
-   if (r != 0)
+   if (r != 1)
       DMX_DBG("set %s source failed: %s", dev_name, strerror(errno));
 #ifdef COMMON_INTERFACE
-   DvbEnableCIPlus(TRUE);
+   //DvbEnableCIPlus(TRUE);
 #endif
 }
 
@@ -735,49 +735,6 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
    }
 
    return chan_id;
-}
-
-static void
-dsc_set_aes_output(BOOLEAN enable)
-{
-   S_DSC_DEV_INFO *dsc;
-   U8BIT r;
-   int i;
-   U32BIT flag = 0;
-   U8BIT dev_name[256];
-   U8BIT dst_name[32];
-   U8BIT dmx_src[16];
-   U8BIT target_source_str[8];
-   U8BIT target_source;
-
-   if (dmx_model_sc2)
-      return;
-   STB_GetCamSource(&target_source, NULL);
-   snprintf(target_source_str, sizeof(target_source_str), "ts%d", target_source);
-   if (enable)
-   {
-      for (i = 0; i < aml_hw_cfg.demux_num; i++)
-      {
-         snprintf(dev_name, sizeof(dev_name), "/sys/class/stb/demux%d_source", i);
-         STB_File_Read(dev_name, dmx_src, sizeof(dmx_src));
-         DMX_DBG("dmx.%d src %s target %s",i, dmx_src, target_source_str);
-         if (strncmp(target_source_str, dmx_src, 3) == 0)
-         {
-            DMX_DBG("dmx source %d match ts1", i);
-            flag |= 1 << i;
-         }
-      }
-   }
-   else
-   {
-      flag = 0;
-   }
-   DMX_DBG("ciplus flag %d", flag);
-   snprintf(dev_name, sizeof(dev_name), "/sys/class/dmx/ciplus_output_ctrl");
-   snprintf(dst_name, sizeof(dst_name), "%d", flag);
-   r = STB_File_Echo(dev_name, dst_name);
-   if (r != 0)
-      DMX_DBG("set %s source failed", dev_name);
 }
 
 void STB_DMXDscFree(int dev_id, int chan_id)
@@ -1072,15 +1029,6 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
          return -1;
       }
 
-      /*if (type == DESC_TYPE_DVB)
-      {
-         dsc_set_aes_output(FALSE);
-      }
-      else //aes & des need set this.
-      {
-         dsc_set_aes_output(TRUE);
-      }*/
-
       if (mode == CA_DSC_CBC)
       {
          DMX_DBG("Set iv data");
@@ -1112,14 +1060,6 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
          DMX_DBG("CA_SET_DESCR_EX set key success");
 
    }
-   /*if (type == DESC_TYPE_AES)
-   {
-      dsc_set_aes_output(TRUE);
-   }
-   else
-   {
-      dsc_set_aes_output(FALSE);
-   }*/
 
    return r;
 }
@@ -1395,7 +1335,6 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
             }
          }
       }
-      //dsc_set_aes_output(TRUE);
       STB_DMXChangeTextPID(path, text_pid);
    }
 
@@ -2344,7 +2283,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
    }
 
 #ifdef COMMON_INTERFACE
-   DvbEnableCIPlus(plug);
+   //DvbEnableCIPlus(plug);
 #endif
 
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
@@ -3654,8 +3593,12 @@ static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
                     out |= 1 << i;
             }
 
-            snprintf(buf, sizeof(buf), "%d", out);
-            STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
+            if(1)
+            {
+               DMX_DBG("!!!!!!!!!!!!!!!!!!!!!");
+               // snprintf(buf, sizeof(buf), "%d", out);
+               // STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
+            }
         }
 
         switch (src)
@@ -3902,8 +3845,8 @@ static int DvbEnableCIPlus(int enable)
     {
         out = 8;
     }
-
     snprintf(buf, sizeof(buf), "%d", out);
+   DMX_DBG("ciplus_output_ctrl %s", buf);
     STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
 
     return 0;

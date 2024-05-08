@@ -1223,10 +1223,37 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
    BOOLEAN ret = TRUE;
    U8BIT key_buffer[32];
    U8BIT dmx_id;
+   U8BIT dsc_id;
+   REC_DBG("rec_index %d rec_demux %d", rec_index, s_rec_status[rec_index].rec_demux);
+   if (STB_DMXGetModel() == STB_DMX_MODEL_SC2)
+   {
+      dmx_id = s_rec_status[rec_index].rec_demux;
+      dsc_id = dmx_id;
+   }
+   else
+   {
+      if (s_rec_status[rec_index].rec_mode == START_PAUSED)
+      {
+         dmx_id = s_rec_status[rec_index].rec_demux;
+         dsc_id = DSC_DEV_NO;
+      }
+      else
+      {
+         if (s_rec_status[rec_index].rec_demux != 0)
+         {
+            return TRUE;
+         }
+         else
+         {
+            dmx_id = 0;
+            dsc_id = dmx_id;
+         }
+      }
 
-   dmx_id = s_rec_status[rec_index].rec_demux;
+   }
+
    // Set descrambler source
-   STB_DMXDscSetSrc(dmx_id, dmx_id);
+   STB_DMXDscSetSrc(dsc_id, dmx_id);
 
    //Alloc dsc pid channel
    for (i = 0; i < num_pids; i++)
@@ -1234,7 +1261,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
       {
          REC_DBG("Found pvr audio pid %d", pid_array[i].pid);
-         s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] = STB_DMXDscAlloc(dmx_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
+         s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
          if (s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] == -1)
          {
             REC_DBG("FAILED: alloc pvr audio pid failed");
@@ -1251,7 +1278,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
          REC_DBG("Found pvr video pid %d", pid_array[i].pid);
          if (s_rec_status[rec_index].descramble_v_chanid == -1)
          {
-            s_rec_status[rec_index].descramble_v_chanid = STB_DMXDscAlloc(dmx_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
+            s_rec_status[rec_index].descramble_v_chanid = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
          }
          if (s_rec_status[rec_index].descramble_v_chanid == -1)
          {
@@ -1284,13 +1311,13 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
    }
    // Set key
    if (s_rec_status[rec_index].descramble_v_chanid != -1)
-      STB_DMXSetKey(dmx_id, s_rec_status[rec_index].descramble_v_chanid, desc_type, DSC_COMMON_TYPE, parity, key_buffer);
+      STB_DMXSetKey(dsc_id, s_rec_status[rec_index].descramble_v_chanid, desc_type, DSC_COMMON_TYPE, parity, key_buffer);
 
    if (s_rec_status[rec_index].des_aids > 0)
    {
       for (i = 0;i< s_rec_status[rec_index].des_aids; i++)
       {
-         STB_DMXSetKey(dmx_id, s_rec_status[rec_index].descramble_a_chanids[i], desc_type, DSC_COMMON_TYPE, parity, key_buffer);
+         STB_DMXSetKey(dsc_id, s_rec_status[rec_index].descramble_a_chanids[i], desc_type, DSC_COMMON_TYPE, parity, key_buffer);
       }
    }
 

@@ -1088,6 +1088,30 @@ U32BIT Wrapper_TuneGetSignalQuality(U8BIT path)
     return stfrontendStatus.signal_quality;
 }
 
+/**
+ * @brief   Returns the ewbs flag
+ * @param   path the tuner path to query
+ * @return  ewbs flag
+ */
+BOOLEAN Wrapper_TuneGetEwbsFlag(U8BIT path)
+{
+    U16BIT tuner_client = findTunerClient(path);
+    if (INVALID_TUNER_ID == tuner_client) {
+        ALOGE("%s: path %d is invalid", __FUNCTION__, path);
+        return 0;
+    }
+
+    if (!isCurrentTuning(path)) {
+        ALOGE("%s: path %d is not tuning", __FUNCTION__, path);
+        return 0;
+    }
+
+    ALOGD("%s: tuner_client: %d", __FUNCTION__, tuner_client);
+
+    Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_EWBS);
+    return stfrontendStatus.is_ewbs;
+}
+
 U32BIT Wrapper_TuneGetActualTerrFrequency(U8BIT path)
 {
     U16BIT tuner_client = findTunerClient(path);

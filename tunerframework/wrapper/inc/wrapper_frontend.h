@@ -386,6 +386,13 @@ U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path);
 U32BIT Wrapper_TuneGetSignalQuality(U8BIT path);
 
 /**
+ * @brief   Returns the ewbs flag
+ * @param   path the tuner path to query
+ * @return  ewbs flag
+ */
+BOOLEAN Wrapper_TuneGetEwbsFlag(U8BIT path);
+
+/**
  * @brief   Returns the actual frequency of the current terrestrial signal
  * @param   path the tuner path to query
  * @return  the frequency in Hz

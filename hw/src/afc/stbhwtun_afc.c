@@ -1259,9 +1259,7 @@ BOOLEAN STB_Tune_BlindContinue(U8BIT path)
 
 int STB_TuneGetEwbsFlag(U8BIT path)
 {
-    int ret = 0;
-
-    return ret;
+    return Wrapper_TuneGetEwbsFlag(path);
 }
 /*---local function definitions----------------------------------------------*/
 

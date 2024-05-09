@@ -64,7 +64,6 @@ typedef enum e_stb_tune_signal_type
     TUNE_SIGNAL_ISDBT = 5,
     TUNE_SIGNAL_ANALOG = 8,
     TUNE_SIGNAL_VSB  = 16,
-    TUNE_SIGNAL_16VSB = 32,
     TUNE_SIGNAL_QAMB = 64
 } E_STB_TUNE_SIGNAL_TYPE;
 
@@ -77,6 +76,8 @@ typedef enum e_stb_tune_tmode
     TUNE_MODE_COFDM_8K = 3,
     TUNE_MODE_COFDM_16K = 4,
     TUNE_MODE_COFDM_32K = 5,
+    TUNE_MODE_VSB_8 = 6,
+    TUNE_MODE_VSB_16 = 7,
     TUNE_MODE_COFDM_UNDEFINED = 255
 } E_STB_TUNE_TMODE;
 

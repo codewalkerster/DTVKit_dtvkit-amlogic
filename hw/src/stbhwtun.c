@@ -757,7 +757,11 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
 
                     break;
                 case TUNE_SIGNAL_VSB:
-                case TUNE_SIGNAL_16VSB:
+                    if (tstatus->u.terr.tmode != tmode)
+                    {
+                        start_tuning = TRUE;
+                        tstatus->u.terr.tmode = tmode;
+                    }
                     break;
 
                 default:
@@ -3165,10 +3169,9 @@ static void CloseTuner(S_TUNER_STATUS *tstatus)
         }
 
         case TUNE_SIGNAL_VSB:
-        case TUNE_SIGNAL_16VSB:
         {
             fe_params.frequency = tstatus->freq;
-            fe_params.u.vsb.modulation = (tstatus->signal_type == TUNE_SIGNAL_16VSB) ? VSB_16 : VSB_8;
+            fe_params.u.vsb.modulation = tstatus->u.terr.tmode == TUNE_MODE_VSB_16 ? VSB_16 : VSB_8;
 
             if (aml_frontend_set_frontend(tstatus->frontend_fd, &fe_params))
             {

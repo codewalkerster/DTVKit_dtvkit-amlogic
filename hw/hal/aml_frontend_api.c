@@ -13,6 +13,7 @@
 
 #define FD_API_ERR(x,...)  DTV_LOGE(TAG, "[%s:%d] " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define FD_API_INFO(x,...) DTV_LOGI(TAG, "[%s:%d] " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define FD_API_DBG(x,...)  DTV_LOGD(TAG, "[%s:%d] " x, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
 static BOOLEAN set_property_data(S32BIT fd, U32BIT cmd, U32BIT data);
 static BOOLEAN set_properties (U32BIT fd, struct dtv_properties *props);
@@ -39,7 +40,7 @@ static BOOLEAN set_property_data(S32BIT fd, U32BIT cmd, U32BIT data)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set property (fd:%d cmd:%u data:%u)", fd, cmd, data);
+    FD_API_DBG("Okay to set property (fd:%d cmd:%u data:%u)", fd, cmd, data);
 
     return TRUE;
 }
@@ -52,7 +53,7 @@ static BOOLEAN set_properties(U32BIT fd, struct dtv_properties *props)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set properties (fd:%d)", fd);
+    FD_API_DBG("Okay to set properties (fd:%d)", fd);
 
     return TRUE;
 }
@@ -76,7 +77,7 @@ static BOOLEAN get_property_data(S32BIT fd, U32BIT cmd, U32BIT *data)
 
     *data = prop.u.data;
 
-    FD_API_INFO("Okay to get property (fd:%d cmd:%u data:%u)", fd, cmd, *data);
+    FD_API_DBG("Okay to get property (fd:%d cmd:%u data:%u)", fd, cmd, *data);
 
     return TRUE;
 }
@@ -103,7 +104,7 @@ static BOOLEAN get_property_data_ex(S32BIT fd, U32BIT cmd, U32BIT *data, U32BIT*
     reserved[1] = prop.reserved[1];
     reserved[2] = prop.reserved[2];
 
-    FD_API_INFO("Okay to get property (fd:%d cmd:%u data:%u reserved:%u %u %u)",
+    FD_API_DBG("Okay to get property (fd:%d cmd:%u data:%u reserved:%u %u %u)",
                 fd, cmd, *data, reserved[0], reserved[1], reserved[2]);
 
     return TRUE;
@@ -128,13 +129,13 @@ static BOOLEAN get_property_data_array(S32BIT fd, U32BIT cmd, U8BIT *data, U32BI
 
     for (U32BIT i = 0; i < prop.u.buffer.len; i++)
     {
-        FD_API_INFO("buffer: %d", prop.u.buffer.data[i]);
+        FD_API_DBG("buffer: %d", prop.u.buffer.data[i]);
     }
 
     memcpy(data, prop.u.buffer.data, prop.u.buffer.len);
     *len = prop.u.buffer.len;
 
-    FD_API_INFO("Okay to get property array (fd:%d cmd:%u data:%p len:%u)", fd, cmd, data, *len);
+    FD_API_DBG("Okay to get property array (fd:%d cmd:%u data:%p len:%u)", fd, cmd, data, *len);
 
     return TRUE;
 }
@@ -150,7 +151,7 @@ BOOLEAN aml_frontend_set_fe_property(S32BIT frontend_fd, fe_delivery_system_t fe
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set frontend property (fd:%d mode:%u)", frontend_fd, fe_mode);
+    FD_API_DBG("Okay to set frontend property (fd:%d mode:%u)", frontend_fd, fe_mode);
 
     return TRUE;
 }
@@ -195,7 +196,7 @@ BOOLEAN aml_frontend_get_tsinput(S32BIT frontend_fd, U32BIT *index)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get tsinput (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to get tsinput (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -211,7 +212,7 @@ BOOLEAN aml_frontend_get_support_delivery_system_list(S32BIT frontend_fd, U8BIT 
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get supported delivery system list (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to get supported delivery system list (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -227,7 +228,7 @@ BOOLEAN aml_frontend_get_signal_strength(S32BIT frontend_fd, U16BIT *strength)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to read signal strength (fd:%d strength:%u)", frontend_fd, *strength);
+    FD_API_DBG("Okay to read signal strength (fd:%d strength:%u)", frontend_fd, *strength);
 
     return TRUE;
 }
@@ -272,7 +273,7 @@ BOOLEAN aml_frontend_get_signal_strength_property(S32BIT frontend_fd, U16BIT *st
         }
     }
 
-    FD_API_INFO("Okay to get signal property (fd:%d strength:%u dBmV:%u)",
+    FD_API_DBG("Okay to get signal property (fd:%d strength:%u dBmV:%u)",
                 frontend_fd, strength_value, dBmV_value);
 
     if (strength != NULL)
@@ -300,7 +301,7 @@ BOOLEAN aml_frontend_get_signal_ber(S32BIT frontend_fd, U32BIT *ber)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to read signal ber (fd:%d ber:%u)", frontend_fd, *ber);
+    FD_API_DBG("Okay to read signal ber (fd:%d ber:%u)", frontend_fd, *ber);
 
     return TRUE;
 }
@@ -316,7 +317,7 @@ BOOLEAN aml_frontend_get_signal_snr(S32BIT frontend_fd, U16BIT *snr)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to read signal snr (fd:%d snr:%u)", frontend_fd, *snr);
+    FD_API_DBG("Okay to read signal snr (fd:%d snr:%u)", frontend_fd, *snr);
 
     return TRUE;
 }
@@ -332,7 +333,7 @@ BOOLEAN aml_frontend_get_frequency(S32BIT frontend_fd, U32BIT *frequency)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get frequency (fd:%d frequency:%u)", frontend_fd, *frequency);
+    FD_API_DBG("Okay to get frequency (fd:%d frequency:%u)", frontend_fd, *frequency);
 
     return TRUE;
 }
@@ -348,7 +349,7 @@ BOOLEAN aml_frontend_get_transmission_mode(S32BIT frontend_fd, U32BIT *mode)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get transmission mode (fd:%d mode:%u)", frontend_fd, *mode);
+    FD_API_DBG("Okay to get transmission mode (fd:%d mode:%u)", frontend_fd, *mode);
 
     return TRUE;
 }
@@ -369,7 +370,7 @@ BOOLEAN aml_frontend_get_terr_constellation(S32BIT frontend_fd, U32BIT *fe_mode,
     *fe_mode = data;
     *constellation = reserved[0];
 
-    FD_API_INFO("Okay to get terr constellation (fd:%d mode:%u constellation:%u)",
+    FD_API_DBG("Okay to get terr constellation (fd:%d mode:%u constellation:%u)",
                 frontend_fd, *fe_mode, *constellation);
 
     return TRUE;
@@ -386,7 +387,7 @@ BOOLEAN aml_frontend_get_terr_hierarchy(S32BIT frontend_fd, U32BIT *hierarchy)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get terr hierarchy (fd:%d hierarchy:%u)", frontend_fd, *hierarchy);
+    FD_API_DBG("Okay to get terr hierarchy (fd:%d hierarchy:%u)", frontend_fd, *hierarchy);
 
     return TRUE;
 }
@@ -412,7 +413,7 @@ BOOLEAN aml_frontend_get_dvbt2_plp_id_list(S32BIT frontend_fd, U32BIT max_plp, U
 
     *list_len = prop.u.buffer.reserved1[0];
 
-    FD_API_INFO("Okay to get dvbt2 plp id list (fd:%d plp_ids:%p len:%u)", frontend_fd, *plp_ids, *list_len);
+    FD_API_DBG("Okay to get dvbt2 plp id list (fd:%d plp_ids:%p len:%u)", frontend_fd, *plp_ids, *list_len);
 
     return TRUE;
 }
@@ -428,7 +429,7 @@ BOOLEAN aml_frontend_set_dvbt2_plp_id(S32BIT frontend_fd, U8BIT plp_id)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set dvbt2 plp id (fd:%d id:%d)", frontend_fd, plp_id);
+    FD_API_DBG("Okay to set dvbt2 plp id (fd:%d id:%d)", frontend_fd, plp_id);
 
     return TRUE;
 }
@@ -449,7 +450,7 @@ BOOLEAN aml_frontend_get_terr_coderate(S32BIT frontend_fd, U32BIT *fe_mode, U32B
     *fe_mode = data;
     *coderate = reserved[1];
 
-    FD_API_INFO("Okay to get terr coderate (fd:%d mode:%u coderate:%u)", frontend_fd, *fe_mode, *coderate);
+    FD_API_DBG("Okay to get terr coderate (fd:%d mode:%u coderate:%u)", frontend_fd, *fe_mode, *coderate);
 
     return TRUE;
 }
@@ -470,7 +471,7 @@ BOOLEAN aml_frontend_get_terr_cellid(S32BIT frontend_fd, U32BIT *fe_mode, U32BIT
     *fe_mode = data;
     *cellid = reserved[2];
 
-    FD_API_INFO("Okay to get terr cellid (fd:%d mode:%u cellid:%u)", frontend_fd, *fe_mode, *cellid);
+    FD_API_DBG("Okay to get terr cellid (fd:%d mode:%u cellid:%u)", frontend_fd, *fe_mode, *cellid);
 
     return TRUE;
 }
@@ -492,7 +493,7 @@ BOOLEAN aml_frontend_get_delivery_system(S32BIT frontend_fd, U32BIT *system, U32
     *modulation = reserved[0];  // reserved[0] is used for modulation in demod
     *srate = reserved[1];  // reserved[1] is used for symbol rate in demod
 
-    FD_API_INFO("Okay to get delivery system (fd:%d system:%u modulation:%u srate:%u)",
+    FD_API_DBG("Okay to get delivery system (fd:%d system:%u modulation:%u srate:%u)",
                 frontend_fd, *system, *modulation, *srate);
 
     return TRUE;
@@ -509,7 +510,7 @@ BOOLEAN aml_frontend_set_voltage(S32BIT frontend_fd, fe_sec_voltage_t voltage)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set voltage (fd:%d voltage:%u)", frontend_fd, voltage);
+    FD_API_DBG("Okay to set voltage (fd:%d voltage:%u)", frontend_fd, voltage);
 
     return TRUE;
 }
@@ -535,7 +536,7 @@ BOOLEAN aml_frontend_set_tone(S32BIT frontend_fd, BOOLEAN use_22khz)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set tone (fd:%d 22khz:%u tone:%u)", frontend_fd, use_22khz, tone);
+    FD_API_DBG("Okay to set tone (fd:%d 22khz:%u tone:%u)", frontend_fd, use_22khz, tone);
 
     return TRUE;
 }
@@ -562,7 +563,7 @@ BOOLEAN aml_frontend_master_send_diseqc_cmd(S32BIT frontend_fd, U8BIT *data, U8B
         return FALSE;
     }
 
-    FD_API_INFO("Okay to send diseqc cmd (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to send diseqc cmd (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -597,7 +598,7 @@ BOOLEAN aml_frontend_slave_receive_diseqc_reply(S32BIT frontend_fd, U8BIT *data,
         return FALSE;
     }
 
-    FD_API_INFO("Okay to receive diseqc reply (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to receive diseqc reply (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -624,6 +625,7 @@ BOOLEAN aml_frontend_send_diseqc_burst(S32BIT frontend_fd, U8BIT data)
         cmd = SEC_MINI_B;
     }
 
+    FD_API_INFO("cmd: %u", cmd);
     if (ioctl(frontend_fd, FE_DISEQC_SEND_BURST, cmd) < 0)
     {
         FD_API_ERR("Fail to send diseqc cmd (fd:%d data:0x%x cmd:%u) errno %d (%s)",
@@ -631,7 +633,7 @@ BOOLEAN aml_frontend_send_diseqc_burst(S32BIT frontend_fd, U8BIT data)
         return FALSE;
     }
 
-    FD_API_INFO("Okay send diseqc burst (fd:%d data:0x%x cmd:%u)", frontend_fd, data, cmd);
+    FD_API_DBG("Okay send diseqc burst (fd:%d data:0x%x cmd:%u)", frontend_fd, data, cmd);
 
     return TRUE;
 }
@@ -687,7 +689,7 @@ BOOLEAN aml_frontend_blindscan_start(S32BIT frontend_fd, struct dvbsx_blindscanp
         return FALSE;
     }
 
-    FD_API_INFO("Okay to start blind scan (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to start blind scan (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -703,7 +705,7 @@ BOOLEAN aml_frontend_blindscan_next(S32BIT frontend_fd)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to next blind scan (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to next blind scan (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -719,7 +721,7 @@ BOOLEAN aml_frontend_blindscan_cancel(S32BIT frontend_fd)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to cancel blind scan (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to cancel blind scan (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -761,7 +763,7 @@ BOOLEAN aml_frontend_blindscan_set_singlecable(S32BIT frontend_fd, struct dvbsx_
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set singlecable (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to set singlecable (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -777,7 +779,7 @@ BOOLEAN aml_frontend_get_frontend_info(S32BIT frontend_fd, struct dvb_frontend_i
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get frontend info (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to get frontend info (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -800,7 +802,7 @@ S32BIT aml_frontend_open_tuner(U8BIT fe_index)
         }
         else
         {
-            FD_API_INFO("Okay to open tuner[%u] %s", fe_index, fe_name);
+            FD_API_DBG("Okay to open tuner[%u] %s", fe_index, fe_name);
         }
     }
     else
@@ -822,7 +824,7 @@ BOOLEAN aml_frontend_close_tuner(S32BIT frontend_fd)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to close tuner (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to close tuner (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -838,7 +840,7 @@ BOOLEAN aml_frontend_clear_tuner(S32BIT frontend_fd)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to clear tuner (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to clear tuner (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -854,7 +856,7 @@ BOOLEAN aml_frontend_set_frontend(S32BIT frontend_fd, struct dvb_frontend_parame
         return FALSE;
     }
 
-    FD_API_INFO("Okay to set frontend (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to set frontend (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -870,7 +872,7 @@ BOOLEAN aml_frontend_get_event(S32BIT frontend_fd, struct dvb_frontend_event *fe
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get event (fd:%d)", frontend_fd);
+    FD_API_DBG("Okay to get event (fd:%d)", frontend_fd);
 
     return TRUE;
 }
@@ -886,7 +888,7 @@ BOOLEAN aml_frontend_get_tuner_status(S32BIT frontend_fd, U32BIT *fe_status)
         return FALSE;
     }
 
-    FD_API_INFO("Okay to get status (fd:%d status:%u)", frontend_fd, *fe_status);
+    FD_API_DBG("Okay to get status (fd:%d status:%u)", frontend_fd, *fe_status);
 
     return TRUE;
 }
@@ -912,7 +914,7 @@ BOOLEAN aml_frontend_get_isdbt_partial_reception(S32BIT frontend_fd, U32BIT *sys
     *sys_id = prop.u.buffer.reserved1[0];
     *ewbs_flag = prop.u.buffer.reserved1[1];
 
-    FD_API_INFO("Okay to get isdbt partial reception (fd:%d data:%u %u)", frontend_fd, *sys_id, *ewbs_flag);
+    FD_API_DBG("Okay to get isdbt partial reception (fd:%d data:%u %u)", frontend_fd, *sys_id, *ewbs_flag);
 
     return TRUE;
 }

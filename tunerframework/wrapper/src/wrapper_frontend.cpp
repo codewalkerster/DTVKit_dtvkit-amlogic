@@ -6,6 +6,7 @@
 #include "filter_utils.h"
 #include "dvb_frontend_setting_utils.h"
 #include "isdb_frontend_setting_utils.h"
+#include "atsc_frontend_settings_utils.h"
 #include "type_change_utils.h"
 #include "frontend_utils.h"
 
@@ -750,12 +751,22 @@ static BOOLEAN IsAlreadyTuned(U8BIT path, U16BIT client_id,
     else if (signal_type == E_TERR_TYPE_ISDBT && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_ISDBT) {
         required_signal = WRAPPER_TUNE_SIGNAL_ISDBT;
     }
+    else if (signal_type == E_TERR_TYPE_VSB && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_VSB)
+    {
+        required_signal = WRAPPER_TUNE_SIGNAL_VSB;
+    }
+    else if (signal_type == E_TERR_TYPE_QAMB && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_QAMB)
+    {
+        required_signal = WRAPPER_TUNE_SIGNAL_QAMB;
+    }
 
     E_TTYPE fe_signal = Wrapper_TuneGetActualSignalType(path);
     if ((required_signal == WRAPPER_TUNE_SIGNAL_COFDM && fe_signal == E_TERR_TYPE_DVBT) ||
         (required_signal == WRAPPER_TUNE_SIGNAL_QPSK && fe_signal == E_TERR_TYPE_DVBS) ||
         (required_signal == WRAPPER_TUNE_SIGNAL_QAM && fe_signal == E_TERR_TYPE_DVBC) ||
-        (required_signal == WRAPPER_TUNE_SIGNAL_ISDBT && fe_signal == E_TERR_TYPE_ISDBT)) {
+        (required_signal == WRAPPER_TUNE_SIGNAL_ISDBT && fe_signal == E_TERR_TYPE_ISDBT) ||
+        (required_signal == WRAPPER_TUNE_SIGNAL_VSB && fe_signal == E_TERR_TYPE_VSB) ||
+        (required_signal == WRAPPER_TUNE_SIGNAL_QAMB && fe_signal == E_TERR_TYPE_QAMB)) {
         // nothing
     }
     else {
@@ -800,6 +811,17 @@ static BOOLEAN IsAlreadyTuned(U8BIT path, U16BIT client_id,
             {
                 ALOGD("%s: tbwidth(%u) is different(%u %u)", __FUNCTION__, path,
                       tuner_status_map[path].tbwidth, tbwidth);
+                return FALSE;
+            }
+            break;
+       case WRAPPER_TUNE_SIGNAL_VSB:
+            return TRUE;
+            break;
+       case WRAPPER_TUNE_SIGNAL_QAMB:
+            if (tuner_status_map[path].cable_mode != cmode || tuner_status_map[path].tuner_srate != srate)
+            {
+                ALOGD("%s: cmode or srate(%u) is different(%u %u, %u %u)", __FUNCTION__, path,
+                  tuner_status_map[path].cable_mode, cmode, tuner_status_map[path].tuner_srate, srate);
                 return FALSE;
             }
             break;
@@ -951,12 +973,20 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
 
         frontendSettingObject = dvb_utils_getDvbtFrontendSettingsObject(env, dvbtFrontendSettings);
     }
-    else if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBC) {
+    else if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBC || tuner_status_map[path].signal_type == E_TERR_TYPE_QAMB) {
         Dvbc_Frontend_Settings dvbcFrontendSettings;
         memset(&dvbcFrontendSettings, 0, sizeof(Dvbc_Frontend_Settings));
         dvbcFrontendSettings.frequency = freq;
         dvbcFrontendSettings.modulation = getCableModulation(cmode);
         dvbcFrontendSettings.symbolRate = srate;
+        if (tuner_status_map[path].signal_type == E_TERR_TYPE_DVBC)
+        {
+            dvbcFrontendSettings.annex = DVBC_ANNEX_A;
+        }
+        else if (tuner_status_map[path].signal_type == E_TERR_TYPE_QAMB)
+        {
+            dvbcFrontendSettings.annex = DVBC_ANNEX_B;
+        }
 
         frontendSettingObject = dvb_utils_getDvbcFrontendSettingsObject(env, dvbcFrontendSettings);
     }
@@ -983,6 +1013,14 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         isdbtFrontendSettings.bandwidth = getIsdbtBwidth(tbwidth);
 
         frontendSettingObject = isdb_utils_getIsdbtFrontendSettingsObject(env, isdbtFrontendSettings);
+    }
+    else if (tuner_status_map[path].signal_type == E_TERR_TYPE_VSB) {
+        Atsc_Frontend_Settings atscFrontendSettings;
+        memset(&atscFrontendSettings, 0, sizeof(Atsc_Frontend_Settings));
+        atscFrontendSettings.frequency = freq;
+        atscFrontendSettings.modulation = ATSC_MODULATION_8VSB;
+
+        frontendSettingObject = atsc_utils_getAtscFrontendSettingsObject(env, atscFrontendSettings);
     }
     else {
         ALOGE("%s: error signal type %u", __FUNCTION__, tuner_status_map[path].signal_type);
@@ -1268,6 +1306,16 @@ EW_STB_TUNE_SIGNAL_TYPE Wrapper_TuneGetSignalType(U8BIT path)
                 s_type = WRAPPER_TUNE_SIGNAL_ISDBT;
                 break;
             }
+        case E_TERR_TYPE_VSB:
+            {
+               s_type = WRAPPER_TUNE_SIGNAL_VSB;
+               break;
+            }
+        case E_TERR_TYPE_QAMB:
+            {
+               s_type = WRAPPER_TUNE_SIGNAL_QAMB;
+               break;
+            }
         default:
             {
                 s_type = WRAPPER_TUNE_SIGNAL_NONE;
@@ -1332,6 +1380,12 @@ void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type)
         signal_type = E_TERR_TYPE_DVBC;
     }else if (WRAPPER_TUNE_SIGNAL_ISDBT == type) {
         signal_type = E_TERR_TYPE_ISDBT;
+    }
+    else if (WRAPPER_TUNE_SIGNAL_VSB == type) {
+        signal_type = E_TERR_TYPE_VSB;
+    }
+    else if (WRAPPER_TUNE_SIGNAL_QAMB == type) {
+        signal_type = E_TERR_TYPE_QAMB;
     }
 
     ALOGD("start:%s path:%d type:%d signal_type:%d", __FUNCTION__, path, type, signal_type);

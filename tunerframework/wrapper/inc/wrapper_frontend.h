@@ -41,7 +41,9 @@ typedef enum ew_stb_tune_system_type
     WRAPPER_TUNE_SYSTEM_TYPE_DVBC = 5,
     WRAPPER_TUNE_SYSTEM_TYPE_ISDBT = 6,
     WRAPPER_TUNE_SYSTEM_TYPE_ANALOG = 7,
-    WRAPPER_TUNE_SYSTEM_TYPE_END = 8
+    WRAPPER_TUNE_SYSTEM_TYPE_VSB = 8,
+    WRAPPER_TUNE_SYSTEM_TYPE_QAMB = 9,
+    WRAPPER_TUNE_SYSTEM_TYPE_END
 } EW_STB_TUNE_SYSTEM_TYPE;
 
 
@@ -52,7 +54,9 @@ typedef enum ew_stb_tune_signal_type
     WRAPPER_TUNE_SIGNAL_COFDM = 2,//T
     WRAPPER_TUNE_SIGNAL_QAM = 4,
     WRAPPER_TUNE_SIGNAL_ISDBT = 5,
-    WRAPPER_TUNE_SIGNAL_ANALOG = 8
+    WRAPPER_TUNE_SIGNAL_ANALOG = 8,
+    WRAPPER_TUNE_SIGNAL_VSB = 16,
+    WRAPPER_TUNE_SIGNAL_QAMB = 64
 } EW_STB_TUNE_SIGNAL_TYPE;
 
 /* Terrestrial */
@@ -229,7 +233,7 @@ typedef enum ew_tune_terr_type
 {
     E_TERR_TYPE_UNKNOWN,
     E_TERR_TYPE_ANALOG,
-    E_TERR_TYPE_ATSC,
+    E_TERR_TYPE_VSB,
     E_TERR_TYPE_ATSC3,
     E_TERR_TYPE_DVBC,
     E_TERR_TYPE_DVBS,
@@ -238,7 +242,8 @@ typedef enum ew_tune_terr_type
     E_TERR_TYPE_ISDBS3,
     E_TERR_TYPE_ISDBT,
     E_TERR_TYPE_DTMB,
-    E_TERR_TYPE_IPTV
+    E_TERR_TYPE_IPTV,
+    E_TERR_TYPE_QAMB
 } E_TTYPE;
 
 typedef void (* Wrapper_SendEvent) (BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size);

@@ -757,7 +757,7 @@ S8BIT Wrapper_Player_SetVideoMute(jni_asplayer_handle handle, jni_asplayer_video
     return ret;
 }
 
-S8BIT Wrapper_Player_SetVideoBlackOut(jni_asplayer_handle handle, jni_asplayer_transition_mode_before mode)
+S8BIT Wrapper_Player_SetStillFrame(jni_asplayer_handle handle, jni_asplayer_transition_mode_before mode)
 {
     S8BIT ret = -1;
     ALOGI("%s : start", __FUNCTION__);

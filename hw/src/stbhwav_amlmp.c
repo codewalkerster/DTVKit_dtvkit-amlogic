@@ -2272,7 +2272,7 @@ BOOLEAN STB_AVSetStillFrame(U8BIT path, BOOLEAN is_black)
 
    if (ret == 0) {
       Aml_MP_Player_SetParameter(player_handle, AML_MP_PLAYER_PARAMETER_BLACK_OUT, &is_black);
-      AV_DBG("Set Still Frame PLAYER_PARAMETER_BLACK_OUT %d:[%d:%d]:[%d] = %d, player[0x%p]",
+      AV_DBG("Set Still Frame %d:[%d:%d]:[%d] = %d, player[0x%p]",
          av_path,
          av_paths_status[av_path].video_decoder,
          av_paths_status[av_path].audio_decoder,

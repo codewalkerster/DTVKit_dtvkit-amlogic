@@ -2004,8 +2004,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
             return ret;
         }
 
-        if (STB_AVGetStaticFrameEnable())
-            Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE);
+        Wrapper_Player_SetStillFrame(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE);
     }
 
     if (audio_pid != 0 && audio_pid != INVALID_PID)

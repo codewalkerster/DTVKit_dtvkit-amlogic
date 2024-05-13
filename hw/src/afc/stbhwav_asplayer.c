@@ -648,7 +648,7 @@ void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOL
                     break;
                 case 1:
                     asplayer_color = JNI_ASPLAYER_COLOR_BLUE;
-                    Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
+                    Wrapper_Player_SetStillFrame(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
                     Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
                     Wrapper_Player_SetVideoColor(player_handle, asplayer_mode, asplayer_color);
                     VID_DBG("set blue color mode=%d", asplayer_mode);
@@ -1702,8 +1702,8 @@ BOOLEAN STB_AVSetStillFrame(U8BIT path, BOOLEAN is_black)
 
     if (ret == 0) {
         jni_asplayer_transition_mode_before mode = is_black ? JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK : JNI_ASPLAYER_TRANSITION_MODE_BEFORE_LAST_IMAGE;
-        Wrapper_Player_SetVideoBlackOut(player_handle, mode);
-        AV_DBG("Set Still Frame VideoBlackOut %d:[%d:%d]:[%d] = %d, player[0x%u]",
+        Wrapper_Player_SetStillFrame(player_handle, mode);
+        AV_DBG("Set Still Frame %d:[%d:%d]:[%d] = %d, player[0x%u]",
             av_path,
             av_paths_status[av_path].video_decoder,
             av_paths_status[av_path].audio_decoder,
@@ -4105,10 +4105,10 @@ static int _AVSetWindowColor_NoHandle(U8BIT av_path, BOOLEAN blank, BOOLEAN is_b
                 VID_DBG("set black color");
                 break;
             case 1:
-                Wrapper_Player_SetVideoBlackOut(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
+                Wrapper_Player_SetStillFrame(player_handle, JNI_ASPLAYER_TRANSITION_MODE_BEFORE_BLACK);
                 Wrapper_Player_SetVideoMute(player_handle, JNI_ASPLAYER_UN_MUTE);
-                Wrapper_Player_SetVideoColor(player_handle, asplayer_mode, JNI_ASPLAYER_COLOR_BLUE);
-                VID_DBG("set blue color mode=%d", asplayer_mode);
+                Wrapper_Player_SetVideoColor(player_handle, JNI_ASPLAYER_COLOR_ONCE_TRANSITION, JNI_ASPLAYER_COLOR_BLUE);
+                VID_DBG("set blue color, mode = TRANSITION");
                 break;
         }
     }

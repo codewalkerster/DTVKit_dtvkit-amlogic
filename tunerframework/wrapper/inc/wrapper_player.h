@@ -102,7 +102,7 @@ S8BIT Wrapper_Player_SetADMixLevel(jni_asplayer_handle handle, S32BIT mix_level)
 S8BIT Wrapper_Player_GetADMixLevel(jni_asplayer_handle handle, S32BIT *mix_level);
 S8BIT Wrapper_Player_SetAudioMute(jni_asplayer_handle handle, BOOLEAN audio_mute);
 S8BIT Wrapper_Player_SetVideoMute(jni_asplayer_handle handle, jni_asplayer_video_mute video_mute);
-S8BIT Wrapper_Player_SetVideoBlackOut(jni_asplayer_handle handle, jni_asplayer_transition_mode_before mode);
+S8BIT Wrapper_Player_SetStillFrame(jni_asplayer_handle handle, jni_asplayer_transition_mode_before mode);
 S8BIT Wrapper_Player_SetVideoColor(jni_asplayer_handle handle, jni_asplayer_screen_color_mode mode, jni_asplayer_screen_color color);
 S8BIT Wrapper_Player_SetPIPMode(jni_asplayer_handle handle, jni_asplayer_pip_mode mode);
 S8BIT Wrapper_Player_SetWorkMode(jni_asplayer_handle handle, jni_asplayer_work_mode mode);

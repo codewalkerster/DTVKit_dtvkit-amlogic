@@ -22,7 +22,7 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libbase
 
-ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 33 && echo OK),OK)
 $(warning "build jni => $(PRODUCT_SUPPORT_TUNER_FRAMEWORK)")
     LOCAL_C_INCLUDES += vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include
     LOCAL_C_INCLUDES += vendor/amlogic/common/prebuilt/libmediadrm/jcas/include
@@ -33,21 +33,10 @@ $(warning "build jni => $(PRODUCT_SUPPORT_TUNER_FRAMEWORK)")
     LOCAL_SHARED_LIBRARIES += libdtvkit_tuner_jni
     LOCAL_SHARED_LIBRARIES += libjniasplayer-jni
     LOCAL_SHARED_LIBRARIES += libjcas_jni
-else
-$(warning "prebuild")
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_asplayer/include
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_dvr/include
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_tuner/include
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../JNI_cas/include
-
-    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_asplayer/lib/libjniasplayer-jni.so
-    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_dvr/lib/libjdvrlib-jni.so
-    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_tuner/lib/libdtvkit_tuner_jni.so
-    LOCAL_LDFLAGS +=$(LOCAL_PATH)/../JNI_cas/lib/libjcas_jni.so
 endif
 
 LOCAL_HEADER_LIBRARIES := jni_headers
-
+LOCAL_MULTILIB := 32
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true

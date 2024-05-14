@@ -1,15 +1,10 @@
 LOCAL_HEADER_LIBRARIES := jni_headers
 
-ifeq ($(PRODUCT_SUPPORT_TUNER_FRAMEWORK), true)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 33 && echo OK),OK)
     LOCAL_C_INCLUDES += \
     vendor/amlogic/common/ASPlayer/libs/JNI-ASPlayer-library/src/main/jni/include \
     vendor/amlogic/common/prebuilt/libmediadrm/jcas/include \
     vendor/amlogic/reference/apps/JDvrLib/jni/include
-else
-    LOCAL_C_INCLUDES += \
-    $(LOCAL_PATH)/tunerframework/JNI_asplayer/include \
-    $(LOCAL_PATH)/tunerframework/JNI_cas/include \
-    $(LOCAL_PATH)/tunerframework/JNI_dvr/include
 endif
 
 LOCAL_C_INCLUDES += \

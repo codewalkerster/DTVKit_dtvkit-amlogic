@@ -1193,17 +1193,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                      demux_status[i].filter_info[j].data_packet_size = 0;
                   }
 
-                  /* Default sources for each path */
-                  memset(buf, 0, sizeof(buf));
-                  memset(cmd, 0, sizeof(cmd));
-                  snprintf(buf, sizeof(buf), "/sys/class/stb/demux%d_source", i);
-                  snprintf(cmd, sizeof(cmd), "ts%d", aml_hw_cfg.tuners[0].ts_input_idx);
-                  am_result = STB_File_Echo(buf, cmd);
-                  if (am_result)
                   {
-                      demux_status[i].source = DMX_TUNER;
-                      demux_status[i].source_param = 0;
-                  } else {
                       demux_status[i].source = DMX_MEMORY;
                       demux_status[i].source_param = 255;
                   }

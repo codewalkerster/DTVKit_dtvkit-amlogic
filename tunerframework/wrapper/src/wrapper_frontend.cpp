@@ -64,7 +64,7 @@ static Wrapper_SendEvent lock_SendEvent;
 
 
 
-static inline U16BIT findTunerClient(U8BIT path)
+static U16BIT findTunerClient(U8BIT path)
 {
     return KEY_CONTAINED_IN_MAP(tuner_status_map, path) ? tuner_status_map[path].tuner_client
                                                         : INVALID_TUNER_ID;
@@ -76,7 +76,7 @@ static inline BOOLEAN isCurrentTuning(U8BIT path)
                                                         : FALSE;
 }
 
-static inline E_TTYPE getSignalType(U8BIT path)
+static E_TTYPE getSignalType(U8BIT path)
 {
     return KEY_CONTAINED_IN_MAP(tuner_status_map, path) ? tuner_status_map[path].signal_type
                                                         : E_TERR_TYPE_UNKNOWN;

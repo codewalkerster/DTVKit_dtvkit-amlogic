@@ -263,7 +263,6 @@ enum DVBS_INNER_FEC {
 
 typedef struct
 {
-    int frequency;
     int transmissionMode; /*DVBT_TRANSMISSION_MODE*/
     int bandwidth;        /*DVBT_BANDWIDTH*/
     int constellation;    /*DVBT_CONSTELLATION*/
@@ -277,17 +276,18 @@ typedef struct
     int plpGroupId;
     bool isHighPriority;
     bool isMiso;
+    unsigned long frequency;
 }Dvbt_Frontend_Settings;
 
 typedef struct
 {
-    int frequency;
     int modulation;        /*DVBC_MODULATION*/
     int symbolRate;
     int outerFec;          /*DVBC_OUTER_FEC*/
     int annex;             /*DVBC_ANNEX*/
     int spectralInversion; /*DVBC_SPECTRAL_INVERSION*/
     long innerFec;
+    unsigned long frequency;
 }Dvbc_Frontend_Settings;
 
 typedef struct
@@ -301,7 +301,6 @@ typedef struct
 typedef struct
 {
     bool isDiseqcRxMessage;
-    int frequency;
     int modulation;
     int symbol_rate;
     int roll_off;
@@ -310,6 +309,7 @@ typedef struct
     int standard;
     int vcm;
     int scan_type;
+    unsigned long frequency;
     unsigned long end_frequency;
     Dvbs_Code_Rate code_rate;
 }Dvbs_Frontend_Settings;

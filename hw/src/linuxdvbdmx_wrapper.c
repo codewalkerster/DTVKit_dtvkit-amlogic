@@ -305,7 +305,14 @@ BOOLEAN DMX_SetSecFilter(int dev_no, int fhandle, const struct dmx_sct_filter_pa
             if (filter->dev_no != real_dev_no)
             {
                 char name[64];
-
+                /*
+                this is T5D amazon dmeux workarond soution revice NIT table issue
+                even if dvbcore alloc demux0,here force change demux2
+                */
+                char node[32] = {0};
+                snprintf(node, sizeof(node), "/sys/class/stb/demux%d_source", real_dev_no);
+                STB_File_Echo(node, "ts2");
+                /**/
                 close(filter->fd);
                 snprintf(name, sizeof(name), "/dev/dvb0.demux%d", real_dev_no);
                 filter->fd = open(name, O_RDWR);

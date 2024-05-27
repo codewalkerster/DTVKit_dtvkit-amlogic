@@ -30,7 +30,7 @@ ifeq ($(SUPPORT_PLATFORM_SHARED_LIB), true)
 	include $(BUILD_SHARED_LIBRARY)
 endif
 
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 33 && echo OK),OK)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 33 && echo OK),OK)
     ifeq ($(SUPPORT_PLATFORM_STATIC_LIB), true)
         $(warning "build atf platform static lib")
 

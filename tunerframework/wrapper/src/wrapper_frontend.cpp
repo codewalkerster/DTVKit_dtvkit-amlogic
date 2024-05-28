@@ -182,11 +182,12 @@ static BOOLEAN getFrontendIds(U8BIT path)
         frontend_list.push_back(frontend_id);
     }
 
+    env->DeleteWeakGlobalRef(frontend_obj_list);
+
     if (attached) {
         Am_tuner_detachJNIEnv();
     }
 
-    env->DeleteWeakGlobalRef(frontend_obj_list);
 
     return (frontend_list.size() > 0);
 }
@@ -272,13 +273,15 @@ static S64BIT getCurrentFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM par
                 }
                 return 0;
             }
-            jmethodID value_id = env->GetMethodID(value_class, "intValue", "()I");
+
             if (param == FRONTEND_PARAM_MAX_FREQ || param == FRONTEND_PARAM_MIN_FREQ)
             {
+                jmethodID value_id = env->GetMethodID(value_class, "longValue", "()J");
                 param_value = env->CallLongMethod(get_value_obj, value_id);
             }
             else if (param == FRONTEND_PARAM_MAX_SRATE || param == FRONTEND_PARAM_MIN_SRATE)
             {
+                jmethodID value_id = env->GetMethodID(value_class, "intValue", "()I");
                 param_value = env->CallIntMethod(get_value_obj, value_id);
             }
             ALOGI("%s: type:%d param:%d value:%lld", __FUNCTION__, type, param, param_value);
@@ -317,12 +320,11 @@ static Frontend_Status getFrontendStatus(U16BIT tuner_client, FRONTEND_STATUS_TY
     jintArray jaStatusTypes = TypeChangeUtils::getJNIArray(env, (int*)&status_type, 1);
     jobject frontendStatusObject = Am_tuner_getFrontendStatus(tuner_client, jaStatusTypes);
     frontend_utils_parseFrontendStatus(env, frontendStatusObject, &stfrontendStatus);
-
+    env->DeleteWeakGlobalRef(frontendStatusObject);
     if (attached) {
         Am_tuner_detachJNIEnv();
     }
 
-    env->DeleteWeakGlobalRef(frontendStatusObject);
 
     return stfrontendStatus;
 }
@@ -1360,12 +1362,12 @@ E_TTYPE Wrapper_TuneGetActualSignalType(U8BIT path)
     U16BIT type = env->GetIntField(frontendInfo, fType);
 
     ALOGD("%s: frontend type: %d", __FUNCTION__, type);
+    env->DeleteWeakGlobalRef(frontendInfo);
 
     if (attached) {
         Am_tuner_detachJNIEnv();
     }
 
-    env->DeleteWeakGlobalRef(frontendInfo);
 
     return (E_TTYPE)type;
 }

@@ -1552,8 +1552,7 @@ EW_STB_TUNE_HIERARCHY Wrapper_TuneGetActualTerrHierarchy(U8BIT path)
 
 void Wrapper_TuneSetPLP(U8BIT path, U8BIT plp)
 {
-    U16BIT tuner_client = findTunerClient(path);
-    if (INVALID_TUNER_ID == tuner_client) {
+    if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
         return;
     }
@@ -1602,8 +1601,7 @@ U16BIT Wrapper_TuneGetMPLPIDList(U8BIT path, U8BIT *plp_list, U16BIT listlen)
 
 U32BIT Wrapper_TuneGetActualSymbolRate(U8BIT path)
 {
-    U16BIT tuner_client = findTunerClient(path);
-    if (INVALID_TUNER_ID == tuner_client) {
+    if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
         return 0;
     }
@@ -1946,8 +1944,7 @@ EW_STB_TUNE_LNB_VOLTAGE Wrapper_TuneGetLNBVoltage(U8BIT path)
 }
 void Wrapper_TuneSetLNBVoltage(U8BIT path, EW_STB_TUNE_LNB_VOLTAGE voltage, BOOLEAN retune)
 {
-    U16BIT tuner_client = findTunerClient(path);
-    if (tuner_client == INVALID_TUNER_ID) {
+    if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
         return;
     }
@@ -1989,8 +1986,7 @@ BOOLEAN Wrapper_TuneGet22kState(U8BIT path)
 }
 void Wrapper_TuneSet22kState(U8BIT path, BOOLEAN state, BOOLEAN retune)
 {
-    U16BIT tuner_client = findTunerClient(path);
-    if (tuner_client == INVALID_TUNER_ID) {
+    if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
         return;
     }

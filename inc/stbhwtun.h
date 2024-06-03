@@ -244,6 +244,17 @@ typedef enum e_stb_tune_analog_video_type
     TUNE_ANLG_VIDEO_PAL_LDASH = 6
 } E_STB_TUNE_ANALOG_VIDEO_TYPE;
 
+typedef struct s_stb_tune_signal_info
+{
+    S16BIT strength;  // dBm
+    S16BIT dBuV;
+    S16BIT dBmV;      // dBmV(x1000) for external demod
+    S16BIT snr;       // Signal Noise Ratio
+    U32BIT ber;       // Bit Error Rate
+    S16BIT ssi;       // Signal Strength Indicator as percentage (0-100)
+    S16BIT sqi;       // Signal Quality Indicator as percentage (0-100)
+    S16BIT reserved[4];
+} S_STB_TUNE_SIGNAL_INFO;
 
 //---Global type defs for public use-------------------------------------------
 /**\brief Blindscan callback function*/
@@ -365,50 +376,8 @@ void STB_TuneRestartTuner(U8BIT path);
  */
 void STB_TuneStopTuner(U8BIT path);
 
-/**
- * @brief   Returns the current signal dBuV
- * @param   path the tuner path to query
- * @return  the signal dBuV of maximum (0-100)
- */
-S16BIT STB_TuneGetSignaldBuV(U8BIT path);
 
-
-S16BIT STB_TuneGetSignaldBmV(U8BIT path);
-
-/**
- * @brief   Returns the current signal strength
- * @param   path the tuner path to query
- * @return  the signal strength as percentage of maximum (0-100)
- */
-U8BIT STB_TuneGetSignalStrength(U8BIT path);
-
-U8BIT STB_TuneReadSignalStrength(U8BIT path);
-
-/**
- * @brief   Returns the current data integrity
- * @param   path the tuner path to query
- * @return  the signal ber (*e10)
- */
-U32BIT STB_TuneGetDataIntegrity(U8BIT path);
-
-/**
- * @brief   Returns the current signal quality
- * @param   path the tuner path to query
- * @return  the signal quality
- * @todo     Confirm DVB API BER units
- */
-U8BIT STB_TuneGetSignalQuality(U8BIT path);
-
-U8BIT STB_TuneReadSignalQuality(U8BIT path);
-
-
-/**
- * @brief   Returns the current signal SNR
- * @param   path the tuner path to query
- * @return  the signal quality
- * @todo    Confirm DVB API BER units
- */
-U16BIT STB_TuneGetSignalSNR(U8BIT path);
+BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO *singal_info);
 
 /**
  * @brief   Returns the actual frequency of the current terrestrial signal

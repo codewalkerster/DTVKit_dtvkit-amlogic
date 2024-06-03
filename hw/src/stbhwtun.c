@@ -998,299 +998,109 @@ static BOOLEAN IsExternalDemod(U8BIT path)
     return retval;
 }
 
-/**
- * @brief   Returns the current signal dBuV
- * @param   path the tuner path to query
- * @return  the signal dBuV as percentage of maximum (0-100)
- */
-S16BIT STB_TuneGetSignaldBuV(U8BIT path)
+BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
 {
-    S16BIT retval = 0;
-    S16BIT strength;
-
-    FUNCTION_START(STB_TuneGetSignaldBuV);
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    if (signal_info == NULL)
     {
-        if (IsTunerLocked(&tuner_status[path]))
-        {
-            if (aml_frontend_get_signal_strength(tuner_status[path].frontend_fd, (U16BIT *)&strength))
-            {
-                retval = 109 + strength; // plus 108.75(dBm to dBuV for 75 ohms)
-                TUN_DBG("%u: dBuV:%u(strength:%d)", path, retval, strength);
-            }
-            else
-            {
-                TUN_ERR("%u: Failed to get signal dBuV", path);
-            }
-        }
+        TUN_ERR("Invalid signal_info");
+        return FALSE;
     }
-
-    FUNCTION_FINISH(STB_TuneGetSignaldBuV);
-
-    return retval;
-}
-
-S16BIT STB_TuneGetSignaldBmV(U8BIT path)
-{
-    S16BIT retval = 0;
-    S16BIT dBmV = 0;
-    S16BIT dBm = 0;
-
-    FUNCTION_START(STB_TuneGetSignaldBmV);
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
-    {
-        if (IsTunerLocked(&tuner_status[path]))
-        {
-            if (IsExternalDemod(path))
-            {
-                if (aml_frontend_get_signal_strength_property(tuner_status[path].frontend_fd, NULL, (U16BIT *)&dBmV))
-                {
-                    retval = dBmV;
-                    TUN_DBG("%u: dBmV(x1000):%u", path, retval, dBmV);
-                }
-                else
-                {
-                    TUN_ERR("%u: Failed to get signal dBm", path);
-                }
-            }
-            else
-            {
-                if (aml_frontend_get_signal_strength(tuner_status[path].frontend_fd, (U16BIT *)&dBm))
-                {
-                    retval = 49 + dBm; // plus 48.75(dBm to dBmV for 75 ohms)
-                    TUN_DBG("%u: dBmV:%u(dBm:%d)", path, retval, dBm);
-                }
-                else
-                {
-                    TUN_ERR("%u: Failed to get signal dBm", path);
-                }
-            }
-        }
-    }
-
-    FUNCTION_FINISH(STB_TuneGetSignaldBmV);
-
-    return retval;
-}
-
-/**
- * @brief   Returns the current signal strength
- * @param   path the tuner path to query
- * @return  the signal strength as percentage of maximum (0-100)
- */
-U8BIT STB_TuneGetSignalStrength(U8BIT path)
-{
-    U8BIT retval = 0;
-    S16BIT strength;
-
-    FUNCTION_START(STB_TuneGetSignalStrength);
-
-    #ifdef EMUTUNNER_ENABLE
-    retval = EmuTunerGetSignalStrength(path);
-    if (retval > 0)
-    {
-        return retval;
-    }
-    #endif
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
-    {
-        if (IsTunerLocked(&tuner_status[path]))
-        {
-           retval = STB_TuneReadSignalStrength(path);
-        }
-    }
-
-    FUNCTION_FINISH(STB_TuneGetSignalStrength);
-
-    return retval;
-}
-
-U8BIT STB_TuneReadSignalStrength(U8BIT path)
-{
-    U8BIT retval = 0;
-    S16BIT strength = 0;
-
-    FUNCTION_START(STB_TuneGetSignalStrength);
-
-    if (path < num_paths && tuner_status[path].frontend_fd != INVALID_FD)
-    {
-        if (IsExternalDemod(path))
-        {
-            if (aml_frontend_get_signal_strength_property(tuner_status[path].frontend_fd, (U16BIT *)&strength, NULL))
-            {
-                retval = (U8BIT)strength;
-                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
-            }
-            else
-            {
-                TUN_ERR("%u: Failed to get signal strength", path);
-            }
-        }
-        else
-        {
-            if (aml_frontend_get_signal_strength(tuner_status[path].frontend_fd, (U16BIT *)&strength))
-            {
-                retval = STB_Utils_StrengthToSSI(path, strength);
-                TUN_DBG("%u: %u%%(strength:%d)", path, retval, strength);
-            }
-            else
-            {
-                TUN_ERR("%u: Failed to get signal strength", path);
-            }
-        }
-    }
-
-    FUNCTION_FINISH(STB_TuneGetSignalStrength);
-
-    return retval;
-}
-
-/**
- * @brief   Returns the current data integrity
- * @param   path the tuner path to query
- * @return  the data integrity as percentage of maximum possible (0-100)
- * @todo     Confirm DVB API BER units
- */
-U32BIT STB_TuneGetDataIntegrity(U8BIT path)
-{
-    U32BIT retval;
-    U32BIT ber;
-
-    FUNCTION_START(STB_TuneGetDataIntegrity);
-
-    retval = 0;
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
-    {
-        //if (IsTunerLocked(&tuner_status[path]))
-        {
-            if (aml_frontend_get_signal_ber(tuner_status[path].frontend_fd, &ber))
-            {
-                retval = ber;
-                TUN_DBG("%u: BER=%u(e-10)", path, retval);
-            }
-            else
-            {
-                TUN_ERR("%u: Failed to get signal ber", path);
-            }
-        }
-    }
-
-    FUNCTION_FINISH(STB_TuneGetDataIntegrity);
-
-    return retval;
-}
-
-/**
- * @brief   Returns the current signal quality
- * @param   path the tuner path to query
- * @return  the signal quality
- * @todo     Confirm DVB API BER units
- */
-U8BIT STB_TuneGetSignalQuality(U8BIT path)
-{
-    U8BIT retval = 0;
-    S16BIT quality;
-
-    FUNCTION_START(STB_TuneGetSignalQuality);
-
-    #ifdef EMUTUNNER_ENABLE
-    retval = EmuTunerGetSignalQuality(path);
-    if (retval > 0)
-    {
-        return retval;
-    }
-    #endif
-
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
-    {
-        if (IsTunerLocked(&tuner_status[path]))
-        {
-            retval = STB_TuneReadSignalQuality(path);
-        }
-    }
-
-    FUNCTION_FINISH(STB_TuneGetSignalQuality);
-
-    return retval;
-}
-
-U8BIT STB_TuneReadSignalQuality(U8BIT path)
-{
-    U8BIT retval = 0;
-    S16BIT quality = 0;
-
-    FUNCTION_START(STB_TuneReadSignalQuality);
-
-    if (path < num_paths && tuner_status[path].frontend_fd != INVALID_FD)
-    {
-        if (aml_frontend_get_signal_snr(tuner_status[path].frontend_fd, (U16BIT *)&quality))
-        {
-            if (IsExternalDemod(path))
-            {
-                retval = (U8BIT)quality;
-            }
-            else
-            {
-                retval = STB_Utils_SNR10ToSQI(path, quality);
-            }
-
-            TUN_DBG("%u: Quality=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
-        }
-        else
-        {
-            TUN_ERR("%u: Failed to get signal snr", path);
-        }
-    }
-
-    FUNCTION_FINISH(STB_TuneReadSignalQuality);
-
-    return retval;
-}
-
-/**
- * @brief   Returns the current signal SNR
- * @param   path the tuner path to query
- * @return  the signal quality
- * @todo    Confirm DVB API BER units
- */
-U16BIT STB_TuneGetSignalSNR(U8BIT path)
-{
-    U16BIT retval = 0;
-    U16BIT quality;
-
-    FUNCTION_START(STB_TuneGetSignalSNR);
 
 #ifdef EMUTUNNER_ENABLE
-    retval = EmuTunerGetSignalQuality(path);
-    if (retval > 0)
+    signal_info->ssi  = EmuTunerGetSignalStrength(path);
+    signal_info->sqi  = EmuTunerGetSignalQuality(path);
+    if (signal_info->ssi > 0 || signal_info->sqi > 0)
     {
-        return retval;
+        return TRUE;
     }
 #endif
 
-    if ((path < num_paths) && (tuner_status[path].frontend_fd != INVALID_FD))
+    if (path >= num_paths)
     {
-         if (IsTunerLocked(&tuner_status[path]))
-        {
-            if (aml_frontend_get_signal_snr(tuner_status[path].frontend_fd, &quality))
-            {
-                retval = quality;
-                TUN_DBG("%u: snr=%u", path, retval);
-            }
-            else
-            {
-                TUN_ERR("%u: Failed to get signal snr", path);
-            }
-        }
+        TUN_ERR("%u: Invalid path %u");
+        return FALSE;
     }
 
-    FUNCTION_FINISH(STB_TuneGetSignalSNR);
+    S32BIT frontend_fd = (S32BIT)tuner_status[path].frontend_fd;
+    if (frontend_fd == INVALID_FD)
+    {
+        TUN_ERR("%u: Invalid frontend_fd %d", path, frontend_fd);
+        return FALSE;
+    }
 
-    return retval;
+    S16BIT strength = -100; //dBm
+    if (!aml_frontend_get_signal_strength(frontend_fd, (U16BIT *)&strength))
+    {
+        TUN_ERR("%u: Failed to get signal strength %u");
+    }
+
+    S16BIT dBuV = 0;
+    S16BIT dBmV = 0;
+    S16BIT ssi = 0;
+    if (IsExternalDemod(path))
+    {
+        // dBmV(x1000) for external demod
+        if (!aml_frontend_get_signal_strength_property(frontend_fd, (U16BIT *)&ssi, (U16BIT *)&dBmV))
+        {
+            TUN_ERR("%u: Failed to get signal dBm for external demd", path);
+        }
+        dBuV = 0; // not required for external demod currently
+    }
+    else
+    {
+        dBuV = 109 + strength; // plus 108.75(dBm to dBuV for 75 ohms)
+        dBmV = 49 + strength;  // plus 48.75(dBm to dBmV for 75 ohms)
+        ssi = (U16BIT)STB_Utils_StrengthToSSI(path, strength);
+    }
+
+    U32BIT ber = 0;
+    if (!aml_frontend_get_signal_ber(frontend_fd, &ber))
+    {
+        TUN_ERR("%u: Failed to get signal ber", path);
+    }
+
+    S16BIT snr = 0;
+    if (!aml_frontend_get_signal_snr(frontend_fd, (U16BIT *)&snr))
+    {
+        TUN_ERR("%u: Failed to get signal snr", path);
+    }
+
+    S16BIT sqi = 0;
+    if (IsExternalDemod(path))
+    {
+        sqi = snr; // SQI is equal to SNR for external demod
+    }
+    else
+    {
+        sqi = (S16BIT)STB_Utils_SNR10ToSQI(path, snr);
+    }
+
+    if (!IsTunerLocked(&tuner_status[path]))
+    {
+        // SSI&SQI is set to 0 if unlock
+        ssi = 0;
+        sqi = 0;
+    }
+
+    signal_info->strength = strength;
+    signal_info->dBuV = dBuV;
+    signal_info->dBmV = dBmV;
+    signal_info->snr  = snr;
+    signal_info->ber  = ber;
+    signal_info->ssi  = ssi;
+    signal_info->sqi  = sqi;
+
+    TUN_INFO("%u: Signal Strength=%d(dBm) dBuV=%d dBmV=%d SNR=%d.%d BER=%d(e-10) SSI=%d%% SQI=%d%%",
+             path,
+             signal_info->strength,
+             signal_info->dBuV,
+             signal_info->dBmV,
+             signal_info->snr/10, signal_info->snr%10,
+             signal_info->ber,
+             signal_info->ssi,
+             signal_info->sqi);
+
+    return TRUE;
 }
 
 /**

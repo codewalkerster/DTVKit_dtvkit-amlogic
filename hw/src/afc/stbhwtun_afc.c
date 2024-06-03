@@ -318,155 +318,45 @@ U32BIT STB_TuneGetMaxTunerFreqKHz(U8BIT path)
     return ((U32BIT)max_freq);
 }
 
-/**
- * @brief   Returns the current signal dBuV
- * @param   path the tuner path to query
- * @return  the signal dBuV as percentage of maximum (0-100)
- */
-S16BIT STB_TuneGetSignaldBuV(U8BIT path)
+BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
 {
-    S16BIT retval = 0;
-
-    FUNCTION_START(STB_TuneGetSignaldBuV);
-
-
-    FUNCTION_FINISH(STB_TuneGetSignaldBuV);
-
-    return retval;
-}
-
-
-S16BIT STB_TuneGetSignaldBmV(U8BIT path)
-{
-    S16BIT retval = 0;
-
-    FUNCTION_START(STB_TuneGetSignaldBmV);
-
-
-    FUNCTION_FINISH(STB_TuneGetSignaldBmV);
-
-    return retval;
-}
-
-/**
- * @brief   Returns the current signal strength
- * @param   path the tuner path to query
- * @return  the signal strength as percentage of maximum (0-100)
- */
-U8BIT STB_TuneGetSignalStrength(U8BIT path)
-{
-    U8BIT retval = 0;
-
-    FUNCTION_START(STB_TuneGetSignalStrength);
-
-    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
-        retval = STB_TuneReadSignalStrength(path);
-    }
-    else {
-        TUN_DBG("%u: Unlock", path);
+    if (signal_info == NULL)
+    {
+        TUN_ERR("Invalid signal_info");
+        return FALSE;
     }
 
-    FUNCTION_FINISH(STB_TuneGetSignalStrength);
+    signal_info->strength = Wrapper_TuneGetSignalStrength(path);
+    signal_info->snr = Wrapper_TuneGetSignalQuality(path);
+    signal_info->ber = Wrapper_TuneGetSignalBER(path);
 
-    return retval;
-}
-
-U8BIT STB_TuneReadSignalStrength(U8BIT path)
-{
-    U8BIT retval = 0;
-    S16BIT strength = 0;
-
-    FUNCTION_START(STB_TuneReadSignalStrength);
-
-    strength = (S16BIT)Wrapper_TuneGetSignalStrength(path);
-    retval = STB_Utils_StrengthToSSI(path, strength);
-    TUN_DBG("%u: Percent=%u%%(strength:%d)", path, retval, strength);
-
-    FUNCTION_FINISH(STB_TuneReadSignalStrength);
-
-    return retval;
-}
-
-/**
- * @brief   Returns the current data integrity
- * @param   path the tuner path to query
- * @return  the data integrity as percentage of maximum possible (0-100)
- * @todo     Confirm DVB API BER units
- */
-U32BIT STB_TuneGetDataIntegrity(U8BIT path)
-{
-    U32BIT retval = 0;
-
-    FUNCTION_START(STB_TuneGetDataIntegrity);
-
-    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
-        retval = Wrapper_TuneGetDataIntegrity(path);
+    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
+    {
+        signal_info->ssi = STB_Utils_StrengthToSSI(path, signal_info->strength);
+        signal_info->sqi = STB_Utils_SNR10ToSQI(path, signal_info->snr);
     }
-    else {
-        TUN_DBG("%u: Unlock", path);
+    else
+    {
+        // SSI&SQI is set to 0 if unlock
+        signal_info->ssi = 0;
+        signal_info->sqi = 0;
     }
 
-    FUNCTION_FINISH(STB_TuneGetDataIntegrity);
+    // not implemented currently
+    signal_info->dBuV = 0;
+    signal_info->dBmV = 0;
 
-    return retval;
-}
+    TUN_INFO("%u: Signal Strength=%d(dBm) dBuV=%d dBmV=%d SNR=%d.%d BER=%d(e-10) SSI=%d%% SQI=%d%%",
+             path,
+             signal_info->strength,
+             signal_info->dBuV,
+             signal_info->dBmV,
+             signal_info->snr/10, signal_info->snr%10,
+             signal_info->ber,
+             signal_info->ssi,
+             signal_info->sqi);
 
-/**
- * @brief   Returns the current signal quality
- * @param   path the tuner path to query
- * @return  the signal quality
- * @todo     Confirm DVB API BER units
- */
-U8BIT STB_TuneGetSignalQuality(U8BIT path)
-{
-    U8BIT retval = 0;
-
-    FUNCTION_START(STB_TuneGetSignalQuality);
-
-    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path)) {
-        retval = STB_TuneReadSignalQuality(path);
-    }
-    else {
-        TUN_DBG("%u: Unlock", path);
-    }
-
-    FUNCTION_FINISH(STB_TuneGetSignalQuality);
-
-    return retval;
-}
-
-U8BIT STB_TuneReadSignalQuality(U8BIT path)
-{
-    U8BIT retval = 0;
-    S16BIT quality = 0;
-
-    FUNCTION_START(STB_TuneReadSignalQuality);
-
-    quality = (S16BIT)Wrapper_TuneGetSignalQuality(path);
-    retval = STB_Utils_SNR10ToSQI(path, quality);
-    TUN_DBG("%u: Percent=%u%%(snr=%d.%d)", path, retval, quality / 10, quality % 10);
-
-    FUNCTION_FINISH(STB_TuneReadSignalQuality);
-
-    return retval;
-}
-
-/**
- * @brief   Returns the current signal SNR
- * @param   path the tuner path to query
- * @return  the signal quality
- * @todo    Confirm DVB API BER units
- */
-U16BIT STB_TuneGetSignalSNR(U8BIT path)
-{
-    U16BIT retval = 0;
-
-    FUNCTION_START(STB_TuneGetSignalSNR);
-
-
-    FUNCTION_FINISH(STB_TuneGetSignalSNR);
-
-    return retval;
+    return TRUE;
 }
 
 /**

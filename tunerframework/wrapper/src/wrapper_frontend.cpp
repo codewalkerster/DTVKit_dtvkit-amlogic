@@ -1068,27 +1068,28 @@ void Wrapper_TuneStopTuner(U8BIT path)
         tuner_status_map[path].tune_lock = FALSE;
     }
 }
-U32BIT Wrapper_TuneGetSignalStrength(U8BIT path)
+
+S16BIT Wrapper_TuneGetSignalStrength(U8BIT path)
 {
     U16BIT tuner_client = findTunerClient(path);
     if (INVALID_TUNER_ID == tuner_client) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
-        return 0;
+        return -100; // dbm
     }
 
     if (!isCurrentTuning(path)) {
         ALOGE("%s: path %d is not tuning", __FUNCTION__, path);
-        return 0;
+        return -100; // dbm
     }
 
     ALOGD("%s: tuner_client: %d", __FUNCTION__, tuner_client);
 
     Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_STRENGTH);
 
-    return stfrontendStatus.signal_strength;
+    return (S16BIT)stfrontendStatus.signal_strength;
 }
 
-U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path)
+U32BIT Wrapper_TuneGetSignalBER(U8BIT path)
 {
     U16BIT tuner_client = findTunerClient(path);
     if (INVALID_TUNER_ID == tuner_client) {
@@ -1105,10 +1106,10 @@ U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path)
 
     Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_BER);
 
-    return stfrontendStatus.ber;
+    return (U32BIT)stfrontendStatus.ber;
 }
 
-U32BIT Wrapper_TuneGetSignalQuality(U8BIT path)
+S16BIT Wrapper_TuneGetSignalQuality(U8BIT path)
 {
     U16BIT tuner_client = findTunerClient(path);
     if (INVALID_TUNER_ID == tuner_client) {
@@ -1125,7 +1126,7 @@ U32BIT Wrapper_TuneGetSignalQuality(U8BIT path)
 
     Frontend_Status stfrontendStatus = getFrontendStatus(tuner_client, FRONTEND_STATUS_TYPE_SIGNAL_QUALITY);
 
-    return stfrontendStatus.signal_quality;
+    return (S16BIT)stfrontendStatus.signal_quality;
 }
 
 /**

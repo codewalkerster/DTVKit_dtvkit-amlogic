@@ -373,14 +373,14 @@ void Wrapper_TuneStopTuner(U8BIT path);
  * @param   path the tuner path to query
  * @return  the signal strength as percentage of maximum (0-100)
  */
-U32BIT Wrapper_TuneGetSignalStrength(U8BIT path);
+S16BIT Wrapper_TuneGetSignalStrength(U8BIT path);
 
 /**
  * @brief   Returns the current data integrity
  * @param   path the tuner path to query
  * @return  the signal ber (*e10)
  */
-U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path);
+U32BIT Wrapper_TuneGetSignalBER(U8BIT path);
 
 /**
  * @brief   Returns the current signal quality
@@ -388,7 +388,7 @@ U32BIT Wrapper_TuneGetDataIntegrity(U8BIT path);
  * @return  the signal quality
  * @todo     Confirm DVB API BER units
  */
-U32BIT Wrapper_TuneGetSignalQuality(U8BIT path);
+S16BIT Wrapper_TuneGetSignalQuality(U8BIT path);
 
 /**
  * @brief   Returns the ewbs flag

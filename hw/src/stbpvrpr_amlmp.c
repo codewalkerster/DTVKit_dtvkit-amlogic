@@ -2932,7 +2932,10 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
    FUNCTION_START(PVRChangeDecodePIDs);
 
    play_index = getPlayIndex(audio_decoder, video_decoder);
-   PLAY_DBG("%u: pcr=%u, video=%u, audio=%u(%u), ad=%u", play_index, pcr_pid, video_pid, audio_pid, audio_presentation_id, ad_pid);
+
+   PLAY_DBG("%u: pcr=%u, video=%u/%u, audio=%u/%u(%u), ad=%u/%u",
+         play_index, pcr_pid, video_pid, video_fmt, audio_pid, audio_fmt, audio_presentation_id, ad_pid, ad_fmt);
+
    if (play_index != INVALID_RES_ID)
    {
       if (s_recplay_status[play_index].audio_pid != audio_pid ||

@@ -231,12 +231,12 @@ BOOLEAN STB_CIRouteTS(U8BIT tuner, U8BIT slot_id, BOOLEAN pass_through)
 
     if(TRUE == pass_through)
     {
-        STB_DMXChangeAllDemuxSource(slot_id, 1);
+        STB_DMXRouteTS(tuner , slot_id, TRUE);
         STB_SPDebugWrite("======>TS change to passthough");
     }
     else
     {
-        STB_DMXChangeAllDemuxSource(slot_id, 0);
+        STB_DMXRouteTS(tuner , slot_id, FALSE);
         STB_SPDebugWrite("======>TS change to bypass");
     }
     FUNCTION_FINISH(STB_CIRouteTS);

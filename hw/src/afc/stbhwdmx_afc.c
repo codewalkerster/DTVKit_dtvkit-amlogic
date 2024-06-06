@@ -1352,7 +1352,9 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
    {
       DMX_INFO("path [%u]: new:  [%u], [%u]  [%0x];   old:  [%u], [%u]  [%0x];", path, source, param,demux_cap,
          demux_status[path].source, demux_status[path].source_param, demux_status[path].demux_cap);
-
+/*
+    STB_DMXSetDemuxSource(path_status[path].demux_no, DMX_TUNER, path_status[path].tuner_no, demux_caps);
+*/
       demux_status[path].source = source;
       demux_status[path].source_param = param;
       demux_status[path].demux_cap = demux_cap;
@@ -2207,15 +2209,15 @@ void STB_DMXCI_Set_Demod_Mode(int mode)
 {
     //NA
 }
-void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
+void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
 {
-     if (1 == plug)
+     if (TRUE == pass_through)
     {
-        DMX_Route_TS(slot,TRUE);
+        DMX_Route_TS(tuner,slot,TRUE);
     }
      else
     {
-        DMX_Route_TS(slot,FALSE);
+        DMX_Route_TS(tuner,slot,FALSE);
     }
 }
 
@@ -2416,7 +2418,9 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       // open descramble
       if (dsc->dsc_ref[dev_id] == 0)
       {
-           dsc->descramble_handle = DESCRAMBLE_Open();
+           dsc->descramble_handle = DESCRAMBLE_Open(demux_status[dev_id].source_param  ,\
+                                                    demux_status[dev_id].source ,\
+                                                    demux_status[dev_id].demux_cap );
       }
       dsc->dsc_ref[dev_id]++;
    return chan_id;
@@ -2544,8 +2548,8 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
           DMX_DBG("dsm_result %d",dsm_result);
 
           struct dsm_keyslot keyslot;
-          keyslot.parity = (parity = KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
-          keyslot.algo = DSM_ALGO_AES_CBC_IDSA;
+          keyslot.parity = (parity == KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
+          keyslot.algo = (enum dsm_algo)CA_ALGO_AES_CBC_CLR_END;
           keyslot.id = dsc_channel->key_id;
           keyslot.is_iv = FALSE;
           keyslot.is_enc = FALSE ;
@@ -2553,7 +2557,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
           dsm_result = DSM_AddKeySlot(dsc->dsm_handle, &keyslot);
 
           struct dsm_keyslot keyslot_iv;
-          keyslot_iv.parity = (parity = KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
+          keyslot_iv.parity = (parity == KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
           keyslot_iv.algo = (enum dsm_algo)CA_ALGO_AES_CBC_CLR_END;
           keyslot_iv.id = dsc_channel->iv_key_id;
           keyslot_iv.is_iv = TRUE;

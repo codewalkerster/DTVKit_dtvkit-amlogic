@@ -54,7 +54,7 @@ typedef struct s_pid_filter_info
    U8BIT start_count[MAX_FILTERS_PER_PID];
 } S_PID_FILTER_INFO;
 
-int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_source,U16BIT demux_cap ,U32BIT section_size);
+int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source_type,U16BIT demux_cap ,U32BIT section_size);
 
 BOOLEAN DMX_CloseFilter(int un32filterID);
 BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filter_params *params);
@@ -63,7 +63,8 @@ BOOLEAN DMX_StopFilter(int un32filterID );
 BOOLEAN DMX_FlushFilter(int un32filterID );
 
 
-void DMX_Route_TS(int cicamid,BOOLEAN pass_through);
+void DMX_Route_TS(int tuner_no, int cicamid,BOOLEAN pass_through);
+
 
 JCAS_JNI_RESULT MediaCAS_Init();
 
@@ -88,8 +89,7 @@ JCAS_JNI_RESULT MediaCAS_SendCommand(CasHandle casHandle, int event, int arg, ui
 
 JCAS_JNI_RESULT MediaCAS_SendSessionCommand(CasHandle casHandle, CasSessionHandle casSessionHandle, int event, int arg, uint8_t* data, int dataLen);
 
-
-jobject DESCRAMBLE_Open();
+jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap );
 void DESCRAMBLE_AddPid( jobject handle, int pid);
 void DESCRAMBLE_RemovePid(jobject handle, int pid);
 void DESCRAMBLE_SetKeyToken(jobject handle,uint32_t token);

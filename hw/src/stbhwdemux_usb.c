@@ -228,8 +228,12 @@ static void *cimodule_media_read_task(void *args)
                     if (usbdata_len == 0)
                         continue;
                 }
-                memcpy(usbdata_buf + usbdata_len, media_readbuf, read_len);
-                usbdata_len += read_len;
+                if (usbdata_len + read_len <= USB_CIMODULE_MEDIA_MAX_SIZE * 100)
+                {
+                    memcpy(usbdata_buf + usbdata_len, media_readbuf, read_len);
+                    usbdata_len += read_len;
+                }
+
                 if (usbdata_len >= USB_CIMODULE_MEDIA_MAX_SIZE)
                 {
                     inj_len = inject_usbcam_source_demux(usbdata_buf, usbdata_len);
@@ -444,6 +448,8 @@ static BOOLEAN prepare_working_demuxes()
         return FALSE;
     }
     ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_LOCAL);
+    //set dmx4 source = dmx0 source
+    STB_DMXSetSource(inj_dev_id, DVB_DEMUX_SOURCE_DMA0 + inj_dev_id);
 
     snprintf(rec_dvr_path, sizeof(rec_dvr_path), "/dev/dvb0.dvr%d", rec_dev_id);
     if (rec_dvr_fd < 0)

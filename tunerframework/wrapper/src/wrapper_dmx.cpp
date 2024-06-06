@@ -155,7 +155,7 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
     }
 }
 
-int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_source,U16BIT demux_cap  ,U32BIT section_size)
+int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source_type ,U16BIT demux_cap  ,U32BIT section_size)
 {
     int ClientId = 0xFF;
     if (!gDMXTaskLocked.initDmxLocked )
@@ -173,7 +173,7 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_
         DMX_MEMORY
     } E_STB_DMX_DEMUX_SOURCE;
     */
-    if (demux_source != 0)
+    if (source_type  != 0)
     {
         ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
         ALOGD("start DMX_CAPS_PLAYBACK filter ClientId 0x%x",ClientId);
@@ -182,16 +182,11 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT demux_
     {
         TUNER_TYPE tuner_type = TUNER_TYPE_LIVE_0;
         /*
-        USE_DMX_LIVE_REC_TIMESHIFT = 0x02,
-        USE_DMX_LIVE_REC_RECORDING = 0x04,
+        DMX_CAPS_RECORDING = 0x04,
         */
         if (demux_cap == 0x04)
         {
             tuner_type = TUNER_TYPE_DVR_RECORD;
-        }
-        else if (demux_cap == 0x02)
-        {
-           tuner_type = TUNER_TYPE_DVR_TIMESHIFT_RECORD;
         }
         else
         {
@@ -430,9 +425,39 @@ BOOLEAN  DMX_FlushFilter(int un32filterID )
     return ret ;
 }
 
-void DMX_Route_TS(int cicamid,BOOLEAN pass_through)
+void DMX_Route_TS(int tuner_no, int cicamid,BOOLEAN pass_through)
 {
-    if (INVALID_TUNER_ID == Am_tuner_getTunerClientId())
+    TUNER_TYPE tuner_type = TUNER_TYPE_LIVE_0;
+    switch (tuner_no)
+    {
+        case 0:
+        {
+            tuner_type = TUNER_TYPE_LIVE_0;
+            break ;
+        }
+        case 1:
+        {
+            tuner_type = TUNER_TYPE_LIVE_1;
+            break ;
+        }
+        case 2 :
+        {
+            tuner_type = TUNER_TYPE_LIVE_2;
+            break ;
+        }
+        case 4 :
+        {
+            tuner_type = TUNER_TYPE_DVR_PLAY;
+            break ;
+        }
+        default:
+        {
+            tuner_type = TUNER_TYPE_LIVE_0;
+            break ;
+        }
+    }
+
+    if (INVALID_TUNER_ID == Am_tuner_getTunerClientIdByType(tuner_type))
     {
         ALOGD("%s : gTunerClient is invalid", __FUNCTION__);
         return ;
@@ -440,18 +465,19 @@ void DMX_Route_TS(int cicamid,BOOLEAN pass_through)
 
     if (true == pass_through)
     {
-        ALOGD("======>TS change to passthough");
-        Am_tuner_connectCiCam(Am_tuner_getTunerClientId(),cicamid);
-        Am_tuner_connectFrontendToCiCam(Am_tuner_getTunerClientId(),cicamid);
+        ALOGD("======>TS change to passthough @ %d" , tuner_type);
+        Am_tuner_connectCiCam(Am_tuner_getTunerClientIdByType(tuner_type),cicamid);
+        Am_tuner_connectFrontendToCiCam(Am_tuner_getTunerClientIdByType(tuner_type),cicamid);
     }
     else
     {
-        ALOGD("======>TS change to bypass");
-        Am_tuner_disconnectCiCam(Am_tuner_getTunerClientId());
-        Am_tuner_disconnectFrontendToCiCam(Am_tuner_getTunerClientId(),cicamid);
+        ALOGD("======>TS change to bypass @ %d" , tuner_type );
+        Am_tuner_disconnectCiCam(Am_tuner_getTunerClientIdByType(tuner_type));
+        Am_tuner_disconnectFrontendToCiCam(Am_tuner_getTunerClientIdByType(tuner_type),cicamid);
     }
     ALOGD("END:%s", __FUNCTION__);
 }
+
 
 
 JCAS_JNI_RESULT MediaCAS_Init()
@@ -572,11 +598,64 @@ JCAS_JNI_RESULT MediaCAS_SendSessionCommand(CasHandle casHandle, CasSessionHandl
 //remove pid
 //close descramble
 
-jobject DESCRAMBLE_Open()
+jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap )
 {
     ALOGD("IN:%s", __FUNCTION__);
     jobject handle = NULL;
-    handle =  Am_tuner_openDescrambler(Am_tuner_getTunerClientId()) ;
+    int ClientId = 0xFF;
+    /*
+    typedef enum
+    {
+        DMX_TUNER,
+        DMX_1394,
+        DMX_MEMORY
+    } E_STB_DMX_DEMUX_SOURCE;
+    */
+    if (source_type  != 0)
+    {
+        ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
+        ALOGD("start DMX_CAPS_PLAYBACK filter ClientId 0x%x",ClientId);
+    }
+    else
+    {
+        TUNER_TYPE tuner_type = TUNER_TYPE_LIVE_0;
+        /*
+        DMX_CAPS_RECORDING = 0x04,
+        */
+        if (demux_cap == 0x04)
+        {
+            tuner_type = TUNER_TYPE_DVR_RECORD;
+        }
+        else
+        {
+            switch (path)
+            {
+                case 0:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_0;
+                    break ;
+                }
+                case 1:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_1;
+                    break ;
+                }
+                case 2 :
+                {
+                    tuner_type = TUNER_TYPE_LIVE_2;
+                    break ;
+                }
+                default:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_0;
+                    break ;
+                }
+            }
+        }
+        ClientId = Am_tuner_getTunerClientIdByType(tuner_type);
+        ALOGD("start DMX_CAPS_Live filter path [%d] demux_cap [0x%x] ClientId[%d] tuner_type[%d]",path,demux_cap ,ClientId,tuner_type);
+    }
+    handle =  Am_tuner_openDescrambler(ClientId) ;
     ALOGD("OUT:%s handle%p", __FUNCTION__,handle);
     return handle;
 }

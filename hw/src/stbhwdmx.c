@@ -109,59 +109,6 @@ typedef enum
    DMX_PID_COUNT
 } E_DMX_TRACK;
 
-/**Demux input source.*/
-typedef enum
-{
-   DVB_DEMUX_SOURCE_TS0,  /**< Hardware TS input port 0.*/
-   DVB_DEMUX_SOURCE_TS1,  /**< Hardware TS input port 1.*/
-   DVB_DEMUX_SOURCE_TS2,  /**< Hardware TS input port 2.*/
-   DVB_DEMUX_SOURCE_TS3,  /**< Hardware TS input port 3.*/
-   DVB_DEMUX_SOURCE_TS4,  /**< Hardware TS input port 4.*/
-   DVB_DEMUX_SOURCE_TS5,  /**< Hardware TS input port 5.*/
-   DVB_DEMUX_SOURCE_TS6,  /**< Hardware TS input port 6.*/
-   DVB_DEMUX_SOURCE_TS7,  /**< Hardware TS input port 7.*/
-   DVB_DEMUX_SOURCE_DMA0, /**< DMA input port 0.*/
-   DVB_DEMUX_SOURCE_DMA1, /**< DMA input port 1.*/
-   DVB_DEMUX_SOURCE_DMA2, /**< DMA input port 2.*/
-   DVB_DEMUX_SOURCE_DMA3, /**< DMA input port 3.*/
-   DVB_DEMUX_SOURCE_DMA4, /**< DMA input port 4.*/
-   DVB_DEMUX_SOURCE_DMA5, /**< DMA input port 5.*/
-   DVB_DEMUX_SOURCE_DMA6, /**< DMA input port 6.*/
-   DVB_DEMUX_SOURCE_DMA7,  /**< DMA input port 7.*/
-   DVB_DEMUX_SECSOURCE_DMA0, /**< DMA secure port 0.*/
-   DVB_DEMUX_SECSOURCE_DMA1, /**< DMA secure port 1.*/
-   DVB_DEMUX_SECSOURCE_DMA2, /**< DMA secure port 2.*/
-   DVB_DEMUX_SECSOURCE_DMA3, /**< DMA secure port 3.*/
-   DVB_DEMUX_SECSOURCE_DMA4, /**< DMA secure port 4.*/
-   DVB_DEMUX_SECSOURCE_DMA5, /**< DMA secure port 5.*/
-   DVB_DEMUX_SECSOURCE_DMA6, /**< DMA secure port 6.*/
-   DVB_DEMUX_SECSOURCE_DMA7,  /**< DMA secure port 7.*/
-   DVB_DEMUX_SOURCE_DMA0_1,  /**< DMA input port 0_1.*/
-   DVB_DEMUX_SOURCE_DMA1_1,   /**< DMA input port 1_1.*/
-   DVB_DEMUX_SOURCE_DMA2_1,  /**< DMA input port 2_1.*/
-   DVB_DEMUX_SOURCE_DMA3_1,   /**< DMA input port 3_1.*/
-   DVB_DEMUX_SOURCE_DMA4_1,  /**< DMA input port 4_1.*/
-   DVB_DEMUX_SOURCE_DMA5_1,   /**< DMA input port 5_1.*/
-   DVB_DEMUX_SOURCE_DMA6_1,  /**< DMA input port 6_1.*/
-   DVB_DEMUX_SOURCE_DMA7_1,   /**< DMA input port 7_1.*/
-   DVB_DEMUX_SECSOURCE_DMA0_1, /**< DMA secure port 0_1.*/
-   DVB_DEMUX_SECSOURCE_DMA1_1, /**< DMA secure port 1_1.*/
-   DVB_DEMUX_SECSOURCE_DMA2_1, /**< DMA secure port 2_1.*/
-   DVB_DEMUX_SECSOURCE_DMA3_1, /**< DMA secure port 3_1.*/
-   DVB_DEMUX_SECSOURCE_DMA4_1, /**< DMA secure port 4_1.*/
-   DVB_DEMUX_SECSOURCE_DMA5_1, /**< DMA secure port 5_1.*/
-   DVB_DEMUX_SECSOURCE_DMA6_1, /**< DMA secure port 6_1.*/
-   DVB_DEMUX_SECSOURCE_DMA7_1,  /**< DMA secure port 7_1.*/
-   DVB_DEMUX_SOURCE_TS0_1, /**< DMA secure port 0_1.*/
-   DVB_DEMUX_SOURCE_TS1_1, /**< DMA secure port 1_1.*/
-   DVB_DEMUX_SOURCE_TS2_1, /**< DMA secure port 2_1.*/
-   DVB_DEMUX_SOURCE_TS3_1, /**< DMA secure port 3_1.*/
-   DVB_DEMUX_SOURCE_TS4_1, /**< DMA secure port 4_1.*/
-   DVB_DEMUX_SOURCE_TS5_1, /**< DMA secure port 5_1.*/
-   DVB_DEMUX_SOURCE_TS6_1, /**< DMA secure port 6_1.*/
-   DVB_DEMUX_SOURCE_TS7_1, /**< DMA secure port 7_1.*/
-} DVB_DemuxSource_t;
-
 typedef void(*SectionFilterFunc)(U8BIT path, U16BIT bytes, U16BIT pfilt_id);
 
 typedef struct s_section_filter_info
@@ -2312,11 +2259,11 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
  * @param   slot  cam card slot
  * @param   plug 0:cam card unplug, 1：camc card plug
  */
-void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
+void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
 {
    int i = 0;
    int tuner_index = 0;
-   FUNCTION_START(STB_DMXChangeAllDemuxSource);
+   FUNCTION_START(STB_DMXRouteTS);
    //no used now, only one cam card
    slot = 0;
    int param = 0;
@@ -2328,18 +2275,18 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
    }
 
 #ifdef COMMON_INTERFACE
-   //DvbEnableCIPlus(plug);
+   //DvbEnableCIPlus(pass_through == TRUE?1:0);
 #endif
 
    for (i = 0; i < aml_hw_cfg.tuner_num; i++) {
-      if (plug == 0)
+      if (TRUE != pass_through)
       {
          // cam card is unplug.used ori_tsinput_idx to
          // set ts_input_idx for dmx source
          aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.tuners[i].ori_tsinput_idx;
          DMX_DBG("index[%d]unplug[%d]", i, aml_hw_cfg.tuners[i].ori_tsinput_idx);
       }
-      else if (plug == 1)
+      else
       {
          if (STB_CIUsbModuleInserted())
          {
@@ -2368,7 +2315,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
       {
          if (dmx_model_sc2)
          {
-            if ((plug == 1) && (STB_CIUsbModuleInserted()))
+            if ((TRUE == pass_through) && (STB_CIUsbModuleInserted()))
                param = DMX_CAPS_USBCAM;
 
             STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);
@@ -2381,7 +2328,7 @@ void STB_DMXChangeAllDemuxSource(U8BIT slot, U8BIT plug)
          }
       }
    }
-   FUNCTION_FINISH(STB_DMXChangeAllDemuxSource);
+   FUNCTION_FINISH(STB_DMXRouteTS);
 }
 
 /**

@@ -1875,7 +1875,7 @@ static int audio_codec_map1(E_STB_AV_AUDIO_CODEC format)
       case AV_AUDIO_CODEC_AAC:
          return 6;
       case AV_AUDIO_CODEC_HEAAC:
-         return 0;
+         return 19;
       case AV_AUDIO_CODEC_AAC_ADTS:
          return 16;
       case AV_AUDIO_CODEC_HEAACV2:

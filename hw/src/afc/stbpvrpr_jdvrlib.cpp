@@ -92,6 +92,15 @@ struct S_REC_STATUS
    U8BIT rec_index;
    U16BIT disk_id;
    vector<S_PVR_PID_INFO> pids_array;
+   U8BIT tuner;
+   U8BIT rec_demux;
+
+   S8BIT descramble_v_chanid;
+   U16BIT descramble_v_pid;
+   S8BIT descramble_a_chanids[32];
+   U16BIT descramble_a_pid[32];
+   U8BIT des_aids;
+   U8BIT pid_index;
 
    S_REC_STATUS() :
       state_cond{}, state_mutex{}
@@ -245,7 +254,7 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
 typedef vector<S_PVR_PID_INFO> PID_VECTOR;
 static void get_outstanding_pids(PID_VECTOR& curr, PID_VECTOR& given, PID_VECTOR& to_add, PID_VECTOR& to_remove);
 static ostream& operator<<(ostream& os, const S_PVR_PID_INFO& info);
-
+static void STB_PVRReleaseDMXDsc(U8BIT rec_index);
 /**
  * @brief   Initialisation for playback
  * @param   num_audio_decoders number of audio decoders available
@@ -271,9 +280,14 @@ U8BIT STB_PVRInitPlayback(U8BIT num_audio_decoders, U8BIT num_video_decoders)
 U8BIT STB_PVRInitRecording(U8BIT num_tuners)
 {
    LOG_ENTER;
-
+   U8BIT index;
    num_recorders = 2;
    const U8BIT ret = num_recorders;
+
+   for (index = 0; index < num_recorders; index++)
+   {
+      s_rec_status[index].descramble_v_chanid = -1;
+   }
 
    LOG_LEAVE;
    return ret;
@@ -699,6 +713,7 @@ U8BIT STB_PVRAcquireRecorderIndex(U8BIT tuner, U8BIT demux)
    LOG_ENTER;
 
    U8BIT rec_index;
+
    for (rec_index=0; rec_index<MAX_RECORDERS; rec_index++)
    {
       if (s_rec_status[rec_index].in_use == FALSE)
@@ -710,8 +725,11 @@ U8BIT STB_PVRAcquireRecorderIndex(U8BIT tuner, U8BIT demux)
    {
       rec_index = 255;
       PVR_ERR("cannot get a recorder index and returns 255");
+      return rec_index;
    }
    s_rec_status[rec_index].in_use = TRUE;
+   s_rec_status[rec_index].tuner = tuner;
+   s_rec_status[rec_index].rec_demux = demux;
    s_rec_status[rec_index].rec_index = rec_index;
    PVR_INFO("returns rec_index: %d",(int)rec_index);
 
@@ -726,7 +744,7 @@ U8BIT STB_PVRAcquireRecorderIndex(U8BIT tuner, U8BIT demux)
 void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
 {
    LOG_ENTER;
-
+   STB_PVRReleaseDMXDsc(rec_index);
    if (rec_index >= MAX_RECORDERS)
    {
       PVR_ERR("rec_index %d is invalid",(int)rec_index);
@@ -737,6 +755,45 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
    }
 
    LOG_LEAVE;
+}
+
+int save_pidandchanl(U8BIT rec_index, U16BIT pid,U16BIT type, E_STB_DMX_DESC_TYPE desc_type)
+{
+   int i;
+   int a_chan_id;
+   int v_chan_id;
+   enum dsm_session_usages dsm_session;
+
+   if (s_rec_status[rec_index].is_timeshift)
+      dsm_session = DSM_PROP_SESSION_USAGES_TIMESHIFT;
+   else
+      dsm_session = DSM_PROP_SESSION_USAGES_RECORD;
+
+   if (type == PVR_PID_TYPE_AUDIO)
+   {
+      for (i = 0; i < s_rec_status[rec_index].des_aids; i++)
+      {
+         if (s_rec_status[rec_index].descramble_a_pid[i] == pid)
+            return s_rec_status[rec_index].descramble_a_chanids[i];
+      }
+      s_rec_status[rec_index].descramble_a_pid[s_rec_status[rec_index].des_aids] = pid;
+      a_chan_id = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, pid, desc_type, DSC_COMMON_TYPE,dsm_session);;
+      s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] = a_chan_id;
+      s_rec_status[rec_index].des_aids++;
+      return a_chan_id;
+   }
+
+   if (type == PVR_PID_TYPE_VIDEO)
+   {
+      if (s_rec_status[rec_index].descramble_v_chanid != pid)
+      {
+         STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_v_chanid);
+         s_rec_status[rec_index].descramble_v_pid = pid;
+         s_rec_status[rec_index].descramble_v_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, pid, desc_type, DSC_COMMON_TYPE,dsm_session);
+      }
+      return s_rec_status[rec_index].descramble_v_chanid;
+   }
+   return 0;
 }
 
 /**
@@ -752,9 +809,59 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
 BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_type,
    E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *key, U8BIT *iv, U16BIT num_pids, S_PVR_PID_INFO *pid_array)
 {
-   //LOG_ENTER;
+   LOG_ENTER;
    LOG_NOT_IMPLEMENTED;
+   U8BIT key_buffer[32];
+   S_REC_STATUS* prs = &s_rec_status[rec_index];
    //LOG_LEAVE;
+   int a_chan_id;
+   int v_chan_id;
+   int i;
+
+   for (i = 0; i < num_pids; i++)
+   {
+      if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
+      {
+         a_chan_id = save_pidandchanl(rec_index,pid_array[i].pid,pid_array[i].type,desc_type);
+
+      }
+   }
+
+   for (i = 0; i < num_pids; i++)
+   {
+      if (pid_array[i].type == PVR_PID_TYPE_VIDEO)
+      {
+         v_chan_id = save_pidandchanl(rec_index,pid_array[i].pid,pid_array[i].type,desc_type);
+      }
+   }
+
+   switch (desc_type)
+   {
+      case DESC_TYPE_AES:
+         memcpy(key_buffer, key, 16);
+         memcpy(key_buffer + 16, iv, 16);
+         break;
+      case DESC_TYPE_DES:
+         memcpy(key_buffer, key, 16);
+         break;
+      case DESC_TYPE_DVB:
+         memcpy(key_buffer, key, 16);
+         memcpy(key_buffer + 16, iv, 16);
+         break;
+      default:
+         break;
+   }
+
+   if (s_rec_status[rec_index].descramble_v_chanid != -1)
+         STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_v_chanid, desc_type, DSC_COMMON_TYPE, parity, key_buffer);
+
+   if (s_rec_status[rec_index].des_aids > 0)
+   {
+      for (i = 0;i< s_rec_status[rec_index].des_aids; i++)
+      {
+         STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_a_chanids[i], desc_type, DSC_COMMON_TYPE, parity, key_buffer);
+      }
+   }
 
    return TRUE;
 }
@@ -948,7 +1055,7 @@ void STB_PVRRecordStop(U8BIT rec_index)
    S_REC_STATUS* prs = &s_rec_status[rec_index];
    PVR_INFO("rec_index:%d", rec_index);
    const am_dvr_recorder_handle handle = prs->dvr_recorder_handle;
-
+   STB_PVRReleaseDMXDsc(rec_index);
    Wrapper_PVR_Recorder_stop(handle);
    prs->reset();
 
@@ -2040,4 +2147,24 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
     }
 
     return ret;
+}
+
+static void STB_PVRReleaseDMXDsc(U8BIT rec_index)
+{
+   int i;
+   PVR_INFO("STB_PVRReleaseDMXDsc rec_index %d rec_demux %d ",rec_index, s_rec_status[rec_index].rec_demux);
+      if (s_rec_status[rec_index].des_aids > 0)
+      {
+         for (i = 0; i < s_rec_status[rec_index].des_aids; i++)
+         {
+            STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_a_chanids[i]);
+            s_rec_status[rec_index].descramble_a_chanids[i] = -1;
+         }
+         s_rec_status[rec_index].des_aids = 0;
+      }
+      if (s_rec_status[rec_index].descramble_v_chanid != -1)
+      {
+         STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_v_chanid);
+         s_rec_status[rec_index].descramble_v_chanid = -1;
+      }
 }

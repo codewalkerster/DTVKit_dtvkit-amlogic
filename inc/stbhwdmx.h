@@ -106,6 +106,7 @@ typedef enum
     STB_DMX_MODEL_SC2
 } E_STB_BOARD_TYPE;
 
+
 /**Demux input source.*/
 typedef enum
 {
@@ -166,6 +167,13 @@ typedef enum
     DSC_TSE_TYPE
 } E_STB_DSC_CA_TYPE;
 
+enum dsm_session_usages {
+    DSM_PROP_SESSION_USAGES_LIVE,
+    DSM_PROP_SESSION_USAGES_PLAYBACK,
+    DSM_PROP_SESSION_USAGES_RECORD,
+    DSM_PROP_SESSION_USAGES_TIMESHIFT,
+};
+
 //---Global type defs for public use-------------------------------------------
 
 typedef void (*FILTER_CALLBACK)( U8BIT path, U16BIT bytes, U16BIT pfilt_id );
@@ -211,7 +219,7 @@ E_STB_TS_SOURCE STB_GetDmxTsSource(int dmx_id);
  * @param   type
  * @return  channel id
  */
-int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type);
+int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type,enum dsm_session_usages dsm_session);
 
 /**
  * @brief   Initialises the demux / programmable transport interface

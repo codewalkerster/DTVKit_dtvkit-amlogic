@@ -395,15 +395,15 @@ static void sc2_playback_setkey(int play_index, E_PLAYBACK_CHANNEL channel)
    switch (channel)
    {
       case PLAYBACK_AUDIO_CHANNEL:
-         s_recplay_status[play_index].a_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, audio_pid, DESC_TYPE_AES, DSC_TSD_TYPE);
+         s_recplay_status[play_index].a_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, audio_pid, DESC_TYPE_AES, DSC_TSD_TYPE,0);
          STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].a_chanid, DESC_TYPE_AES, DSC_TSD_TYPE, KEY_PARITY_NONE, dmx_aes_key);
          break;
       case PLAYBACK_VIDEO_CHANNEL:
-         s_recplay_status[play_index].v_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, video_pid, DESC_TYPE_AES, DSC_TSD_TYPE);
+         s_recplay_status[play_index].v_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, video_pid, DESC_TYPE_AES, DSC_TSD_TYPE,0);
          STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].v_chanid, DESC_TYPE_AES, DSC_TSD_TYPE, KEY_PARITY_NONE, dmx_aes_key);
          break;
       case PLAYBACK_AD_CHANNEL:
-         s_recplay_status[play_index].ad_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, ad_pid, DESC_TYPE_AES, DSC_TSD_TYPE);
+         s_recplay_status[play_index].ad_chanid = STB_DMXDscAlloc(s_recplay_status[play_index].play_demux, ad_pid, DESC_TYPE_AES, DSC_TSD_TYPE,0);
          STB_DMXSetKey(s_recplay_status[play_index].play_demux, s_recplay_status[play_index].ad_chanid, DESC_TYPE_AES, DSC_TSD_TYPE, KEY_PARITY_NONE, dmx_aes_key);
          break;
       default:
@@ -1294,9 +1294,10 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
 
          if (!aid_found)
          {
-            s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
+            s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE,0);
             s_rec_status[rec_index].descramble_a_chanpids[s_rec_status[rec_index].des_aids] = pid_array[i].pid;
          }
+
          if (s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] == -1)
          {
             REC_DBG("FAILED: alloc pvr audio pid failed");
@@ -1314,7 +1315,7 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
          REC_DBG("Found pvr video pid %d", pid_array[i].pid);
          if (s_rec_status[rec_index].descramble_v_chanid == -1)
          {
-            s_rec_status[rec_index].descramble_v_chanid = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
+            s_rec_status[rec_index].descramble_v_chanid = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE,0);
          }
          if (s_rec_status[rec_index].descramble_v_chanid == -1)
          {
@@ -1381,7 +1382,7 @@ BOOLEAN STB_PVRApplyEncryptionKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_type
       if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
       {
          REC_DBG("Found pvr audio pid %d", pid_array[i].pid);
-         s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids] = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, pid_array[i].pid, desc_type, DSC_TSE_TYPE);
+         s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids] = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, pid_array[i].pid, desc_type, DSC_TSE_TYPE,0);
          if (s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids] == -1)
          {
             REC_DBG("FAILED: alloc pvr audio pid failed");
@@ -1401,7 +1402,7 @@ BOOLEAN STB_PVRApplyEncryptionKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_type
          REC_DBG("Found pvr video pid %d", pid_array[i].pid);
          if (s_rec_status[rec_index].rec_v_chanid == -1)
          {
-            s_rec_status[rec_index].rec_v_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, pid_array[i].pid, desc_type, DSC_TSE_TYPE);
+            s_rec_status[rec_index].rec_v_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, pid_array[i].pid, desc_type, DSC_TSE_TYPE,0);
          }
          if (s_rec_status[rec_index].rec_v_chanid == -1)
          {
@@ -1635,7 +1636,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 #if SC2_USBCAM_ENABLE
                if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_rec_status[rec_index].clearkey.enabled)
                {
-                  s_rec_status[rec_index].rec_v_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, vpid, DESC_TYPE_AES, DSC_TSE_TYPE);
+                  s_rec_status[rec_index].rec_v_chanid = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, vpid, DESC_TYPE_AES, DSC_TSE_TYPE,0);
                   STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_v_chanid, DESC_TYPE_AES, DSC_TSE_TYPE, KEY_PARITY_NONE, dmx_aes_key);
                }
 #endif
@@ -1652,7 +1653,7 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 #if SC2_USBCAM_ENABLE
                if (STB_DMXGetModel() == STB_DMX_MODEL_SC2 && s_rec_status[rec_index].clearkey.enabled)
                {
-                  s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids] = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, apid, DESC_TYPE_AES, DSC_TSE_TYPE);
+                  s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids] = STB_DMXDscAlloc(s_rec_status[rec_index].rec_demux, apid, DESC_TYPE_AES, DSC_TSE_TYPE,0);
                   STB_DMXSetKey(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_a_chanids[s_rec_status[rec_index].rec_aids], DESC_TYPE_AES, DSC_TSE_TYPE, KEY_PARITY_NONE, dmx_aes_key);
                   s_rec_status[rec_index].rec_aids++;
                }

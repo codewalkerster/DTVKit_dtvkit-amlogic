@@ -545,7 +545,7 @@ void STB_DMXDscSetSrc(int dev_id, int dmx_id)
 #endif
 }
 
-int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type)
+int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type,enum dsm_session_usages dsm_session)
 {
    int chan_id = -1;
    int i, r, id;
@@ -3020,7 +3020,7 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    {
       if (ptrk->chanid == -1)
       {
-         ptrk->chanid = STB_DMXDscAlloc(dsc_dev, pdmx->pids[track], ptrk->type, DSC_COMMON_TYPE);
+         ptrk->chanid = STB_DMXDscAlloc(dsc_dev, pdmx->pids[track], ptrk->type, DSC_COMMON_TYPE,0);
          if (ptrk->chanid == -1)
          {
             DMX_DBG("dsc alloc failed");

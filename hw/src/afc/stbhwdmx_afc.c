@@ -63,7 +63,7 @@
 //#include <Aml_MP/Aml_MP.h>
 #include "wrapper_dmx.h"
 
-//#define DEMUX_DEBUG 1
+// #define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
 #ifdef DEMUX_DEBUG
 #define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
@@ -201,9 +201,9 @@ U16BIT demux_cap;
 typedef struct s_sc2_dsc_dev_info
 {
    int key_fd;
-   int dsm_handle;
-   uint32_t dsm_token;
-   jobject descramble_handle;
+   int dsm_handle[MAX_SC2_DSC_DEV];
+   uint32_t dsm_token[MAX_SC2_DSC_DEV];
+   jobject descramble_handle[MAX_SC2_DSC_DEV];
    int dsc_fd[MAX_SC2_DSC_DEV];
    int dsc_ref[MAX_SC2_DSC_DEV];
    void *mutex;
@@ -375,7 +375,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
          sc2_dsc_dev_info->key_fd = key_open();;
          DMX_DBG("KEY TABLE FD[%d]",sc2_dsc_dev_info->key_fd);
 
-         sc2_dsc_dev_info->descramble_handle = NULL;
          sc2_dsc_dev_info->mutex = STB_OSCreateMutex();
          for (i = 0; i < MAX_SC2_DSC_DEV; i++)
          {
@@ -393,11 +392,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
          }
       }
 
-      uint32_t token_  = -1;
-      sc2_dsc_dev_info->dsm_handle = DSM_OpenSession(0);
-      DSM_GenerateToken(sc2_dsc_dev_info->dsm_handle,&token_);
-      sc2_dsc_dev_info->dsm_token = token_;
-      DMX_DBG("DSM handle[%d] [%d] !", sc2_dsc_dev_info->dsm_handle , sc2_dsc_dev_info->dsm_token);
 #endif
    FUNCTION_FINISH(STB_DMXInitialise);
 }
@@ -2340,13 +2334,15 @@ static void key_free (int key_fd, int key_id)
    ioctl(key_fd, KEY_FREE, key_id);
 }
 
-int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type)
+int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_TYPE dsc_type,enum dsm_session_usages dsm_session)
 {
    int chan_id = -1;
    int i, r, id;
    char name[256];
-
-   DMX_DBG("dev %d pid %x dsc_type %d %s", dev_id, pid, type, name);
+   int ret= 0;
+   uint32_t prop;
+   int is_timeshift =0;
+   DMX_DBG("dev %d pid %x dsc_type %d %s dsc_type %d", dev_id, pid, type, name,dsc_type);
 
    //{
       S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
@@ -2354,7 +2350,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       enum ca_sc2_algo_type  algo;
       struct s_sc2_dsc_channel *dsc_channel = NULL;
       E_STB_TS_SOURCE ts_src;
-
+      uint32_t token_  = -1;
       STB_OSMutexLock(dsc->mutex);
       for (i = 0; i < SC2_DSC_CH_NUM; i++)
       {
@@ -2405,6 +2401,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
 
          dsc_channel->ref = 1;
          dsc_channel->chan_id = chan_id;
+         dsc_channel->dev_id = dev_id;
          dsc_channel->pid = pid;
          dsc_channel->dsc_type = dsc_type;
          ////////////////////////////
@@ -2416,13 +2413,27 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       //ca_dump_channel();
        //tuner hal flow
       // open descramble
+
       if (dsc->dsc_ref[dev_id] == 0)
       {
-           dsc->descramble_handle = DESCRAMBLE_Open(demux_status[dev_id].source_param  ,\
+         dsc->dsm_handle[dev_id] = DSM_OpenSession(0);
+         DSM_GenerateToken(dsc->dsm_handle[dev_id],&token_);
+
+         ret = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_CAS_SESSION_USAGE, dsm_session);
+         if (ret < 0)
+            DMX_DBG("DSM_PROP_CAS_SESSION_USAGE DSM_SetProperty error: ret = %d, [%d]%s", ret, -errno, strerror(errno));
+
+         dsc->dsm_token[dev_id] = token_;
+         if (dsm_session == DSM_PROP_SESSION_USAGES_TIMESHIFT)
+            is_timeshift = 1;
+
+           dsc->descramble_handle[dev_id] = DESCRAMBLE_Open(demux_status[dev_id].source_param  ,\
                                                     demux_status[dev_id].source ,\
-                                                    demux_status[dev_id].demux_cap );
+                                                    demux_status[dev_id].demux_cap,\
+                                                    is_timeshift );
       }
       dsc->dsc_ref[dev_id]++;
+
    return chan_id;
 }
 
@@ -2507,8 +2518,9 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
             iv_key_type = CA_KEY_00_IV_TYPE;
             break;
       }
+
    /*ALL ES share one Key TABLe*/
-      if (dsc->dsc_ref[dev_id] == 1)
+
     {
           if (dsc_channel->key_id == -1)
           {
@@ -2538,13 +2550,13 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
           }
           */
 
-          dsm_result = DSM_SetProperty(dsc->dsm_handle, DSM_PROP_SC2_DSC_TYPE, DSM_PROP_SC2_DSC_TYPE_TSN);
+          dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_SC2_DSC_TYPE, DSM_PROP_SC2_DSC_TYPE_TSN);
           DMX_DBG("dsm_result %d",dsm_result);
 
-          dsm_result = DSM_SetProperty(dsc->dsm_handle, DSM_PROP_DEC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
+          dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_DEC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
           DMX_DBG("dsm_result %d",dsm_result);
 
-          dsm_result = DSM_SetProperty(dsc->dsm_handle, DSM_PROP_ENC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
+          dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_ENC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
           DMX_DBG("dsm_result %d",dsm_result);
 
           struct dsm_keyslot keyslot;
@@ -2554,7 +2566,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
           keyslot.is_iv = FALSE;
           keyslot.is_enc = FALSE ;
           DMX_DBG("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot.parity,keyslot.is_iv,keyslot.id);
-          dsm_result = DSM_AddKeySlot(dsc->dsm_handle, &keyslot);
+          dsm_result = DSM_AddKeySlot(dsc->dsm_handle[dev_id], &keyslot);
 
           struct dsm_keyslot keyslot_iv;
           keyslot_iv.parity = (parity == KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
@@ -2563,17 +2575,16 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
           keyslot_iv.is_iv = TRUE;
           keyslot_iv.is_enc = FALSE ;
           DMX_DBG("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot_iv.parity,keyslot_iv.is_iv,keyslot_iv.id);
-          dsm_result = DSM_AddKeySlot(dsc->dsm_handle, &keyslot_iv);
-          uint32_t token =dsc->dsm_token;
-          DMX_DBG("dsm_token [0x%x] 0[%x]1[%x]2[]3[%x]4[%x]",dsc->dsm_token,(token & 0xFF),((token & 0xFF00) >> 8),((token & 0xFF0000) >> 16),((token >> 24) & 0xFF));
-          DESCRAMBLE_SetKeyToken(dsc->descramble_handle,dsc->dsm_token);
+          dsm_result = DSM_AddKeySlot(dsc->dsm_handle[dev_id], &keyslot_iv);
+          uint32_t token =dsc->dsm_token[dev_id];
+          DMX_DBG("dsm_token [0x%x] 0[%x]1[%x]2[]3[%x]4[%x]",dsc->dsm_token[dev_id],(token & 0xFF),((token & 0xFF00) >> 8),((token & 0xFF0000) >> 16),((token >> 24) & 0xFF));
+          DESCRAMBLE_SetKeyToken(dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
+          DMX_DBG("descramble_handle[0x%x] dsm_token [0x%x]",dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
     }
-      DESCRAMBLE_AddPid(dsc->descramble_handle,dsc_channel->pid);
+      DESCRAMBLE_AddPid(dsc->descramble_handle[dev_id],dsc_channel->pid);
 
       //add pid here
       STB_OSMutexUnlock(dsc->mutex);
-   //}
-
 
    return r;
 }
@@ -2587,21 +2598,27 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       struct ca_sc2_descr_ex desc;
       struct s_sc2_dsc_channel* dsc_channel = NULL;
 
-      STB_OSMutexLock(dsc->mutex);
+      if (chan_id == -1)
+         return;
 
+      STB_OSMutexLock(dsc->mutex);
 
       for (i = 0; i < SC2_DSC_CH_NUM; i++)
       {
-         dsc_channel = &dsc->dsc_pid_channel[i];
-         if (dsc_channel->chan_id == chan_id)
+         struct s_sc2_dsc_channel *channel = &dsc->dsc_pid_channel[i];
+         if ((channel->chan_id == chan_id) && (channel->dev_id == dev_id))
          {
             DMX_DBG("free found channel");
-            break ;
+            dsc_channel = channel;
+            break;
          }
       }
 
-      if (dsc_channel == NULL)
+      if (dsc_channel == NULL) {
           DMX_DBG("@@@@@@@@@@flow wrong");
+          STB_OSMutexUnlock(dsc->mutex);
+          return;
+      }
 
     //desc.cmd = CA_FREE;
     //desc.params.free_params.ca_index = chan_id;
@@ -2609,13 +2626,13 @@ void STB_DMXDscFree(int dev_id, int chan_id)
 
     if (dsc_channel->key_id != -1)
     {
-        DSM_RemoveKeySlot(dsc->dsm_handle, dsc_channel->key_id);
+        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_id);
         key_free(dsc->key_fd, dsc_channel->key_id);
     }
 
     if (dsc_channel->iv_key_id != -1)
     {
-        DSM_RemoveKeySlot(dsc->dsm_handle, dsc_channel->key_id);
+        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_id);
         key_free(dsc->key_fd, dsc_channel->iv_key_id);
     }
 
@@ -2625,6 +2642,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       dsc_channel->src = STB_TS_SOURCE_MAX;
       dsc_channel->dsc_type = -1;
       dsc_channel->chan_id = -1;
+      dsc_channel->dev_id = -1;
       dsc_channel->ref = 0;
       dsc->dsc_ref[dev_id]--;
       //ca_dump_channel();
@@ -2634,13 +2652,14 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       //tuner hal flow
       //remove pid
       //close descramble
-      DESCRAMBLE_RemovePid(dsc->descramble_handle,dsc_channel->pid);
+      DESCRAMBLE_RemovePid(dsc->descramble_handle[dev_id],dsc_channel->pid);
       dsc_channel->pid = -1;
 
       if (dsc->dsc_ref[dev_id] == 0)
       {
-          DESCRAMBLE_close(dsc->descramble_handle);
-          dsc->descramble_handle = NULL;
+          DSM_CloseSession(dsc->dsm_handle[dev_id]);
+          DESCRAMBLE_close(dsc->descramble_handle[dev_id]);
+          dsc->descramble_handle[dev_id] = NULL;
       }
 }
 
@@ -2655,6 +2674,7 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    BOOLEAN ret;
    int desc_chan;
    int dsc_dev;
+   enum dsm_session_usages dsm_session;
 
    dsc_dev =   path ;
 
@@ -2673,7 +2693,8 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    {
       if (ptrk->chanid == -1)
       {
-         ptrk->chanid = STB_DMXDscAlloc(dsc_dev, pdmx->pids[track], ptrk->type, DSC_COMMON_TYPE);
+         dsm_session = DSM_PROP_SESSION_USAGES_LIVE;
+         ptrk->chanid = STB_DMXDscAlloc(dsc_dev, pdmx->pids[track], ptrk->type, DSC_COMMON_TYPE,dsm_session);
          if (ptrk->chanid == -1)
          {
             DMX_DBG("----------------dsc alloc failed");

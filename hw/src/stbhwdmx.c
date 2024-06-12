@@ -2251,7 +2251,6 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
    FUNCTION_FINISH(STB_DMXGetDemuxSource);
 }
 
-
 /**
  * @brief   change the source of the demux when cam card plug or unplug
  *          we need check "is_set_tssource" is 0 or not,if it value is 0,
@@ -2267,6 +2266,11 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
    //no used now, only one cam card
    slot = 0;
    int param = 0;
+
+   // usb cam card is plug.used set_camPlug_tssource to
+   // set ts_input_idx for dmx source
+   // set_camPlug_tssource=inj_dev_id
+   int set_camPlug_tssource = 4;
 
    if (aml_hw_cfg.cam[slot].is_set_tssource == 0)
    {
@@ -2288,10 +2292,10 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
       }
       else
       {
-         if (STB_CIUsbModuleInserted())
+         if (STB_CIUsbInsertedState(INSERTED_STATE))
          {
-            aml_hw_cfg.tuners[i].ts_input_idx = STB_CIUsbGetDmxSource(TRUE);
-            DMX_DBG("index[%d]plug[%d]", i, STB_CIUsbGetDmxSource(TRUE));
+            aml_hw_cfg.tuners[i].ts_input_idx = set_camPlug_tssource;
+            DMX_DBG("index[%d]plug[%d]", i, set_camPlug_tssource);
          }
          else
          {
@@ -2315,7 +2319,7 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
       {
          if (dmx_model_sc2)
          {
-            if ((TRUE == pass_through) && (STB_CIUsbModuleInserted()))
+            if ((TRUE == pass_through) && (STB_CIUsbInsertedState(INSERTED_STATE)))
                param = DMX_CAPS_USBCAM;
 
             STB_DMXSetDemuxSource(i, DMX_TUNER, tuner_index, param);

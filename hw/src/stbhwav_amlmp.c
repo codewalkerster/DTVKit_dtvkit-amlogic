@@ -4523,7 +4523,7 @@ int AV_GetPlayerHandleByPath_l(U8BIT video_decoder, U8BIT audio_decoder, AML_MP_
       }
       else if (recreat_handle && av_path != INVALID_RES_ID)
       {
-         if (STB_CIUsbModuleInserted())
+         if (STB_CIUsbInsertedState(INSERTED_STATE))
             mode = AML_MP_INPUT_SOURCE_USBCAM;
          else
             mode = AML_MP_INPUT_SOURCE_TS_DEMOD;

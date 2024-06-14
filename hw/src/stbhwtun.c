@@ -53,6 +53,7 @@
 #include "stbhwc.h"
 #include "stbhwini.h"
 #include "stbhwutils.h"
+#include "stb_utils.h"
 
 #include "emu_internal.h"
 
@@ -2309,6 +2310,7 @@ void STB_TuneAllStart()
 {
     U8BIT i;
 
+    STB_File_Echo("/sys/module/amlogic_dvb_demux/parameters/cache_clear_time","5000");
     for (i = 0; i != num_paths; i++)
     {
         STB_OSMutexLock(tuner_status[i].lock);
@@ -2367,6 +2369,7 @@ void STB_TuneAllStop()
 
         STB_OSMutexUnlock(tuner_status[i].lock);
     }
+    STB_File_Echo("/sys/module/amlogic_dvb_demux/parameters/cache_clear_time","1000");
 }
 
 static BOOLEAN STB_TuneSetTone(U8BIT path, BOOLEAN use_22khz)

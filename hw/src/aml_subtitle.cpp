@@ -208,17 +208,16 @@ void aml_subtitle_open(int type, aml_subtitle_param_t *p) {
 }
 
 void aml_subtitle_close() {
-    int draw_type;
-    int h;
-
     SUB_LOG("Close subtitle");
 
+#ifndef RDK_COMPILE
     //clear draw
     if (g_OverlayDraw_Func) {
-        draw_type = parse_subtitle_type(sub_context.type);
-        h = (0x80 | draw_type) << 20;
+        int draw_type = parse_subtitle_type(sub_context.type);
+        int h = (0x80 | draw_type) << 20;
         g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
     }
+#endif
 
     std::lock_guard<std::mutex> lock(sub_mutex);
 
@@ -238,17 +237,16 @@ void aml_subtitle_close() {
 }
 
 void aml_subtitle_pause() {
-    int draw_type;
-    int h;
-
     std::lock_guard<std::mutex> lock(sub_mutex);
 
+#ifndef RDK_COMPILE
     //clear draw
     if (g_OverlayDraw_Func) {
-        draw_type = parse_subtitle_type(sub_context.type);
-        h = (0x80 | draw_type) << 20;
+        int draw_type = parse_subtitle_type(sub_context.type);
+        int h = (0x80 | draw_type) << 20;
         g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
     }
+#endif
 
     sub_context.paused = 1;
 }

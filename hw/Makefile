@@ -47,8 +47,7 @@ SRCS = stbhwplatform.c \
     atv_vlfend.c \
     atv_vlfend_test.c \
     linux_v4l2.c \
-    cJSON.c \
-    aml_subtitle.cpp
+    cJSON.c
 
 ifneq ($(PRODUCT_SUPPORT_EMUTUNNER), false)
 SRCS += emu_tuner.c \
@@ -56,6 +55,12 @@ SRCS += emu_tuner.c \
         emu_config.c
 
 DEFINES += EMUTUNNER_ENABLE
+endif
+
+ifeq ($(PRODUCT_SUPPORT_HDI), 1)
+SRCS += aml_subtitle_hdi.cpp
+else
+SRCS += aml_subtitle.cpp
 endif
 
 #SRCS = $(notdir $(wildcard ./src/*.c))

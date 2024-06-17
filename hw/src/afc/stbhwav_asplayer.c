@@ -2003,7 +2003,7 @@ BOOLEAN STB_AVStartADDecoding(U8BIT path)
     }
 
     DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
-    if (ad_pid != 0 && ad_pid != INVALID_PID && ad_pid != av_paths_status[av_path].ad_pid) {
+    if (ad_pid != 0 && ad_pid != INVALID_PID) {
         memset(&ad_param, 0, sizeof(ad_param));
         ad_param.pid = ad_pid;
         ad_param.mimeType = audio_mime_types[av_paths_status[path].ad_format].MIME;

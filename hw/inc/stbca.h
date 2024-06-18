@@ -48,10 +48,6 @@ void STB_CAPVRRecodingEncrypt(void *handle, void *param);
 
 void STB_CAPVRPlayDecrypt(void *handle, void *param);
 
-void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeShift);
-
-void STB_CAPVRPlayStop(void);
-
 //---Enumerations for public use-----------------------------------------------
 
 //---Global type defs for public use-------------------------------------------

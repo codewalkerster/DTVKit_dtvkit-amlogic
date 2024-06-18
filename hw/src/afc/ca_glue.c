@@ -44,6 +44,7 @@
 #include <stbhwc.h>
 #include "stbhwos.h"
 #include "stbhwmem.h"
+#include "stbhwdmx.h"
 #include "ca_glue.h"
 #include "stbhwcfg.h"
 
@@ -61,7 +62,23 @@
 #endif
 
 
+typedef enum
+{
+    IRDETO_CA_ID = 0x0625 ,
+    VMX_CA_ID= 0x1700  ,
+    NAGRA_CA_ID= 0x1860 ,
+    WV_CA_ID= 0x4AD4  ,
+} E_CAS_ID;
+
+typedef enum {
+    CAS_SESSION_PATH_LIVE,
+    CAS_SESSION_PATH_RECORD,
+    CAS_SESSION_PATH_PLAYBACK,
+    CAS_SESSION_PATH_ANY,
+} CAS_SESSION_PATH_TYPE;
+
 static void *cas_mutex;
+static int init_flag = 0;
 
 typedef struct es_pid_entry
 {
@@ -206,6 +223,15 @@ JCAS_JNI_RESULT CAS_CallBack(CasHandle casHandle, int event, int args, uint8_t* 
     if (NULL != data)
     {
         DebugPrintBuffer(data, dataLen);
+        if (dataLen + 1 < CAS_MSG_LEN)
+        {
+            static CAS_EVENT_DATA_t cas_event_data;
+            cas_event_data.pathType = CAS_SESSION_PATH_ANY;
+            cas_event_data.session = (UINTPTR)0 ;
+            cas_event_data.path = 0;
+            memcpy(cas_event_data.data_str, data, dataLen);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, EV_TYPE_CAS_HW, &cas_event_data, sizeof(cas_event_data));
+        }
     }
     else
     {
@@ -223,12 +249,36 @@ JCAS_JNI_RESULT CAS_SessionCallBack(CasHandle casHandle, CasSessionHandle sessio
     if (NULL != data)
     {
         DebugPrintBuffer(data, dataLen);
+        if (dataLen + 1 < CAS_MSG_LEN)
+        {
+            static CAS_EVENT_DATA_t cas_event_data;
+            cas_event_data.pathType = CAS_SESSION_PATH_ANY;
+            cas_event_data.session = (UINTPTR)sessionHandle ;
+            cas_event_data.path = 0;
+            cas_event_data.len=dataLen;
+            memcpy(cas_event_data.data_str, data, dataLen);
+            /*event type*/
+            cas_event_data.event = event;
+            cas_event_data.args = args;
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, EV_TYPE_CAS_HW, &cas_event_data, sizeof(cas_event_data));
+        }
     }
     else
     {
         CA_DBG("%s data==NULL", __FUNCTION__);
     }
     return AM_CAS_JNI_OK;
+}
+void STB_CANotifyMetaKEY(UINTPTR handle, U8BIT path, uint8_t* data, int dataLen)
+{
+    if (0 != handle)
+    {//session command
+        DebugPrintBuffer(data, dataLen);
+        if (MediaCAS_SendSessionCommand(((CA_HANDLE *)handle)->ca_handle, ((CA_HANDLE *)handle)->ca_session_handle, CAS_EVENT_TYPE_PROVIDER, 0x111, data, dataLen))
+        {
+            CA_DBG("%s MediaCAS_SendSessionCommand failed.", __FUNCTION__);
+        }
+    }
 }
 
 /*!**************************************************************************
@@ -284,12 +334,26 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
     ((CA_HANDLE *)(*handle))->service_id = serv_id;
     CA_DBG("%s handle[%#x]", __FUNCTION__, *handle);
 
+    E_STB_DMX_DEMUX_SOURCE source_type;
+    U8BIT param;
+    U16BIT demux_cap;
+    SessionIntent tisUseCase = LIVE;
+    STB_DMXGetDemuxSourceEX(path, &source_type, &param,&demux_cap);
+    if (DMX_CAPS_RECORDING == demux_cap)
+        { tisUseCase = RECORD;}
+    else if (DMX_CAPS_TIMESHIFT_RECORDING == demux_cap)
+        {tisUseCase = TIMESHIFT;}
+    else if (DMX_MEMORY == source_type)
+        {tisUseCase = PLAYBACK;}
+    else
+        {tisUseCase = LIVE;}
+    CA_DBG("==================source_type %d  tunerno %d   caps %d tisUseCase %d",source_type,  param , demux_cap, tisUseCase);
     memset(&(((CA_HANDLE *)(*handle))->plug_info), 0, sizeof(AM_CasPluginInfo));
     for (j = 0; j < num_ca_ids; j++)
     {
         CA_DBG("%s CA Id[%#x]", __FUNCTION__, ca_ids[j]);
         ((CA_HANDLE *)(*handle))->plug_info.tisSessionId = path;
-        ((CA_HANDLE *)(*handle))->plug_info.tisUseCase = LIVE;
+        ((CA_HANDLE *)(*handle))->plug_info.tisUseCase = tisUseCase;
         ((CA_HANDLE *)(*handle))->plug_info.casCallback = (CAS_Callback_t)CAS_CallBack;
         ((CA_HANDLE *)(*handle))->plug_info.casSessionCallback = (CAS_SessionCallback_t)CAS_SessionCallBack;
         CA_DBG("%s casCallback [%p] casSessionCallback[%p]", __FUNCTION__, ((CA_HANDLE *)(*handle))->plug_info.casCallback,((CA_HANDLE *)(*handle))->plug_info.casSessionCallback);
@@ -315,7 +379,9 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
         return FALSE;
     }
 
-    ret = MediaCAS_CreatePlugin(path, &(((CA_HANDLE *)(*handle))->plug_info), &(((CA_HANDLE *)(*handle))->ca_handle));
+
+
+    ret = MediaCAS_CreatePlugin(path, source_type , demux_cap , &(((CA_HANDLE *)(*handle))->plug_info), &(((CA_HANDLE *)(*handle))->ca_handle));
     if (ret)
     {
         CA_DBG("%s MediaCAS_CreatePlugin failed,ret=%d",__FUNCTION__,ret);
@@ -515,6 +581,92 @@ void STB_CADescrambleServiceStop(UINTPTR handle)
     STB_OSMutexUnlock(cas_mutex);
 }
 
+
+/*!**************************************************************************
+ * @brief   This function judge cas command type
+ * @param   handle - CA descrambler handle
+ ****************************************************************************/
+
+E_CAS_TYPE  _STB_CAJudgeCasCommandType(const char* inJson )
+{
+    int invokeid = 0xFFFF;
+    E_CAS_TYPE cas_type = CAS_TYPE_NONE;
+    cJSON *command_data = NULL;
+    command_data = cJSON_Parse(inJson);
+
+    if (TRUE == cJSON_HasObjectItem(command_data, "InvokeID"))
+    {
+        cJSON *invokeid_item = cJSON_GetObjectItem(command_data, "InvokeID");
+        invokeid = invokeid_item->valueint;
+        if (invokeid >= 3000)
+        {
+            cas_type = CAS_TYPE_NAGRA;
+        }
+        else if(invokeid >= 2000)
+        {
+            cas_type = CAS_TYPE_VMX;
+        }
+        else if(invokeid >= 1000)
+        {
+            cas_type = CAS_TYPE_IRDETO;
+        }
+        else
+        {
+            cas_type = CAS_TYPE_NONE;
+        }
+    }
+    if (inJson)
+    {
+        cJSON_Delete(command_data);
+    }
+    CA_DBG("%s----------cas_type=%d",__FUNCTION__,cas_type);
+    return cas_type;
+}
+
+CasHandle  _STB_CAGenerateCASHandle(E_CAS_TYPE cas_type , E_CAS_ID cas_id)
+{
+        U8BIT j;
+        U32BIT ret = 0;
+
+        if (init_flag == 0)
+        {
+            ret = MediaCAS_Init();
+            init_flag = 1;
+            if (ret)
+            {
+                CA_DBG("am cas init failed [%d]", ret);
+            }
+
+            cas_mutex = (void *)STB_OSCreateMutex();
+        }
+
+        STB_OSMutexLock(cas_mutex);
+        CA_HANDLE handle;
+        memset(&handle, 0x0, sizeof(CA_HANDLE));
+        handle.path = 0xFF;
+        handle.service_id = 0xFF;
+        handle.start_descrambling = FALSE;
+        handle.plug_info.tisSessionId = 0xFF;
+        handle.plug_info.tisUseCase = LIVE;
+        handle.plug_info.casCallback = (CAS_Callback_t)CAS_CallBack;
+        handle.plug_info.casSessionCallback = (CAS_SessionCallback_t)CAS_SessionCallBack;
+        handle.plug_info.caSystemId = cas_id;
+        handle.match_ca_id = cas_id;
+
+        ret = MediaCAS_CreatePlugin(0xFF,0xFF, 0xFF ,&(handle.plug_info), &(handle.ca_handle));
+        if (ret)
+        {
+            CA_DBG("%s MediaCAS_CreatePlugin failed,ret=%d",__FUNCTION__,ret);
+            STB_OSMutexUnlock(cas_mutex);
+            return FALSE;
+        }
+
+        CA_DBG("%s MediaCAS_CreatePlugin OK,ca_handle=0x%lx",__FUNCTION__,handle.ca_handle);
+        STB_OSMutexUnlock(cas_mutex);
+
+        return handle.ca_handle;
+}
+
 /*!**************************************************************************
  * @brief   This function will be called when set CA descramble ioctl
  * @param   handle - CA descrambler handle
@@ -522,19 +674,16 @@ void STB_CADescrambleServiceStop(UINTPTR handle)
 void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session, const char* inJson, char* outJson, U32BIT outLen)
 {
     FUNCTION_START(STB_CADescrambleIoctl);
-    ASSERT(handle);
+    //ASSERT(handle);
+    static CasHandle global_handle_irdeto = 0xFFFF;
+    static CasHandle global_handle_vmx = 0xFFFF;
+    static CasHandle global_handle_nagra = 0xFFFF;
+    static CasHandle global_handle_wv = 0xFFFF;
     CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
     STB_OSMutexLock(cas_mutex);
 
-    if (0 != session)
-    {
-        if (MediaCAS_SendCommand((CasHandle)session, CAS_EVENT_TYPE_PROVIDER , CAS_EVENT_TYPE_STATUS, (uint8_t*)inJson, strlen(inJson)))
-        {
-            CA_DBG("%s MediaCAS_SendCommand failed.", __FUNCTION__);
-        }
-    }
-    else if (0 != handle)
-    {
+    if (0 != handle)
+    {//session command
         if (MediaCAS_SendSessionCommand(((CA_HANDLE *)handle)->ca_handle, ((CA_HANDLE *)handle)->ca_session_handle, CAS_EVENT_TYPE_PROVIDER, CAS_EVENT_TYPE_STATUS, (uint8_t*)inJson, strlen(inJson)))
         {
             CA_DBG("%s MediaCAS_SendSessionCommand failed.", __FUNCTION__);
@@ -542,7 +691,54 @@ void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session, const char* inJson, c
     }
     else
     {
-        CA_DBG("%s ca_handle = NULL", __FUNCTION__);
+        //global  command
+        CasHandle handle_global=0xFFFF;
+        E_CAS_TYPE cas_type = _STB_CAJudgeCasCommandType(inJson);
+///////////////////////////////
+        int *default_caid = NULL;
+        default_caid = (int *)STB_MEMGetSysRAM(MAX_CAS_ID_NUM*sizeof(int));
+        memset(default_caid, 0 ,MAX_CAS_ID_NUM*sizeof(int));
+        MediaCAS_GetDefaultCaSystemIds(default_caid);
+        int i = 0 ;
+        for ( i = 0; i < MAX_CAS_ID_NUM; i++)
+        {
+            if (default_caid[i] != 0)
+                CA_DBG("========CAID [%x].", default_caid[i]);
+        }
+        STB_MEMFreeSysRAM(default_caid);
+////////////////////////////
+        //test only
+        //cas_type = CAS_TYPE_NAGRA;
+        switch (cas_type)
+            {
+            case CAS_TYPE_IRDETO:
+                if (global_handle_irdeto == 0xFFFF)
+                    global_handle_irdeto = _STB_CAGenerateCASHandle(cas_type,IRDETO_CA_ID);
+                handle_global = global_handle_irdeto;
+                break;
+            case CAS_TYPE_VMX:
+                if (global_handle_vmx == 0xFFFF)
+                    global_handle_vmx = _STB_CAGenerateCASHandle(cas_type,VMX_CA_ID);
+                handle_global = global_handle_vmx;
+                break;
+            case CAS_TYPE_NAGRA:
+                if (global_handle_nagra == 0xFFFF)
+                    global_handle_nagra = _STB_CAGenerateCASHandle(cas_type,NAGRA_CA_ID);
+                handle_global = global_handle_nagra;
+                break;
+            case CAS_TYPE_WV:
+                if (global_handle_wv == 0xFFFF)
+                    global_handle_wv = _STB_CAGenerateCASHandle(cas_type,WV_CA_ID);
+                handle_global = global_handle_wv;
+                break;
+             default:
+                break;
+            }
+        CA_DBG("%s ca_handle = 0x%lx  -----------------MediaCAS_SendCommand", __FUNCTION__,handle_global);
+        if (MediaCAS_SendCommand((CasHandle)handle_global, CAS_EVENT_TYPE_PROVIDER , CAS_EVENT_TYPE_STATUS, (uint8_t*)inJson, strlen(inJson)))
+        {
+            CA_DBG("%s MediaCAS_SendCommand failed.", __FUNCTION__);
+        }
     }
 
     CA_DBG("%s handle:(0x%lx) session:(0x%lx) [inJson: %s] [inLen: %d]", __FUNCTION__, handle, session, inJson, strlen(inJson));
@@ -550,10 +746,23 @@ void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session, const char* inJson, c
     FUNCTION_FINISH(STB_CADescrambleIoctl);
 }
 
+
 BOOLEAN STB_CACheckSessionStatus(UINTPTR handle, UINTPTR session)
 {
     ASSERT(handle);
     BOOLEAN ret = FALSE;
+    STB_OSMutexLock(cas_mutex);
+    if ((0 != handle) && (0 != ((CA_HANDLE *)handle)->ca_session_handle))
+    {
+        CA_DBG("%s(ca_session_handle=%p session =%p )", __FUNCTION__, (((CA_HANDLE *)handle)->ca_session_handle),session );
+        if ( ((CA_HANDLE *)handle)->ca_session_handle == session )
+            ret = TRUE;
+        else
+            ret = FALSE;
+    }
+    else
+        ret = FALSE;
+    STB_OSMutexUnlock(cas_mutex);
     return ret;
 }
 
@@ -1123,7 +1332,23 @@ void STB_CANotifyRunningStatus(UINTPTR handle, U8BIT status)
  ****************************************************************************/
 BOOLEAN STB_CADescramblerRequiredForPlayback(U16BIT *ca_ids, U16BIT num_ca_ids)
 {
-    return FALSE;
+    BOOLEAN ret = FALSE;
+    U16BIT i;
+    FUNCTION_START(STB_CADescramblerRequiredForRecording);
+
+    CA_DBG("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids);
+    for (i = 0; i < num_ca_ids; i++)
+    {
+        if (MediaCAS_IsSystemIdSupported(ca_ids[i]))
+        {
+            ret = TRUE;
+            break;
+        }
+    }
+
+    FUNCTION_FINISH(STB_CADescramblerRequiredForRecording);
+
+    return ret;
 }
 
 /*!**************************************************************************
@@ -1135,7 +1360,23 @@ BOOLEAN STB_CADescramblerRequiredForPlayback(U16BIT *ca_ids, U16BIT num_ca_ids)
  ****************************************************************************/
 BOOLEAN STB_CADescramblerRequiredForRecording(U16BIT *ca_ids, U16BIT num_ca_ids)
 {
-    return FALSE;
+    BOOLEAN ret = FALSE;
+    U16BIT i;
+    FUNCTION_START(STB_CADescramblerRequiredForRecording);
+
+    CA_DBG("%s(ca_ids=%p, num_ca_ids=%u)", __FUNCTION__, ca_ids, num_ca_ids);
+    for (i = 0; i < num_ca_ids; i++)
+    {
+        if (MediaCAS_IsSystemIdSupported(ca_ids[i]))
+        {
+            ret = TRUE;
+            break;
+        }
+    }
+
+    FUNCTION_FINISH(STB_CADescramblerRequiredForRecording);
+
+    return ret;
 }
 
 /*!**************************************************************************
@@ -1164,9 +1405,6 @@ U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
 
     return(num_pids);
 }
-
-
-
 /*!**************************************************************************
  * @brief   Called to free the array of PIDs allocated by STB_CAGetRecordingPids.
  * @param   pid_array - array of PIDs to be freed
@@ -1175,26 +1413,43 @@ U16BIT STB_CAGetRecordingPids(U8BIT *pmt_data, U16BIT **pid_array)
 void STB_CAReleaseRecordingPids(U16BIT *pid_array, U16BIT num_pids)
 {
 }
-
-
 /*!**************************************************************************
- * @brief   This function is called when a record is stoped
+ * @brief   This function is called when a record is start
  * @param   handle - CA descrambler handle
  ****************************************************************************/
 int STB_CAPVRRecordStart(UINTPTR handle)
 {
-    return -1;
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+    STB_CADescrambleServiceStart(handle);
+    return 0;
 }
-
-
 /*!**************************************************************************
  * @brief   This function is called when a record is stoped
  * @param   handle - CA descrambler handle
  ****************************************************************************/
-void STB_CAPVRRecordStop(UINTPTR handle)
+void  STB_CAPVRRecordStop(UINTPTR handle)
 {
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+    STB_CADescrambleServiceStop(handle);
 }
-
+/*!**************************************************************************
+ * @brief   This function is called when a playback is start
+ * @param   handle - CA descrambler handle
+ ****************************************************************************/
+void STB_CAPVRPlayStart(UINTPTR handle,void *param, BOOLEAN isTimeShift)
+{
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+    STB_CADescrambleServiceStart(handle);
+}
+/*!**************************************************************************
+ * @brief   This function is called when a playback is stop
+ * @param   handle - CA descrambler handle
+ ****************************************************************************/
+void STB_CAPVRPlayStop(UINTPTR handle)
+{
+    CA_DBG("%s handle=(0x%lx)", __FUNCTION__, handle);
+    STB_CADescrambleServiceStop(handle);
+}
 /*!**************************************************************************
  * @brief   This function is called when a recording starts and when it stops
  * @param   handle - CA descrambler handle
@@ -1203,7 +1458,6 @@ void STB_CAPVRRecordStop(UINTPTR handle)
 void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status)
 {
 }
-
 /******************************************************************************
 ** End of file
 ******************************************************************************/

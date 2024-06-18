@@ -33,6 +33,8 @@
 #include "techtype.h"
 
 #define CAS_MSG_LEN 8192
+#define EVENT_TYPE_PVR_METADATA  0x111
+
 /*---Constant and macro definitions for public use-----------------------------*/
 
 /*---Enumerations for public use-----------------------------------------------*/
@@ -46,8 +48,12 @@ typedef enum
 typedef enum
 {
     CAS_TYPE_NONE,
-    CAS_TYPE_NAGRA
+    CAS_TYPE_IRDETO,
+    CAS_TYPE_VMX,
+    CAS_TYPE_NAGRA,
+    CAS_TYPE_WV
 } E_CAS_TYPE;
+
 
 typedef struct
 {
@@ -55,6 +61,9 @@ typedef struct
     U8BIT pathType;
     UINTPTR session;
     char data_str[CAS_MSG_LEN];
+    int event;
+    int args;
+    U32BIT len;
 } CAS_EVENT_DATA_t;
 
 typedef struct
@@ -239,12 +248,26 @@ void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status);
  * @param   status - TRUE when when equal
  ****************************************************************************/
 BOOLEAN STB_CACheckSessionStatus(UINTPTR handle, UINTPTR session);
+/****************************************************************************/
+/****************************************************************************/
+void STB_CANotifyMetaKEY(UINTPTR handle, U8BIT path, uint8_t* data, int dataLen);
+/****************************************************************************/
+/****************************************************************************/
+int STB_CAPVRRecordStart(UINTPTR handle);
+/****************************************************************************/
+/****************************************************************************/
+void STB_CAPVRRecordStop(UINTPTR handle);
+/****************************************************************************/
+/****************************************************************************/
+void STB_CAPVRPlayStart(UINTPTR handle,void *param, BOOLEAN isTimeShift);
+/****************************************************************************/
+/****************************************************************************/
+void STB_CAPVRPlayStop(UINTPTR handle);
+/****************************************************************************/
+/****************************************************************************/
 
 /***********************NEED CLEAN UP these API*******************************/
 E_CAS_TYPE STB_CAGetCASType();
-BOOLEAN STB_CATMSFtaBit();
-int STB_CAPVRRecordStart(UINTPTR handle);
-void STB_CAPVRRecordStop(UINTPTR handle);
 /******************************************************/
 
 #endif /* __CA_GLUE_H */

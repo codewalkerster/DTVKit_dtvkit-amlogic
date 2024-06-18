@@ -1075,7 +1075,7 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
       }
    }
 
-   STB_CAPVRPlayStop();
+   STB_CAPVRPlayStop(0);
 
    FUNCTION_FINISH(STB_PVRPlayStop);
 }
@@ -3327,7 +3327,7 @@ static BOOLEAN updatePlayback(U8BIT play_index, int reset)
             break;
          }
 
-         STB_CAPVRPlayStart(&param, play_params.isTimeShift);
+         STB_CAPVRPlayStart(0,&param, play_params.isTimeShift);
 
          if (!STB_CAIsM2M()) {
              PLAY_DBG("is_smp=%d isn't block_mode=%d not need create secmem", s_recplay_status[play_index].cas_status.is_smp, STB_CAIsM2M());

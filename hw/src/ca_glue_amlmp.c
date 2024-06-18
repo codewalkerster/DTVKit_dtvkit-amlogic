@@ -700,6 +700,12 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
     CA_DBG("%s(path=%u, serv_id=%u, ca_ids=%p, num_ca_ids=%u)",
             __FUNCTION__, path, serv_id, ca_ids, num_ca_ids);
 
+    E_STB_DMX_DEMUX_SOURCE source_type;
+    U8BIT param;
+    U16BIT demux_cap;
+    STB_DMXGetDemuxSourceEX(path, &source_type, &param,&demux_cap);
+    CA_DBG("==================source_type %d  tunerno %d   caps %d",source_type,  param , demux_cap);
+
     if (num_ca_ids == 0)
     {
         CA_DBG("Free channel, no need descrambler");
@@ -973,7 +979,7 @@ void STB_CADescrambleIoctl(UINTPTR handle, U32BIT session,  const char* inJson, 
 #ifdef SUPPORT_CAS
     FUNCTION_START(STB_CADescrambleIoctl);
 
-    ASSERT(handle);
+    //ASSERT(handle); global handle is NULL
     STB_OSMutexLock(g_ca_mutex);
 
     if (0 != session)
@@ -1949,7 +1955,7 @@ int STB_CAPVRGetDvrSection(UINTPTR handle, AML_MP_CASSESSION *sec)
     return 0;
 }
 
-void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeShift)
+void STB_CAPVRPlayStart(UINTPTR handle,void *param, BOOLEAN isTimeShift)
 {
     int ret;
 
@@ -1976,7 +1982,7 @@ void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeS
         get_cas_mode(g_pvrplay_session);
 
         CA_DBG("PVRPlay CAS open session = %p", g_pvrplay_session);
-        if (Aml_MP_CAS_StartDVRReplay(g_pvrplay_session, param))
+        if (Aml_MP_CAS_StartDVRReplay(g_pvrplay_session, (Aml_MP_CASDVRReplayParams *)param))
         {
             CA_DBG("Start DVR Replay failed\n");
         }
@@ -1984,7 +1990,7 @@ void STB_CAPVRPlayStart(struct Aml_MP_CASDVRReplayParams *param, BOOLEAN isTimeS
 }
 #endif
 
-void STB_CAPVRPlayStop(void)
+void STB_CAPVRPlayStop(UINTPTR handle)
 {
 #ifdef SUPPORT_CAS
     CA_DBG("%s(session=%p)", __FUNCTION__, g_pvrplay_session);
@@ -2218,6 +2224,9 @@ BOOLEAN STB_CATMSFtaBit()
     return is_enable_fta;
 }
 
+void STB_CANotifyMetaKEY(UINTPTR handle, U8BIT path, uint8_t* data, int dataLen)
+{
+}
 
 /******************************************************************************
 ** End of file

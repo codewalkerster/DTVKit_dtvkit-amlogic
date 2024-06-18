@@ -68,7 +68,7 @@ void DMX_Route_TS(int tuner_no, int cicamid,BOOLEAN pass_through);
 
 JCAS_JNI_RESULT MediaCAS_Init();
 
-JCAS_JNI_RESULT MediaCAS_CreatePlugin(U8BIT path , AM_CasPluginInfo *casPluginInfo , CasHandle *casHandle);
+JCAS_JNI_RESULT MediaCAS_CreatePlugin(U8BIT path ,U16BIT source_type  ,U16BIT demux_cap  , AM_CasPluginInfo *casPluginInfo , CasHandle *casHandle);
 
 BOOLEAN MediaCAS_IsSystemIdSupported(int caSystemId);
 
@@ -88,6 +88,7 @@ JCAS_JNI_RESULT MediaCAS_CasManagerTerm();
 JCAS_JNI_RESULT MediaCAS_SendCommand(CasHandle casHandle, int event, int arg, uint8_t* data, int dataLen);
 
 JCAS_JNI_RESULT MediaCAS_SendSessionCommand(CasHandle casHandle, CasSessionHandle casSessionHandle, int event, int arg, uint8_t* data, int dataLen);
+JCAS_JNI_RESULT MediaCAS_GetDefaultCaSystemIds(int* caSystemIds);
 
 jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap, int is_timeshift);
 void DESCRAMBLE_AddPid( jobject handle, int pid);

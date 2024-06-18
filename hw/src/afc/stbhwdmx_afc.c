@@ -173,7 +173,7 @@ typedef struct
 
    E_STB_DMX_DEMUX_SOURCE source;
    U8BIT source_param;
-U16BIT demux_cap;
+   U16BIT demux_cap;
 #ifdef TEMI_TIMELINES
    S_TEMI_FILTER temi_filters[MAX_TEMI_FILTERS];
 #endif
@@ -1337,6 +1337,21 @@ void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *pa
 
    FUNCTION_FINISH(STB_DMXGetDemuxSource);
 }
+
+void STB_DMXGetDemuxSourceEX(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *param ,U16BIT* demux_cap)
+{
+   FUNCTION_START(STB_DMXGetDemuxSource);
+
+   if (path < num_paths)
+   {
+      *source = demux_status[path].source;
+      *param = demux_status[path].source_param;
+      *demux_cap = demux_status[path].demux_cap ;
+   }
+
+   FUNCTION_FINISH(STB_DMXGetDemuxSource);
+}
+
 void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT param, U16BIT demux_cap)
 {
    FUNCTION_START(STB_DMXSetDemuxSource);

@@ -87,7 +87,8 @@ typedef enum
     DMX_CAPS_PLAYBACK = 0x0008,      /* Demux can be used for PVR playback */
     DMX_CAPS_MONITOR_SI = 0x0010,    /* Demux can be used to monitor SI data from a tuner */
     DMX_CAPS_NO_DSC_NEEDED = 0x0020, /* Demux can be assign to whom need no dsc */
-    DMX_CAPS_USBCAM = 0x0040         /* Demux can be assign to usbcam */
+    DMX_CAPS_USBCAM = 0x0040 ,        /* Demux can be assign to usbcam */
+    DMX_CAPS_TIMESHIFT_RECORDING = 0x0080
 } E_STB_DMX_CAPS;
 
 
@@ -256,7 +257,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
  * @param   param the source specific parameter (e.g. tuner number)
  */
 void STB_DMXGetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *param);
-
+void STB_DMXGetDemuxSourceEX(U8BIT path, E_STB_DMX_DEMUX_SOURCE *source, U8BIT *param ,U16BIT *demux_cap);
 /**
  * @brief   Reads Teletext PES data from the demux
  * @param   path the demux path to read

@@ -511,40 +511,69 @@ JCAS_JNI_RESULT MediaCAS_Init()
     return AM_CasManagerInit();
 }
 
-JCAS_JNI_RESULT MediaCAS_CreatePlugin(U8BIT path , AM_CasPluginInfo *casPluginInfo , CasHandle *casHandle)
+JCAS_JNI_RESULT MediaCAS_CreatePlugin(U8BIT path ,U16BIT source_type  ,U16BIT demux_cap  , AM_CasPluginInfo *casPluginInfo , CasHandle *casHandle)
 {
     int ClientId = 0xFFFF;
     static jobject sTunerJcas = NULL;
 
-    TUNER_TYPE tuner_type = TUNER_TYPE_LIVE_0;
-    switch (path)
+    /*
+    typedef enum
     {
-        case 0:
-        {
-            tuner_type = TUNER_TYPE_LIVE_0;
-            break ;
-        }
-        case 1:
-        {
-            tuner_type = TUNER_TYPE_LIVE_1;
-            break ;
-        }
-        case 2 :
-        {
-            tuner_type = TUNER_TYPE_LIVE_2;
-            break ;
-        }
-        default:
-        {
-            tuner_type = TUNER_TYPE_LIVE_0;
-            break ;
-        }
+        DMX_TUNER,
+        DMX_1394,
+        DMX_MEMORY
+    } E_STB_DMX_DEMUX_SOURCE;
+    */
+    if (source_type  != 0)
+    {
+        ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
+        ALOGD("start DMX_CAPS_PLAYBACK filter ClientId 0x%x",ClientId);
     }
-    ClientId = Am_tuner_getTunerClientIdByType(tuner_type);
-    if (INVALID_TUNER_ID == ClientId)
+    else
     {
-        ALOGD("%s : get fail", __FUNCTION__);
-        return AM_CAS_JNI_ERR_BASE ;
+        TUNER_TYPE tuner_type = TUNER_TYPE_LIVE_0;
+        if (demux_cap == 0x0004)
+        {
+            tuner_type = TUNER_TYPE_DVR_RECORD;
+        }
+        else if (demux_cap == 0x0080)
+        {
+           tuner_type = TUNER_TYPE_DVR_TIMESHIFT_RECORD;
+        }
+        else
+        {
+            switch (path)
+            {
+                case 0:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_0;
+                    break ;
+                }
+                case 1:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_1;
+                    break ;
+                }
+                case 2 :
+                {
+                    tuner_type = TUNER_TYPE_LIVE_2;
+                    break ;
+                }
+                default:
+                {
+                    tuner_type = TUNER_TYPE_LIVE_0;
+                    break ;
+                }
+            }
+        }
+        ClientId = Am_tuner_getTunerClientIdByType(tuner_type);
+        ALOGD("start MediaCAS_CreatePlugin filter path [%d] demux_cap [0x%x] ClientId[%d] tuner_type[%d]",path,demux_cap ,ClientId,tuner_type);
+    }
+
+    if (0xFF == path)
+    {
+        ALOGD("%s : get global ClientId ok = %d ", __FUNCTION__, ClientId);
+        return AM_CreateCasPlugin(casPluginInfo, INVALID_TUNER_ID, casHandle);
     }
     else
     {
@@ -612,6 +641,10 @@ JCAS_JNI_RESULT MediaCAS_SendSessionCommand(CasHandle casHandle, CasSessionHandl
     return AM_SendSessionCommand(casHandle, casSessionHandle, event, arg, data, dataLen);
 }
 
+JCAS_JNI_RESULT MediaCAS_GetDefaultCaSystemIds(int* caSystemIds)
+{
+    return AM_GetDefaultCaSystemIds(caSystemIds);
+}
 ////////////////////////////
  //tuner hal flow
 // open descramble

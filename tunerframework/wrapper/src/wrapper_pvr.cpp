@@ -258,10 +258,17 @@ S8BIT Wrapper_PVR_Recorder_stop(am_dvr_recorder_handle handle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Recorder_stop(handle);
+    const S8BIT ret1 = AmDvr_Recorder_stop(handle);
+    if (ret1 == -1) {
+       ALOGE("AmDvr_Recorder_stop failed");
+    }
+    const S8BIT ret2 = AmDvr_Recorder_destroy(handle);
+    if (ret2 == -1) {
+       ALOGE("AmDvr_Recorder_destroy failed");
+    }
 
     LOG_LEAVE;
-    return ret;
+    return (ret1 == 0 && ret2 == 0) ? JDVRLIB_JNI_OK : JDVRLIB_JNI_ERR;
 }
 
 S8BIT Wrapper_PVR_Recorder_pause(am_dvr_recorder_handle handle)
@@ -336,10 +343,17 @@ S8BIT Wrapper_PVR_Player_stop(am_dvr_player_handle handle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Player_stop(handle);
+    const S8BIT ret1 = AmDvr_Player_stop(handle);
+    if (ret1 == -1) {
+       ALOGE("AmDvr_Player_stop failed");
+    }
+    const S8BIT ret2 = AmDvr_Player_destroy(handle);
+    if (ret2 == -1) {
+       ALOGE("AmDvr_Player_destroy failed");
+    }
 
     LOG_LEAVE;
-    return ret;
+    return (ret1 == 0 && ret2 == 0) ? JDVRLIB_JNI_OK : JDVRLIB_JNI_ERR;
 }
 
 S8BIT Wrapper_PVR_Player_setSpeed(am_dvr_player_handle handle, double speed)

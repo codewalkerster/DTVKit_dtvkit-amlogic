@@ -3880,3 +3880,14 @@ BOOLEAN STB_PVRStoreVideoWindow(U8BIT video_decoder, U16BIT x, U16BIT y, U16BIT 
    return TRUE;
 }
 #endif
+
+S32BIT STB_PVRSendMessage(U8BIT path, U16BIT msg, U64BIT param1, U64BIT param2)
+{
+   return 0;
+}
+
+U8BIT STB_PVRGetPlayPath(U8BIT audio_decoder, U8BIT video_decoder)
+{
+   return getPlayIndex(INVALID_RES_ID, video_decoder);
+}
+

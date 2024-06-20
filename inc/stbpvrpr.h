@@ -517,6 +517,7 @@ int STB_PVRPlay_Decrypt(void *crypto_inf, void *cb_param);
 
 BOOLEAN STB_PVRStartAVDecoding(U8BIT index);
 BOOLEAN STB_PVRIsPlayInitialled(U8BIT audio_decoder, U8BIT video_decoder);
+U8BIT STB_PVRGetPlayPath(U8BIT audio_decoder, U8BIT video_decoder);
 
 #ifdef SUPPORT_CAS
 
@@ -561,5 +562,24 @@ U32BIT STB_DSKIncreaseCurrentFileNameSerial(U16BIT disk_id);
  */
 BOOLEAN STB_PVRStoreVideoWindow(U8BIT video_decoder, U16BIT x, U16BIT y, U16BIT w, U16BIT h);
 #endif
+
+/**
+ * @brief   The STB_PVRSendMessage function in STB_PVR API allows DTVKit
+ *          modules to send a specified message to STB_PVR.
+ * @param   path    The data structure handle associated with PVR recording
+ *                  and playback process.
+ * @param   msg     The message to be sent.
+ *           =0x110 CAS metadata for PVR.
+ *                  param1: the char* pointer for metadata string which is
+ *                    0 terminated. The caller is responsible for maintaining
+ *                    the lifecycle of the memory.
+ *                  param2: the length of the metadata string.
+ * @param   param1  Message-specific information. Data associated with the
+ *                  message.
+ * @param   param2  Additional message-specific information.
+ * @return  The result of message processing depends on the specific message
+ *          sent.
+ */
+S32BIT STB_PVRSendMessage(U8BIT path, U16BIT msg, U64BIT param1, U64BIT param2);
 
 #endif //  _STBPVRPR_H

@@ -141,6 +141,7 @@
 
 #define EV_TYPE_CAS_HW                                            62
 #define EV_TYPE_CAS_LONG_HW                                       63
+#define EV_TYPE_CAS_PVR_META_DATA                            64
 
 // timeouts for queues, semaphores etc
 #define TIMEOUT_NOW     0

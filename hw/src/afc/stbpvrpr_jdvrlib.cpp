@@ -37,7 +37,7 @@ extern "C" {
 #include "stbhwc.h"
 
 //#include "stbhwdef.h"
-//#include "stbhwmem.h"
+#include "stbhwmem.h"
 //#include "stbhwdmx.h"
 //#include "stb_utils.h"
 #include "afd_ctrl.h"
@@ -69,7 +69,7 @@ extern "C" {
 #endif
 #define LOG_LEAVE_EARLY PVR_ERR("leave early")
 
-#define LOG_NOT_IMPLEMENTED PVR_DBG("*NOT IMPLEMENTED*")
+#define LOG_NOT_IMPLEMENTED PVR_INFO("*NOT IMPLEMENTED*")
 
 #define INVALID_PID     0x1fff
 #define INVALID_RES_ID  255
@@ -102,6 +102,11 @@ struct S_REC_STATUS
    U8BIT des_aids;
    U8BIT pid_index;
 
+   U16BIT pending_msg;
+   U64BIT pending_msg_param1;
+   U64BIT pending_msg_param2;
+   BOOLEAN encrypting;
+
    S_REC_STATUS() :
       state_cond{}, state_mutex{}
    {
@@ -122,6 +127,10 @@ struct S_REC_STATUS
       rec_index = INVALID_RES_ID;
       disk_id = INVALID_RES_ID;
       pids_array.clear();
+      pending_msg = 0;
+      pending_msg_param1 = 0;
+      pending_msg_param2 = 0;
+      encrypting = FALSE;
    }
 };
 
@@ -151,6 +160,8 @@ struct S_RECPLAY_STATUS
    U16BIT audio_presentation_id;
    U32BIT seek_position;
 
+   BOOLEAN is_encrypted;
+
    S_RECPLAY_STATUS()
    {
       reset();
@@ -175,6 +186,7 @@ struct S_RECPLAY_STATUS
       audio_pid = INVALID_PID;
       audio_presentation_id = 0;
       seek_position = 0;
+      is_encrypted = FALSE;
    }
 };
 
@@ -465,6 +477,9 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       return FALSE;
    }
    PVR_INFO("file handle for playback: %p",prps->dvr_file_handle);
+
+   Wrapper_PVR_File_isEncrypted(prps->dvr_file_handle,&(prps->is_encrypted));
+   PVR_INFO("DRM isEncrypted() returns: %d",(int)prps->is_encrypted);
 
    wrapper_player_init_params params;
    params.asplayer_handle = asplayer_handle;
@@ -938,9 +953,12 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
 
    wrapper_recorder_init_params params;
    params.jdvrfile_handle = prs->dvr_file_handle;
-   params.segment_size = 30*1024*1024;
    params.callback = on_recorder_evt_cb;
    params.is_timeshift = prs->is_timeshift;
+   params.recorder_buffer_size = 0;    // use default value
+   params.filter_buffer_size = 0;      // use default value
+   params.segment_size = 0;            // use default value
+   params.encrypting = prs->encrypting;
 
    ret2 = Wrapper_PVR_Recorder_create(&params,&prs->dvr_recorder_handle);
    if (ret2 == -1)
@@ -992,6 +1010,15 @@ BOOLEAN STB_PVRRecordStart(U16BIT disk_id, U8BIT rec_index, U8BIT *basename,
       Wrapper_PVR_Recorder_addStream(handle,info.pid,type_map1(info.type),format);
    });
    swap(curr,given);
+
+   if (prs->pending_msg > 0) {
+      PVR_INFO("DRM 2) Sending cached message %04x, param1:\"%s\", param2:%u",
+            prs->pending_msg,(char*)prs->pending_msg_param1,(uint32_t)prs->pending_msg_param2);
+      Wrapper_PVR_Recorder_sendMessage(handle,prs->pending_msg,prs->pending_msg_param1,prs->pending_msg_param2);
+      prs->pending_msg = 0;
+      prs->pending_msg_param1 = 0;
+      prs->pending_msg_param2 = 0;
+   }
 
    ret2 = Wrapper_PVR_Recorder_start(handle);
    if (ret2 == -1)
@@ -1127,9 +1154,19 @@ BOOLEAN STB_PVRRecordChangePids(U8BIT rec_index, U16BIT num_pids, S_PVR_PID_INFO
  */
 void STB_PVRRecordSetCASStatus(U8BIT rec_index, S_CAS_STATUS *cas_status)
 {
-   //LOG_ENTER;
-   LOG_NOT_IMPLEMENTED;
-   //LOG_LEAVE;
+   LOG_ENTER;
+
+   if ( rec_index >= num_recorders )
+   {
+      PVR_ERR("Invalid recorder index %u is given",(U32BIT)rec_index);
+      return;
+   }
+   S_REC_STATUS* prs = &s_rec_status[rec_index];
+
+   prs->encrypting = TRUE;
+   PVR_INFO("DRM set encrypting to %d",prs->encrypting);
+
+   LOG_LEAVE;
 }
 #endif
 
@@ -1834,25 +1871,47 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
    }
 
    if (event == AM_DVR_PLAYER_EVENT_PROGRESS) {
-      am_dvr_playback_progress* evt = (am_dvr_playback_progress*) event_data;
-      if (evt != NULL) {
-         it->progress = *evt;
-         it->state = (U8BIT)evt->state;
-         it->speed = (S16BIT)(100*evt->speed);
-         it->speed2 = it->speed;
-         it->speed2_just_set = FALSE;
-         PVR_INFO("AM_DVR_PLAYER_EVENT_PROGRESS: "
-               "sessionNumber:%d, state:%d, speed:%.2f, "
-               "currTime:%lld, startTime:%lld, endTime:%lld, duration:%lld, "
-               "currSegmentId:%d, firstSegmentId:%d, lastSegmentId:%d, numberOfSegments:%d",
-               evt->sessionNumber,evt->state,evt->speed,
-               evt->currTime,evt->startTime,evt->endTime,evt->duration,
-               evt->currSegmentId,evt->firstSegmentId,evt->lastSegmentId,evt->numberOfSegments);
+      if ( event_data == NULL) {
+         PVR_ERR("The event_data associated with AM_DVR_PLAYER_EVENT_PROGRESS is NULL");
+         return;
       }
+      auto& event = *(am_dvr_playback_progress*)event_data;
+      it->progress = event;
+      it->state = (U8BIT)event.state;
+      it->speed = (S16BIT)(100*event.speed);
+      it->speed2 = it->speed;
+      it->speed2_just_set = FALSE;
+      PVR_INFO("AM_DVR_PLAYER_EVENT_PROGRESS: "
+            "sessionNumber:%d, state:%d, speed:%.2f, "
+            "currTime:%lld, startTime:%lld, endTime:%lld, duration:%lld, "
+            "currSegmentId:%d, firstSegmentId:%d, lastSegmentId:%d, numberOfSegments:%d",
+            event.sessionNumber,event.state,event.speed,
+            event.currTime,event.startTime,event.endTime,event.duration,
+            event.currSegmentId,event.firstSegmentId,event.lastSegmentId,event.numberOfSegments);
    } else if (event == AM_DVR_PLAYER_EVENT_EOS) {
       PVR_INFO("AM_DVR_PLAYER_EVENT_EOS");
    } else if (event == AM_DVR_PLAYER_EVENT_EDGE_LEAVING) {
       PVR_INFO("AM_DVR_PLAYER_EVENT_EDGE_LEAVING");
+   } else if (event == AM_DVR_PLAYER_EVENT_CAS_METADATA) {
+      if ( event_data == NULL) {
+         PVR_ERR("The event_data associated with AM_DVR_PLAYER_EVENT_CAS_METADATA is NULL");
+         return;
+      }
+      auto& event = *(pair<int,const char*>*)event_data;
+      int time = event.first;
+      string cas_metadata = event.second;
+      uint8_t* buf = (uint8_t*)STB_MEMGetSysRAM(256);
+      memset(buf,0,256);
+      *((int*)buf) = time;
+      buf[4] = it->video_decoder;
+      buf[5] = it->audio_decoder;
+      buf[6] = 0;
+      buf[7] = min(cas_metadata.length(),(size_t)248);
+      copy_n(cas_metadata.c_str(),buf[7],buf+8);
+      PVR_INFO("AM_DVR_PLAYER_EVENT_CAS_METADATA "
+            "time:%d, vid:%d, aud:%d, len:%d, cas_metadata:%s",
+            time,(int)buf[4],(int)buf[5],(int)buf[7],buf+8);
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, EV_TYPE_CAS_PVR_META_DATA,(void *)buf,256);
    } else if (event == AM_DVR_PLAYER_EVENT_INITIAL_STATE) {
       PVR_INFO("AM_DVR_PLAYER_EVENT_INITIAL_STATE");
       it->state = 1;
@@ -2070,6 +2129,9 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
     jni_asplayer_audio_params audio_param;
     jni_asplayer_audio_presentation audio_presentation;
 
+   const int play_index = to_index(video_decoder,audio_decoder);
+   S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
+
     PVR_INFO("%s(%d,%d), handle: %u, video: %d, %d, audio: %d, %d, (%d)", __FUNCTION__,
         video_decoder, audio_decoder, player_handle, video_pid, video_format, audio_pid, audio_format, audio_presentation_id);
 
@@ -2081,6 +2143,8 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         video_param.height = 1080;
         video_param.width = 1920;
         video_param.hasVideo = TRUE;
+        video_param.scrambled = prps->is_encrypted;
+        PVR_INFO("DRM set video_param.scrambled %d",(int)video_param.scrambled);
         ret = Wrapper_Player_SetVideoParams(player_handle, &video_param, (WRAPPER_PLAYER_VIDEO_STREAM_TYPE)video_format);
         if (ret < 0)
         {
@@ -2115,6 +2179,8 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
         audio_param.sampleRate = 8000;
         audio_param.channelCount = 1;
         audio_param.mimeType = audio_mime_types[audio_format].MIME;
+        audio_param.scrambled = prps->is_encrypted;
+        PVR_INFO("DRM set audio_param.scrambled %d",(int)audio_param.scrambled);
         if (audio_presentation_id > 0)
         {
             audio_param.presentation.presentation_id = audio_presentation_id;
@@ -2167,4 +2233,42 @@ static void STB_PVRReleaseDMXDsc(U8BIT rec_index)
          STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_v_chanid);
          s_rec_status[rec_index].descramble_v_chanid = -1;
       }
+}
+
+S32BIT STB_PVRSendMessage(U8BIT path, U16BIT msg, U64BIT param1, U64BIT param2)
+{
+    PVR_INFO("path:%d, msg:0x%04x, param1:%llu, param2:%llu",(int)path,msg,param1,param2);
+   if ((msg & 0x100) > 0) { // To recorder
+      S_REC_STATUS* prs = &s_rec_status[path];
+      const auto& handle = prs->dvr_recorder_handle;
+      if (msg == 0x110) {
+         if (handle != NULL) {
+            PVR_INFO("DRM Sending message 0x%04x, param1:\"%s\", param2:%u",msg,(char*)param1,(uint32_t)param2);
+            Wrapper_PVR_Recorder_sendMessage(handle,msg,param1,param2);
+         } else {
+            PVR_INFO("DRM 1) Defer sending message 0x%04x, param1:\"%s\", param2:%u",msg,(char*)param1,(uint32_t)param2);
+            prs->pending_msg = 0x110;
+            prs->pending_msg_param1 = param1;
+            prs->pending_msg_param2 = param2;
+         }
+      }
+   } else if ((msg & 0x200) > 0) { // To player
+      S_RECPLAY_STATUS* prps = &s_recplay_status[path];
+      const auto& handle = prps->dvr_player_handle;
+      Wrapper_PVR_Player_sendMessage(handle,msg,param1,param2);
+   } else {
+      PVR_ERR("Unknown message %04x, param1:%llu, param2:%llu",msg,param1,param2);
+   }
+   return 0;
+}
+
+U8BIT STB_PVRGetPlayPath(U8BIT audio_decoder, U8BIT video_decoder)
+{
+   const int play_index = to_index(video_decoder,audio_decoder);
+   if ( play_index >= num_players )
+   {
+      PVR_ERR("Player index %d is invalid",play_index);
+      return INVALID_RES_ID;
+   }
+   return play_index;
 }

@@ -48,7 +48,7 @@ static jfieldID GetFieldIDOrDie(JNIEnv* env, jclass clazz, const char* field_nam
 // mode:0  prepare tuner for normal recording
 // mode:1  prepare tuner for timeshift recording
 // mode:2  prepare tuner for playback
-S8BIT Wrapper_PVR_Initialise(int32_t mode)
+int8_t Wrapper_PVR_Initialise(int32_t mode)
 {
     LOG_ENTER;
 
@@ -93,67 +93,67 @@ S8BIT Wrapper_PVR_Initialise(int32_t mode)
     return 0;
 }
 
-S8BIT Wrapper_PVR_File_create1(const PU8BIT path_prefix, BOOLEAN trunc, am_dvr_file_handle* phandle)
+int8_t Wrapper_PVR_File_create1(const uint8_t* path_prefix, uint8_t trunc, am_dvr_file_handle* phandle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_File_create1((const char*)path_prefix,(bool)trunc,phandle);
+    int8_t ret = AmDvr_File_create1((const char*)path_prefix,(bool)trunc,phandle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_File_create2(const PU8BIT path_prefix, S32BIT limit_size, S32BIT limit_seconds, BOOLEAN trunc, am_dvr_file_handle* phandle)
+int8_t Wrapper_PVR_File_create2(const uint8_t* path_prefix, int32_t limit_size, int32_t limit_seconds, uint8_t trunc, am_dvr_file_handle* phandle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_File_create2((const char*)path_prefix,limit_size,limit_seconds,(bool)trunc,phandle);
+    int8_t ret = AmDvr_File_create2((const char*)path_prefix,limit_size,limit_seconds,(bool)trunc,phandle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_File_create3(const PU8BIT path_prefix, am_dvr_file_handle* phandle)
+int8_t Wrapper_PVR_File_create3(const uint8_t* path_prefix, am_dvr_file_handle* phandle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_File_create3((const char*)path_prefix,phandle);
+    int8_t ret = AmDvr_File_create3((const char*)path_prefix,phandle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_File_duration(am_dvr_file_handle handle, int64_t* pduration)
+int8_t Wrapper_PVR_File_duration(am_dvr_file_handle handle, int64_t* pduration)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_File_duration(handle,pduration);
+    int8_t ret = AmDvr_File_duration(handle,pduration);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_File_duration2(const PU8BIT path_prefix, int64_t* pduration)
+int8_t Wrapper_PVR_File_duration2(const uint8_t* path_prefix, int64_t* pduration)
 {
     return AmDvr_File_duration2(path_prefix,pduration);
 }
 
-S8BIT Wrapper_PVR_File_size(am_dvr_file_handle handle, int64_t* psize)
+int8_t Wrapper_PVR_File_size(am_dvr_file_handle handle, int64_t* psize)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_File_size(handle,psize);
+    int8_t ret = AmDvr_File_size(handle,psize);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_File_size2(const PU8BIT path_prefix, int64_t* psize)
+int8_t Wrapper_PVR_File_size2(const uint8_t* path_prefix, int64_t* psize)
 {
     return AmDvr_File_size2(path_prefix,psize);
 }
 
-S8BIT Wrapper_PVR_File_destroy(am_dvr_file_handle handle)
+int8_t Wrapper_PVR_File_destroy(am_dvr_file_handle handle)
 {
     LOG_ENTER;
 
@@ -163,7 +163,7 @@ S8BIT Wrapper_PVR_File_destroy(am_dvr_file_handle handle)
     return 0;
 }
 
-S8BIT Wrapper_PVR_deleteRecord(const PU8BIT path_prefix)
+int8_t Wrapper_PVR_deleteRecord(const uint8_t* path_prefix)
 {
     LOG_ENTER;
 
@@ -173,7 +173,7 @@ S8BIT Wrapper_PVR_deleteRecord(const PU8BIT path_prefix)
     return 0;
 }
 
-S8BIT Wrapper_PVR_File_getVideoPID(am_dvr_file_handle handle, int32_t* pPID)
+int8_t Wrapper_PVR_File_getVideoPID(am_dvr_file_handle handle, int32_t* pPID)
 {
     //LOG_ENTER;
 
@@ -183,7 +183,7 @@ S8BIT Wrapper_PVR_File_getVideoPID(am_dvr_file_handle handle, int32_t* pPID)
     return 0;
 }
 
-S8BIT Wrapper_PVR_File_getAudioPID(am_dvr_file_handle handle, int32_t* pPID)
+int8_t Wrapper_PVR_File_getAudioPID(am_dvr_file_handle handle, int32_t* pPID)
 {
     //LOG_ENTER;
 
@@ -193,7 +193,7 @@ S8BIT Wrapper_PVR_File_getAudioPID(am_dvr_file_handle handle, int32_t* pPID)
     return 0;
 }
 
-S8BIT Wrapper_PVR_File_getVideoFormat(am_dvr_file_handle handle, int* pformat)
+int8_t Wrapper_PVR_File_getVideoFormat(am_dvr_file_handle handle, int* pformat)
 {
     //LOG_ENTER;
 
@@ -203,7 +203,7 @@ S8BIT Wrapper_PVR_File_getVideoFormat(am_dvr_file_handle handle, int* pformat)
     return 0;
 }
 
-S8BIT Wrapper_PVR_File_getAudioFormat(am_dvr_file_handle handle, int* pformat)
+int8_t Wrapper_PVR_File_getAudioFormat(am_dvr_file_handle handle, int* pformat)
 {
     //LOG_ENTER;
 
@@ -213,7 +213,17 @@ S8BIT Wrapper_PVR_File_getAudioFormat(am_dvr_file_handle handle, int* pformat)
     return 0;
 }
 
-S8BIT Wrapper_PVR_Recorder_create(wrapper_recorder_init_params* params, am_dvr_recorder_handle* phandle)
+int8_t Wrapper_PVR_File_isEncrypted(am_dvr_file_handle handle, uint8_t* pencrypted)
+{
+    //LOG_ENTER;
+
+    AmDvr_File_isEncrypted(handle, pencrypted);
+
+    //LOG_LEAVE;
+    return 0;
+}
+
+int8_t Wrapper_PVR_Recorder_create(wrapper_recorder_init_params* params, am_dvr_recorder_handle* phandle)
 {
     LOG_ENTER;
 
@@ -221,48 +231,53 @@ S8BIT Wrapper_PVR_Recorder_create(wrapper_recorder_init_params* params, am_dvr_r
 
     recorder_params.tuner = (params->is_timeshift ? sTunerForTimeshiftRecording : sTunerForNormalRecording);
     recorder_params.jdvrfile_handle = (am_dvr_file_handle)params->jdvrfile_handle;
-    recorder_params.settings = NULL;
     recorder_params.callback = params->callback;
+    recorder_params.recorder_buffer_size = params->recorder_buffer_size;
+    recorder_params.filter_buffer_size = params->filter_buffer_size;
+    recorder_params.segment_size = params->segment_size;
+    recorder_params.encrypting = params->encrypting;
+    recorder_params.enc_mode = params->enc_mode;
+    recorder_params.block_size = params->block_size;
 
-    S8BIT ret = AmDvr_Recorder_create(&recorder_params,phandle);
+    int8_t ret = AmDvr_Recorder_create(&recorder_params,phandle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_Recorder_addStream(am_dvr_recorder_handle handle, S32BIT pid, am_dvr_stream_type type, S32BIT format)
+int8_t Wrapper_PVR_Recorder_addStream(am_dvr_recorder_handle handle, int32_t pid, am_dvr_stream_type type, int32_t format)
 {
-    S8BIT ret = AmDvr_Recorder_addStream(handle,pid,type,format);
+    int8_t ret = AmDvr_Recorder_addStream(handle,pid,type,format);
     ALOGD("%s, pid:%d type:%d format:%d ret:%d",__FUNCTION__,pid,type,format,(int)ret);
     return ret;
 }
 
-S8BIT Wrapper_PVR_Recorder_removeStream(am_dvr_recorder_handle handle, S32BIT pid)
+int8_t Wrapper_PVR_Recorder_removeStream(am_dvr_recorder_handle handle, int32_t pid)
 {
-    S8BIT ret = AmDvr_Recorder_removeStream(handle,pid);
+    int8_t ret = AmDvr_Recorder_removeStream(handle,pid);
     ALOGD("%s, pid:%d ret:%d",__FUNCTION__,pid,(int)ret);
     return ret;
 }
 
-S8BIT Wrapper_PVR_Recorder_start(am_dvr_recorder_handle handle)
+int8_t Wrapper_PVR_Recorder_start(am_dvr_recorder_handle handle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Recorder_start(handle);
+    int8_t ret = AmDvr_Recorder_start(handle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_Recorder_stop(am_dvr_recorder_handle handle)
+int8_t Wrapper_PVR_Recorder_stop(am_dvr_recorder_handle handle)
 {
     LOG_ENTER;
 
-    const S8BIT ret1 = AmDvr_Recorder_stop(handle);
+    const int8_t ret1 = AmDvr_Recorder_stop(handle);
     if (ret1 == -1) {
        ALOGE("AmDvr_Recorder_stop failed");
     }
-    const S8BIT ret2 = AmDvr_Recorder_destroy(handle);
+    const int8_t ret2 = AmDvr_Recorder_destroy(handle);
     if (ret2 == -1) {
        ALOGE("AmDvr_Recorder_destroy failed");
     }
@@ -271,17 +286,27 @@ S8BIT Wrapper_PVR_Recorder_stop(am_dvr_recorder_handle handle)
     return (ret1 == 0 && ret2 == 0) ? JDVRLIB_JNI_OK : JDVRLIB_JNI_ERR;
 }
 
-S8BIT Wrapper_PVR_Recorder_pause(am_dvr_recorder_handle handle)
+int8_t Wrapper_PVR_Recorder_pause(am_dvr_recorder_handle handle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Recorder_pause(handle);
+    int8_t ret = AmDvr_Recorder_pause(handle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_Player_create(wrapper_player_init_params* params, am_dvr_player_handle* phandle)
+int8_t Wrapper_PVR_Recorder_sendMessage(am_dvr_recorder_handle handle, uint16_t msg, uint64_t param1, uint64_t param2)
+{
+    LOG_ENTER;
+
+    int8_t ret = AmDvr_Recorder_sendMessage(handle, msg, param1, param2);
+
+    LOG_LEAVE;
+    return ret;
+}
+
+int8_t Wrapper_PVR_Player_create(wrapper_player_init_params* params, am_dvr_player_handle* phandle)
 {
     LOG_ENTER;
 
@@ -307,7 +332,7 @@ S8BIT Wrapper_PVR_Player_create(wrapper_player_init_params* params, am_dvr_playe
     dvr_player_params.settings = NULL;
     dvr_player_params.callback = params->callback;
 
-    S8BIT ret = AmDvr_Player_create(&dvr_player_params,phandle);
+    int8_t ret = AmDvr_Player_create(&dvr_player_params,phandle);
     if (ret == -1)
     {
         ALOGE("Fail to create JDvrPlayer");
@@ -319,35 +344,35 @@ S8BIT Wrapper_PVR_Player_create(wrapper_player_init_params* params, am_dvr_playe
     return 0;
 }
 
-S8BIT Wrapper_PVR_Player_play(am_dvr_player_handle handle)
+int8_t Wrapper_PVR_Player_play(am_dvr_player_handle handle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Player_play(handle);
+    int8_t ret = AmDvr_Player_play(handle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_Player_pause(am_dvr_player_handle handle)
+int8_t Wrapper_PVR_Player_pause(am_dvr_player_handle handle)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Player_pause(handle);
+    int8_t ret = AmDvr_Player_pause(handle);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_Player_stop(am_dvr_player_handle handle)
+int8_t Wrapper_PVR_Player_stop(am_dvr_player_handle handle)
 {
     LOG_ENTER;
 
-    const S8BIT ret1 = AmDvr_Player_stop(handle);
+    const int8_t ret1 = AmDvr_Player_stop(handle);
     if (ret1 == -1) {
        ALOGE("AmDvr_Player_stop failed");
     }
-    const S8BIT ret2 = AmDvr_Player_destroy(handle);
+    const int8_t ret2 = AmDvr_Player_destroy(handle);
     if (ret2 == -1) {
        ALOGE("AmDvr_Player_destroy failed");
     }
@@ -356,21 +381,31 @@ S8BIT Wrapper_PVR_Player_stop(am_dvr_player_handle handle)
     return (ret1 == 0 && ret2 == 0) ? JDVRLIB_JNI_OK : JDVRLIB_JNI_ERR;
 }
 
-S8BIT Wrapper_PVR_Player_setSpeed(am_dvr_player_handle handle, double speed)
+int8_t Wrapper_PVR_Player_setSpeed(am_dvr_player_handle handle, double speed)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Player_setSpeed(handle, speed);
+    int8_t ret = AmDvr_Player_setSpeed(handle, speed);
 
     LOG_LEAVE;
     return ret;
 }
 
-S8BIT Wrapper_PVR_Player_seek(am_dvr_player_handle handle, int32_t seconds)
+int8_t Wrapper_PVR_Player_seek(am_dvr_player_handle handle, int32_t seconds)
 {
     LOG_ENTER;
 
-    S8BIT ret = AmDvr_Player_seek(handle, seconds);
+    int8_t ret = AmDvr_Player_seek(handle, seconds);
+
+    LOG_LEAVE;
+    return ret;
+}
+
+int8_t Wrapper_PVR_Player_sendMessage(am_dvr_recorder_handle handle, uint16_t msg, uint64_t param1, uint64_t param2)
+{
+    LOG_ENTER;
+
+    int8_t ret = AmDvr_Player_sendMessage(handle, msg, param1, param2);
 
     LOG_LEAVE;
     return ret;

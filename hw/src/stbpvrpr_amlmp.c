@@ -158,6 +158,7 @@ typedef struct
 
    S8BIT descramble_v_chanid;
    S8BIT descramble_a_chanids[32];
+   U8BIT descramble_a_chanpids[32];
    U8BIT des_aids;
 
    AML_MP_DVRRECORDER recorder;
@@ -187,6 +188,7 @@ typedef struct
    U8BIT libdvr_ext_mode1;
 
     pthread_rwlock_t lock;
+    int dsc_no;
 } S_REC_STATUS;
 
 typedef struct {
@@ -1176,6 +1178,10 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
    FUNCTION_START(STB_PVRReleaseRecorderIndex);
 
    REC_DBG("Releasing recorder %u", rec_index);
+   if (STB_DMXGetModel() != STB_DMX_MODEL_SC2)
+   {
+      STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", "8");
+   }
 
    if (rec_index < num_recorders)
    {
@@ -1186,28 +1192,29 @@ void STB_PVRReleaseRecorderIndex(U8BIT rec_index)
       {
          for (i = 0; i < s_rec_status[rec_index].des_aids; i++)
          {
-            STB_DMXDscFree(DSC_DEV_NO, s_rec_status[rec_index].descramble_a_chanids[i]);
+            STB_DMXDscFree(s_rec_status[rec_index].dsc_no, s_rec_status[rec_index].descramble_a_chanids[i]);
             s_rec_status[rec_index].descramble_a_chanids[i] = -1;
+            s_rec_status[rec_index].descramble_a_chanpids[i] = -1;
          }
          s_rec_status[rec_index].des_aids = 0;
       }
       if (s_rec_status[rec_index].descramble_v_chanid != -1)
       {
-         STB_DMXDscFree(DSC_DEV_NO, s_rec_status[rec_index].descramble_v_chanid);
+         STB_DMXDscFree(s_rec_status[rec_index].dsc_no, s_rec_status[rec_index].descramble_v_chanid);
          s_rec_status[rec_index].descramble_v_chanid = -1;
       }
       if (s_rec_status[rec_index].rec_aids > 0)
       {
          for (i = 0; i<s_rec_status[rec_index].rec_aids; i++)
          {
-            STB_DMXDscFree(DSC_DEV_NO, s_rec_status[rec_index].rec_a_chanids[i]);
+            STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_a_chanids[i]);
             s_rec_status[rec_index].rec_a_chanids[i] = -1;
          }
          s_rec_status[rec_index].rec_aids = 0;
       }
       if (s_rec_status[rec_index].rec_v_chanid != -1)
       {
-         STB_DMXDscFree(DSC_DEV_NO, s_rec_status[rec_index].rec_v_chanid);
+         STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].rec_v_chanid);
          s_rec_status[rec_index].rec_v_chanid = -1;
       }
    }
@@ -1229,41 +1236,45 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
    E_STB_DMX_DESC_KEY_PARITY parity, U8BIT *key, U8BIT *iv, U16BIT num_pids, S_PVR_PID_INFO *pid_array)
 {
    FUNCTION_START(STB_PVRApplyDescramblerKey);
-   int i;
+   int i, j;
+   BOOLEAN aid_found = FALSE;
    BOOLEAN ret = TRUE;
    U8BIT key_buffer[32];
    U8BIT dmx_id;
    U8BIT dsc_id;
-   REC_DBG("rec_index %d rec_demux %d", rec_index, s_rec_status[rec_index].rec_demux);
+   int ciplus_out_ctrl = 0;
+   char buf[8] = {0};
    if (STB_DMXGetModel() == STB_DMX_MODEL_SC2)
    {
       dmx_id = s_rec_status[rec_index].rec_demux;
       dsc_id = dmx_id;
+      REC_DBG("rec_index sc2");
+      STB_DMXDscSetSrc(dsc_id, dmx_id); // This will call reset, and affect ciplus_output_ctrl
    }
    else
    {
+      REC_DBG("rec_index not sc2");
       if (s_rec_status[rec_index].rec_mode == START_PAUSED)
       {
          dmx_id = s_rec_status[rec_index].rec_demux;
          dsc_id = DSC_DEV_NO;
+         STB_DMXDscSetSrc(dsc_id, dmx_id);
       }
       else
       {
-         if (s_rec_status[rec_index].rec_demux != 0)
          {
-            return TRUE;
-         }
-         else
-         {
-            dmx_id = 0;
+            dmx_id = s_rec_status[rec_index].rec_demux;
             dsc_id = dmx_id;
+            ciplus_out_ctrl = ((dmx_id << 1) | 1); // Unable to find live dmx, assume 0.
+            sprintf(buf, "%d", ciplus_out_ctrl);
+            STB_File_Echo("/sys/class/dmx/ciplus_output_ctrl", buf);
+            STB_DMXDscSetSrc(dsc_id, dmx_id);
          }
       }
-
    }
-
+   REC_DBG("rec_index %d rec_demux %d dmx_id %d dsc_id %d", rec_index, s_rec_status[rec_index].rec_demux, dmx_id, dsc_id);
+   s_rec_status[rec_index].dsc_no = dsc_id;
    // Set descrambler source
-   STB_DMXDscSetSrc(dsc_id, dmx_id);
 
    //Alloc dsc pid channel
    for (i = 0; i < num_pids; i++)
@@ -1271,10 +1282,25 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
       if (pid_array[i].type == PVR_PID_TYPE_AUDIO)
       {
          REC_DBG("Found pvr audio pid %d", pid_array[i].pid);
-         s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
+         //if found
+         for (j = 0; j<s_rec_status[rec_index].des_aids; j++)
+         {
+            if (s_rec_status[rec_index].descramble_a_chanpids[j] == pid_array[i].pid)
+            {
+               aid_found = TRUE;
+               break;
+            }
+         }
+
+         if (!aid_found)
+         {
+            s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] = STB_DMXDscAlloc(dsc_id, pid_array[i].pid, desc_type, DSC_COMMON_TYPE);
+            s_rec_status[rec_index].descramble_a_chanpids[s_rec_status[rec_index].des_aids] = pid_array[i].pid;
+         }
          if (s_rec_status[rec_index].descramble_a_chanids[s_rec_status[rec_index].des_aids] == -1)
          {
             REC_DBG("FAILED: alloc pvr audio pid failed");
+            s_rec_status[rec_index].descramble_a_chanpids[s_rec_status[rec_index].des_aids] = -1;
             ret = FALSE;
          }
          s_rec_status[rec_index].des_aids++;
@@ -1327,7 +1353,8 @@ BOOLEAN STB_PVRApplyDescramblerKey(U8BIT rec_index, E_STB_DMX_DESC_TYPE desc_typ
    {
       for (i = 0;i< s_rec_status[rec_index].des_aids; i++)
       {
-         STB_DMXSetKey(dsc_id, s_rec_status[rec_index].descramble_a_chanids[i], desc_type, DSC_COMMON_TYPE, parity, key_buffer);
+         if (s_rec_status[rec_index].descramble_a_chanids[i] != -1)
+            STB_DMXSetKey(dsc_id, s_rec_status[rec_index].descramble_a_chanids[i], desc_type, DSC_COMMON_TYPE, parity, key_buffer);
       }
    }
 
@@ -1928,12 +1955,13 @@ void STB_PVRRecordStop(U8BIT rec_index)
          /* Free descrabmle channel */
          for (i = 0; i < s_rec_status[rec_index].des_aids; i++)
          {
-            STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_a_chanids[i]);
+            STB_DMXDscFree(s_rec_status[rec_index].dsc_no, s_rec_status[rec_index].descramble_a_chanids[i]);
             s_rec_status[rec_index].descramble_a_chanids[i] = -1;
+            s_rec_status[rec_index].descramble_a_chanpids[i] = -1;
          }
          s_rec_status[rec_index].des_aids = 0;
 
-         STB_DMXDscFree(s_rec_status[rec_index].rec_demux, s_rec_status[rec_index].descramble_v_chanid);
+         STB_DMXDscFree(s_rec_status[rec_index].dsc_no, s_rec_status[rec_index].descramble_v_chanid);
          s_rec_status[rec_index].descramble_v_chanid = -1;
 
          /* Free record pid channel */

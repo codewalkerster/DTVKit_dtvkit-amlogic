@@ -15,6 +15,9 @@
 #define MAP_INSERT_ITEM(__MAP__, __KEY__, __VALUE__) __MAP__.insert(std::make_pair(__KEY__, __VALUE__))
 #define KEY_CONTAINED_IN_MAP(__MAP__, __KEY__) (__MAP__.find(__KEY__) != __MAP__.end())
 
+#define DVBS_MAX_FREQ_KHZ   2300000
+#define DVBS_MIN_FREQ_KHZ   850000
+
 typedef enum  {
     FRONTEND_PARAM_MIN_SRATE,
     FRONTEND_PARAM_MAX_SRATE,
@@ -1442,10 +1445,22 @@ EW_STB_TUNE_TBWIDTH Wrapper_TuneGetActualTerrBwidth(U8BIT path)
 
 S64BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path)
 {
-    S64BIT min_freq;
+    S64BIT min_freq = 0;
+    E_TTYPE signal_type = E_TERR_TYPE_UNKNOWN;
+    signal_type = getSignalType(path);
 
-    min_freq = getCurrentFrontendParameter(path, FRONTEND_PARAM_MIN_FREQ);
-    min_freq /= 1000;
+    switch (signal_type)
+    {
+        case E_TERR_TYPE_DVBS:
+            /* Use constant to avoid external data type error */
+            min_freq = DVBS_MIN_FREQ_KHZ;
+            break;
+        default:
+            min_freq = getCurrentFrontendParameter(path, FRONTEND_PARAM_MIN_FREQ);
+            min_freq /= 1000;
+            break;
+    }
+
     ALOGI("%s: Min Tuner Freq: %lld KHz", __FUNCTION__, min_freq);
     return min_freq;
 }
@@ -1453,8 +1468,20 @@ S64BIT Wrapper_TuneGetMinTunerFreqKHz(U8BIT path)
 S64BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path)
 {
     S64BIT max_freq;
-    max_freq = getCurrentFrontendParameter(path, FRONTEND_PARAM_MAX_FREQ);
-    max_freq /= 1000;
+    E_TTYPE signal_type = E_TERR_TYPE_UNKNOWN;
+    signal_type = getSignalType(path);
+
+    switch (signal_type)
+    {
+        case E_TERR_TYPE_DVBS:
+            /* Use constant to avoid external data type error */
+            max_freq = DVBS_MAX_FREQ_KHZ;
+            break;
+        default:
+            max_freq = getCurrentFrontendParameter(path, FRONTEND_PARAM_MAX_FREQ);
+            max_freq /= 1000;
+            break;
+    }
     ALOGI("%s: Max Tuner Freq: %lld KHz", __FUNCTION__, max_freq);
     return max_freq;
 }

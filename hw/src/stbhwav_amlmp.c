@@ -312,6 +312,8 @@ static int AV_StartVideoDecode_l(AML_MP_PLAYER player_handle, U16BIT v_pid, U16B
 static E_DECODER_STATE AV_GetDecoderState_l(AML_MP_PLAYER player_handle, E_DECODER_INDEX index);
 static Aml_MP_StreamType toStreamType(E_DECODER_INDEX index);
 static E_DECODER_STATE toDecoderState(AML_MP_DecodingState decodingState);
+static Aml_MP_StreamType toMPStreamType(E_HBBTV_PTS_SOURCE_TYPE streamType);
+
 
 //for PVR
 static int AV_SetAudioDecode_l(AML_MP_PLAYER player_handle, Aml_MP_AudioBalance audio_mode, U8BIT vol, BOOLEAN mute);
@@ -2102,6 +2104,64 @@ void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5])
     pthread_rwlock_unlock(_l);
 
     FUNCTION_FINISH(STB_AVGetSTC);
+}
+
+/**
+ * @brief   Returns the current 33-bit System Time Clock from the PCR PES.
+ *          On some systems, this information may need to be obtained from the associated demux,
+ *          which will be contained in the 'param' value when STB_AVSetVideoSource is called.
+ * @param   path video path
+ * @param   stc an array in which the STC will be returned, ordered such that
+ *                stc[0] contains the MS bit (33) of the STC value and stc[4]
+ *                contains the LS bits (0-7).
+ * @param   StreamType enum Aml_MP_StreamType,point to which pts do you want
+ */
+void STB_AVGetSTCByStreamType(U8BIT path, U8BIT stc[5], E_HBBTV_PTS_SOURCE_TYPE StreamType)
+{
+   int64_t video_pts;
+   int ret;
+   AML_MP_PLAYER player_handle;
+   FUNCTION_START(STB_AVGetSTCByStreamType);
+   U8BIT av_path = STB_AVGetPath(path, INVALID_RES_ID);
+
+   VID_DBG("video codec path=%u av_path = %u", path, av_path);
+   if (av_path == INVALID_RES_ID) {
+      VID_DBG("get av_path error video codec path=%u av_path = %u", path, av_path);
+      return;
+   }
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(path);
+    if (_l == NULL) {
+        VID_DBG("Can't get lock, video decoder[%d]", path);
+        return;
+    }
+
+    pthread_rwlock_rdlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder,
+                                    av_paths_status[av_path].audio_decoder, &player_handle, FALSE);
+    if (ret < 0)
+    {
+        AUD_DBG("Cannot get player handle video path:[%u] av_path:[%d]", path, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+    STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+    ret = Aml_MP_Player_GetCurrentPts(player_handle, toMPStreamType(StreamType), &video_pts);
+    AUD_DBG("StreamType = %d,MP_StreamType = %d", StreamType, toMPStreamType(StreamType));
+    STB_SPDebugWrite(" %s %d", __FUNCTION__, __LINE__);
+    if (ret == 0)
+    {
+        memset(stc, 0, 5);
+        stc[0] = (U8BIT)((video_pts >> 32) & 0xff);
+        stc[1] = (U8BIT)((video_pts >> 24) & 0xff);
+        stc[2] = (U8BIT)((video_pts >> 16) & 0xff);
+        stc[3] = (U8BIT)((video_pts >> 8) & 0xff);
+        stc[4] = (U8BIT)(video_pts & 0xff);
+        AUD_DBG("######### %x%x%x%x%x [%llu] ########", stc[0],stc[1],stc[2],stc[3],stc[4], video_pts);
+    }
+    pthread_rwlock_unlock(_l);
+
+    FUNCTION_FINISH(STB_AVGetSTCByStreamType);
 }
 
 /**
@@ -4853,3 +4913,18 @@ static E_STB_AV_AUDIO_CODEC toAudioCodec(Aml_MP_CodecID codec)
    }
    return AV_AUDIO_CODEC_MP2;
 }
+
+static Aml_MP_StreamType toMPStreamType(E_HBBTV_PTS_SOURCE_TYPE streamType)
+{
+    switch (streamType)
+    {
+        case HBBTV_PTS_TIME_VIDEO: return AML_MP_STREAM_TYPE_VIDEO;
+        case HBBTV_PTS_TIME_AUDIO: return AML_MP_STREAM_TYPE_AUDIO;
+        case HBBTV_PTS_TIME_PCR:   return AML_MP_STREAM_TYPE_PCR;
+        case HBBTV_PTS_TIME_STC:   return AML_MP_STREAM_TYPE_STC;
+        default:                   break;
+    }
+
+    return (AML_MP_STREAM_TYPE_UNKNOWN);
+}
+

@@ -224,6 +224,17 @@ typedef enum
     DRM_NORMAL_INPUT_BUFFER
 } E_STB_DRM_TYPE;
 
+
+/*Hbbtv PTS/STC Timeline type*/
+typedef enum {
+    HBBTV_PTS_TIME_UNKNOWN = 0,
+    HBBTV_PTS_TIME_VIDEO   = 1,     //Video
+    HBBTV_PTS_TIME_AUDIO   = 2,     //Audio
+    HBBTV_PTS_TIME_PCR     = 3,     //PCR 9
+    HBBTV_PTS_TIME_STC     = 4,     //System time clock 10
+} E_HBBTV_PTS_SOURCE_TYPE;
+
+
 //---Global type defs for public use-------------------------------------------
 
 typedef struct
@@ -629,6 +640,19 @@ void STB_AVGetSTCByStreamTypePCR(U8BIT path, U8BIT stc[5]);
  *                contains the LS bits (0-7).
  */
 void STB_AVGetSTC(U8BIT path, U8BIT stc[5]);
+
+
+/**
+ * @brief   Returns the current 33-bit System Time Clock from the PCR PES.
+ *          On some systems, this information may need to be obtained from the associated demux,
+ *          which will be contained in the 'param' value when STB_AVSetVideoSource is called.
+ * @param   path video path
+ * @param   stc an array in which the STC will be returned, ordered such that
+ *                stc[0] contains the MS bit (33) of the STC value and stc[4]
+ *                contains the LS bits (0-7).
+ * @param   StreamType enum E_HBBTV_PTS_SOURCE_TYPE,point to which pts do you want
+ */
+void STB_AVGetSTCByStreamType(U8BIT path, U8BIT stc[5], E_HBBTV_PTS_SOURCE_TYPE StreamType);
 
 /**
  * @brief   Returns the current PTS from 33-bit System Time Clock.

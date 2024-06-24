@@ -1520,11 +1520,8 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
     }
     PVR_INFO("%u: pcr=%u, video=%u(fmt:%u), audio=%u(%u)(fmt:%u), ad=%u", play_index, pcr_pid, video_pid, video_fmt, audio_pid, audio_presentation_id, audio_fmt, ad_pid);
 
-    if (s_recplay_status[play_index].audio_pid != audio_pid ||
-          s_recplay_status[play_index].audio_presentation_id != audio_presentation_id ||
-          s_recplay_status[play_index].video_pid != video_pid ||
-          s_recplay_status[play_index].video_format != video_fmt ||
-          s_recplay_status[play_index].audio_format != audio_fmt )
+    if (s_recplay_status[play_index].video_pid != video_pid ||
+          s_recplay_status[play_index].video_format != video_fmt)
     {
         s_recplay_status[play_index].audio_pid = audio_pid;
         s_recplay_status[play_index].audio_format= audio_fmt;
@@ -1534,6 +1531,15 @@ BOOLEAN PVRChangeDecodePIDs(U8BIT audio_decoder, U8BIT video_decoder,
         Wrapper_Player_StopVideoDecoding(s_recplay_status[play_index].asplayer_handle);
         Wrapper_Player_StopAudioDecoding(s_recplay_status[play_index].asplayer_handle);
         STB_PVRStartAVDecoding(play_index);
+    }
+    else if (s_recplay_status[play_index].audio_pid != audio_pid ||
+          s_recplay_status[play_index].audio_presentation_id != audio_presentation_id ||
+          s_recplay_status[play_index].audio_format != audio_fmt )
+    {
+        s_recplay_status[play_index].audio_pid = audio_pid;
+        s_recplay_status[play_index].audio_format= audio_fmt;
+        s_recplay_status[play_index].audio_presentation_id = audio_presentation_id;
+        STB_AVSwitchAudioTrack(play_index);
     }
     else
     {

@@ -1018,7 +1018,7 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
 
     if (path >= num_paths)
     {
-        TUN_ERR("%u: Invalid path %u");
+        TUN_ERR("%u: Invalid path", path);
         return FALSE;
     }
 
@@ -1032,7 +1032,7 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
     S16BIT strength = -100; //dBm
     if (!aml_frontend_get_signal_strength(frontend_fd, (U16BIT *)&strength))
     {
-        TUN_ERR("%u: Failed to get signal strength %u");
+        TUN_ERR("%u: Failed to get signal strength", path);
     }
 
     S16BIT dBuV = 0;

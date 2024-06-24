@@ -326,12 +326,18 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
         return FALSE;
     }
 
-    signal_info->strength = Wrapper_TuneGetSignalStrength(path);
-    signal_info->snr = Wrapper_TuneGetSignalQuality(path);
-    signal_info->ber = Wrapper_TuneGetSignalBER(path);
-
-    if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
+    BOOLEAN is_locked = FALSE;
+    if (!Wrapper_TuneGetSignalInfo(path, &signal_info->strength, &signal_info->snr, &signal_info->ber))
     {
+        signal_info->strength = -100; // dbm
+        signal_info->snr = 0;
+        signal_info->ber = 0;
+        signal_info->ssi = 0;
+        signal_info->sqi = 0;
+    }
+    else if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
+    {
+        is_locked = TRUE;
         signal_info->ssi = STB_Utils_StrengthToSSI(path, signal_info->strength);
         signal_info->sqi = STB_Utils_SNR10ToSQI(path, signal_info->snr);
     }
@@ -346,8 +352,8 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
     signal_info->dBuV = 0;
     signal_info->dBmV = 0;
 
-    TUN_INFO("%u: Signal Strength=%d(dBm) dBuV=%d dBmV=%d SNR=%d.%d BER=%d(e-10) SSI=%d%% SQI=%d%%",
-             path,
+    TUN_INFO("%u: Signal %s Strength=%d(dBm) dBuV=%d dBmV=%d SNR=%d.%d BER=%d(e-10) SSI=%d%% SQI=%d%%",
+             path, is_locked ? "locked" : "unlock",
              signal_info->strength,
              signal_info->dBuV,
              signal_info->dBmV,

@@ -652,17 +652,6 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
       PVR_ERR("Failed to stop playback");
    }
 
-   jni_asplayer_handle player_handle;
-   STB_AVGetPlayerHandle(audio_decoder, video_decoder, &player_handle);
-   if (player_handle != WRAPPER_PLAYER_INVALID_HANDLE)
-   {
-      Wrapper_Player_StopVideoDecoding(prps->asplayer_handle);
-      Wrapper_Player_StopAudioDecoding(prps->asplayer_handle);
-      Wrapper_Player_Destroy(prps->asplayer_handle);
-      STB_AVSetPlayerHandle(audio_decoder, video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
-   }
-   prps->reset();
-
    //release afd context
    afd_release_context(play_index);
 
@@ -1755,16 +1744,6 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       }
    } else if (event == AM_DVR_PLAYER_EVENT_EOS) {
       PVR_INFO("AM_DVR_PLAYER_EVENT_EOS");
-      jni_asplayer_handle player_handle;
-      STB_AVGetPlayerHandle(it->audio_decoder, it->audio_decoder, &player_handle);
-      if (player_handle != WRAPPER_PLAYER_INVALID_HANDLE)
-      {
-         Wrapper_Player_StopVideoDecoding(it->asplayer_handle);
-         Wrapper_Player_StopAudioDecoding(it->asplayer_handle);
-         Wrapper_Player_Destroy(it->asplayer_handle);
-         STB_AVSetPlayerHandle(it->audio_decoder, it->audio_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
-      }
-      it->reset();
    } else if (event == AM_DVR_PLAYER_EVENT_EDGE_LEAVING) {
       PVR_INFO("AM_DVR_PLAYER_EVENT_EDGE_LEAVING");
    } else if (event == AM_DVR_PLAYER_EVENT_INITIAL_STATE) {
@@ -1796,9 +1775,18 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
       it->state = 5;
    } else if (event == AM_DVR_PLAYER_EVENT_STOPPING_STATE) {
       PVR_INFO("AM_DVR_PLAYER_EVENT_STOPPING_STATE");
+   } else if (event == AM_DVR_PLAYER_EVENT_DECODER_STOPPED) {
+      PVR_INFO("AM_DVR_PLAYER_EVENT_DECODER_STOPPED");
+      jni_asplayer_handle player_handle;
+      STB_AVGetPlayerHandle(it->audio_decoder, it->audio_decoder, &player_handle);
+      if (player_handle != WRAPPER_PLAYER_INVALID_HANDLE)
+      {
+         Wrapper_Player_Destroy(it->asplayer_handle);
+         STB_AVSetPlayerHandle(it->audio_decoder, it->audio_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
+      }
       STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_STOP,&(it->audio_decoder),1);
       PVR_INFO("signal PVR_PLAY_STOP");
-      it->state = 6;
+      it->reset();
    } else {
       PVR_INFO("unknown event: %d",event);
    }

@@ -29,6 +29,12 @@
 extern "C" {
 #endif
 
+#define CAPTION_CC_1 1
+#define CAPTION_CS_1 9
+#define CAPTION_MAX  14
+
+#define SUBTITLE_CC_EVENT_CHANNELS_CHANGED -2
+
 typedef enum {
     TYPE_NONE,
     TYPE_DVB,
@@ -57,6 +63,14 @@ typedef struct {
     int paused;
     subtitle_type type;
 } subtitle_context_t;
+
+typedef struct {
+    int type;
+    int data;
+    int arg1;
+    int arg2;
+    void* user_data;
+} subtitle_data_event_t;
 
 void aml_subtitle_open(int type, aml_subtitle_param_t *p);
 void aml_subtitle_close();

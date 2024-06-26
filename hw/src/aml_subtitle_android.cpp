@@ -28,6 +28,7 @@
 extern "C" {
     #include "techtype.h"
     #include "stbhwini.h"
+    #include "stbhwos.h"
 }
 #include "dtv_log.h"
 
@@ -129,6 +130,18 @@ class SubtitleDataListenerImpl : public amlogic::SubtitleListener {
 
         virtual void onSubtitleDataEvent(int event, int id) {
             SUB_LOG("on_cc_channel_event: (event:%d, id:%d)", event, id);
+            if (event == SUBTITLE_CC_EVENT_CHANNELS_CHANGED)
+            {
+                subtitle_data_event_t cc_event = {
+                    .type = event,
+                    .data = id,
+                    .arg1 = 0,
+                    .arg2 = 0,
+                    .user_data = NULL,
+                };
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_SUBTITLE, HW_EV_TYPE_TRUE,
+                    &cc_event, sizeof(subtitle_data_event_t));
+            }
         };
 
         void onSubtitleAvail(int avail) {};

@@ -50,7 +50,7 @@
 
 #define HW_EV_CLASS_TELETEXT           13
 #define HW_EV_CLASS_CAS           14
-
+#define HW_EV_CLASS_SUBTITLE           15
 
 
 #define HW_EV_CLASS_PRIVATE           255    /* Class to allow events to be created that are unique to a platform */

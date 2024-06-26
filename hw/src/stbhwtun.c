@@ -76,6 +76,8 @@ static BOOLEAN resm_adc_requested = FALSE;
 static BOOLEAN isTvPlatform = FALSE;
 static U32BIT real_srate = SYMBOL_RATE_AUTO;
 static E_STB_TUNE_CMODE real_cmode = TUNE_MODE_QAM_UNDEFINED;
+static E_STB_TUNE_BlindEvent_t cur_evt;
+
 
 /*---local function prototypes for this file---------------------------------*/
 static BOOLEAN OpenTuner(S_TUNER_STATUS *tstatus);
@@ -2500,6 +2502,16 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
     return ret;
 }
 
+void STB_TuneGetCurrentTPInfo(E_STB_TUNE_BlindEvent_t* evt)
+{
+    if (evt != NULL)
+    {
+        evt->freq = cur_evt.freq;
+        evt->srate = cur_evt.srate;
+        evt->status = cur_evt.status;
+    }
+}
+
 /*---local function definitions----------------------------------------------*/
 static void ConvertToLowercase(char *str) {
     int length = strlen(str);
@@ -3589,10 +3601,17 @@ static BOOLEAN dvb_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindsca
     ret = dvb_wait_event(frontend_fd, &event, 200);
     if (TRUE == ret)
     {
+        TUN_ERR("Event status:%x",event.status);
         if (event.status&BLINDSCAN_UPDATESTARTFREQ)
         {
-            pbsevent->status = BLINDSCAN_UPDATESTARTFREQ;
+            pbsevent->status = event.status;
             pbsevent->u.m_uistartfreq_khz = event.parameters.frequency;
+            if (event.status&FE_HAS_LOCK)
+            {
+                cur_evt.freq = event.parameters.frequency/1000;
+                cur_evt.srate = event.parameters.u.qpsk.symbol_rate;
+                TUN_ERR("update current freq:%dMhz",cur_evt.freq);
+            }
         }
         else if (event.status&BLINDSCAN_UPDATEPROCESS)
         {
@@ -3601,6 +3620,8 @@ static BOOLEAN dvb_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindsca
         }
         else if (event.status&BLINDSCAN_UPDATERESULTFREQ)
         {
+            cur_evt.freq = event.parameters.frequency/1000;
+            cur_evt.srate = event.parameters.u.qpsk.symbol_rate;
             pbsevent->status = BLINDSCAN_UPDATERESULTFREQ;
             memcpy(&(pbsevent->u.parameters),
                    &(event.parameters), sizeof(struct dvb_frontend_parameters));
@@ -3674,7 +3695,7 @@ static BOOLEAN  AM_FEND_IBlindScanAPI_GetScanEvent(U8BIT path, struct dvbsx_blin
     /*update tp info*/
     if (pbsEvent->status == BLINDSCAN_UPDATERESULTFREQ)
     {
-        /*now driver return 1 tp*/
+        /*now driver return 1 tp locked*/
         for (U16BIT i = 0; i < tuner_status[path].bs_setting.m_uiChannelCount; i++)
         {
             /* skip it if already existed */
@@ -3826,12 +3847,16 @@ static void* fend_blindscan_thread(void *arg)
 
                 if (tuner_status[path].blindscan_cb)
                 {
-                    if (cur_bsevent.status == BLINDSCAN_UPDATESTARTFREQ)
+                    if (cur_bsevent.status & BLINDSCAN_UPDATESTARTFREQ)
                     {
                         TUN_DBG( "adp start freq %d\n", cur_bsevent.u.m_uistartfreq_khz);
                         evt.freq = cur_bsevent.u.m_uistartfreq_khz;
 
                         evt.status = AM_FEND_BLIND_START;
+                        if (cur_bsevent.status & FE_HAS_LOCK)
+                        {
+                            evt.status = AM_FEND_BLIND_UPDATETP;
+                        }
                         tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
                     }
                     else if (cur_bsevent.status == BLINDSCAN_UPDATEPROCESS)
@@ -3842,7 +3867,7 @@ static void* fend_blindscan_thread(void *arg)
                         evt.status = AM_FEND_BLIND_UPDATEPROCESS;
                         tuner_status[path].blindscan_cb(path, &evt, tuner_status[path].blindscan_cb_user_data);
                     }
-                    else if (cur_bsevent.status == BLINDSCAN_UPDATERESULTFREQ)
+                    else if (cur_bsevent.status & BLINDSCAN_UPDATERESULTFREQ)
                     {
                         TUN_DBG( "adp result freq %d symb %d\n", cur_bsevent.u.parameters.frequency, cur_bsevent.u.parameters.u.qpsk.symbol_rate);
 
@@ -3854,7 +3879,7 @@ static void* fend_blindscan_thread(void *arg)
                 }
 
                 /*------------Custom code end -------------------*/
-                if (cur_bsevent.status == BLINDSCAN_UPDATESTARTFREQ)
+                if (cur_bsevent.status & BLINDSCAN_UPDATESTARTFREQ)
                 {
                     BS_Status = DVB_BS_Status_Wait;
                 }

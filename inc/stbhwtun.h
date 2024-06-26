@@ -679,6 +679,8 @@ void STB_Tune_BlindGetTPCount(U8BIT path, U16BIT *count);
 
 BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count);
 
+void STB_TuneGetCurrentTPInfo(E_STB_TUNE_BlindEvent_t* evt);
+
 E_TUNER_EVENT STB_TuneGetLockStatus(U8BIT path);
 int STB_TuneGetEwbsFlag(U8BIT path);
 

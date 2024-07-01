@@ -326,8 +326,10 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
         return FALSE;
     }
 
-    BOOLEAN is_locked = FALSE;
-    if (!Wrapper_TuneGetSignalInfo(path, &signal_info->strength, &signal_info->snr, &signal_info->ber))
+    S_WRAPPER_TUNE_SIGNAL_INFO tune_info;
+    memset(&tune_info, 0, sizeof(S_WRAPPER_TUNE_SIGNAL_INFO));
+
+    if (!Wrapper_TuneGetSignalInfo(path, &tune_info))
     {
         signal_info->strength = -100; // dbm
         signal_info->snr = 0;
@@ -335,17 +337,22 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
         signal_info->ssi = 0;
         signal_info->sqi = 0;
     }
-    else if (WRAPPER_TUNER_STATE_LOCKED == Wrapper_TuneGetLockStatus(path))
-    {
-        is_locked = TRUE;
-        signal_info->ssi = STB_Utils_StrengthToSSI(path, signal_info->strength);
-        signal_info->sqi = STB_Utils_SNR10ToSQI(path, signal_info->snr);
-    }
     else
     {
-        // SSI&SQI is set to 0 if unlock
-        signal_info->ssi = 0;
-        signal_info->sqi = 0;
+        signal_info->strength = tune_info.strength;
+        signal_info->snr = tune_info.snr;
+        signal_info->ber = tune_info.ber;
+        if (tune_info.is_locked)
+        {
+            signal_info->ssi = STB_Utils_StrengthToSSI(path, signal_info->strength);
+            signal_info->sqi = STB_Utils_SNR10ToSQI(path, signal_info->snr);
+        }
+        else
+        {
+            // SSI&SQI is set to 0 if unlock
+            signal_info->ssi = 0;
+            signal_info->sqi = 0;
+        }
     }
 
     // not implemented currently
@@ -353,7 +360,7 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
     signal_info->dBmV = 0;
 
     TUN_INFO("%u: Signal %s Strength=%d(dBm) dBuV=%d dBmV=%d SNR=%d.%d BER=%d(e-10) SSI=%d%% SQI=%d%%",
-             path, is_locked ? "locked" : "unlock",
+             path, tune_info.is_locked ? "locked" : "unlock",
              signal_info->strength,
              signal_info->dBuV,
              signal_info->dBmV,

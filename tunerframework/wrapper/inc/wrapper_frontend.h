@@ -246,6 +246,15 @@ typedef enum ew_tune_terr_type
     E_TERR_TYPE_QAMB
 } E_TTYPE;
 
+typedef struct s_wrapper_tune_signal_info
+{
+    BOOLEAN is_locked;
+    S16BIT strength;  // dBm
+    S16BIT snr;       // Signal Noise Ratio
+    U32BIT ber;       // Bit Error Rate
+} S_WRAPPER_TUNE_SIGNAL_INFO;
+
+
 typedef void (* Wrapper_SendEvent) (BOOLEAN repeat, U16BIT event_class, U16BIT event_type, void *data, U32BIT data_size);
 
 BOOLEAN tuner_getFrontendIds(U8BIT path);
@@ -368,7 +377,7 @@ void Wrapper_TuneRestartTuner(U8BIT path);
  */
 void Wrapper_TuneStopTuner(U8BIT path);
 
-BOOLEAN Wrapper_TuneGetSignalInfo(U8BIT path, S16BIT* strength, S16BIT* snr, U32BIT *ber);
+BOOLEAN Wrapper_TuneGetSignalInfo(U8BIT path, S_WRAPPER_TUNE_SIGNAL_INFO* signal_info);
 
 /**
  * @brief   Returns the ewbs flag

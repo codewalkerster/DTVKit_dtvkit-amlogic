@@ -186,7 +186,7 @@ void STB_TuneInitialise(U8BIT paths)
         if ((!adapter_found) && (init_try_count < 10) && (num_paths == 0))
         {
             init_try_count++;
-            sleep(1);
+            usleep(500*1000);
 
             TUN_DBG("retry: %d", init_try_count);
             //CERT_Log_StartingUp("retry: %d", init_try_count);

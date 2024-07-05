@@ -1102,6 +1102,12 @@ BOOLEAN STB_Tune_BlindGetTPInfo(U8BIT path, void *para, U16BIT *count)
     return ret;
 }
 
+void STB_TuneGetCurrentTPInfo(E_STB_TUNE_BlindEvent_t* evt)
+{
+    TUN_DBG("Warning: Empty function. Might be fix in future");
+}
+
+
 BOOLEAN STB_Tune_BlindScan(U8BIT path, E_STB_TUNE_SYSTEM_TYPE sys_type, STB_Tnue_BlindCallback_t cb, void *user_data,
                                  unsigned int start_freq, unsigned int stop_freq, E_STB_TUNE_BlindUnicable_t unicable)
 {

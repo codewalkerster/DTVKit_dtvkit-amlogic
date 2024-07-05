@@ -810,6 +810,10 @@ int set_atv_snow_status(int enable)
     return ret;
 }
 
+void start_search(int dev_no)
+{
+}
+
 void setAtvSearchstatus(int searched)
 {
     DTV_LOGI(TAG, "%s:searched: %d\n", __FUNCTION__, searched);

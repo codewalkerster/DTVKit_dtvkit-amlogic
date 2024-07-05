@@ -135,10 +135,6 @@ hw/src/sideband.cpp \
 hw/src/fsm_base.c \
 hw/src/afd_ctrl.c \
 hw/src/cJSON.c \
-hw/atv/linux_v4l2.c \
-hw/atv/atv_vlfend.c \
-hw/atv/atv_vlfend_test.c \
-hw/atv/atv_vdin_tvafe.c \
 os/src/stbos_timer.c \
 os/src/stbos_event.c      \
 os/src/stbos_mutex.c      \

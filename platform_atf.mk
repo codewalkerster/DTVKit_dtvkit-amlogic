@@ -9,6 +9,7 @@ endif
 
 LOCAL_C_INCLUDES += \
 $(LOCAL_PATH)/hw/src \
+$(LOCAL_PATH)/hw/atv \
 $(LOCAL_PATH)/tunerframework/wrapper/inc \
 vendor/amlogic/common/libdsm \
 
@@ -16,7 +17,8 @@ LOCAL_SRC_FILES += hw/src/afc/stbhwtun_afc.c \
 hw/src/afc/stbhwdmx_afc.c \
 hw/src/afc/stbhwav_asplayer.c \
 hw/src/afc/stbpvrpr_jdvrlib.cpp \
-hw/src/afc/ca_glue.c
+hw/src/afc/ca_glue.c \
+hw/atv/afc/atv_tun_afc.c
 
 LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni
 LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni_wrapper

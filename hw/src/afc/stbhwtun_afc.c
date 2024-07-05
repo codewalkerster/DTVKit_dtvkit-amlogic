@@ -227,7 +227,7 @@ void STB_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, E_STB_TUNE_FEC fe
     Wrapper_RegisterCallback(callback);
     Wrapper_TuneStartTuner(path, freq, srate,
                            (EW_STB_TUNE_FEC)fec, (EW_STB_TUNE_TMODE)tmode,
-                           (EW_STB_TUNE_TBWIDTH)tbwidth, (EW_STB_TUNE_CMODE)cmode);
+                           (EW_STB_TUNE_TBWIDTH)tbwidth, (EW_STB_TUNE_CMODE)cmode, 0, 0, 0);
 
     FUNCTION_FINISH(STB_TuneStartTuner);
 }

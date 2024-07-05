@@ -7,6 +7,8 @@
 #include "dvb_frontend_setting_utils.h"
 #include "isdb_frontend_setting_utils.h"
 #include "atsc_frontend_settings_utils.h"
+#include "analog_frontend_setting_utils.h"
+
 #include "type_change_utils.h"
 #include "frontend_utils.h"
 
@@ -57,6 +59,10 @@ typedef struct
     void* blindscan_cb_user_data = NULL;
     std::vector<U32BIT> blindscan_tp_freq;
     std::vector<U32BIT> blindscan_tp_srate;
+    U32BIT analog_standard;
+    BOOLEAN analog_standard_flag;
+    U32BIT analog_audio_mode;
+    BOOLEAN analog_audio_mode_flag;
 } WRAPPER_TUNER_STATUS;
 
 typedef std::map<U8BIT/*path*/, WRAPPER_TUNER_STATUS/*tuner status*/> TUNER_STATUS_MAP;
@@ -696,10 +702,20 @@ static void scanCallback(int tuner_client, int scanCallbackMessageType, jobjectA
         case SCAN_MESSAGE_DVBT_STANDARD:
             break;
         case SCAN_MESSAGE_ANALOG_TYPE:
+            if (scanMessage.integer_value.size() == 1)
+            {
+                tuner_status_map[tuner_path].analog_audio_mode = scanMessage.integer_value[0];
+                tuner_status_map[tuner_path].analog_audio_mode_flag = TRUE;
+            }
             break;
         case SCAN_MESSAGE_HIERARCHY:
             break;
         case SCAN_MESSAGE_SIGNAL_TYPE:
+            if (scanMessage.integer_value.size() == 1)
+            {
+                tuner_status_map[tuner_path].analog_standard = scanMessage.integer_value[0];
+                tuner_status_map[tuner_path].analog_standard_flag = TRUE;
+            }
             break;
         case SCAN_MESSAGE_DVBT_CELL_IDS:
             break;
@@ -844,6 +860,8 @@ static void blindscanCallback(int tuner_client, int scanCallbackMessageType, job
         return;
     }
 
+    ALOGD("%s: scanCallbackMessageType :%d ", __FUNCTION__, scanCallbackMessageType);
+
     Scan_Callback_Message scanMessage;
     memset(&scanMessage, 0, sizeof(Scan_Callback_Message));
     if (NULL != scanCallbackMessage) {
@@ -909,7 +927,7 @@ void Wrapper_RegisterCallback(Wrapper_SendEvent callback)
     lock_SendEvent = callback;
 }
 
-void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_FEC fec, EW_STB_TUNE_TMODE tmode, EW_STB_TUNE_TBWIDTH tbwidth, EW_STB_TUNE_CMODE cmode)
+void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_FEC fec, EW_STB_TUNE_TMODE tmode, EW_STB_TUNE_TBWIDTH tbwidth, EW_STB_TUNE_CMODE cmode, int atfFlag, int sifStandard, int signalType)
 {
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path:%d isn't contained in map", __FUNCTION__, path);
@@ -1014,6 +1032,19 @@ void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_F
         atscFrontendSettings.modulation = ATSC_MODULATION_8VSB;
 
         frontendSettingObject = atsc_utils_getAtscFrontendSettingsObject(env, atscFrontendSettings);
+    }
+    else if (tuner_status_map[path].signal_type == E_TERR_TYPE_ANALOG) {
+        Analog_Frontend_Settings analogFrontendSettings;
+        memset(&analogFrontendSettings, 0, sizeof(Analog_Frontend_Settings));
+        analogFrontendSettings.atfFlag = atfFlag;
+        analogFrontendSettings.frequency = freq;
+        analogFrontendSettings.sifStandard = sifStandard;
+        analogFrontendSettings.signalType = signalType;
+
+        frontendSettingObject = analog_utils_getAnalogFrontendSettingsObject(env, analogFrontendSettings);
+
+        tuner_status_map[path].analog_standard_flag = FALSE;
+        tuner_status_map[path].analog_audio_mode_flag = FALSE;
     }
     else {
         ALOGE("%s: error signal type %u", __FUNCTION__, tuner_status_map[path].signal_type);
@@ -1364,6 +1395,9 @@ void Wrapper_TuneSetSignalType(U8BIT path, EW_STB_TUNE_SIGNAL_TYPE type)
     }
     else if (WRAPPER_TUNE_SIGNAL_QAMB == type) {
         signal_type = E_TERR_TYPE_QAMB;
+    }
+    else if (WRAPPER_TUNE_SIGNAL_ANALOG == type) {
+        signal_type = E_TERR_TYPE_ANALOG;
     }
 
     ALOGD("start:%s path:%d type:%d signal_type:%d", __FUNCTION__, path, type, signal_type);
@@ -2208,3 +2242,32 @@ BOOLEAN Wrapper_Tune_BlindGetTPInfo(U8BIT path, U32BIT** freq, U32BIT** srate, U
     return TRUE;
 }
 
+
+BOOLEAN Wrapper_TuneGetActualAnalogStandard(U8BIT path, U32BIT *analog_standard)
+{
+    if (NULL == analog_standard)
+    {
+        return FALSE;
+    }
+
+    *analog_standard = tuner_status_map[path].analog_standard;
+
+    return tuner_status_map[path].analog_standard_flag;
+}
+
+BOOLEAN Wrapper_TuneGetActualAnalogAudioMode(U8BIT path, U32BIT *analog_audio_mode)
+{
+    if (NULL == analog_audio_mode)
+    {
+        return FALSE;
+    }
+
+    *analog_audio_mode = tuner_status_map[path].analog_audio_mode;
+
+    return tuner_status_map[path].analog_audio_mode_flag;
+}
+
+U32BIT Wrapper_TuneGetActualAnalogFreq(U8BIT path)
+{
+   return tuner_status_map[path].frequency;
+}

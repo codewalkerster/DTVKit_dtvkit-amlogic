@@ -354,7 +354,7 @@ S64BIT Wrapper_TuneGetMaxTunerFreqKHz(U8BIT path);
  */
 void Wrapper_TuneStartTuner(U8BIT path, U32BIT freq, U32BIT srate, EW_STB_TUNE_FEC fec,
                                    EW_STB_TUNE_TMODE tmode, EW_STB_TUNE_TBWIDTH tbwidth,
-                                   EW_STB_TUNE_CMODE cmode);
+                                   EW_STB_TUNE_CMODE cmode, int atfFlag, int sifStandard, int signalType);
 
 /**
  * @brief   Restarts tuner and attempts to lock to signal in StartTuner call
@@ -532,6 +532,11 @@ BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindC
 BOOLEAN Wrapper_Tune_BlindExit(U8BIT path);
 void Wrapper_Tune_BlindGetTPCount(U8BIT path, U16BIT *count);
 BOOLEAN Wrapper_Tune_BlindGetTPInfo(U8BIT path, U32BIT** freq, U32BIT** srate, U16BIT *count);
+
+BOOLEAN Wrapper_TuneGetActualAnalogStandard(U8BIT path, U32BIT *analog_standard);
+BOOLEAN Wrapper_TuneGetActualAnalogAudioMode(U8BIT path, U32BIT *analog_audio_mode);
+U32BIT Wrapper_TuneGetActualAnalogFreq(U8BIT path);
+
 
 #ifdef __cplusplus
 }

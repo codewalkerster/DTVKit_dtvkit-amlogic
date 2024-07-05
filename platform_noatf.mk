@@ -12,5 +12,9 @@ LOCAL_SRC_FILES += hw/src/linuxdvbdmx_wrapper.c
 LOCAL_SRC_FILES += hw/src/stbhwresm.c
 LOCAL_SRC_FILES += hw/src/stbhwav_amlmp.c
 LOCAL_SRC_FILES += hw/src/stbpvrpr_amlmp.c
+LOCAL_SRC_FILES += hw/atv/linux_v4l2.c
+LOCAL_SRC_FILES += hw/atv/atv_vlfend.c
+LOCAL_SRC_FILES += hw/atv/atv_vlfend_test.c
+LOCAL_SRC_FILES += hw/atv/atv_vdin_tvafe.c
 
 LOCAL_MODULE := libdtvkit_platform

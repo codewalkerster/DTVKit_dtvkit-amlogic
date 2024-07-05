@@ -47,6 +47,7 @@ extern int getCurrentSignalInfo(int *fmt, int *transFmt, int *status, int *frame
 extern void initCurrentSignalInfo();
 extern int set_atv_snow_status(int enable);
 extern void setAtvSearchstatus(int searched);
+extern void start_search(int dev_no);
 extern void setChannelLockd(int locked);
 
 #ifdef __cplusplus

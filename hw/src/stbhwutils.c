@@ -21,8 +21,9 @@
 U8BIT STB_Utils_StrengthToSSI(U8BIT path, S16BIT strength)
 {
     int ssi = 0;
+    U16BIT signal_type = STB_TuneGetSignalType(path);
 
-    switch (STB_TuneGetSignalType(path))
+    switch (signal_type)
     {
         case TUNE_SIGNAL_COFDM:
             if ((STB_TuneGetActualTerrHpCodeRate(path) == TUNE_TCODERATE_2_3 &&
@@ -186,8 +187,22 @@ U8BIT STB_Utils_StrengthToSSI(U8BIT path, S16BIT strength)
 
             break;
 
-        default:
+        case TUNE_SIGNAL_VSB:
+        case TUNE_SIGNAL_QAMB:
+
+            if (strength <= -100)
+                ssi = 0;
+            else if (strength <= 0)
+                ssi = strength + 100;
+            else
+                ssi = 100;
+
             break;
+
+        default:
+            DTV_LOGE(TAG, "%s: Unknown signal type %u", __FUNCTION__, signal_type);
+            break;
+
     }
 
     return (U8BIT)ssi;
@@ -196,8 +211,9 @@ U8BIT STB_Utils_StrengthToSSI(U8BIT path, S16BIT strength)
 U8BIT STB_Utils_SNR10ToSQI(U8BIT path, S16BIT snr)
 {
     int sqi = 0;
+    U16BIT signal_type = STB_TuneGetSignalType(path);
 
-    switch (STB_TuneGetSignalType(path))
+    switch (signal_type)
     {
         case TUNE_SIGNAL_COFDM:
             if (STB_TuneGetSystemType(path) == TUNE_SYSTEM_TYPE_DVBT2 &&
@@ -407,7 +423,20 @@ U8BIT STB_Utils_SNR10ToSQI(U8BIT path, S16BIT snr)
 
             break;
 
+        case TUNE_SIGNAL_VSB:
+        case TUNE_SIGNAL_QAMB:
+
+            if (snr <= 0)
+                sqi = 0;
+            else if (snr <= 1000)
+                sqi = snr / 10;
+            else
+                sqi = 100;
+
+            break;
+
         default:
+            DTV_LOGE(TAG, "%s: Unknown signal type %u", __FUNCTION__, signal_type);
             break;
     }
 

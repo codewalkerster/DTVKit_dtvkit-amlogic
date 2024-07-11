@@ -919,7 +919,7 @@ int STB_Get_Country_Code(char *country_code)
 	if (country_code == NULL) {
 		return -1;
 	}
-	memcpy(country_code, aml_hw_cfg.country_code, strlen(aml_hw_cfg.country_code));
+	memcpy(country_code, aml_hw_cfg.country_code, sizeof(aml_hw_cfg.country_code)/sizeof(char));
 	return 0;
 }
 

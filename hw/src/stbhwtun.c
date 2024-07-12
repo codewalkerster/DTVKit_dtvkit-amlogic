@@ -3608,7 +3608,7 @@ static BOOLEAN dvb_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindsca
             pbsevent->u.m_uistartfreq_khz = event.parameters.frequency;
             if (event.status&FE_HAS_LOCK)
             {
-                cur_evt.freq = event.parameters.frequency/1000;
+                cur_evt.freq = (event.parameters.frequency+500)/1000;   //rounding off
                 cur_evt.srate = event.parameters.u.qpsk.symbol_rate;
                 TUN_ERR("update current freq:%dMhz",cur_evt.freq);
             }
@@ -3620,7 +3620,7 @@ static BOOLEAN dvb_blindscan_getscanevent(int frontend_fd, struct dvbsx_blindsca
         }
         else if (event.status&BLINDSCAN_UPDATERESULTFREQ)
         {
-            cur_evt.freq = event.parameters.frequency/1000;
+            cur_evt.freq = (event.parameters.frequency+500)/1000;   //rounding off
             cur_evt.srate = event.parameters.u.qpsk.symbol_rate;
             pbsevent->status = BLINDSCAN_UPDATERESULTFREQ;
             memcpy(&(pbsevent->u.parameters),

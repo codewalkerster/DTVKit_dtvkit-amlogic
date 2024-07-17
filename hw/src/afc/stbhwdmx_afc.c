@@ -2439,13 +2439,10 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
             DMX_DBG("DSM_PROP_CAS_SESSION_USAGE DSM_SetProperty error: ret = %d, [%d]%s", ret, -errno, strerror(errno));
 
          dsc->dsm_token[dev_id] = token_;
-         if (dsm_session == DSM_PROP_SESSION_USAGES_TIMESHIFT)
-            is_timeshift = 1;
 
-           dsc->descramble_handle[dev_id] = DESCRAMBLE_Open(demux_status[dev_id].source_param  ,\
+         dsc->descramble_handle[dev_id] = DESCRAMBLE_Open(demux_status[dev_id].source_param  ,\
                                                     demux_status[dev_id].source ,\
-                                                    demux_status[dev_id].demux_cap,\
-                                                    is_timeshift );
+                                                    demux_status[dev_id].demux_cap);
       }
       dsc->dsc_ref[dev_id]++;
 

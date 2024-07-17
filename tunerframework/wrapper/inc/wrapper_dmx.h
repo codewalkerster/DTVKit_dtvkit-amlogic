@@ -90,7 +90,7 @@ JCAS_JNI_RESULT MediaCAS_SendCommand(CasHandle casHandle, int event, int arg, ui
 JCAS_JNI_RESULT MediaCAS_SendSessionCommand(CasHandle casHandle, CasSessionHandle casSessionHandle, int event, int arg, uint8_t* data, int dataLen);
 JCAS_JNI_RESULT MediaCAS_GetDefaultCaSystemIds(int* caSystemIds);
 
-jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap, int is_timeshift);
+jobject DESCRAMBLE_Open(U8BIT path, U16BIT source_type, U16BIT demux_cap);
 void DESCRAMBLE_AddPid( jobject handle, int pid);
 void DESCRAMBLE_RemovePid(jobject handle, int pid);
 void DESCRAMBLE_SetKeyToken(jobject handle,uint32_t token);

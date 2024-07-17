@@ -64,7 +64,8 @@
 #define NUM_RECORDERS            (aml_hw_cfg.recorder_num)
 #define NUM_VIDEO_DECODE_PATHS   (aml_hw_cfg.vdec_num)
 #define NUM_AUDIO_DECODE_PATHS   (aml_hw_cfg.adec_num)
-#define NUM_CI_SLOTS             1
+/*0~15 for PCMCIA type,16~31 USB type */
+#define NUM_CI_SLOTS             0x20
 
 #define HW_EV_TYPE_VIDEO_RECTANGLE_CHANGED   100
 #define HW_EV_TYPE_VIDEO_CROPPING_CHANGED    101

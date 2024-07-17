@@ -657,7 +657,7 @@ JCAS_JNI_RESULT MediaCAS_GetDefaultCaSystemIds(int* caSystemIds)
 //remove pid
 //close descramble
 
-jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap ,int is_timeshift)
+jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap)
 {
     ALOGD("IN:%s", __FUNCTION__);
     jobject handle = NULL;
@@ -670,7 +670,7 @@ jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap ,in
         DMX_MEMORY
     } E_STB_DMX_DEMUX_SOURCE;
     */
-
+    ALOGD("%s source_type %d demux_cap %d path %d", __FUNCTION__,source_type ,demux_cap,path);
     if (source_type  != 0)
     {
         ClientId = Am_tuner_getTunerClientIdByType(TUNER_TYPE_DVR_PLAY);
@@ -684,10 +684,11 @@ jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap ,in
         */
         if (demux_cap == 0x04)
         {
-            if (is_timeshift)
-                tuner_type = TUNER_TYPE_DVR_TIMESHIFT_RECORD;
-            else
-                tuner_type = TUNER_TYPE_DVR_RECORD ;
+            tuner_type = TUNER_TYPE_DVR_RECORD ;
+        }
+        else if (demux_cap == 0x80)
+        {
+            tuner_type = TUNER_TYPE_DVR_TIMESHIFT_RECORD;
         }
         else
         {
@@ -715,6 +716,7 @@ jobject DESCRAMBLE_Open(U8BIT path ,   U16BIT source_type  ,U16BIT demux_cap ,in
                 }
             }
         }
+        ALOGD("%s tuner_type %d", __FUNCTION__,tuner_type);
         ClientId = Am_tuner_getTunerClientIdByType(tuner_type);
     }
     handle =  Am_tuner_openDescrambler(ClientId) ;

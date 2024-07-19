@@ -307,6 +307,7 @@ struct ca_pid {
 #define CA_SET_DESCR      _IOW('o', 134, struct ca_descr)
 #ifdef CONFIG_AMLOGIC_DVB_COMPAT
 #define CA_SET_PID        _IOW('o', 135, struct ca_pid)
+#define CA_SPEED_UP       _IO('o', 136)
 #define CA_SET_DESCR_EX   _IOW('o', 200, struct ca_descr_ex)
 #define CA_SC2_SET_DESCR_EX   _IOWR('o', 201, struct ca_sc2_descr_ex)
 #endif

@@ -513,5 +513,8 @@ int test_atv_vlfend_getpara()
 }
 
 
+void start_search(int dev_no, int searched)
+{
+}
 
 

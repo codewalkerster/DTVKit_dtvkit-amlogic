@@ -29,6 +29,7 @@
 #include <sys/ioctl.h>
 #endif
 
+#include "techtype.h"
 #include "atv_vlfend.h"
 #include "atv_fend_internal.h"
 #include "atv_vdin_tvafe.h"
@@ -248,7 +249,7 @@ int open_vdin_port_tvafe()
         if (fd_tvafe < 0)
         {
             DTV_LOGE(TAG, "!!! Open tvafe module, error (%s).\n", strerror(errno));
-            return -1;
+            //return -1;
         }
         DTV_LOGE(TAG, "!!! Waring: Tvafe device is also required for ATV.\n");
     }
@@ -820,9 +821,6 @@ int set_atv_snow_status(int enable)
     return ret;
 }
 
-void start_search(int dev_no)
-{
-}
 
 void setAtvSearchstatus(int searched)
 {

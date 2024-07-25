@@ -9,6 +9,7 @@
 #include "atv_vlfend.h"
 #include "atv_fend_internal.h"
 #include "stbhwos.h"
+#include "stbhwav.h"
 
 
 typedef struct _atv_tun_param_
@@ -112,7 +113,7 @@ static void* atv_tun_thread(void *arg);
 static U32BIT convert_atf_analog_std(U32BIT analog_std);
 static U32BIT convert_atf_analog_audio_mode(U32BIT analog_audio_mode, U32BIT analog_std);
 
-
+/*
 void setAtvSearchstatus(int searched)
 {
 }
@@ -126,21 +127,6 @@ void setChannelLockd(int locked)
 }
 
 int getCurrentSignalInfo(int *fmt, int *transFmt, int *status, int *frameRate)
-{
-    return 0;
-}
-
-int test_atv_vlfend_open()
-{
-    return 0;
-}
-
-int test_atv_vlfend_getstatus()
-{
-    return 0;
-}
-
-int test_atv_vlfend_getpara()
 {
     return 0;
 }
@@ -166,18 +152,108 @@ int set_tvafe(int videoStd, int audioStd, int vfmt)
     return 0;
 }
 
+*/
 
-void start_search(int dev_no)
+int test_atv_vlfend_open()
 {
-    Wrapper_SendEvent callback = atv_tuner_EventCallback;
+    return 0;
+}
 
-    Wrapper_TuneSetSearchMode(dev_no, TRUE);
-    Wrapper_TuneSetSignalType(dev_no, WRAPPER_TUNE_SIGNAL_ANALOG);
-    Wrapper_RegisterCallback(callback);
+int test_atv_vlfend_getstatus()
+{
+    return 0;
+}
+
+int test_atv_vlfend_getpara()
+{
+    return 0;
+}
+
+
+static U32BIT convert_analog_std_to_atf(U32BIT analog_std)
+{
+    U32BIT video_std = ATF_AUTO;
+
+    if (analog_std == (V4L2_COLOR_STD_PAL|V4L2_STD_PAL_M))
+    {
+        video_std = ATF_PAL_M;
+    }
+    else if (analog_std == (V4L2_COLOR_STD_PAL|V4L2_STD_PAL_Nc))
+    {
+        video_std = ATF_PAL_N;
+    }
+    else if (analog_std == (V4L2_COLOR_STD_PAL|V4L2_STD_PAL_I))
+    {
+        video_std = ATF_PAL;  //?
+    }
+    else if (analog_std == (V4L2_COLOR_STD_NTSC|V4L2_STD_NTSC_M))
+    {
+         video_std = ATF_NTSC;
+    }
+    else if (analog_std == V4L2_COLOR_STD_SECAM)
+    {
+        video_std = ATF_SECAM;
+    }
+    else if (analog_std == 0)
+    {
+        video_std = ATF_AUTO;
+    }
+
+    return video_std;
+}
+
+static U32BIT convert_analog_audio_mode_to_atf(U32BIT analog_audio_mode)
+{
+    U32BIT audio_mode;
+
+    if (analog_audio_mode == V4L2_STD_SECAM_DK || analog_audio_mode == V4L2_STD_PAL_DK)
+    {
+        audio_mode = ATF_AUDIO_MODE_DK;
+    }
+    else if (analog_audio_mode == V4L2_STD_PAL_I)
+    {
+        audio_mode = ATF_AUDIO_MODE_I;
+    }
+    else if (analog_audio_mode == V4L2_STD_SECAM_B || analog_audio_mode == V4L2_STD_SECAM_G || analog_audio_mode == V4L2_STD_PAL_BG)
+    {
+        audio_mode = ATF_AUDIO_MODE_BG;
+    }
+    else if (analog_audio_mode == V4L2_STD_NTSC_M || analog_audio_mode == V4L2_STD_PAL_M)
+    {
+        audio_mode = ATF_AUDIO_MODE_M;
+    }
+    else if (analog_audio_mode == V4L2_STD_SECAM_L)
+    {
+        audio_mode = ATF_AUDIO_MODE_L;
+    }
+    else if (analog_audio_mode == 0)
+    {
+        audio_mode = ATF_AUDIO_MODE_AUTO;
+    }
+    else
+    {
+        audio_mode = ATF_AUDIO_MODE_DK;
+    }
+
+    return audio_mode;
+}
+
+
+
+void start_search(int dev_no, BOOLEAN searched)
+{
+    Wrapper_TuneSetSearchMode(dev_no, searched);
+    if (searched == false)
+    {
+        atv_tun_param.std = convert_analog_std_to_atf(atv_tun_param.std);
+        atv_tun_param.audio_mode = convert_analog_audio_mode_to_atf(atv_tun_param.audio_mode);
+    }
+
     Wrapper_TuneStartTuner(dev_no, atv_tun_param.frequency, 0,
                            (EW_STB_TUNE_FEC)0, (EW_STB_TUNE_TMODE)255,
                            (EW_STB_TUNE_TBWIDTH)0, (EW_STB_TUNE_CMODE)255,
                            atv_tun_param.flag, atv_tun_param.audio_mode, atv_tun_param.std);
+
 }
 
 int AM_VLFEND_FormatFrequency(int freq)
@@ -187,7 +263,6 @@ int AM_VLFEND_FormatFrequency(int freq)
 
 AM_ErrorCode_t AM_VLFEND_SetMode(int dev_no, int mode)
 {
-    //Wrapper_TuneSetSearchMode(dev_no, FALSE);
     return AM_SUCCESS;
 }
 
@@ -228,6 +303,11 @@ AM_ErrorCode_t AM_VLFEND_GetPara(int dev_no, struct dvb_frontend_parameters *par
 
 AM_ErrorCode_t AM_VLFEND_ActiveThread(int dev_no, AM_Bool_t active)
 {
+    Wrapper_SendEvent callback = atv_tuner_EventCallback;
+
+    Wrapper_TuneSetSearchMode(dev_no, TRUE);
+    Wrapper_TuneSetSignalType(dev_no, WRAPPER_TUNE_SIGNAL_ANALOG);
+    Wrapper_RegisterCallback(callback);
     return AM_SUCCESS;
 }
 
@@ -396,7 +476,7 @@ static U32BIT convert_atf_analog_std(U32BIT analog_std)
     }
     else if (analog_std == ATF_PAL)
     {
-        video_std = V4L2_COLOR_STD_PAL;
+        video_std = V4L2_COLOR_STD_PAL|V4L2_STD_PAL_I;  //?
     }
     else if (analog_std == ATF_NTSC)
     {

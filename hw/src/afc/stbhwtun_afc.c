@@ -344,8 +344,16 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
         signal_info->ber = tune_info.ber;
         if (tune_info.is_locked)
         {
-            signal_info->ssi = STB_Utils_StrengthToSSI(path, signal_info->strength);
-            signal_info->sqi = STB_Utils_SNR10ToSQI(path, signal_info->snr);
+            if (signal_info->strength > 0) // consider strength as ssi if strength > 0
+            {
+                signal_info->ssi = signal_info->strength;
+                signal_info->sqi = signal_info->snr;
+            }
+            else
+            {
+                signal_info->ssi = STB_Utils_StrengthToSSI(path, signal_info->strength);
+                signal_info->sqi = STB_Utils_SNR10ToSQI(path, signal_info->snr);
+            }
         }
         else
         {

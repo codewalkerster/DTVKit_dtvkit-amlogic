@@ -1670,6 +1670,12 @@ void Wrapper_TuneSetSystemType(U8BIT path, EW_STB_TUNE_SYSTEM_TYPE type)
         if (tuner_status_map[path].sys_type != type) {
             tuner_status_map[path].sys_type = type;
             tuner_status_map[path].tuning_params_changed = TRUE;
+
+            U16BIT tuner_client = findTunerClient(path);
+            if (tuner_client != INVALID_TUNER_ID) {
+                Am_tuner_clearOnTuneEventListener(tuner_client);
+                Am_tuner_cancelTuning(tuner_client);
+            }
         }
     }
     else {

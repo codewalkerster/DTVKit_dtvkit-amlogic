@@ -1,0 +1,48 @@
+# HOWTO test xds decoder
+  The testxds.c sets up the xds decoder,
+  In userdata(708) mode, the 708 decoder will be set up, the decoder will sort the userdata packets, extract and relay the 608 data to internal 608 decoder.
+  In vbi(608) mode, the 608 decoder will be set up to run the decoding.
+
+  The vbi data and userdata will be got from the ccdataserver runs on the platform.
+
+  Setup steps:
+  1. data source:
+  Run the ccdataserver on the platform
+
+  2. test:
+  2.1 test userdata
+  ```bash
+  testxds
+  ```
+  2.2 test vbi
+  ```bash
+  # ln -s testxds testxds.vbi
+  # testxds.vbi
+  ```
+
+  Note: the xds test can run remotely on a PC, which gets data through ip socket, as the dataserver supports ip distribution.
+  ```bash
+  LD_LIBRARY_PATH="./build:../ccdataserver/build" ./build/testxds <ccdataserver ip> <ccdataserver port>
+  ```
+
+
+# HOWTO test xds 608 decoder individually
+   The test608.c sets up the xds 608 decoder,
+   reads the 608 data from STDIN as input to feed the xds decoder.
+
+   On PC, raw 608 data can be got from ccextractor's RCWT output.
+   rcwt_dump.c is the RCWT adaptor, acts as a server.
+   The ccextractor implements an output method which communicates with the server and send the cc raw data to server.
+   The protocol is a bit complicated, rcwt_dump.c will handle the protocol and dump the cc data to the STDOUT.
+
+   Setup steps:
+   1. test:
+   ```bash
+   ./build/rcwt_dump 33333 | LD_LIBRARY_PATH="./build:../ccdataserver/build" ./build/test608
+   ```
+
+   2. data source: 
+   ```bash
+   tsp -I file -i atsc.ts -P regulate -b 20000000 | ccextractor --stdin --cbraw --program-number 1 --fullbin --sendto localhost:33333
+   ```
+

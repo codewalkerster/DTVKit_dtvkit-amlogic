@@ -64,7 +64,6 @@ SRCS += aml_subtitle.cpp
 endif
 
 #SRCS = $(notdir $(wildcard ./src/*.c))
-$(warning "SRCS",  $(SRCS))
 
 
 

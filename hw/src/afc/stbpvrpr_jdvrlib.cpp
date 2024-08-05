@@ -1888,6 +1888,10 @@ static void on_player_evt_cb(am_dvr_player_handle handle, am_dvr_player_event ev
             event.sessionNumber,event.state,event.speed,
             event.currTime,event.startTime,event.endTime,event.duration,
             event.currSegmentId,event.firstSegmentId,event.lastSegmentId,event.numberOfSegments);
+      S_NOTIFY_TIME_INFO info;
+      info.audio_codec = it->audio_decoder;
+      info.time = event.currTime / 1000;
+      STB_OSSendEvent(FALSE, HW_EV_CLASS_PVR, HW_EV_TYPE_PVR_PLAY_NOTIFY_TIME, &info, sizeof(info));
    } else if (event == AM_DVR_PLAYER_EVENT_EOS) {
       PVR_INFO("AM_DVR_PLAYER_EVENT_EOS");
    } else if (event == AM_DVR_PLAYER_EVENT_EDGE_LEAVING) {

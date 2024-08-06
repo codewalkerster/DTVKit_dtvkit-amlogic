@@ -79,7 +79,7 @@
 #define OAD_DDB_PID         0x280
 #define DEMUX_SECTION_FILTER_LENGTH 8
 
-#define MAX_PID_FILTERS             24
+#define MAX_PID_FILTERS             32
 #define MAX_SECTION_FILTERS         16
 #define MAX_FILTERS_PER_PID         8
 #define MAX_TEMI_FILTERS            2

@@ -382,7 +382,7 @@ int test_atv_vlfend_getstatus()
 {
     int ret = 0;
 
-    fe_status_t st;
+    fe_status_t st = 0;
 
     AM_ErrorCode_t err_code = AM_VLFEND_GetStatus(0, &st);
 

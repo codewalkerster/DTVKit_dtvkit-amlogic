@@ -251,7 +251,6 @@ static AM_ErrorCode_t v4l2_set_prop (AM_FEND_Device_t *dev, const struct dtv_pro
     if (property != NULL)
     {
         STB_MEMFreeSysRAM(property);
-        property = NULL;
     }
 
     return AM_SUCCESS;
@@ -300,7 +299,6 @@ static AM_ErrorCode_t v4l2_get_prop (AM_FEND_Device_t *dev, struct dtv_propertie
     if (property != NULL)
     {
         STB_MEMFreeSysRAM(property);
-        property = NULL;
         v4l2_prop.props = NULL;
     }
 

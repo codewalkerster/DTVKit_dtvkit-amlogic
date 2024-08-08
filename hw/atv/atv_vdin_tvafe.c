@@ -744,8 +744,18 @@ int set_atv_path()
     }
 
     len = write(fd, "rm tvpath > /sys/class/vfm/map", strlen("rm tvpath > /sys/class/vfm/map"));
+    if (len < 0)
+    {
+        DTV_LOGE(TAG,"write %s error(%s)", SYS_VFM_MAP_PATH, strerror (errno));
+    }
+
     len = write(fd, "add  tvpath  vdin0 amlvideo2.0 deinterlace videoqueue.0 > /sys/class/vfm/map",
                  strlen("add  tvpath  vdin0 amlvideo2.0 deinterlace videoqueue.0 > /sys/class/vfm/map"));
+    if (len < 0)
+    {
+        DTV_LOGE(TAG,"write %s error(%s)", SYS_VFM_MAP_PATH, strerror (errno));
+    }
+
     close(fd);
     return len;
 

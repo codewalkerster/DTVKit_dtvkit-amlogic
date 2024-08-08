@@ -179,13 +179,14 @@ static void* vlfend_thread(void *arg)
             if (ret == AM_SUCCESS)
             {
                 try_count = 0;
-
+//coverity[UNINIT:Intentional]
                 dev->status = evt.status;
 
                 DTV_LOGI(TAG, "vlfend_thread wait evt: %x\n", evt.status);
 
                 if (dev->cb && dev->enable_cb)
                 {
+//coverity[MISSING_LOCK:Intentional]
                     dev->cb(dev->dev_no, &evt, dev->user_data);
                 }
 
@@ -209,6 +210,7 @@ static void* vlfend_thread(void *arg)
                     ret = dev->drv->get_status(dev, &status);
                     if (AM_SUCCESS == ret)
                     {
+//coverity[UNINIT:Intentional]
                         if (dev->status != status)
                         {
                             ret = dev->drv->get_para(dev, &evt.parameters);
@@ -303,6 +305,7 @@ AM_ErrorCode_t AM_VLFEND_Open(int dev_no, const AM_FEND_OpenPara_t *para)
     dev->open_count = 1;
     dev->enable_thread = AM_TRUE;
     dev->active_thread = AM_FALSE;
+//coverity[MISSING_LOCK:Intentional]
     dev->flags = 0;
     dev->enable_cb = AM_TRUE;
     dev->curr_mode = para->mode;
@@ -381,7 +384,9 @@ AM_ErrorCode_t AM_VLFEND_CloseEx(int dev_no, AM_Bool_t reset)
             if (NULL != dev->user_data)
             {
                 STB_MEMFreeSysRAM(dev->user_data);
+//coverity[MISSING_LOCK:Intentional]
                 dev->user_data = NULL;
+//coverity[MISSING_LOCK:Intentional]
                 dev->user_data_len = 0;
             }
 
@@ -806,6 +811,7 @@ AM_ErrorCode_t AM_VLFEND_SetCallback(int dev_no, AM_FEND_Callback_t cb, void *us
         if (dev->enable_thread && (dev->thread != STB_OSGetCurrentTask()))
         {
             /* Wait for the callback function to finish executing */
+//coverity[INFINITE_LOOP:Intentional]
             while (dev->flags & VLFEND_FL_RUN_CB)
             {
                 pthread_cond_wait(&dev->cond, &dev->lock);
@@ -983,6 +989,7 @@ AM_ErrorCode_t AM_VLFEND_Lock(int dev_no, const struct dvb_frontend_parameters *
     pthread_mutex_lock(&dev->lock);
 
     /* Wait for the callback function to finish executing */
+//coverity[INFINITE_LOOP:Intentional]
     while (dev->flags & VLFEND_FL_RUN_CB)
     {
         pthread_cond_wait(&dev->cond, &dev->lock);
@@ -1007,6 +1014,7 @@ AM_ErrorCode_t AM_VLFEND_Lock(int dev_no, const struct dvb_frontend_parameters *
     if (ret == AM_SUCCESS)
     {
         /* Wait for the callback function to finish executing */
+//coverity[INFINITE_LOOP:Intentional]
         while ((dev->flags & VLFEND_FL_RUN_CB) || (dev->flags & VLFEND_FL_LOCK))
         {
             pthread_cond_wait(&dev->cond, &dev->lock);
@@ -1104,7 +1112,7 @@ AM_ErrorCode_t AM_VLFEND_DetectStandard(int dev_no)
     AM_ErrorCode_t ret = AM_SUCCESS;
 
     AM_TRY(vlfend_get_opened_dev(dev_no, &dev));
-
+//coverity[UNUSED_VALUE:Intentional]
     fd = (int) dev->drv_data;
 
     pthread_mutex_lock(&dev->lock);

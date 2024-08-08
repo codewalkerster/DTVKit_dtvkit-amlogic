@@ -63,7 +63,7 @@ static int MapToOSPriority(U8BIT priority);
  * @param   param user defined parameter passed when task is started
  * @param   stack stack size
  * @param   priority task priority, min 0, max 15
- * @param   name task name
+ * @param   name task name, length is restricted to 16 characters, including the terminating null byte ('\0')
  * @return  handle of task
  */
 void* STB_OSCreateTask(void *(*function)(void *), void *param, U32BIT stack, U8BIT priority, U8BIT *name)

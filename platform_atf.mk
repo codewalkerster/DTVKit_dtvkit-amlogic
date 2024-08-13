@@ -19,7 +19,8 @@ hw/src/afc/stbhwav_asplayer.c \
 hw/src/afc/stbpvrpr_jdvrlib.cpp \
 hw/src/afc/ca_glue.c \
 hw/atv/afc/atv_tun_afc.c \
-hw/atv/atv_vdin_tvafe.c
+hw/atv/atv_vdin_tvafe.c \
+hw/src/stbhwresm.c
 
 LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni
 LOCAL_SHARED_LIBRARIES+=libdtvkit_tuner_jni_wrapper

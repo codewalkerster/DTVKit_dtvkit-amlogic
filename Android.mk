@@ -50,7 +50,8 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 33 && echo OK),OK)
             libutils
 
 	    LOCAL_SHARED_LIBRARIES += \
-			libdsm
+			libdsm \
+			libmediahal_resman
 
 	    include $(BUILD_SHARED_LIBRARY)
     endif

@@ -37,11 +37,12 @@
 
 #include "dtv_log.h"
 #include "stbhwcfg.h"
+#include "stbhwtun.h"
+#include "stbhwresm.h"
 
 #define TAG "TUNER"
 
 
-typedef unsigned char bool;
 
 /****************************************************************************
  * Macro definitions
@@ -146,8 +147,8 @@ struct tvin_parm_s
     unsigned int flag;
     unsigned short dest_width;      //for vdin horizontal scale down
     unsigned short dest_height;     //for vdin vertical scale down
-    bool h_reverse;                 //for vdin horizontal reverse
-    bool v_reverse;                 //for vdin vertical reverse
+    BOOLEAN h_reverse;                 //for vdin horizontal reverse
+    BOOLEAN v_reverse;                 //for vdin vertical reverse
     unsigned int reserved;
 };
 
@@ -236,6 +237,8 @@ static char *str_cvbs[] =
 static int mlistener;
 static struct SysClientWrapper_t * pSysClientWrapper;
 static void SysEventCallback(int color);
+static BOOLEAN atv_resm_adc_requested = FALSE;
+
 /****************************************************************************
  * Static functions
  ***************************************************************************/
@@ -380,7 +383,7 @@ int start_vdin_dec(struct tvin_info_s signal_info)
 int vdin_signal_handle()
 {
     //struct tvin_info_s Info;
-    bool tvin_db_reg;
+    BOOLEAN tvin_db_reg;
     int ret = vdin_get_signal_info ( &m_cur_sig_info );
     if (ret < 0) {
         m_cur_sig_info.status = TVIN_SIG_STATUS_NULL;
@@ -553,6 +556,20 @@ int Epoll_create()
 
 int start_vdin_signal_detect(AM_VDIN_STATUS_Callback_t cb)
 {
+    if (STB_TuneIsTvPlatform() && !atv_resm_adc_requested && STB_Resman_Support())
+    {
+        if (!STB_Resman_Request(RESMAN_APP_DVBKIT, RESMAN_ID_ADC_PLL, 2000))
+        {
+            DTV_LOGI(TAG, "STB_Resman_Request RESMAN_ID_ADC_PLL failed!!!");
+
+            return FALSE;
+        }
+
+        atv_resm_adc_requested = TRUE;
+
+        DTV_LOGI(TAG, "STB_Resman_Request RESMAN_ID_ADC_PLL OK.");
+    }
+
     open_vdin_port_tvafe();
 #ifndef RDK_COMPILE
     SC_disableTsync();
@@ -579,6 +596,15 @@ int close_vdin_signal_detect()
         close_vdin_port();
     }
     mLocked = 0;
+
+    if (STB_TuneIsTvPlatform() && atv_resm_adc_requested && STB_Resman_Support())
+    {
+        STB_Resman_FreeRes(RESMAN_ID_ADC_PLL);
+
+        atv_resm_adc_requested = FALSE;
+
+        DTV_LOGI(TAG, "STB_Resman_FreeRes RESMAN_ID_ADC_PLL OK.");
+    }
 
     return 0;
 }

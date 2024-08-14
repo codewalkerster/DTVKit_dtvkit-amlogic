@@ -720,12 +720,13 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
       }
       else
       {
+#ifdef SUPPORT_CAS
          if (STB_CAGetCASType() == CAS_TYPE_NAGRA)
          {
              PLAY_DBG("set tsn_source to local");
              STB_File_Echo("/sys/class/stb/tsn_source", "local");
          }
-
+#endif
          s_recplay_status[play_index].play_speed = 100;
 
          {
@@ -988,12 +989,13 @@ void STB_PVRPlayStop(U8BIT audio_decoder, U8BIT video_decoder)
    play_index = getPlayIndex(audio_decoder, video_decoder);
    if (play_index != INVALID_RES_ID)
    {
+#ifdef SUPPORT_CAS
       if (STB_CAGetCASType() == CAS_TYPE_NAGRA)
       {
           PLAY_DBG("set tsn_source to demod");
           STB_File_Echo("/sys/class/stb/tsn_source", "demod");
       }
-
+#endif
       if (s_recplay_status[play_index].play_state != PLAY_STOPPED)
       {
         pthread_rwlock_t* _l = &(s_recplay_status[play_index].lock);

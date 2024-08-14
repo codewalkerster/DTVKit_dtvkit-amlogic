@@ -60,14 +60,11 @@
 #include "stbhwdemux_usb.h"
 #include <Aml_MP/Aml_MP.h>
 
-#define DEMUX_DEBUG 1
+
 /*---constant definitions for this file--------------------------------------*/
-#ifdef DEMUX_DEBUG
-#define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
-#else
-#define DMX_DBG(x,...)
-#endif
-#define DMX_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_DEBUG, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_INFO(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_ERR(x,...) DTV_LOG(ANDROID_LOG_ERROR, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 
 #define DMX_TASK_PRIORITY           12
@@ -496,11 +493,11 @@ static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
 
    if (ret != 0)
    {
-      DMX_DBG(" ca_set_key ioctl fail, dev_id %d fd %d ret:0x%0x\n", dev_id, dsc->dsc_fd[dev_id], ret);
+      DMX_ERR(" ca_set_key ioctl fail, dev_id %d fd %d ret:0x%0x\n", dev_id, dsc->dsc_fd[dev_id], ret);
       return -1;
    }
 
-   DMX_DBG("ca_set_key, index:%d, parity:%d, key_index:%d\n", index, parity, key_index);
+   DMX_INFO("ca_set_key, index:%d, parity:%d, key_index:%d\n", index, parity, key_index);
    return 0;
 }
 
@@ -1042,9 +1039,9 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
 
          r = ioctl(dsc->fd, CA_SET_DESCR_EX, &desc);
          if (r < 0)
-            DMX_DBG("CA_SET_DESCR_EX set iv key failed");
+            DMX_ERR("CA_SET_DESCR_EX set iv key failed");
          else
-            DMX_DBG("CA_SET_DESCR_EX set iv key success");
+            DMX_INFO("CA_SET_DESCR_EX set iv key success");
       }
 
       DMX_DBG("Set dsc data");
@@ -1056,9 +1053,9 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
 
       r = ioctl(dsc->fd, CA_SET_DESCR_EX, &desc);
       if (r < 0)
-         DMX_DBG("CA_SET_DESCR_EX set key failed");
+         DMX_ERR("CA_SET_DESCR_EX set key failed");
       else
-         DMX_DBG("CA_SET_DESCR_EX set key success");
+         DMX_INFO("CA_SET_DESCR_EX set key success");
 
    }
 
@@ -1293,7 +1290,7 @@ void STB_DMXChangeDecodePIDs(U8BIT path, U16BIT pcr_pid, U16BIT video_pid, U16BI
    FUNCTION_START(STB_DMXChangeDecodePIDs);
    USE_UNWANTED_PARAM(data_pid);
 
-   DMX_DBG("%u: pcr=%u, video=%u, audio=%u, text=%u, ad=%u, preselection_id=%u", path, pcr_pid, video_pid, audio_pid,
+   DMX_INFO("%u: pcr=%u, video=%u, audio=%u, text=%u, ad=%u, preselection_id=%u", path, pcr_pid, video_pid, audio_pid,
       text_pid, ad_pid, preselection_id);
 
    if ((path < num_paths) && (demux_status[path].config_mutex != NULL))
@@ -2197,10 +2194,10 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
    }
 
    DvbGetDemuxSource(path, &dmx_src_cur);
-   DMX_DBG("path %d Demux source [config:cur_node] = [%d:%d]", path, dmx_src_cfg, dmx_src_cur);
+   DMX_INFO("path %d Demux source [config:cur_node] = [%d:%d]", path, dmx_src_cfg, dmx_src_cur);
    if ((source != demux_status[path].source) || (param != demux_status[path].source_param) || (dmx_src_cfg != dmx_src_cur))
    {
-      DMX_DBG("%u: new=%u, %u; old=%u, %u", path, source, param, demux_status[path].source, demux_status[path].source_param);
+      DMX_INFO("%u: new=%u, %u; old=%u, %u", path, source, param, demux_status[path].source, demux_status[path].source_param);
       demux_status[path].source = source;
       demux_status[path].source_param = param;
       demux_status[path].demux_cap = demux_cap;
@@ -3023,7 +3020,7 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    pdmx = demux_status + path;
    ptrk = pdmx->tracks + track;
 
-   DMX_DBG("path %d ptrk->chanid %d even %d odd %d pid %d track %d", path, ptrk->chanid, ptrk->iseven, ptrk->isodd, pdmx->pids[track], track);
+   DMX_INFO("path %d ptrk->chanid %d even %d odd %d pid %d track %d", path, ptrk->chanid, ptrk->iseven, ptrk->isodd, pdmx->pids[track], track);
 
    if (pdmx->pids[track] == 0)
    {
@@ -3559,7 +3556,7 @@ static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
             }
             else
             {
-                 DMX_DBG("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_INPUT:%d dmx_idx:%d", src, input, dmx_idx);
+                 DMX_INFO("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_INPUT:%d dmx_idx:%d", src, input, dmx_idx);
                  r = 0;
             }
             if (ioctl(fd2, DMX_SET_HW_SOURCE, source) < 0)
@@ -3569,7 +3566,7 @@ static int DvbSetDemuxSource(int dmx_idx, DVB_DemuxSource_t src)
             }
             else
             {
-                DMX_DBG("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_HW_SOURCE:%d dmx_idx:%d", src, source, dmx_idx);
+                DMX_INFO("DvbSetDemuxSource ioctl succeeded src:%d DMX_SET_HW_SOURCE:%d dmx_idx:%d", src, source, dmx_idx);
                 r = 0;
             }
             close(fd2);

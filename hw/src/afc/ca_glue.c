@@ -150,7 +150,23 @@ typedef struct ca_list
  ****************************************************************************/
 BOOLEAN STB_CAInitialise(void)
 {
-    return FALSE;
+    U32BIT ret = 0;
+    static int init_flag = 0;
+
+    if (init_flag == 0)
+    {
+        CA_DBG("am cas init +++++++++++++++++");
+        ret = MediaCAS_Init();
+        init_flag = 1;
+        if (ret)
+        {
+            CA_DBG("am cas init failed [%d]", ret);
+        }
+
+        cas_mutex = (void *)STB_OSCreateMutex();
+    }
+
+    return TRUE;
 }
 
 /*!**************************************************************************
@@ -301,23 +317,10 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
 {
     U8BIT j;
     U32BIT ret = 0;
-    static int init_flag = 0;
-
     CA_DBG("%s(path=%u, serv_id=%u, ca_ids=%p, num_ca_ids=%u, init_flag=%d)",
             __FUNCTION__, path, serv_id, ca_ids, num_ca_ids, init_flag);
     ASSERT(handle);
 
-    if (init_flag == 0)
-    {
-        ret = MediaCAS_Init();
-        init_flag = 1;
-        if (ret)
-        {
-            CA_DBG("am cas init failed [%d]", ret);
-        }
-
-        cas_mutex = (void *)STB_OSCreateMutex();
-    }
 
     if (num_ca_ids == 0)
     {

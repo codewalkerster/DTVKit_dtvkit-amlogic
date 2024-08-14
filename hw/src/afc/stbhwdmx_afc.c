@@ -63,16 +63,10 @@
 //#include <Aml_MP/Aml_MP.h>
 #include "wrapper_dmx.h"
 
-// #define DEMUX_DEBUG 1
 /*---constant definitions for this file--------------------------------------*/
-#ifdef DEMUX_DEBUG
-#define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
-#else
-#define DMX_DBG(x,...)
-#endif
-
-#define DMX_ERR(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_DBG(x,...) DTV_LOG(ANDROID_LOG_DEBUG, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 #define DMX_INFO(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
+#define DMX_ERR(x,...) DTV_LOG(ANDROID_LOG_ERROR, TAG, "%s:%d " x,__FUNCTION__,__LINE__, ##__VA_ARGS__ )
 
 
 #define DMX_TASK_PRIORITY           12
@@ -908,7 +902,7 @@ U16BIT STB_DMXGrabSectFilter(U8BIT path, U16BIT pfilt_id)
           * than 16 section filters for each PID filter */
          sfilt_id += pfilt_id;
 //#ifdef FILTER_PRINTS
-DMX_INFO(">> %s(%u, 0x%04x): pid=%u, sfilt=0x%04x\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, sfilt_id);
+DMX_DBG(">> %s(%u, 0x%04x): pid=%u, sfilt=0x%04x\n", __FUNCTION__, path, pfilt_id, filter_ptr->pid, sfilt_id);
 //#endif
       }
 
@@ -946,7 +940,7 @@ void STB_DMXReleaseSectFilter(U8BIT path, U16BIT sfilt_id)
       STB_OSMutexLock(demux_status[path].config_mutex);
 
 //#ifdef FILTER_PRINTS
-DMX_INFO(">> %s(%u, 0x%04x): in_use=%u\n", __FUNCTION__, path, sfilt_id, sect_filter->in_use);
+DMX_DBG(">> %s(%u, 0x%04x): in_use=%u\n", __FUNCTION__, path, sfilt_id, sect_filter->in_use);
 //#endif
       if (sect_filter->in_use)
       {
@@ -999,7 +993,7 @@ void STB_DMXSetupSectFilter(U8BIT path, U16BIT sfilt_id, U8BIT *match_ptr, U8BIT
       STB_OSMutexLock(demux_status[path].config_mutex);
 
 #ifdef FILTER_PRINTS
-DMX_INFO(">> %s(%u, 0x%04x, crc=%u)\n", __FUNCTION__, path, sfilt_id, crc);
+DMX_DBG(">> %s(%u, 0x%04x, crc=%u)\n", __FUNCTION__, path, sfilt_id, crc);
 #endif
 
       /* Save the match and mask data so that the correct section filter
@@ -1120,7 +1114,7 @@ printf(">> %s(%u, 0x%04x): start_count=%u, started=%u\n", __FUNCTION__, path, pf
 
       if (!pid_filter->started)
       {
-             DMX_INFO("STB_DMXStartPIDFilter filter_index [0x%x]",filter_index);
+             DMX_DBG("STB_DMXStartPIDFilter filter_index [0x%x]",filter_index);
 
              if (pid_filter->fhandle != -1)
              {
@@ -1206,7 +1200,7 @@ printf(" - STOP");
             DMX_SetCallback(path, pid_filter->fhandle, NULL, NULL);
             DMX_FreeFilter(path, pid_filter->fhandle);
 #endif
-            DMX_INFO("STB_DMXStopPIDFilter filter_index [0x%x]",filter_index);
+            DMX_DBG("STB_DMXStopPIDFilter filter_index [0x%x]",filter_index);
             DMX_StopFilter(pid_filter->fhandle);
             pid_filter->started = FALSE;
 
@@ -2085,7 +2079,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
         else
         {
              /* flush the filter */
-            DMX_INFO("STB_DMX UpdateSectionFilter -#->  flush path: [%d] handle [0x%x] already exists, flush the cache,", path, pid_filter->fhandle);
+            DMX_DBG("STB_DMX UpdateSectionFilter -#->  flush path: [%d] handle [0x%x] already exists, flush the cache,", path, pid_filter->fhandle);
             DMX_FlushFilter(pid_filter->fhandle);
         }
 
@@ -2099,7 +2093,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
             16bit pid         1111 1111 1111 1111
             */
           demux_status[path].dev_no = (pid_filter->fhandle >> 16) & 0x0F;
-          DMX_INFO("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x] dev_no %d enbale_crc %d",path,pid_filter->fhandle , filter_index,\
+          DMX_DBG("STB_DMX UpdateSectionFilter -#->  Start path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x] PID[0x%x] dev_no %d enable_crc %d",path,pid_filter->fhandle , filter_index,\
            demux_status[path].source,\
            demux_status[path].source_param,\
           demux_status[path].demux_cap,\
@@ -2117,7 +2111,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    }
     else
     {
-        DMX_INFO("STB_DMX UpdateSectionFilter -@-> close path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x]  PID[0x%x]",path,pid_filter->fhandle  ,filter_index,\
+        DMX_DBG("STB_DMX UpdateSectionFilter -@-> close path: [%d] handle [0x%x] filter_index[%d] source[0x%x] source_param[0x%x] demux_cap [0x%x]  PID[0x%x]",path,pid_filter->fhandle  ,filter_index,\
          demux_status[path].source,\
              demux_status[path].source_param,\
             demux_status[path].demux_cap,\
@@ -2372,7 +2366,7 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
          dsc_channel = &dsc->dsc_pid_channel[i];
          if (dsc_channel->chan_id == -1 )
          {
-             DMX_DBG("+++++++++++++++++++++++++++alloc new pid channel, [%d]", i);
+             DMX_INFO("+++++++++++++++++++++++++++alloc new pid channel, [%d]", i);
              chan_id = i;
             break ;
          }
@@ -2433,10 +2427,12 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
       {
          dsc->dsm_handle[dev_id] = DSM_OpenSession(0);
          DSM_GenerateToken(dsc->dsm_handle[dev_id],&token_);
+         DMX_INFO("dsm_handle [0x%x]  token0[%x]1[%x]2[]3[%x]4[%x]",\
+            dsc->dsm_handle[dev_id],(token_ & 0xFF),((token_ & 0xFF00) >> 8),((token_ & 0xFF0000) >> 16),((token_ >> 24) & 0xFF));
 
          ret = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_CAS_SESSION_USAGE, dsm_session);
          if (ret < 0)
-            DMX_DBG("DSM_PROP_CAS_SESSION_USAGE DSM_SetProperty error: ret = %d, [%d]%s", ret, -errno, strerror(errno));
+            DMX_ERR("DSM_PROP_CAS_SESSION_USAGE DSM_SetProperty error: ret = %d, [%d]%s", ret, -errno, strerror(errno));
 
          dsc->dsm_token[dev_id] = token_;
 
@@ -2455,7 +2451,7 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
    int i;
    int dsm_result = -1;
    DMX_DBG("setkey: %x %x %x", data[0], data[1], data[2]);
-   DMX_DBG("@@@@@@@@@@@@  dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, 1);
+   DMX_INFO("@@@@@@@@@@@@  dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, 1);
 
    //{
       S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
@@ -2589,9 +2585,9 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
           DMX_DBG("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot_iv.parity,keyslot_iv.is_iv,keyslot_iv.id);
           dsm_result = DSM_AddKeySlot(dsc->dsm_handle[dev_id], &keyslot_iv);
           uint32_t token =dsc->dsm_token[dev_id];
-          DMX_DBG("dsm_token [0x%x] 0[%x]1[%x]2[]3[%x]4[%x]",dsc->dsm_token[dev_id],(token & 0xFF),((token & 0xFF00) >> 8),((token & 0xFF0000) >> 16),((token >> 24) & 0xFF));
+          DMX_INFO("dsm_token [0x%x] 0[%x]1[%x]2[]3[%x]4[%x]",dsc->dsm_token[dev_id],(token & 0xFF),((token & 0xFF00) >> 8),((token & 0xFF0000) >> 16),((token >> 24) & 0xFF));
           DESCRAMBLE_SetKeyToken(dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
-          DMX_DBG("descramble_handle[0x%x] dsm_token [0x%x]",dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
+          DMX_INFO("descramble_handle[0x%x] dsm_token [0x%x]",dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
     }
       DESCRAMBLE_AddPid(dsc->descramble_handle[dev_id],dsc_channel->pid);
 
@@ -2658,7 +2654,7 @@ void STB_DMXDscFree(int dev_id, int chan_id)
       dsc_channel->ref = 0;
       dsc->dsc_ref[dev_id]--;
       //ca_dump_channel();
-      DMX_DBG("---------------------------------free pid channel, [%d]", i);
+      DMX_INFO("---------------------------------free pid channel, [%d]", i);
       STB_OSMutexUnlock(dsc->mutex);
 
       //tuner hal flow

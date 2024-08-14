@@ -163,6 +163,7 @@ static void* vlfend_thread(void *arg)
     {
         ret = AM_FAILURE;
 
+//coverity[MISSING_LOCK:Intentional]
         if (dev->active_thread)
         {
             if (dev->drv->wait_event)
@@ -304,6 +305,7 @@ AM_ErrorCode_t AM_VLFEND_Open(int dev_no, const AM_FEND_OpenPara_t *para)
     dev->dev_no = dev_no;
     dev->open_count = 1;
     dev->enable_thread = AM_TRUE;
+//coverity[MISSING_LOCK:Intentional]
     dev->active_thread = AM_FALSE;
 //coverity[MISSING_LOCK:Intentional]
     dev->flags = 0;

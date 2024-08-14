@@ -737,7 +737,7 @@ BOOLEAN STB_NWGetReuseaddr(void *socket, BOOLEAN *state)
    S_SOCKET_CTX *socket_desc;
    BOOLEAN retval = FALSE;
    int optval;
-   socklen_t option_len;
+   socklen_t option_len = sizeof(optval);
 
    FUNCTION_START(STB_NWGetReuseaddr);
 
@@ -951,12 +951,17 @@ void *STB_NWAccept(void *socket, U8BIT *address, U32BIT *port)
    if (connfd < 0)
       return NULL;
 
-   FUNCTION_FINISH(STB_NWAccept);
    new_client = (S_SOCKET_CTX *)STB_MEMGetSysRAM(sizeof(S_SOCKET_CTX));
    if (new_client)
    {
       new_client->sock = connfd;
    }
+   else
+   {
+      close(connfd);
+      return NULL;
+   }
+   FUNCTION_FINISH(STB_NWAccept);
    return new_client;
 }
 
@@ -1040,7 +1045,7 @@ S32BIT STB_NWReceiveFrom(void *socket, U8BIT *buf, U32BIT max_bytes, U8BIT *addr
    S32BIT retval = -1;
    struct sockaddr_in addr;
    struct sockaddr_in *addr_p;
-   socklen_t addr_len;
+   socklen_t addr_len = sizeof(addr);
    ssize_t r;
    char *a;
 
@@ -1572,7 +1577,10 @@ static void* EthernetMonitorTask(void *arg)
 
          STB_OSTaskDelay(100);
       }
-      close(sock_fd);
+      if (sock_fd >= 0)
+      {
+        close(sock_fd);
+      }
    }
    return NULL;
 }

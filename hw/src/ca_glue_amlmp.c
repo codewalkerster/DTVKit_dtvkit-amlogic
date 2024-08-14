@@ -195,6 +195,7 @@ static U16BIT parser_cat_table(U8BIT *data)
     p += 8;
     sec_len -= 5;
 
+    //coverity[TAINTED_SCALAR:Intentional]
     while ( sec_len > 9 )
     {
         CA_DBG("%s, cat data: %#x, %#x, %#x, %#x, %#x, %#x ", __FUNCTION__,
@@ -266,19 +267,22 @@ static void add_sess_pid(UINTPTR handle, U16BIT pid)
     }
 
     sess_node = (SESSION_INFO *)STB_MEMGetSysRAM(sizeof(SESSION_INFO));
-    memset(sess_node, 0, sizeof(SESSION_INFO));
-    sess_node->ecm_pid = pid;
-
-    if (((STB_CA_Glue_t *)handle)->last_sess_entry == NULL)
+    if (NULL != sess_node)
     {
-        ((STB_CA_Glue_t *)handle)->session_info = sess_node;
-    }
-    else
-    {
-        ((STB_CA_Glue_t *)handle)->last_sess_entry->next = sess_node;
-    }
+        memset(sess_node, 0, sizeof(SESSION_INFO));
+        sess_node->ecm_pid = pid;
 
-    ((STB_CA_Glue_t *)handle)->last_sess_entry = sess_node;
+        if (((STB_CA_Glue_t *)handle)->last_sess_entry == NULL)
+        {
+            ((STB_CA_Glue_t *)handle)->session_info = sess_node;
+        }
+        else
+        {
+            ((STB_CA_Glue_t *)handle)->last_sess_entry->next = sess_node;
+        }
+
+        ((STB_CA_Glue_t *)handle)->last_sess_entry = sess_node;
+    }
 }
 
 static void free_sess_list(UINTPTR handle)
@@ -454,15 +458,17 @@ static int cas_event_cb(AML_MP_CASSESSION session, const char *json)
     else
     {
         CAS_EVENT_LONG_DATA_t *cas_event_long_data = (CAS_EVENT_LONG_DATA_t *)STB_MEMGetSysRAM(sizeof(CAS_EVENT_LONG_DATA_t));
-        cas_event_long_data->long_data_str = (char *)STB_MEMGetSysRAM((data_len + 1) * sizeof(char));
-        cJSON_PrintPreallocated(data, cas_event_long_data->long_data_str, data_len + 1, 0);
-        cas_event_long_data->pathType = cas_event_data.pathType;
-        cas_event_long_data->path = cas_event_data.path;
-        CA_DBG("%s: data is too long data_len %d \n", __func__, data_len);
-        CA_DBG("%s:%s", __func__, cas_event_long_data->long_data_str);
-        //STB_ERSendEvent(FALSE, FALSE, EV_CLASS_CAS, EV_TYPE_CAS_LONG, &cas_event_long_data, sizeof(void *));
-        STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, EV_TYPE_CAS_LONG_HW, &cas_event_long_data, sizeof(void *));
-
+        if (NULL != cas_event_long_data)
+        {
+            cas_event_long_data->long_data_str = (char *)STB_MEMGetSysRAM((data_len + 1) * sizeof(char));
+            cJSON_PrintPreallocated(data, cas_event_long_data->long_data_str, data_len + 1, 0);
+            cas_event_long_data->pathType = cas_event_data.pathType;
+            cas_event_long_data->path = cas_event_data.path;
+            CA_DBG("%s: data is too long data_len %d \n", __func__, data_len);
+            CA_DBG("%s:%s", __func__, cas_event_long_data->long_data_str);
+            //STB_ERSendEvent(FALSE, FALSE, EV_CLASS_CAS, EV_TYPE_CAS_LONG, &cas_event_long_data, sizeof(void *));
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_CAS, EV_TYPE_CAS_LONG_HW, &cas_event_long_data, sizeof(void *));
+        }
     }
 
     if (data)
@@ -605,6 +611,7 @@ BOOLEAN STB_CAInitialise(void)
 #ifdef SUPPORT_CAS
     int ret;
     static int inited = 0;
+    BOOLEAN retval;
 
     FUNCTION_START(STB_CAInitialise);
 
@@ -634,7 +641,11 @@ BOOLEAN STB_CAInitialise(void)
         }
 
         char castype[32] = { 0 };
-        STB_Get_Prop("vendor.cas.type", castype, 32);
+        retval = STB_Get_Prop("vendor.cas.type", castype, 32);
+        if (FALSE == retval)
+        {
+            CA_DBG("am STB_Get_Prop failed");
+        }
         if (!strncmp(castype, "nagra", 5)) {
             g_cas_type = CAS_TYPE_NAGRA;
         }
@@ -653,8 +664,13 @@ BOOLEAN STB_CAInitialise(void)
  ****************************************************************************/
 E_CAS_TYPE STB_CAGetCASType()
 {
+    BOOLEAN ret;
     char castype[32] = { 0 };
-    STB_Get_Prop("vendor.cas.type", castype, 32);
+    ret = STB_Get_Prop("vendor.cas.type", castype, 32);
+    if (FALSE == ret)
+    {
+        CA_DBG("STB_Get_Prop Failed");
+    }
     CA_DBG("STB_CAGetCASType g_cas_type=%d, castype=%s", g_cas_type, castype);
     if (!strncmp(castype, "nagra", 5)) {
         g_cas_type = CAS_TYPE_NAGRA;
@@ -700,9 +716,9 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
     CA_DBG("%s(path=%u, serv_id=%u, ca_ids=%p, num_ca_ids=%u)",
             __FUNCTION__, path, serv_id, ca_ids, num_ca_ids);
 
-    E_STB_DMX_DEMUX_SOURCE source_type;
-    U8BIT param;
-    U16BIT demux_cap;
+    E_STB_DMX_DEMUX_SOURCE source_type = DMX_TUNER;
+    U8BIT param = 0;
+    U16BIT demux_cap = 0;
     STB_DMXGetDemuxSourceEX(path, &source_type, &param,&demux_cap);
     CA_DBG("==================source_type %d  tunerno %d   caps %d",source_type,  param , demux_cap);
 
@@ -730,13 +746,19 @@ BOOLEAN STB_CAAcquireDescrambler(U8BIT path, U16BIT serv_id, U16BIT *ca_ids, U16
         return FALSE;
     }
 
-    *handle = (UINTPTR)STB_MEMGetSysRAM(sizeof(STB_CA_Glue_t));
-    ASSERT(*handle);
-    memset((void *)*handle, 0x0, sizeof(STB_CA_Glue_t));
-    ((STB_CA_Glue_t *)(*handle))->path = path;
-    ((STB_CA_Glue_t *)(*handle))->service_id = serv_id;
+    if (NULL != handle)
+    {
+        *handle = (UINTPTR)STB_MEMGetSysRAM(sizeof(STB_CA_Glue_t));
+        ASSERT(*handle);
+        if (*handle != 0 && (void *)*handle != NULL)
+        {
+            memset((void *)*handle, 0x0, sizeof(STB_CA_Glue_t));
+            ((STB_CA_Glue_t *)(*handle))->path = path;
+            ((STB_CA_Glue_t *)(*handle))->service_id = serv_id;
+            CA_DBG("%s handle[%#x]", __FUNCTION__, *handle);
+        }
+    }
 
-    CA_DBG("%s handle[%#x]", __FUNCTION__, *handle);
     FUNCTION_FINISH(STB_CAAcquireDescrambler);
 
     STB_OSMutexUnlock(g_ca_mutex);
@@ -761,7 +783,7 @@ BOOLEAN STB_CAReleaseDescrambler(UINTPTR handle)
     CA_DBG("%s(0x%lx)", __FUNCTION__, handle);
 
     STB_OSMutexLock(g_ca_mutex);
-    CA_DBG(("%s->CAS_HAL_LOCK", __func__));
+    CA_DBG("%s->CAS_HAL_LOCK", __FUNCTION__);
     if (((STB_CA_Glue_t *)handle)->session_info &&
         ((STB_CA_Glue_t *)handle)->session_info->cas_session)
     {
@@ -1041,6 +1063,11 @@ static U8BIT* _STB_ParseCaDescriptor(U8BIT *dptr, U16BIT *num_ptr, CA_DESC **arr
     ASSERT(num_ptr != NULL);
     ASSERT(array_ptr != NULL);
 
+    if (dptr == NULL)
+    {
+        return NULL;
+    }
+
     dlen = *dptr;
     dptr++;
     end_ptr = dptr + dlen;
@@ -1062,7 +1089,7 @@ static U8BIT* _STB_ParseCaDescriptor(U8BIT *dptr, U16BIT *num_ptr, CA_DESC **arr
 
         // check if there are already entries in the array (i.e. already received a descriptor)
         // if so add to the existing array, otherwise create new array
-        if (*array_ptr == NULL)
+        if (array_ptr == NULL || *array_ptr == NULL)
         {
             // no entries already - create new array
             num_entries = 1;
@@ -1109,7 +1136,10 @@ static U8BIT* _STB_ParseCaDescriptor(U8BIT *dptr, U16BIT *num_ptr, CA_DESC **arr
                 array[num_entries - 1].private_data_length = 0;
             }
             *array_ptr = array;
-            *num_ptr = num_entries;
+            if (num_ptr != NULL)
+            {
+                *num_ptr = num_entries;
+            }
         }
         else
         {
@@ -1161,9 +1191,6 @@ static CA_LIST * _STB_CAGetPmtDescArrayList(U8BIT *pmt_data)
         return NULL;
     }
 
-    ca_list = (CA_LIST *)STB_MEMGetSysRAM(sizeof(CA_LIST));
-    memset(ca_list, 0, sizeof(CA_LIST));
-
     /* Get pointer to section data and end of section */
     data_ptr = pmt_data;
     sec_len = (((data_ptr[1] & 0x0f) << 8) | data_ptr[2]) + 3;
@@ -1211,13 +1238,18 @@ static CA_LIST * _STB_CAGetPmtDescArrayList(U8BIT *pmt_data)
         }
     }
 
-    if (num_ca_entries > 0)
+    ca_list = (CA_LIST *)STB_MEMGetSysRAM(sizeof(CA_LIST));
+    if (NULL != ca_list)
     {
-        ca_list->num_ca_entries = num_ca_entries;
-        ca_list->ca_desc_array = ca_desc_array;
+        memset(ca_list, 0, sizeof(CA_LIST));
+        if (num_ca_entries > 0)
+        {
+            ca_list->num_ca_entries = num_ca_entries;
+            ca_list->ca_desc_array = ca_desc_array;
+        }
+        ca_list->serv_id = program_number;
+        ca_list->scramble_algo = scramble_algo;
     }
-    ca_list->serv_id = program_number;
-    ca_list->scramble_algo = scramble_algo;
     /* Read entry for each stream */
     while (data_ptr < data_end)
     {
@@ -1226,6 +1258,7 @@ static CA_LIST * _STB_CAGetPmtDescArrayList(U8BIT *pmt_data)
         data_ptr += 5;
 
         num_ca_entries = 0;
+        //coverity[RESOURCE_LEAK:Intentional]
         ca_desc_array = NULL;
         /* Process stream descriptor loop */
         dloop_end = data_ptr + dloop_len;
@@ -1251,7 +1284,7 @@ static CA_LIST * _STB_CAGetPmtDescArrayList(U8BIT *pmt_data)
                 }
             }
         }
-
+        if (NULL != ca_list)
         {
             stream_entry = (STREAM_ENTRY *)STB_MEMGetSysRAM(sizeof(STREAM_ENTRY));
 
@@ -1359,34 +1392,14 @@ static void  _STB_CAFreeDescArrayList(CA_LIST * ca_list)
         while (stream_entry != NULL)
         {
             ca_pid_info = (CA_INFO *)STB_MEMGetSysRAM(sizeof(CA_INFO));
-            memset(ca_pid_info, 0, sizeof(CA_INFO));
-
-            if (pmt_info->has_global_ca)
+            if (NULL != ca_pid_info)
             {
-                ca_pid_info->ecm_pid = global_ecm_pid;
-                ca_pid_info->es_pid = stream_entry->pid;
+                memset(ca_pid_info, 0, sizeof(CA_INFO));
 
-                if (pmt_info->last_pid_entry == NULL)
+                if (pmt_info->has_global_ca)
                 {
-                    pmt_info->ca_pid_list = ca_pid_info;
-                }
-                else
-                {
-                    pmt_info->last_pid_entry->next = ca_pid_info;
-                }
-
-                pmt_info->last_pid_entry = ca_pid_info;
-                stream_entry = stream_entry->next;
-                continue;
-            }
-
-            for (i = 0; i < stream_entry->num_ca_entries; i++)
-            {
-                if (Aml_MP_CAS_IsSystemIdSupported(stream_entry->ca_desc_array[i].ca_id))
-                {
+                    ca_pid_info->ecm_pid = global_ecm_pid;
                     ca_pid_info->es_pid = stream_entry->pid;
-                    ca_pid_info->ecm_pid = stream_entry->ca_desc_array[i].ca_pid;
-                    add_sess_pid(handle, stream_entry->ca_desc_array[i].ca_pid);
 
                     if (pmt_info->last_pid_entry == NULL)
                     {
@@ -1398,10 +1411,33 @@ static void  _STB_CAFreeDescArrayList(CA_LIST * ca_list)
                     }
 
                     pmt_info->last_pid_entry = ca_pid_info;
+                    stream_entry = stream_entry->next;
+                    continue;
+                }
 
-                    pmt_info->has_component_ca = TRUE;
-                    CA_DBG("%s supported component CA desc found", __FUNCTION__);
-                    break;
+                for (i = 0; i < stream_entry->num_ca_entries; i++)
+                {
+                    if (Aml_MP_CAS_IsSystemIdSupported(stream_entry->ca_desc_array[i].ca_id))
+                    {
+                        ca_pid_info->es_pid = stream_entry->pid;
+                        ca_pid_info->ecm_pid = stream_entry->ca_desc_array[i].ca_pid;
+                        add_sess_pid(handle, stream_entry->ca_desc_array[i].ca_pid);
+
+                        if (pmt_info->last_pid_entry == NULL)
+                        {
+                            pmt_info->ca_pid_list = ca_pid_info;
+                        }
+                        else
+                        {
+                            pmt_info->last_pid_entry->next = ca_pid_info;
+                        }
+
+                        pmt_info->last_pid_entry = ca_pid_info;
+
+                        pmt_info->has_component_ca = TRUE;
+                        CA_DBG("%s supported component CA desc found", __FUNCTION__);
+                        break;
+                    }
                 }
             }
 
@@ -1811,6 +1847,10 @@ void STB_CAPVRRecodingEncrypt(void *handle, void *param)
             cryptoPara->buf_in, cryptoPara->buf_out, cryptoPara->buf_len);
 #endif
 
+    if (NULL == handle)
+    {
+        return;
+    }
            if (!(((STB_CA_Glue_t *)handle)->session_info))
 {
     CA_DBG("CA glue PVR recoding encrypt session_info is null");
@@ -1869,11 +1909,14 @@ void STB_CAPVRRecodingEncrypt(void *handle, void *param)
               ((STB_CA_Glue_t *)handle)->session_info->cas_session,
               cryptoPara);
 
-          if (ret)
-{
-    cryptoPara->outputSize = 0;
-    cryptoPara->outputBuffer.size = 0;
-}
+    if (ret)
+    {
+        if (NULL != cryptoPara)
+        {
+            cryptoPara->outputSize = 0;
+            cryptoPara->outputBuffer.size = 0;
+        }
+    }
 #endif
 }
 

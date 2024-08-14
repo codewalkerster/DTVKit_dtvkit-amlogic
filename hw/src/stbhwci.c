@@ -506,7 +506,7 @@ static void ReadDataFile(FILE *f, S_SECURE_VARIABLE *var)
    U8BIT *data = var->data;
    char *line = (char *)data;
    size_t len = var->size;
-   size_t read, prev_read;
+   size_t read, prev_read = 0;
    ssize_t sread;
 
    FUNCTION_START(ReadDataFile);
@@ -520,7 +520,11 @@ static void ReadDataFile(FILE *f, S_SECURE_VARIABLE *var)
    else if (memcmp(data, "-----BEG", 8) == 0)
    {/* Base64 encoded certificate */
       /* Skip first line */
-      getline(&line, &len, f);
+      sread = getline(&line, &len, f);
+      if (sread == -1)
+      {
+          CI_ERR("Failed to read line from file")
+      }
       while ((sread = getline(&line, &len, f)) != -1)
       {
          line += sread - 1;

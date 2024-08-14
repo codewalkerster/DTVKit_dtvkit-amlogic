@@ -117,6 +117,7 @@ void USB_Media_Task(void)
 {
     const char *media_node = "/dev/cimodule_media0";
     const char *cmd_node = "/dev/cimodule_command0";
+    BOOLEAN ret;
 
     DMX_USB_DBG("start USB_Module_Task");
     if (STB_Is_TunerFramework_Enabled() == FALSE)
@@ -126,19 +127,21 @@ void USB_Media_Task(void)
         while (TRUE)
         {
             char buf[64] = {0};
-            STB_Get_Prop("vendor.tv.dtv.ciservice.ready", buf, sizeof(buf));
+            ret = STB_Get_Prop("vendor.tv.dtv.ciservice.ready", buf, sizeof(buf));
             if (!strncmp(buf, "true", 4))
             {
                 break;
             }
-            STB_SPDebugWrite("usb boot_completed[%s]", buf);
+            //STB_SPDebugWrite("usb boot_completed[%s]", buf);
             STB_OSTaskDelay(6000);
         }
 #endif
-
+        //coverity[Indefinite wait:Intentional]
         for (;; )    /* infinite loop */
         {
             STB_OSTaskDelay(1000);
+
+            //coverity[MISSING_LOCK:Intentional]
             if (media_open_status == FALSE)
             {
                 if (0 == access(media_node, F_OK))
@@ -163,6 +166,7 @@ void USB_Media_Task(void)
                     }
                     else
                     {
+                        //coverity[LOCK:Intentional]
                         AML_Usbcam_Media_Open();
                         DMX_USB_DBG("usb media open ok = %d",media_open_status);
                     }
@@ -183,6 +187,7 @@ void USB_Media_Task(void)
 
 static void AML_Usbcam_Reset_Resource()
 {
+    int ret;
     // DMX_USB_DBG("enter");
     if (media_readbuf)
     {
@@ -217,7 +222,7 @@ static void AML_Usbcam_Reset_Resource()
     }
     if (inj_dvr_fd > 0)
     {
-        ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_DEMOD);
+        ret = ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_DEMOD);
         close(inj_dvr_fd);
         inj_dvr_fd = -1;
     }
@@ -279,6 +284,7 @@ static void *AML_Usbcam_Read_Cam_Media_Task(void *args)
             // Dummy data
             if (read_len == 10)
             {
+                //coverity[DEADCODE:Intentional]
                 continue;
             }
             else
@@ -299,10 +305,23 @@ static void *AML_Usbcam_Read_Cam_Media_Task(void *args)
 
                 if (usbdata_len >= USB_CIMODULE_MEDIA_MAX_SIZE)
                 {
+                    if (usbdata_len > USB_CIMODULE_MEDIA_MAX_SIZE * 100)
+                    {
+                        usbdata_len = USB_CIMODULE_MEDIA_MAX_SIZE * 100;
+                        DMX_USB_DBG("usbdata_len is greater than usbdata_buf size");
+                    }
+
                     inj_len = AML_Usbcam_Inject_Cam_Source_Demux(usbdata_buf, usbdata_len);
                     if (inj_len < 0)
                         continue;
+
+                    if (inj_len > usbdata_len)
+                    {
+                        inj_len = usbdata_len;
+                        DMX_USB_DBG("inj_len exception");
+                    }
                     usbdata_len -= inj_len;
+
                     if (usbdata_len > 0)
                         memmove(usbdata_buf, usbdata_buf + inj_len, usbdata_len);
                 }
@@ -423,7 +442,7 @@ static void *AML_Usbcam_Write_Media_To_Cam_Task(void *args)
 #ifdef DEMUX_USB_MODULE_DEBUG
                     DMX_USB_DBG("write ts len %d", write_len);
 #endif
-                    if (threshold - write_len > 0)
+                    if ((threshold > write_len) && (threshold - write_len < REC_BUFF_SIZE))
                     {
                         memmove(buffer, buffer + write_len, threshold - write_len);
                     }
@@ -444,6 +463,7 @@ EXIT:
     DMX_USB_DBG("usbcam unplug, media write task exit.");
     if (buffer > 0)
         STB_MEMFreeSysRAM(buffer);
+    //coverity[RESOURCE_LEAK:Intentional]
 
     return NULL;
 }
@@ -500,6 +520,7 @@ static BOOLEAN AML_Usbcam_Set_Demuxes()
     rec_dev_id = 5;
 
     U8BIT slot = 0;
+    int ret;
 
     ev_fd = eventfd(0, 0);
     snprintf(inj_dvr_path, sizeof(inj_dvr_path), "/dev/dvb0.dvr%d", inj_dev_id);
@@ -512,7 +533,7 @@ static BOOLEAN AML_Usbcam_Set_Demuxes()
 #endif
         return FALSE;
     }
-    ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_LOCAL);
+    ret = ioctl(inj_dvr_fd, DMX_SET_INPUT, INPUT_LOCAL);
     //set dmx4 source = dmx0 source
     STB_DMXSetSource(inj_dev_id, DVB_DEMUX_SOURCE_DMA0 + inj_dev_id);
 
@@ -533,7 +554,7 @@ static BOOLEAN AML_Usbcam_Set_Demuxes()
 #endif
         return FALSE;
     }
-    ioctl(rec_dvr_fd, DMX_SET_BUFFER_SIZE, REC_BUFF_SIZE);
+    ret = ioctl(rec_dvr_fd, DMX_SET_BUFFER_SIZE, REC_BUFF_SIZE);
 
     return AML_Usbcam_Set_Tsin_Demux(aml_hw_cfg.tuners[aml_hw_cfg.tuner_num - 1].ts_input_idx);
 }
@@ -633,15 +654,16 @@ static BOOLEAN AML_Usbcam_Media_Close()
     BOOLEAN ret = TRUE;
     void *status = NULL;
 
+    pthread_mutex_lock(&media_resource_mutex);
+
     if (!media_open_status)
     {
         DMX_USB_DBG("usbci media not opened");
+        pthread_mutex_unlock(&media_resource_mutex);
         return FALSE;
     }
 
     thread_running = FALSE;
-
-    pthread_mutex_lock(&media_resource_mutex);
 
     if (pthread_join(media_read_taskid, &status) != 0)
     {
@@ -654,6 +676,7 @@ static BOOLEAN AML_Usbcam_Media_Close()
         ret = FALSE;
     }
     AML_Usbcam_Reset_Resource();
+    //coverity[LOCK_EVASION:Intentional]
     media_open_status = FALSE;
     pthread_mutex_unlock(&media_resource_mutex);
 

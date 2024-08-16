@@ -87,40 +87,52 @@ U8BIT DTV_GetLogFilterConfig(void)
 {
     static U8BIT logfilter_level = ANDROID_LOG_INFO;
     FILE* fp = NULL;
-    char filecontent[32];
+    char filecontent[32] = {0};
     char filepath[128];
 
-    STB_GetFullPathForDtvKitDataFile(filepath,sizeof(filepath),PROFILENAME);
+    STB_GetFullPathForDtvKitDataFile(filepath, sizeof(filepath), PROFILENAME);
     LOGCFG_LOGI("dtv_logfilter filepath: %s", filepath);
 
     fp = fopen(filepath, "r");
     if (fp == NULL)
     {
-        LOGCFG_LOGW("Can not open file: %s", filepath);
+        LOGCFG_LOGW("Cannot open file: %s", filepath);
         return logfilter_level;
     }
 
-    fgets(filecontent,sizeof(filecontent),fp);
-
-    /* Allow to set level with num or keyword */
-    if (strlen(filecontent) <= 4 && strtol((const char *)filecontent, NULL, 0) <= 0x0f)
+    if (fgets(filecontent, sizeof(filecontent), fp) == NULL)
     {
-        logfilter_level = (U8BIT)strtol((const char *)filecontent, NULL, 0);
+        LOGCFG_LOGW("Failed to read file content: %s", filepath);
+        fclose(fp);
+        return logfilter_level;
+    }
+
+    if (strlen(filecontent) <= 4)
+    {
+        long filter_value = strtol(filecontent, NULL, 0);
+        if (filter_value >= 0 && filter_value <= 0x0F)
+        {
+            logfilter_level = (U8BIT)filter_value;
+        }
+        else
+        {
+            LOGCFG_LOGW("Invalid filter value: %ld", filter_value);
+        }
     }
     else
     {
         for (U8BIT i = 0; i < 9; i++)
         {
-            if (NULL != strstr(filecontent,loglevel_string[i][0]) ||
-                NULL != strstr(filecontent,loglevel_string[i][1]))
+            if (strstr(filecontent, loglevel_string[i][0]) != NULL || strstr(filecontent, loglevel_string[i][1]) != NULL)
             {
                 logfilter_level = i;
+                break;
             }
         }
     }
     fclose(fp);
-    LOGCFG_LOGI("logfilter_config:%u", logfilter_level);
 
+    LOGCFG_LOGI("logfilter_config: %u", logfilter_level);
     return logfilter_level;
 }
 

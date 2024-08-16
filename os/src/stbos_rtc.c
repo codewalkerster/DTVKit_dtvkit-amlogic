@@ -70,7 +70,7 @@ static U32BIT sync_time = 0;
 static U32BIT SysBootTime(void);
 static U32BIT SysBootTimeSeconds(void);
 static U32BIT STB_OSGetSystemTime(void);
-static time_t STB_OSGetSystemUnixTimeStamp(void);
+static int64_t STB_OSGetSystemUnixTimeStamp(void);
 
 /**
  * @brief   Allows setting of initial boot time.
@@ -329,18 +329,18 @@ static U32BIT SysBootTimeSeconds(void)
 
 static U32BIT STB_OSGetSystemTime(void)
 {
-    time_t t;
+    struct timespec tsp;
     struct tm * lt;
-    time (&t);//获取Unix时间戳。
-    lt = localtime (&t);//转为时间结构。
-    RTC_DBG( "systime:%d/%d/%d %d:%d:%d dst:%d\n",lt->tm_year+1900, lt->tm_mon, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec, tm_gmt->tm_isdst);
-    return t;
+    clock_gettime(CLOCK_REALTIME, &tsp);
+    lt = localtime(&tsp.tv_sec);
+    RTC_DBG( "systime:%d/%d/%d %d:%d:%d dst:%d\n", lt->tm_year+1900, lt->tm_mon, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec, tm_gmt->tm_isdst);
+    return tsp.tv_sec;
 }
 
-static time_t STB_OSGetSystemUnixTimeStamp(void)
+static int64_t STB_OSGetSystemUnixTimeStamp(void)
 {
-    time_t unixTimeStamp;
-    time (&unixTimeStamp);
-    RTC_DBG("systime unix=%ld", unixTimeStamp);
-    return unixTimeStamp;
+    struct timespec tsp;
+    clock_gettime(CLOCK_REALTIME, &tsp);
+    RTC_DBG("systime unix=%ld", (long)ts.tv_sec);
+    return (int64_t)tsp.tv_sec;
 }

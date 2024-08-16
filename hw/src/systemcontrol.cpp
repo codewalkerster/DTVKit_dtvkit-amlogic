@@ -44,7 +44,7 @@ extern "C" {
 
     class SysClientWrapper: public SysCtrlListener {
     public:
-        SysClientWrapper() {
+        SysClientWrapper() : mSysCallbackFunc(nullptr) {
             SCDBG("%s: SysClientWrapper \n", __FUNCTION__);
             mpSysClient = SystemControlClient::getInstance();
             mListener = this;
@@ -103,7 +103,7 @@ extern "C" {
     #if ANDROID_PLATFORM_SDK_VERSION >= 30
         SysClientWrapper sysClientCallbackWrapper;
     #endif
-        void *unused;
+        void *unused = nullptr;
     };
 
     struct SysClientWrapper_t *SC_getInstance(void)
@@ -159,7 +159,7 @@ extern "C"  int SC_setVideoColor(int window, int color)
 #if ANDROID_PLATFORM_SDK_VERSION >= 30
     int s32Ret = -1;
     int fixed_tunnel = -1;
-    char value[92];
+    char value[92] = {0};
     const sp<SystemControlClient> &sws = getSystemControlService();
 
     if (property_get("vendor.tv.fixed_tunnel", value, NULL) > 0)
@@ -169,80 +169,60 @@ extern "C"  int SC_setVideoColor(int window, int color)
     }
 
     if (sws != nullptr) {
-/*
-   window�� 0: reserved;   1: main_window;    2: sub_window.
+        /*
+        window:
+        0: reserved;
+        1: main_window;
+        2: sub_window.
+        Color:
+        0: Black;
+        1: Blue.
+        Frequency:
+        4: only show once, will recover when receiving new frame.
+        5: MUTE: always show the solid color frame, until receive disable cmd or surface disconnect
+        6: UNMUTE: disable color frame.
+        */
 
-       Color:    0: Black;  1: Blue.
-
-frequency:  4: only show once,will recovery when receive new frame.
-
-                    5: MUTE: always show the solid color frame, until receive disable cmd or surface disconnect
-
-                    6: UNMUTE: disable color frame.
-*/
-
-            if (color == VIDEO_LAYER_COLOR_MAX)
+        if (color == VIDEO_LAYER_COLOR_MAX)
+        {
+            SCDBG("@@@@@@@@@@@@@ UNMUTE");
+            if (STB_IsNewHW() || (fixed_tunnel == 1))
             {
-                SCDBG("@@@@@@@@@@@@@ UNMUTE");
-                if (STB_IsNewHW() || (fixed_tunnel == 1))
+                //if (4 == SC_getDisplayMode())
                 {
-                    //if (4 == SC_getDisplayMode())
-                    {
-                        s32Ret = sws->setVideoScreenColorByVT(window,0,6);
-                        SCDBG("@@@@@@@@@@@@@ no need UNMUTE6[%d]",window);
-                    }
-                    //no need
+                    s32Ret = sws->setVideoScreenColorByVT(window,0,6);
+                    SCDBG("@@@@@@@@@@@@@ no need UNMUTE6[%d]",window);
                 }
-                else
-                {
-                    s32Ret = sws->setVideoScreenColor(color);
-                    SCDBG("@@@@@@@@@@@@@ UNMUTE color[%d]",color);
-                }
+                //no need
             }
             else
             {
-                if (color)
-                {
-                    SCDBG("@@@@@@@@@@@@@ MUTE blue [%d]", color);
-                }
-                else
-                {
-                    SCDBG("@@@@@@@@@@@@@ MUTE black [%d]", color);
-                }
-
-                if (STB_IsNewHW() || (fixed_tunnel == 1))
-                {
-                    s32Ret = sws->setVideoScreenColorByVT(window,color,5);
-                }
-                else
-                {
-                    s32Ret = sws->setVideoScreenColor(color);
-                }
-            }
-            return s32Ret;
-        }
-#endif
-#if 0
-
-            if (color == VIDEO_LAYER_COLOR_MAX)
-            {
-                SCDBG("@@@@@@@@@@@@@ UNMUTE");
                 s32Ret = sws->setVideoScreenColor(color);
+                SCDBG("@@@@@@@@@@@@@ UNMUTE color[%d]",color);
+            }
+        }
+        else
+        {
+            if (color)
+            {
+                SCDBG("@@@@@@@@@@@@@ MUTE blue [%d]", color);
             }
             else
             {
-                if (color)
-                {
-                    SCDBG("@@@@@@@@@@@@@ MUTE blue [%d]", color);
-                }
-                else
-                {
-                    SCDBG("@@@@@@@@@@@@@ MUTE black [%d]", color);
-                }
+                SCDBG("@@@@@@@@@@@@@ MUTE black [%d]", color);
+            }
+
+            if (STB_IsNewHW() || (fixed_tunnel == 1))
+            {
+                s32Ret = sws->setVideoScreenColorByVT(window,color,5);
+            }
+            else
+            {
                 s32Ret = sws->setVideoScreenColor(color);
             }
-            return s32Ret;
         }
+        return s32Ret;
+    }
 #endif
 
 #if (ANDROID_PLATFORM_SDK_VERSION <= 28)
@@ -307,7 +287,7 @@ extern "C" int SC_setATVVideoColor(int forceColor, int setColor, int freq)
 {
     int s32Ret = 0;
     int fixed_tunnel = -1;
-    char value[92];
+    char value[92] = {0};
 #if ANDROID_PLATFORM_SDK_VERSION >= 30
     const sp<SystemControlClient> &sws = getSystemControlService();
     if (sws != nullptr) {

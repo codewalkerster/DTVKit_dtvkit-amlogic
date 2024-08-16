@@ -137,7 +137,7 @@ static int X2DmxOpen(int dmx_no, int search)
 
     if (!search)
     {
-        ioctl(fd, AMSTREAM_IOC_PORT_INIT, 0xff88);
+        ret = ioctl(fd, AMSTREAM_IOC_PORT_INIT, 0xff88);
     }
 
     EmuFileEcho("/sys/class/stb/source", "hiu");
@@ -253,35 +253,37 @@ static int X4DmxClose(int handle)
     return 0;
 }
 
-
 static int X4DmxInjectData(int handle, unsigned char *buf, int size, unsigned int timeout)
 {
     int ret;
     int left = size;
     uint8_t *p = buf;
-    struct timeval begin_tv,now_tv;
+    struct timeval begin_tv, now_tv;
 
     if (handle < 0)
     {
         return 0;
     }
 
-    if (timeout >= 0)
+    if (timeout > 0)
     {
         struct pollfd pfd;
-
         pfd.fd = handle;
         pfd.events = POLLOUT;
-
         ret = poll(&pfd, 1, timeout);
+
         if (ret != 1)
+        {
             return 0;
+        }
     }
 
     gettimeofday(&begin_tv, NULL);
+
     while (left > 0)
     {
         ret = write(handle, p, left);
+
         if (ret == -1)
         {
             if (errno != EINTR)
@@ -291,9 +293,10 @@ static int X4DmxInjectData(int handle, unsigned char *buf, int size, unsigned in
             }
             ret = 0;
         }
-        else
+        else if (ret == 0)
         {
-            //printf("%s write cnt:%d\n",__FUNCTION__,ret);
+            DTV_LOGI(TAG, "Write returned 0, device might not be writable");
+            break;
         }
 
         gettimeofday(&now_tv, NULL);
@@ -304,8 +307,10 @@ static int X4DmxInjectData(int handle, unsigned char *buf, int size, unsigned in
             break;
         }
 
-        left -= ret;
-        p += ret;
+        if (ret > 0) {
+            left -= ret;
+            p += ret;
+        }
     }
 
     return (size - left);

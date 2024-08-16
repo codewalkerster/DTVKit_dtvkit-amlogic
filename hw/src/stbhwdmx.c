@@ -517,8 +517,14 @@ static void ca_dump_channel()
 
 static void key_free (int key_fd, int key_id)
 {
-   DMX_DBG("dev_id %d key_id %d", key_fd, key_id);
-   ioctl(key_fd, KEY_FREE, key_id);
+    int ret;
+
+    DMX_DBG("dev_id %d key_id %d", key_fd, key_id);
+
+    ret = ioctl(key_fd, KEY_FREE, key_id);
+    if (ret < 0) {
+        DMX_ERR("Failed to free key (dev_id %d, key_id %d): %s", key_fd, key_id, strerror(errno));
+    }
 }
 
 /*---global function definitions---------------------------------------------*/
@@ -2161,7 +2167,7 @@ void STB_DMXSetDemuxSource(U8BIT path, E_STB_DMX_DEMUX_SOURCE source, U8BIT para
    int tuner_index;
    int ret;
    BOOLEAN am_result;
-   DVB_DemuxSource_t dmx_src_cfg, dmx_src_cur;
+   DVB_DemuxSource_t dmx_src_cfg, dmx_src_cur = DVB_DEMUX_SOURCE_TS0;
 
    FUNCTION_START(STB_DMXSetDemuxSource);
 
@@ -2277,7 +2283,6 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
    FUNCTION_START(STB_DMXRouteTS);
    //no used now, only one cam card
    slot = 0;
-   int param = 0;
 
    // usb cam card is plug.used set_camPlug_tssource to
    // set ts_input_idx for dmx source
@@ -2323,8 +2328,8 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
    for (i = 0; i < num_paths; i++)
    {
       // change ts_input_idx
-      E_STB_DMX_DEMUX_SOURCE source;
-      U8BIT param;
+      E_STB_DMX_DEMUX_SOURCE source = DMX_TUNER;
+      U8BIT param = 0;
       STB_DMXGetDemuxSource(i, &source, &param);
 
       if (source == DMX_TUNER)
@@ -2418,7 +2423,7 @@ static void* ci_signal_entry (void *arg)
    }
 
    for (i = 0; i < num_paths; i++) {
-      E_STB_DMX_DEMUX_SOURCE source;
+      E_STB_DMX_DEMUX_SOURCE source = DMX_TUNER;
       U8BIT param;
 
       STB_DMXGetDemuxSource(i, &source, &param);
@@ -2599,70 +2604,79 @@ void STB_SetTsoutSource(BOOLEAN is_cam_plugin)
  */
 void STB_DMXReadTextPES(U8BIT path, U8BIT **buffer, U32BIT *num_bytes)
 {
-   U8BIT* read_ptr;
-   U8BIT* end_ptr;
-   U32BIT bytes_available;
-   U32BIT bytes_to_copy;
+    U8BIT* read_ptr;
+    U8BIT* end_ptr;
+    U32BIT bytes_available;
+    U32BIT bytes_to_copy;
 
-   FUNCTION_START(STB_DMXReadTextPES);
+    FUNCTION_START(STB_DMXReadTextPES);
 
-   *num_bytes = 0;
-   *buffer = NULL;
+    *num_bytes = 0;
+    *buffer = NULL;
 
-   if ((path < num_paths) && demux_status[path].text_started)
-   {
-      STB_OSMutexLock(demux_status[path].text_mutex);
+    if ((path < num_paths) && demux_status[path].text_started)
+    {
+        STB_OSMutexLock(demux_status[path].text_mutex);
 
-      if (demux_status[path].text_bytes_available != 0)
-      {
-         read_ptr = demux_status[path].read_ptr;
-         end_ptr = demux_status[path].text_buffer + TEXT_BUFFER_SIZE;
+        if (demux_status[path].text_bytes_available != 0)
+        {
+            read_ptr = demux_status[path].read_ptr;
+            end_ptr = demux_status[path].text_buffer + TEXT_BUFFER_SIZE;
 
-         if (pes_data == NULL)
-         {
-            /* Create a buffer to copy the PES data into */
-            pes_data = STB_MEMGetSysRAM(demux_status[path].text_bytes_available);
-            pes_data_size = demux_status[path].text_bytes_available;
-         }
-         else if (pes_data_size < demux_status[path].text_bytes_available)
-         {
-            /* Buffer needs to be increased */
-            pes_data = STB_MEMResizeSysRAM(pes_data, demux_status[path].text_bytes_available);
-            pes_data_size = demux_status[path].text_bytes_available;
-         }
-
-         if (pes_data != NULL)
-         {
-            bytes_available = end_ptr - read_ptr;
-
-            if (demux_status[path].text_bytes_available < bytes_available)
+            if (pes_data == NULL)
             {
-               /* Data can be copied in one go */
-               memcpy(pes_data, read_ptr, demux_status[path].text_bytes_available);
-
-               demux_status[path].read_ptr += demux_status[path].text_bytes_available;
+                /* Create a buffer to copy the PES data into */
+                pes_data = STB_MEMGetSysRAM(demux_status[path].text_bytes_available);
+                pes_data_size = demux_status[path].text_bytes_available;
             }
-            else
+            else if (pes_data_size < demux_status[path].text_bytes_available)
             {
-               /* Data has wrapped round in the buffer */
-               memcpy(pes_data, read_ptr, bytes_available);
-               bytes_to_copy = demux_status[path].text_bytes_available - bytes_available;
-               memcpy(pes_data + bytes_available, demux_status[path].text_buffer, bytes_to_copy);
-
-               demux_status[path].read_ptr = demux_status[path].text_buffer + bytes_to_copy;
+                /* Buffer needs to be increased */
+                pes_data = STB_MEMResizeSysRAM(pes_data, demux_status[path].text_bytes_available);
+                pes_data_size = demux_status[path].text_bytes_available;
             }
 
-            *num_bytes = demux_status[path].text_bytes_available;
-            *buffer = pes_data;
+            if (pes_data != NULL)
+            {
+                bytes_available = end_ptr - read_ptr;
 
-            demux_status[path].text_bytes_available = 0;
-         }
-      }
+                if (demux_status[path].text_bytes_available < bytes_available)
+                {
+                    /* Data can be copied in one go */
+                    memcpy(pes_data, read_ptr, demux_status[path].text_bytes_available);
 
-      STB_OSMutexUnlock(demux_status[path].text_mutex);
-   }
+                    demux_status[path].read_ptr += demux_status[path].text_bytes_available;
+                }
+                else
+                {
+                    /* Data has wrapped round in the buffer */
+                    memcpy(pes_data, read_ptr, bytes_available);
+                    bytes_to_copy = demux_status[path].text_bytes_available - bytes_available;
+                    if (pes_data_size >= bytes_available + bytes_to_copy)
+                    {
+                        memcpy(pes_data + bytes_available, demux_status[path].text_buffer, bytes_to_copy);
+                        demux_status[path].read_ptr = demux_status[path].text_buffer + bytes_to_copy;
+                    }
+                    else
+                    {
+                        DMX_ERR("Buffer overflow error: required size exceeds allocated buffer size.");
+                        STB_OSMutexUnlock(demux_status[path].text_mutex);
+                        FUNCTION_FINISH(STB_DMXReadTextPES);
+                        return;
+                    }
+                }
 
-   FUNCTION_FINISH(STB_DMXReadTextPES);
+                *num_bytes = demux_status[path].text_bytes_available;
+                *buffer = pes_data;
+
+                demux_status[path].text_bytes_available = 0;
+            }
+        }
+
+        STB_OSMutexUnlock(demux_status[path].text_mutex);
+    }
+
+    FUNCTION_FINISH(STB_DMXReadTextPES);
 }
 
 /**

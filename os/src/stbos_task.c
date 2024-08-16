@@ -194,6 +194,7 @@ void  STB_OSTaskSleep(void)
    pthread_mutex_lock(&sleep_mutex);
 
    /* Wait on the cond variable */
+   //coverity[Indefinite wait:Intentional]
    pthread_cond_wait(&sleep_cond, &sleep_mutex);
    pthread_mutex_unlock(&sleep_mutex);
 

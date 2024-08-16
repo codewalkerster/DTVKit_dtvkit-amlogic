@@ -84,7 +84,7 @@ static void* dmx_data_thread(void *arg)
 {
     int i, fid;
     int ret;
-    int cnt, len =0;
+    int cnt;
     uint32_t mask;
     uint8_t *sec_buf = NULL;
     int fids[DMX_FILTER_COUNT];
@@ -141,6 +141,7 @@ static void* dmx_data_thread(void *arg)
         {
             if (fds[i].revents & (POLLIN | POLLERR))
             {
+                int len =0;
                 pthread_mutex_lock(&dmx->lock);
                 filter = &dmx->filter[fids[i]];
                 if (!filter->enable || !filter->used || filter->need_free)

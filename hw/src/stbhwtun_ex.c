@@ -388,9 +388,6 @@ BOOLEAN stb_tune_fsm_create(U8BIT path, S_TUNER_STATUS *tstatus, U32BIT state)
 
 BOOLEAN stb_tune_fsm_msg_handle(void *param_ptr)
 {
-    BOOLEAN ret = TRUE;
-
-
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
 
     DTV_LOGD(TAG, "[%s] cur-state[%s] msg: %s, %s", __FUNCTION__,
@@ -398,9 +395,7 @@ BOOLEAN stb_tune_fsm_msg_handle(void *param_ptr)
                     tune_fsm_GetMsgTypeString(msg_ptr->type),
                     tune_fsm_GetMsgEventString(msg_ptr->type, msg_ptr->event));
 
-    ret = fsm_FsmMsgHandle(sg_tune_fsm_ptr_array[msg_ptr->path], param_ptr);
-
-    return ret;
+    return fsm_FsmMsgHandle(sg_tune_fsm_ptr_array[msg_ptr->path], param_ptr);
 }
 
 BOOLEAN stb_tune_fsm_send_msg(U8BIT path, U32BIT type, U32BIT event, void *param1_ptr, void *param2_ptr)
@@ -611,9 +606,11 @@ void stb_tune_start_tuner(S_TUNER_STATUS *tstatus, U32BIT freq, U32BIT srate, E_
         else
         {
             DTV_LOGI(TAG, "[%s]already locked ", __FUNCTION__);
-            stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_CNTRL_MSG, EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE, tstatus, NULL);
-
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
+            ret = stb_tune_fsm_send_msg(tstatus->path, EN_TUNE_CNTRL_MSG, EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE, tstatus, NULL);
+            if (!ret)
+            {
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
+            }
         }
 
     }
@@ -657,24 +654,20 @@ static void* tune_fsm_task(void *param)
 {
     U8BIT path = *((U8BIT *)(param));
 
-    BOOLEAN ret = TRUE;
-    BOOLEAN msg_ready = TRUE;
-
     STRU_FSM_TASK_MSG msg;
 
     STB_MEMFreeSysRAM(param);
 
     DTV_LOGI(TAG, "START tune fsm task [%d]", path);
 
+    //coverity[INFINITE_LOOP:Intentional]
     while (1)
     {
         memset(&msg, 0, sizeof(STRU_FSM_TASK_MSG));
         // Waits for an event to be reported, or the next 100 ms to elapse
-        msg_ready = STB_OSReadQueue(sg_tune_task_msg_queue_ptr_array[path], (void *)&msg, sizeof(STRU_FSM_TASK_MSG), TIMEOUT_NEVER);
-
-        if (msg_ready)
+        if (STB_OSReadQueue(sg_tune_task_msg_queue_ptr_array[path], (void *)&msg, sizeof(STRU_FSM_TASK_MSG), TIMEOUT_NEVER))
         {
-            ret = stb_tune_fsm_msg_handle((void *)&msg);
+            stb_tune_fsm_msg_handle((void *)&msg);
         }
 
         if (msg.free_para1 && NULL != msg.para1_ptr)
@@ -688,15 +681,12 @@ static void* tune_fsm_task(void *param)
         }
     }
 
-    DTV_LOGI(TAG, "EXIST tune fsm task [%d]", path);
-
     return NULL;
 }
 
 
 static BOOLEAN _fsm_send_msg(U8BIT path, U32BIT type, U32BIT event, BOOLEAN free_para1, void *param1_ptr, BOOLEAN free_para2, void *param2_ptr)
 {
-    BOOLEAN ret = TRUE;
     STRU_FSM_TASK_MSG msg;
 
     msg.path    = path;
@@ -708,7 +698,7 @@ static BOOLEAN _fsm_send_msg(U8BIT path, U32BIT type, U32BIT event, BOOLEAN free
     msg.free_para2  = free_para2;
     msg.para2_ptr   = param2_ptr;
 
-    ret = STB_OSWriteQueue(sg_tune_task_msg_queue_ptr_array[path], (void *)&msg, sizeof(STRU_FSM_TASK_MSG), TIMEOUT_NEVER);
+    BOOLEAN ret = STB_OSWriteQueue(sg_tune_task_msg_queue_ptr_array[path], (void *)&msg, sizeof(STRU_FSM_TASK_MSG), TIMEOUT_NEVER);
     if (!ret)
     {
         DTV_LOGE(TAG, "[%s] Msg[%u, %u] Send Err", __FUNCTION__, type, event);
@@ -768,10 +758,11 @@ static void _send_fsm_timeout_msg(void *arg)
 
     //DTV_LOGD(TAG, "[%s]", __FUNCTION__);
 
-    stb_tune_fsm_send_msg(msg_ptr->path, msg_ptr->msg_type,
-                          msg_ptr->msg_event, msg_ptr->tstatus, NULL);
-
-
+    if (!stb_tune_fsm_send_msg(msg_ptr->path, msg_ptr->msg_type,
+                               msg_ptr->msg_event, msg_ptr->tstatus, NULL))
+    {
+        DTV_LOGE(TAG, "[%s] send msg failed", __FUNCTION__);
+    }
 }
 
 static void _restart_fsm_timer()
@@ -795,6 +786,7 @@ static BOOLEAN _check_hw_lock_status(int frontend_fd, BOOLEAN *locked)
     BOOLEAN ret = FALSE;
     struct pollfd pfd;
     struct dvb_frontend_event fe_event;
+    memset(&fe_event, 0, sizeof(fe_event));
 
     pfd.fd = frontend_fd;
     pfd.events = POLLIN;

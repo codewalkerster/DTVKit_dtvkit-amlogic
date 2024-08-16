@@ -61,21 +61,28 @@ static BOOLEAN TvConfigSyncJsonDBFromCache(const char* filePath, TV_CONFIG* ptv_
     }
 
     FILE* fp = fopen(filePath, "w+");
-    char *cjValue = cJSON_Print(root);
     if (fp != NULL) {
-        int db_len = strlen(cjValue);
-        int wr_len = fwrite(cjValue, 1, db_len, fp);
+        char *cjValue = cJSON_Print(root);
+        if (cjValue != NULL)
+        {
+            int db_len = strlen(cjValue);
+            int wr_len = fwrite(cjValue, 1, db_len, fp);
 
-        if (wr_len != db_len) {
-            CFG_DBG("write error: db_len:wr_len=[%d:%d]\n", db_len, wr_len);
+            if (wr_len != db_len) {
+                CFG_DBG("write error: db_len:wr_len=[%d:%d]\n", db_len, wr_len);
+            }
+            else {
+                CFG_DBG("write success: db_len:wr_len=[%d:%d]\n", db_len, wr_len);
+            }
+
+            fclose(fp);
+            sync();
+            return TRUE;
         }
         else {
-            CFG_DBG("write success: db_len:wr_len=[%d:%d]\n", db_len, wr_len);
+            CFG_DBG("TvConfigSyncJsonDBFromCache:: json value is null");
+            fclose(fp);
         }
-
-        fclose(fp);
-        sync();
-        return TRUE;
     }
     else {
         CFG_DBG("TvConfigSyncJsonDBFromCache:: open %s error", filePath);
@@ -126,24 +133,37 @@ static BOOLEAN TvConfigSyncCacheFromJsonDB(TV_CONFIG* ptv_config,
         {
             cJSON *item;
             item = cJSON_GetObjectItem(root, "system_start_mode");
+            U8BIT str_len = 0;
             if (item->type == cJSON_String)
             {
                 CFG_DBG("system_start_mode[%s]", item->valuestring);
-                memcpy(ptv_config->system_start_mode, item->valuestring, strlen(item->valuestring));
+                str_len = strlen(item->valuestring);
+                if (str_len > 0 && str_len < 12)
+                {
+                    memcpy(ptv_config->system_start_mode, item->valuestring, str_len);
+                }
             }
 
             item = cJSON_GetObjectItem(root, "dvb_country_code");
             if (item->type == cJSON_String)
             {
                 CFG_DBG("dvb_country_code[%s]", item->valuestring);
-                memcpy(ptv_config->dvb_country_code, item->valuestring, strlen(item->valuestring));
+                str_len = strlen(item->valuestring);
+                if (str_len > 0 && str_len < 4)
+                {
+                    memcpy(ptv_config->dvb_country_code, item->valuestring, str_len);
+                }
             }
 
             item = cJSON_GetObjectItem(root, "isdb_country_code");
             if (item->type == cJSON_String)
             {
                 CFG_DBG("isdb_country_code[%s]", item->valuestring);
-                memcpy(ptv_config->isdb_country_code, item->valuestring, strlen(item->valuestring));
+                str_len = strlen(item->valuestring);
+                if (str_len > 0 && str_len < 4)
+                {
+                    memcpy(ptv_config->isdb_country_code, item->valuestring, str_len);
+                }
             }
         }
 
@@ -165,6 +185,9 @@ void STB_LoadSwConfigJsonDB()
 {
     char strCfgPath[128];
     char strDataPath[128];
+
+    memset(strCfgPath, 0, 128);
+    memset(strDataPath, 0, 128);
 
     pthread_rwlock_init(&g_config_lock, NULL);
     pthread_rwlock_wrlock(&g_config_lock);
@@ -210,8 +233,9 @@ int STB_GetSystemStartingMode(char* system_starting_mode)
 int  STB_SetSystemStartingMode(char* system_starting_mode)
 {
     char strDataPath[128];
+    memset(strDataPath, 0, 128);
 
-    if ((system_starting_mode == NULL) || (g_config_file_parse_state == FALSE))
+    if (system_starting_mode == NULL || strlen(system_starting_mode) >= 12 || g_config_file_parse_state == FALSE)
     {
         return -1;
     }

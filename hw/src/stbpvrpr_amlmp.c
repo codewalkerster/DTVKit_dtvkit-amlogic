@@ -948,11 +948,11 @@ BOOLEAN STB_PVRPlaySetPosition(U8BIT audio_decoder, U8BIT video_decoder, U32BIT 
             }
 
             pthread_rwlock_rdlock(_l);
+            s_recplay_status[play_index].last_position_in_seconds = position_in_seconds;
             error = Aml_MP_DVRPlayer_Seek(s_recplay_status[play_index].player, position_in_seconds * 1000);
             pthread_rwlock_unlock(_l);
             if (!error)
             {
-               s_recplay_status[play_index].last_position_in_seconds = position_in_seconds;
                PLAY_DBG("seek to %lu secs", position_in_seconds);
                retval = TRUE;
             }

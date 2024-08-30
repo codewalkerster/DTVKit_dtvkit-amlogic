@@ -356,7 +356,7 @@ static BOOLEAN getTunerLockStatus(U8BIT path)
         return FALSE;
     }
 
-    ALOGD("%s: path %u demod_locked %u", __FUNCTION__, stfrontendStatus.is_demod_locked);
+    ALOGD("%s: path %u demod_locked %u", __FUNCTION__, path,stfrontendStatus.is_demod_locked);
 
     return stfrontendStatus.is_demod_locked;
 }

@@ -151,8 +151,6 @@ typedef struct s_des_track_info
    BOOLEAN isodd;
    U8BIT even[32];
    U8BIT odd[32];
-   int even_key_id;
-   int odd_key_id;
 } S_DES_TRACK_INFO;
 
 typedef struct
@@ -859,21 +857,17 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
    char buffer[512] = {0};
 
    DMX_DBG("setkey: %x %x %x", data[0], data[1], data[2]);
-   DMX_DBG("dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, dmx_model_sc2);
+   DMX_DBG("@dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, dmx_model_sc2);
 
    if (dev_id > g_max_dev_num || chan_id < 0)
    {
       DMX_DBG("param invalid, set key failed");
       return -1;
    }
-   // memset(data, 1, 16);
-   // memset(data+16, 2, 16);
 
-   // for (i=0; i<32; i++)
-      // data[i] = i;
-   for (i = 0; i < 32; i++)
-      sprintf(buffer + i * 3, "%02x ", data[i]);
-   DMX_DBG("data: %s", buffer);
+//   for (i = 0; i < 32; i++)
+//      sprintf(buffer + i * 3, "%02x ", data[i]);
+ //  DMX_DBG("data: %s", buffer);
 
    if (dmx_model_sc2)
    {
@@ -982,21 +976,31 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
       {
             *key_id = key_alloc(dsc->key_fd, FALSE);
             key_config(dsc->key_fd, *key_id, key_userid, key_algo, 0);
+            ca_set_key(dev_id, chan_id, key_type, *key_id);
+            /*
+            * @ca_scb_as_is:if 1, scb use original
+            *               if 0, use ca_scb
+            */
+            //ca_set_scb( dev_id, chan_id, 1);
       }
       if (*iv_key_id == -1)
       {
             *iv_key_id = key_alloc(dsc->key_fd, TRUE);
             key_config(dsc->key_fd, *iv_key_id, key_userid, key_algo, 0);
+            ca_set_key(dev_id, chan_id, iv_key_type, *iv_key_id);
+            /*
+            * @ca_scb_as_is:if 1, scb use original
+            *               if 0, use ca_scb
+            */
+            //ca_set_scb( dev_id, chan_id, 1);
       }
       /* set TSE scb */
       // if (dsc_type == CA_DSC_TSE_TYPE)
       // ca_set_scb(dev_id, chan_id, 2);
       /* set key */
       key_set(dsc->key_fd, *key_id, data, 16);
-      ca_set_key(dev_id, chan_id, key_type, *key_id);
       /* set iv */
       key_set(dsc->key_fd, *iv_key_id, data + 16, 16);
-      ca_set_key(dev_id, chan_id, iv_key_type, *iv_key_id);
       STB_OSMutexUnlock(dsc->mutex);
    }
    else
@@ -1120,8 +1124,6 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                      demux_status[i].tracks[j].chanid = -1;
                      demux_status[i].tracks[j].iseven = FALSE;
                      demux_status[i].tracks[j].isodd = FALSE;
-                     demux_status[i].tracks[j].even_key_id = -1;
-                     demux_status[i].tracks[j].odd_key_id = -1;
                   }
 
                   /* Set default values */
@@ -2833,6 +2835,8 @@ BOOLEAN STB_DMXSetDescramblerKeyData(U8BIT path, E_STB_DMX_DESC_TRACK track,
    DMX_DBG("path %u track %u parity %u data %02x %02x", path, track, parity, data[0], data[1]);
    if ((path < num_paths) && (track < DESC_NUM_TRACKS))
    {
+       demux_status[path].tracks[track].iseven = FALSE;
+       demux_status[path].tracks[track].isodd = FALSE;
       if (parity == KEY_PARITY_EVEN)
       {
          demux_status[path].tracks[track].iseven = TRUE;

@@ -225,7 +225,7 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source
     filerInfo->cb = cb ;
     if (section_size > 8 * 4096)
     {
-        ALOGI("large section_size  [%d]",section_size);
+        ALOGI("Executor@large section_size  [%d]",section_size);
         filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, section_size, (long)filterCallback, 1);
     }
     else

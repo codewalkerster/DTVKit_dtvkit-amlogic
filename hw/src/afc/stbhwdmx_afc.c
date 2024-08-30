@@ -152,9 +152,40 @@ typedef struct s_des_track_info
    BOOLEAN isodd;
    U8BIT even[32];
    U8BIT odd[32];
-   int even_key_id;
-   int odd_key_id;
 } S_DES_TRACK_INFO;
+
+#define MAX_SC2_DSC_DEV 32
+#define SC2_DSC_CH_NUM 32
+
+typedef struct key_table_ids
+{
+    int key_id;
+    int iv_key_id;
+} KEY_TABLE_IDS;
+
+typedef struct s_sc2_dsc_channel
+{
+   E_STB_TS_SOURCE src;
+   int pid;
+   int chan_id;
+   int ref;
+   E_STB_DSC_CA_TYPE dsc_type;
+   U8BIT random_key[4];
+   KEY_TABLE_IDS key_table[KEY_PARITY_NONE];
+   int dev_id;
+} SC2_DSC_CHANNEL;
+
+typedef struct s_sc2_dsc_dev_info
+{
+   int key_fd;
+   int dsm_handle[MAX_SC2_DSC_DEV];
+   uint32_t dsm_token[MAX_SC2_DSC_DEV];
+   jobject descramble_handle[MAX_SC2_DSC_DEV];
+   int dsc_fd[MAX_SC2_DSC_DEV];
+   int dsc_ref[MAX_SC2_DSC_DEV];
+   void *mutex;
+   SC2_DSC_CHANNEL  dsc_pid_channel[SC2_DSC_CH_NUM];
+} S_SC2_DSC_DEV_INFO;
 
 typedef struct
 {
@@ -189,32 +220,6 @@ typedef struct
 
    U8BIT num_pid_filters_started;
 } S_DMX_STATUS;
-
-#define MAX_SC2_DSC_DEV             32
-#define SC2_DSC_CH_NUM 32
-typedef struct s_sc2_dsc_dev_info
-{
-   int key_fd;
-   int dsm_handle[MAX_SC2_DSC_DEV];
-   uint32_t dsm_token[MAX_SC2_DSC_DEV];
-   jobject descramble_handle[MAX_SC2_DSC_DEV];
-   int dsc_fd[MAX_SC2_DSC_DEV];
-   int dsc_ref[MAX_SC2_DSC_DEV];
-   void *mutex;
-   struct s_sc2_dsc_channel
-   {
-      E_STB_TS_SOURCE src;
-      int pid;
-      int chan_id;
-      int ref;
-      E_STB_DSC_CA_TYPE dsc_type;
-      U8BIT random_key[4];
-      int key_id;
-      int iv_key_id;
-      int dev_id;
-   } dsc_pid_channel[SC2_DSC_CH_NUM];
-} S_SC2_DSC_DEV_INFO;
-
 
 static S_SC2_DSC_DEV_INFO     *sc2_dsc_dev_info = NULL;
 
@@ -288,8 +293,7 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
                      demux_status[i].tracks[j].chanid = -1;
                      demux_status[i].tracks[j].iseven = FALSE;
                      demux_status[i].tracks[j].isodd = FALSE;
-                     demux_status[i].tracks[j].even_key_id = -1;
-                     demux_status[i].tracks[j].odd_key_id = -1;
+
                   }
 
                   /* Set default values */
@@ -381,8 +385,10 @@ void STB_DMXInitialise(U8BIT paths, BOOLEAN inc_pes_collection)
             sc2_dsc_dev_info->dsc_pid_channel[i].pid = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].chan_id = -1;
             sc2_dsc_dev_info->dsc_pid_channel[i].dsc_type = -1;
-            sc2_dsc_dev_info->dsc_pid_channel[i].key_id = -1;
-            sc2_dsc_dev_info->dsc_pid_channel[i].iv_key_id = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].key_table[KEY_PARITY_EVEN].key_id = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].key_table[KEY_PARITY_EVEN].iv_key_id = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].key_table[KEY_PARITY_ODD].key_id = -1;
+            sc2_dsc_dev_info->dsc_pid_channel[i].key_table[KEY_PARITY_ODD].iv_key_id = -1;
          }
       }
 
@@ -1560,9 +1566,11 @@ BOOLEAN STB_DMXSetDescramblerKeyData(U8BIT path, E_STB_DMX_DESC_TRACK track,
 
    FUNCTION_START(STB_DMXSetDescramblerKeyData);
 
-   DMX_DBG("path %u track %u parity %u data %02x %02x", path, track, parity, data[0], data[1]);
+   DMX_INFO("-------------->path %u track %u parity %u data %02x %02x", path, track, parity, data[0], data[1]);
    if ((path < num_paths) && (track < DESC_NUM_TRACKS))
    {
+       //demux_status[path].tracks[track].iseven = FALSE;
+       //demux_status[path].tracks[track].isodd = FALSE;
       if (parity == KEY_PARITY_EVEN)
       {
          demux_status[path].tracks[track].iseven = TRUE;
@@ -2268,7 +2276,7 @@ static int key_alloc(int fd, int is_iv)
    ret = ioctl(fd, KEY_ALLOC, &param);
    if (ret == 0)
    {
-      DMX_DBG("key_alloc index----------:[%x]\n", param.key_index);
+      DMX_INFO("key_alloc index----------:[%x]\n", param.key_index);
       return param.key_index;
    }
    else
@@ -2327,7 +2335,7 @@ static int key_set(int fd, int key_index, char *key, int key_len)
    ret = ioctl(fd, KEY_SET, &key_d);
    if (ret == 0)
    {
-      DMX_DBG("key_set success\n");
+      DMX_INFO("key_set success\n");
       return 0;
    }
    else
@@ -2339,7 +2347,7 @@ static int key_set(int fd, int key_index, char *key, int key_len)
 
 static void key_free (int key_fd, int key_id)
 {
-   DMX_DBG("dev_id %d key_id %d", key_fd, key_id);
+   DMX_INFO("dev_id %d key_id %d", key_fd, key_id);
    ioctl(key_fd, KEY_FREE, key_id);
 }
 
@@ -2414,8 +2422,11 @@ int STB_DMXDscAlloc(int dev_id, int pid, E_STB_DMX_DESC_TYPE type, E_STB_DSC_CA_
          dsc_channel->pid = pid;
          dsc_channel->dsc_type = dsc_type;
          ////////////////////////////
-         dsc_channel->key_id = -1;
-         dsc_channel->iv_key_id = -1;
+         dsc_channel->key_table[KEY_PARITY_EVEN].key_id = -1;
+         dsc_channel->key_table[KEY_PARITY_EVEN].iv_key_id = -1;
+
+         dsc_channel->key_table[KEY_PARITY_ODD].key_id = -1;
+         dsc_channel->key_table[KEY_PARITY_ODD].iv_key_id = -1;
         ///////////////////
       }
       STB_OSMutexUnlock(dsc->mutex);
@@ -2450,12 +2461,17 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
    int r = 0;
    int i;
    int dsm_result = -1;
-   DMX_DBG("setkey: %x %x %x", data[0], data[1], data[2]);
    DMX_INFO("@@@@@@@@@@@@  dev %d chan_id %d type %d parity %d dsc_type %d is_sc2 %d", dev_id, chan_id, type, parity, dsc_type, 1);
 
+/*
+   char buffer[512] = {0};
+   for (i = 0; i < 32; i++)
+      sprintf(buffer + i * 3, "%02x ", data[i]);
+   DMX_INFO("data: %s", buffer);
+*/
    //{
       S_SC2_DSC_DEV_INFO *dsc = sc2_dsc_dev_info;
-      E_KEY_ALGO_SC2 key_algo;
+      E_KEY_ALGO_SC2 key_algo = KEY_ALGO_AES;
       struct s_sc2_dsc_channel *dsc_channel;
       int key_userid = 0;
 
@@ -2508,87 +2524,79 @@ int STB_DMXSetKey(int dev_id, int chan_id, E_STB_DMX_DESC_TYPE type, E_STB_DSC_C
             break;
       };
 
-      E_CA_KEY_TYPE_SC2 key_type;
-      E_CA_KEY_TYPE_SC2 iv_key_type;
-
-      switch (parity)
-      {
-      case KEY_PARITY_EVEN:
-            key_type = CA_KEY_EVEN_TYPE;
-            iv_key_type = CA_KEY_EVEN_IV_TYPE;
-            break;
-      case KEY_PARITY_ODD:
-            key_type = CA_KEY_ODD_TYPE;
-            iv_key_type = CA_KEY_ODD_IV_TYPE;
-            break;
-      case KEY_PARITY_NONE:
-            key_type = CA_KEY_00_TYPE;
-            iv_key_type = CA_KEY_00_IV_TYPE;
-            break;
-      }
-
-   /*ALL ES share one Key TABLe*/
-
-    {
-          if (dsc_channel->key_id == -1)
-          {
-                dsc_channel->key_id = key_alloc(dsc->key_fd, FALSE);
-                key_config(dsc->key_fd, dsc_channel->key_id, key_userid, key_algo, 0);
-          }
-          if (dsc_channel->iv_key_id == -1)
-          {
-                dsc_channel->iv_key_id = key_alloc(dsc->key_fd, TRUE);
-                key_config(dsc->key_fd, dsc_channel->iv_key_id, key_userid, key_algo, 0);
-          }
+       /*ALL ES share one Key TABLe*/
+       U8BIT parity_index = 0;
+       for (parity_index = 0; parity_index < KEY_PARITY_NONE; parity_index++)
+        {
+              if (dsc_channel->key_table[parity_index].key_id == -1)
+              {
+                    dsc_channel->key_table[parity_index].key_id = key_alloc(dsc->key_fd, FALSE);
+                    key_config(dsc->key_fd, dsc_channel->key_table[parity_index].key_id, key_userid, key_algo, 0);
+                    /*
+                     ca_set_key(dev_id, chan_id, key_type, *key_id);
+                     {
+                        static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
+                        desc.cmd = CA_KEY;
+                        desc.params.key_params.ca_index = index;
+                        desc.params.key_params.parity = parity;
+                        desc.params.key_params.key_index = key_index;
+                        ret = ioctl(fd, CA_SC2_SET_DESCR_EX, &desc);
+                    }
+                    */
+                    struct dsm_keyslot keyslot;
+                    keyslot.parity = (KEY_PARITY_EVEN == parity_index ) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
+                    keyslot.algo = ( KEY_ALGO_CSA2 == key_algo) ? DSM_ALGO_CSA2 : DSM_ALGO_AES_CBC_CLR_END;
+                    keyslot.id = dsc_channel->key_table[parity_index].key_id;
+                    keyslot.is_iv = FALSE;
+                    keyslot.is_enc = FALSE ;
+                    dsm_result = DSM_AddKeySlot(dsc->dsm_handle[dev_id], &keyslot);
+                    DMX_INFO("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot.parity,keyslot.is_iv,keyslot.id);
+              }
+              if (dsc_channel->key_table[parity_index].iv_key_id == -1)
+              {
+                    if ( KEY_ALGO_CSA2 != key_algo)
+                    {
+                        dsc_channel->key_table[parity_index].iv_key_id = key_alloc(dsc->key_fd, TRUE);
+                        key_config(dsc->key_fd, dsc_channel->key_table[parity_index].iv_key_id, key_userid, key_algo, 0);
+                        /*
+                         ca_set_key(dev_id, chan_id, key_type, *key_id);
+                         {
+                            static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
+                            desc.cmd = CA_KEY;
+                            desc.params.key_params.ca_index = index;
+                            desc.params.key_params.parity = parity;
+                            desc.params.key_params.key_index = key_index;
+                            ret = ioctl(fd, CA_SC2_SET_DESCR_EX, &desc);
+                        }
+                        */
+                        struct dsm_keyslot keyslot_iv;
+                        keyslot_iv.parity = (KEY_PARITY_EVEN == parity_index ) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
+                        keyslot_iv.algo = ( KEY_ALGO_CSA2 == key_algo) ? DSM_ALGO_CSA2 : DSM_ALGO_AES_CBC_CLR_END;
+                        keyslot_iv.id = dsc_channel->key_table[parity_index].iv_key_id;
+                        keyslot_iv.is_iv = TRUE;
+                        keyslot_iv.is_enc = FALSE ;
+                        dsm_result = DSM_AddKeySlot(dsc->dsm_handle[dev_id], &keyslot_iv);
+                        DMX_INFO("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot_iv.parity,keyslot_iv.is_iv,keyslot_iv.id);
+                   }
+              }
+           }
           /* set key */
-          key_set(dsc->key_fd, dsc_channel->key_id, data, 16);
-          //ca_set_key(dev_id, chan_id, key_type, *key_id);
-          /* set iv */
-          key_set(dsc->key_fd, dsc_channel->iv_key_id, data + 16, 16);
-          //ca_set_key(dev_id, chan_id, iv_key_type, *iv_key_id);
-          /*
-           ca_set_key(dev_id, chan_id, key_type, *key_id);
-           {
-              static int ca_set_key(int dev_id, int index, int parity, unsigned int key_index)
-              desc.cmd = CA_KEY;
-              desc.params.key_params.ca_index = index;
-              desc.params.key_params.parity = parity;
-              desc.params.key_params.key_index = key_index;
-              ret = ioctl(fd, CA_SC2_SET_DESCR_EX, &desc);
+          key_set(dsc->key_fd, dsc_channel->key_table[parity].key_id, data, 16);
+          if ( KEY_ALGO_CSA2 != key_algo)
+          {
+              key_set(dsc->key_fd, dsc_channel->key_table[parity].iv_key_id, data + 16, 16); /* set iv */
           }
-          */
-
-          dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_SC2_DSC_TYPE, DSM_PROP_SC2_DSC_TYPE_TSN);
-          DMX_DBG("dsm_result %d",dsm_result);
-
-          dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_DEC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
-          DMX_DBG("dsm_result %d",dsm_result);
-
-          dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_ENC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
-          DMX_DBG("dsm_result %d",dsm_result);
-
-          struct dsm_keyslot keyslot;
-          keyslot.parity = (parity == KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
-          keyslot.algo = (enum dsm_algo)CA_ALGO_AES_CBC_CLR_END;
-          keyslot.id = dsc_channel->key_id;
-          keyslot.is_iv = FALSE;
-          keyslot.is_enc = FALSE ;
-          DMX_DBG("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot.parity,keyslot.is_iv,keyslot.id);
-          dsm_result = DSM_AddKeySlot(dsc->dsm_handle[dev_id], &keyslot);
-
-          struct dsm_keyslot keyslot_iv;
-          keyslot_iv.parity = (parity == KEY_PARITY_EVEN) ? DSM_PARITY_EVEN : DSM_PARITY_ODD;
-          keyslot_iv.algo = (enum dsm_algo)CA_ALGO_AES_CBC_CLR_END;
-          keyslot_iv.id = dsc_channel->iv_key_id;
-          keyslot_iv.is_iv = TRUE;
-          keyslot_iv.is_enc = FALSE ;
-          DMX_DBG("dsm_result %d parity[%x] is_iv[%x]  id[%x]",dsm_result,keyslot_iv.parity,keyslot_iv.is_iv,keyslot_iv.id);
-          dsm_result = DSM_AddKeySlot(dsc->dsm_handle[dev_id], &keyslot_iv);
-          uint32_t token =dsc->dsm_token[dev_id];
-          DMX_INFO("dsm_token [0x%x] 0[%x]1[%x]2[]3[%x]4[%x]",dsc->dsm_token[dev_id],(token & 0xFF),((token & 0xFF00) >> 8),((token & 0xFF0000) >> 16),((token >> 24) & 0xFF));
-          DESCRAMBLE_SetKeyToken(dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
-          DMX_INFO("descramble_handle[0x%x] dsm_token [0x%x]",dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
-    }
+          /*pass kte to tunerhal*/
+          {
+              dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_SC2_DSC_TYPE, DSM_PROP_SC2_DSC_TYPE_TSN);
+              dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_DEC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
+              dsm_result = DSM_SetProperty(dsc->dsm_handle[dev_id], DSM_PROP_ENC_SLOT_READY, DSM_PROP_SLOT_IS_READY);
+              uint32_t token =dsc->dsm_token[dev_id];
+              DMX_INFO("dsm_token [0x%x] 0[%x]1[%x]2[]3[%x]4[%x]",dsc->dsm_token[dev_id],(token & 0xFF),((token & 0xFF00) >> 8),((token & 0xFF0000) >> 16),((token >> 24) & 0xFF));
+              DESCRAMBLE_SetKeyToken(dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id]);
+              DMX_INFO("descramble_handle[0x%x] dsm_token [0x%x] key_algo [%d]",dsc->descramble_handle[dev_id],dsc->dsm_token[dev_id],key_algo);
+          }
+          ///////////////////////////////
       DESCRAMBLE_AddPid(dsc->descramble_handle[dev_id],dsc_channel->pid);
 
       //add pid here
@@ -2630,23 +2638,35 @@ void STB_DMXDscFree(int dev_id, int chan_id)
 
     //desc.cmd = CA_FREE;
     //desc.params.free_params.ca_index = chan_id;
-    //r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);
-
-    if (dsc_channel->key_id != -1)
+    //r = ioctl(dsc->dsc_fd[dev_id], CA_SC2_SET_DESCR_EX, &desc);  key_table[KEY_PARITY_ODD].
+#if 1
+    if (dsc_channel->key_table[KEY_PARITY_EVEN].key_id != -1)
     {
-        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_id);
-        key_free(dsc->key_fd, dsc_channel->key_id);
+        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_table[KEY_PARITY_EVEN].key_id);
+        key_free(dsc->key_fd, dsc_channel->key_table[KEY_PARITY_EVEN].key_id);
     }
-
-    if (dsc_channel->iv_key_id != -1)
+    if (dsc_channel->key_table[KEY_PARITY_EVEN].iv_key_id != -1)
     {
-        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_id);
-        key_free(dsc->key_fd, dsc_channel->iv_key_id);
+        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_table[KEY_PARITY_EVEN].iv_key_id);
+        key_free(dsc->key_fd, dsc_channel->key_table[KEY_PARITY_EVEN].iv_key_id);
     }
-
-      dsc_channel->key_id = -1;
-      dsc_channel->iv_key_id = -1;
-
+    dsc_channel->key_table[KEY_PARITY_EVEN].key_id = -1;
+    dsc_channel->key_table[KEY_PARITY_EVEN].iv_key_id = -1;
+/***************************************************************************************************************/
+/***************************************************************************************************************/
+    if (dsc_channel->key_table[KEY_PARITY_ODD].key_id != -1)
+    {
+        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_table[KEY_PARITY_ODD].key_id);
+        key_free(dsc->key_fd, dsc_channel->key_table[KEY_PARITY_ODD].key_id);
+    }
+    if (dsc_channel->key_table[KEY_PARITY_ODD].iv_key_id != -1)
+    {
+        DSM_RemoveKeySlot(dsc->dsm_handle[dev_id], dsc_channel->key_table[KEY_PARITY_ODD].iv_key_id);
+        key_free(dsc->key_fd, dsc_channel->key_table[KEY_PARITY_ODD].iv_key_id);
+    }
+      dsc_channel->key_table[KEY_PARITY_ODD].key_id = -1;
+      dsc_channel->key_table[KEY_PARITY_ODD].iv_key_id = -1;
+#endif
       dsc_channel->src = STB_TS_SOURCE_MAX;
       dsc_channel->dsc_type = -1;
       dsc_channel->chan_id = -1;
@@ -2689,7 +2709,7 @@ static void ApplyKey(U8BIT path, E_STB_DMX_DESC_TRACK track)
    pdmx = demux_status + path;
    ptrk = pdmx->tracks + track;
 
-   DMX_DBG("path %d ptrk->chanid %d even %d odd %d pid %d track %d", path, ptrk->chanid, ptrk->iseven, ptrk->isodd, pdmx->pids[track], track);
+   DMX_INFO("path %d ptrk->chanid %d even %d odd %d pid %d track %d", path, ptrk->chanid, ptrk->iseven, ptrk->isodd, pdmx->pids[track], track);
 
    if (pdmx->pids[track] == 0)
    {

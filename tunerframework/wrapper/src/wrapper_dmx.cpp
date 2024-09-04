@@ -186,6 +186,10 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source
         {
             tuner_type = TUNER_TYPE_DVR_RECORD;
         }
+        else if (Wrapper_TuneIsSearchMode(path))
+        {
+            tuner_type = TUNER_TYPE_SCAN;
+        }
         else
         {
             switch (path)

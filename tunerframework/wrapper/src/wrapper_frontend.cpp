@@ -29,7 +29,6 @@ typedef enum  {
 
 typedef struct
 {
-    S32BIT frontend_fd = INVALID_FD;
     U16BIT tuner_client = INVALID_TUNER_ID;
     U32BIT frequency = 0;
     E_TTYPE signal_type = E_TERR_TYPE_UNKNOWN;
@@ -96,6 +95,15 @@ static U8BIT getTunerPath(U16BIT tuner_client)
 
 static TUNER_TYPE getTunerType(U8BIT path)
 {
+    if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
+        ALOGE("%s: path %d is invalid", __FUNCTION__, path);
+        return TUNER_TYPE_LIVE_0;
+    }
+
+    if (tuner_status_map[path].tuner_search_mode) {
+        return TUNER_TYPE_SCAN;
+    }
+
     switch (path)
     {
         case 0:
@@ -130,11 +138,10 @@ static jclass getValueClass(JNIEnv *env, jobject valueObject, const char *name)
     return valueClazz;
 }
 
-static BOOLEAN getFrontendIds(U8BIT path)
+static BOOLEAN getFrontendIds(U8BIT path, U16BIT tuner_client)
 {
     frontend_list.clear();
 
-    U16BIT tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
     if (tuner_client == INVALID_TUNER_ID) {
         ALOGE("%s: path: %d, Invalid tuner id", __FUNCTION__, path);
         return FALSE;
@@ -198,6 +205,11 @@ static S64BIT getCurrentFrontendParameter(U8BIT path, WRAPPER_FRONTEND_PARAM par
 
     if (tuner_client == INVALID_TUNER_ID) {
         ALOGE("%s: path %d is invalid", __FUNCTION__, path);
+        return 0;
+    }
+
+    if (!getFrontendIds(path, tuner_client)) {
+        ALOGE("%s: path %d get frontend ids failed", __FUNCTION__, path);
         return 0;
     }
 
@@ -1230,27 +1242,8 @@ EW_TUNER_EVENT Wrapper_TuneGetLockStatus(U8BIT path)
 
 BOOLEAN Wrapper_TuneOpen(U8BIT path)
 {
-    U16BIT tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
-    if (INVALID_TUNER_ID == tuner_client)
-    {
-        ALOGE("%s: tuner_client is invalid", __FUNCTION__);
-        return FALSE;
-    }
-
-    if (KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
-        ALOGD("%s: path:%d is contained in map (client:%d)", __FUNCTION__, path, tuner_client);
-        tuner_status_map[path].tuner_client = tuner_client;
-    }
-    else {
-        WRAPPER_TUNER_STATUS tuner_status;
-        tuner_status.tuner_client = tuner_client;
-        ALOGD("%s: insert path:%d client:%d into map", __FUNCTION__, path, tuner_client);
-        MAP_INSERT_ITEM(tuner_status_map, path, tuner_status);
-    }
-
-    BOOLEAN ret = getFrontendIds(path);
-
-    return ret;
+    // do nothing
+    return TRUE;
 }
 BOOLEAN Wrapper_TuneIsOpened(U8BIT path)
 {
@@ -1771,43 +1764,23 @@ void Wrapper_TuneRestartTuner(U8BIT path)
 }
 void Wrapper_TuneSetSearchMode(U8BIT path, BOOLEAN mode)
 {
-    U16BIT tuner_client = INVALID_TUNER_ID;
+    if (!Wrapper_TuneIsTvPlatform()) {
+        return;
+    }
+
     if (KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
-        ALOGD("%s: path:%d is contained in map", __FUNCTION__, path);
-        tuner_client = findTunerClient(path);
-        if (INVALID_TUNER_ID == tuner_client) {
-            tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
-            if (INVALID_TUNER_ID == tuner_client)
-            {
-                ALOGE("%s: tuner_client is invalid", __FUNCTION__);
-                return ;
-            }
-
-            ALOGD("%s: path:%d client:%d", __FUNCTION__, path, tuner_client);
-            tuner_status_map[path].tuner_client = tuner_client;
-        }
-    }
-    else {
-        tuner_client = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
-        if (INVALID_TUNER_ID == tuner_client)
-        {
-            ALOGE("%s: tuner_client is invalid", __FUNCTION__);
-            return ;
-        }
-        WRAPPER_TUNER_STATUS tuner_status;
-        tuner_status.tuner_client = tuner_client;
-        ALOGD("%s: insert path:%d client:%d into map", __FUNCTION__, path, tuner_client);
-        MAP_INSERT_ITEM(tuner_status_map, path, tuner_status);
-    }
-
-    if (Wrapper_TuneIsTvPlatform()) {
         ALOGD("%s: curr_search_mode:%d mode:%d",
               __FUNCTION__, tuner_status_map[path].tuner_search_mode, mode);
-
         if (tuner_status_map[path].tuner_search_mode != mode) {
             tuner_status_map[path].tuner_search_mode = mode;
             tuner_status_map[path].tuning_params_changed = TRUE;
         }
+    }
+    else {
+        WRAPPER_TUNER_STATUS tuner_status;
+        tuner_status.tuner_search_mode = mode;
+        ALOGD("%s: insert path:%d search_mode:%d into map", __FUNCTION__, path, mode);
+        MAP_INSERT_ITEM(tuner_status_map, path, tuner_status);
     }
 }
 BOOLEAN Wrapper_TuneIsSearchMode(U8BIT path)
@@ -2069,7 +2042,7 @@ void Wrapper_TuneReceiveDISEQCReply(U8BIT path, U8BIT *data, U8BIT size, U32BIT 
 BOOLEAN Wrapper_Tune_BlindScan(U8BIT path, E_TTYPE sys_type, Wrapper_Tune_BlindCallback_t cb, void *user_data,
                                       unsigned int start_freq, unsigned int stop_freq, EW_STB_TUNE_BlindUnicable_t unicable)
 {
-    U16BIT client_id = (U16BIT)Am_tuner_getTunerClientIdByType(getTunerType(path));
+    U16BIT client_id = (U16BIT)Am_tuner_getTunerClientIdByType(TUNER_TYPE_SCAN);
 
     if (!KEY_CONTAINED_IN_MAP(tuner_status_map, path)) {
         ALOGE("%s: path:%d isn't contained in map, client_id:%d", __FUNCTION__, path, client_id);

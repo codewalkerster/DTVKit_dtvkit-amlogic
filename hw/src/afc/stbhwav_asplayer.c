@@ -248,8 +248,8 @@ static VIDEO_MIME_MAP video_mime_types[] =
    {WP_VIDEO_STREAM_TYPE_VP8, "video/x-vnd.on2.vp8"},
    {WP_VIDEO_STREAM_TYPE_VP9, "video/x-vnd.on2.vp9"},
    {WP_VIDEO_STREAM_TYPE_AV1, "video/av01"},
-   {WP_VIDEO_STREAM_TYPE_AVS, "video/avs-video"},
-   {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs-video"},
+   {WP_VIDEO_STREAM_TYPE_AVS, "video/avs"},
+   {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs2"},
    {WP_VIDEO_STREAM_TYPE_DVES_AVC, "video/dolby-vision-avc"},
    {WP_VIDEO_STREAM_TYPE_DVES_HEVC, "video/dolby-vision-hevc"}
 };

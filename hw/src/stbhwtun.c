@@ -1038,12 +1038,12 @@ BOOLEAN STB_TuneGetSignalInfo(U8BIT path, S_STB_TUNE_SIGNAL_INFO* signal_info)
     }
 
     S16BIT dBuV = 0;
-    S16BIT dBmV = 0;
+    S32BIT dBmV = 0;
     S16BIT ssi = 0;
     if (IsExternalDemod(path))
     {
         // dBmV(x1000) for external demod
-        if (!aml_frontend_get_signal_strength_property(frontend_fd, (U16BIT *)&ssi, (U16BIT *)&dBmV))
+        if (!aml_frontend_get_signal_strength_property(frontend_fd, (U16BIT *)&ssi, (U32BIT *)&dBmV))
         {
             TUN_ERR("%u: Failed to get signal dBm for external demd", path);
         }

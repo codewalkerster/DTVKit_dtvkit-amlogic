@@ -248,7 +248,7 @@ typedef struct s_stb_tune_signal_info
 {
     S16BIT strength;  // dBm
     S16BIT dBuV;
-    S16BIT dBmV;      // dBmV(x1000) for external demod
+    S32BIT dBmV;      // dBmV(x1000) for external demod
     S16BIT snr;       // Signal Noise Ratio
     U32BIT ber;       // Bit Error Rate
     S16BIT ssi;       // Signal Strength Indicator as percentage (0-100)

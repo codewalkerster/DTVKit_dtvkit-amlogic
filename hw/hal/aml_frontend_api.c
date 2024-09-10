@@ -233,7 +233,7 @@ BOOLEAN aml_frontend_get_signal_strength(S32BIT frontend_fd, U16BIT *strength)
     return TRUE;
 }
 
-BOOLEAN aml_frontend_get_signal_strength_property(S32BIT frontend_fd, U16BIT *strength, U16BIT *dBmV)
+BOOLEAN aml_frontend_get_signal_strength_property(S32BIT frontend_fd, U16BIT *strength, U32BIT *dBmV)
 {
     if (frontend_fd == INVALID_FD)
         return FALSE;
@@ -256,7 +256,7 @@ BOOLEAN aml_frontend_get_signal_strength_property(S32BIT frontend_fd, U16BIT *st
     }
 
     U16BIT strength_value = 0;
-    U16BIT dBmV_value = 0;
+    U32BIT dBmV_value = 0;
 
     U8BIT len = prop.u.st.len;
     for (U8BIT i = 0; i < len; i++)
@@ -269,7 +269,7 @@ BOOLEAN aml_frontend_get_signal_strength_property(S32BIT frontend_fd, U16BIT *st
         }
         else if (scale == FE_SCALE_DECIBEL)
         {
-            dBmV_value = (U16BIT)value;
+            dBmV_value = (U32BIT)value;
         }
     }
 

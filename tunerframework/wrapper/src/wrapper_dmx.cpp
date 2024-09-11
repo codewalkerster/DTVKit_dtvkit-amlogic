@@ -101,7 +101,7 @@ static void DebugPrintBuffer(U8BIT *buff, U32BIT len)
     }
 }
 
-void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus) {
+void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize) {
     //ALOGD("start:%s", __FUNCTION__);
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -110,7 +110,6 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
         return;
     }
     if (NULL != filterEventArray) {
-        int eventSize = env->GetArrayLength(filterEventArray);
         for (int index = 0; index < eventSize; index++) {
             //1.check section event
             jobject filterEvent = env->GetObjectArrayElement(filterEventArray, index);
@@ -120,20 +119,19 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
             //3.read section data
             char *buffer = new char[stSectionEvent.dataLength];
             int readSize = Am_filter_read(filter, buffer, 0, stSectionEvent.dataLength);
-            int filterid = Am_filter_getId(filter);
             pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
-            FILTER_MAP::iterator it = filter_map.find( filterid );
+            FILTER_MAP::iterator it = filter_map.find( filterId );
             if (it != filter_map.end())
             {
                 S_PID_FILTER_INFO* user_data = (S_PID_FILTER_INFO*)it->second->user_data;
                 //ALOGD("user_data.index = %d, user_data.pid = %d, handle =%d,user_data = %p", user_data->index, user_data->pid, user_data->fhandle, user_data);
                 //filter_callback callback = it->second->cb;
                 ST_CALLBACK_T para;
-                para.un32filterID = filterid;
+                para.un32filterID = filterId;
                 para.pun8_buffer = (uint8_t *)buffer ;
                 para.un32_length =  readSize;
                 // DebugPrintBuffer((U8BIT *)buffer, (U32BIT)readSize);
-                user_data->fhandle = filterid;
+                user_data->fhandle = filterId;
                 para.un32_userdata = user_data;
                 if ( it->second!= NULL && it->second->cb != NULL )
                 {

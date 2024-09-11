@@ -44,9 +44,9 @@ static WRAPPER_PLAYER_AV_STATUS *wp_player_av_status = NULL;
 
 static int player_GetAVFilterId(bool isAudio, bool isAD, int pid, int videoStreamType, int audioStreamType, jni_asplayer_handle handle);
 static int player_GetAVSyncHwId(bool isAudio, bool isAD, jni_asplayer_handle handle);
-static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
-static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
-static void player_PcrFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus);
+static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize);
+static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize);
+static void player_PcrFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize);
 
 
 /******************************************************************/
@@ -1062,17 +1062,17 @@ int Wrapper_Player_GetSyncInstanceNo(jni_asplayer_handle handle)
     return ret;
 }
 
-static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus)
+static void player_VideoFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize)
 {
     ALOGI("start:%s", __FUNCTION__);
 }
 
-static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus)
+static void player_AudioFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize)
 {
     ALOGI("start:%s", __FUNCTION__);
 }
 
-static void player_PcrFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus)
+static void player_PcrFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize)
 {
     ALOGI("start:%s", __FUNCTION__);
 }

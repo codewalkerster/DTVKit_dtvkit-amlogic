@@ -91,6 +91,8 @@
 #define MIN_AV_SPEED    -600
 #define MAX_AV_SPEED     600
 #define MAX_PLAYER_NUM     32
+#define ENCODING_AAC_HE_V1     11
+#define ENCODING_AAC_HE_V2     12
 
 #define INVALID_PLAYER_HANDLE -1
 #define IS_INVALID_PLAYER_HANDLE(_path_)    ((av_paths_status[_path_].player_handle) == WRAPPER_PLAYER_INVALID_HANDLE)
@@ -3704,7 +3706,12 @@ static void AVEventHandler(void *user_data, jni_asplayer_event *event)
         }
         case JNI_ASPLAYER_EVENT_TYPE_AUDIO_CHANGED:
         {
-            AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_AUDIO_CHANGED!\n", status->decoder);
+            U32BIT encoding = event->event.audio_format.encoding;
+            AV_DBG("[evt][%d] JNI_ASPLAYER_EVENT_TYPE_AUDIO_CHANGED, encoding: %u", status->decoder, encoding);
+            if (encoding == ENCODING_AAC_HE_V1 || encoding == ENCODING_AAC_HE_V2)
+            {
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_AUDIO_HEAAC, &encoding, sizeof(U32BIT));
+            }
             break;
         }
         case JNI_ASPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_VIDEO:

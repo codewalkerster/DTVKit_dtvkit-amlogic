@@ -38,7 +38,7 @@ extern "C" {
 
 #define TAG  "subtitle_dtvkit"
 #define SUB_LOG(x,...) DTV_LOG(ANDROID_LOG_INFO, TAG, x, ##__VA_ARGS__ )
-
+#define SUB_LOG_V(x,...) DTV_LOG(ANDROID_LOG_VERBOSE, TAG, x, ##__VA_ARGS__ )
 
 #define AML_SUB_PARSE_TYPE_OFFSET 4
 #define AML_SUB_DEMUX_SOURCE 4
@@ -47,6 +47,7 @@ static subtitle_context_t sub_context = {nullptr, 0, TYPE_NONE};
 static sp<amlogic::SubtitleServerClient> sub_handle = nullptr;
 
 static std::mutex sub_mutex;
+static std::mutex sub_draw_mutex;
 
 /*---global variable definitions---------------------------------------------*/
 extern OSD_OverlayDraw_Func g_OverlayDraw_Func;
@@ -88,8 +89,8 @@ class SubtitleDataListenerImpl : public amlogic::SubtitleListener {
             int width_fixed = width;
             int height_fixed = height;
 
-            //SUB_LOG("on_subtitle_data: %p (type:%d, show:%d, [%d,%d,%d,%d] in (%d,%d)",
-            //    data, parserType, cmd, x, y, width, height, videoWidth, videoHeight);
+            SUB_LOG_V("on_subtitle_data: %p (type:%d, show:%d, [%d,%d,%d,%d] in (%d,%d)",
+                data, parserType, cmd, x, y, width, height, videoWidth, videoHeight);
 
             if (cmd == 1 && size == 0) {
                 SUB_LOG("skip show no size data");
@@ -97,9 +98,7 @@ class SubtitleDataListenerImpl : public amlogic::SubtitleListener {
             }
 
             if (parserType == TYPE_SUBTITLE_ARIB_B24 ||
-                    parserType == TYPE_SUBTITLE_CLOSED_CAPTION ||
-                    parserType == TYPE_SUBTITLE_TTML ||
-                    parserType == TYPE_SUBTITLE_SMPTE_TTML) {
+                    parserType == TYPE_SUBTITLE_CLOSED_CAPTION) {
                 width_fixed = size;
                 height_fixed = 1;//mean string type
             }
@@ -114,17 +113,20 @@ class SubtitleDataListenerImpl : public amlogic::SubtitleListener {
             //extra 0x80
             //show 0x40
             //type 0x0- 0x3f
-            if (g_OverlayDraw_Func && parserType >= TYPE_SUBTITLE_DVB) {
-                extra = 0x80 | (cmd << 6) | parserType;
-                h_extra = extra << 20 | videoHeight;
-                g_OverlayDraw_Func(
-                    width_fixed,
-                    height_fixed,
-                    x,
-                    y,
-                    videoWidth,
-                    h_extra,
-                    (const unsigned char *)data);
+            {
+                std::lock_guard<std::mutex> lock(sub_draw_mutex);
+                if (g_OverlayDraw_Func && parserType >= TYPE_SUBTITLE_DVB) {
+                    extra = 0x80 | (cmd << 6) | parserType;
+                    h_extra = extra << 20 | videoHeight;
+                    g_OverlayDraw_Func(
+                        width_fixed,
+                        height_fixed,
+                        x,
+                        y,
+                        videoWidth,
+                        h_extra,
+                        (const unsigned char *)data);
+                }
             }
         };
 
@@ -151,6 +153,7 @@ class SubtitleDataListenerImpl : public amlogic::SubtitleListener {
         void onSubtitleInfo(int what, int extra) {};
         void onMixVideoEvent(int val) {
             SUB_LOG("onMixVideoEvent: %d", val);
+            std::lock_guard<std::mutex> lock(sub_draw_mutex);
             if (g_OverlayDraw_Func) {
                 g_OverlayDraw_Func(0, val, 0, 0, 0, 0x8000000, NULL);
             }
@@ -172,6 +175,7 @@ void aml_subtitle_open(int type, aml_subtitle_param_t *p) {
 
     std::lock_guard<std::mutex> lock(sub_mutex);
 
+    SUB_LOG("Open subtitle start");
     if (!sub_handle) {
         sub_handle = new amlogic::SubtitleServerClient(
                         false, new SubtitleDataListenerImpl(), OpenType::TYPE_APPSDK);
@@ -211,8 +215,11 @@ void aml_subtitle_open(int type, aml_subtitle_param_t *p) {
         }
     }
 
+    SUB_LOG("Open subtitle end, update player/sync id");
     sub_handle->setPipId(MODE_SUBTITLE_PIP_PLAYER, p->decoder_id);
     sub_handle->setPipId(MODE_SUBTITLE_PIP_MEDIASYNC, p->sync_id);
+
+    SUB_LOG("Open subtitle and update end");
 }
 
 void aml_subtitle_close() {
@@ -221,38 +228,51 @@ void aml_subtitle_close() {
 
     SUB_LOG("Close subtitle");
 
-    //clear draw
-    if (g_OverlayDraw_Func) {
-        draw_type = parse_subtitle_type(sub_context.type);
-        h = (0x80 | draw_type) << 20;
-        g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
+    {
+        //clear draw
+        std::lock_guard<std::mutex> lock(sub_draw_mutex);
+
+        if (g_OverlayDraw_Func) {
+            draw_type = parse_subtitle_type(sub_context.type);
+            h = (0x80 | draw_type) << 20;
+            g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
+        }
+        SUB_LOG_V("close subtitle: clear screen end");
     }
 
-    std::lock_guard<std::mutex> lock(sub_mutex);
+    {
+        std::lock_guard<std::mutex> lock(sub_mutex);
 
-    if (sub_handle) {
-        sub_handle->close();
-        sub_handle = nullptr;
-        sub_context.handle = nullptr;
-        sub_context.paused = 0;
-        sub_context.type = TYPE_NONE;
+        if (sub_handle) {
+            sub_handle->close();
+            sub_handle = nullptr;
+            sub_context.handle = nullptr;
+            sub_context.paused = 0;
+            sub_context.type = TYPE_NONE;
+        }
     }
+    SUB_LOG("close subtitle end");
 }
 
 void aml_subtitle_pause() {
     int draw_type;
     int h;
 
-    std::lock_guard<std::mutex> lock(sub_mutex);
+    {
+        std::lock_guard<std::mutex> lock(sub_draw_mutex);
 
-    //clear draw
-    if (g_OverlayDraw_Func) {
-        draw_type = parse_subtitle_type(sub_context.type);
-        h = (0x80 | draw_type) << 20;
-        g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
+        //clear draw
+        if (g_OverlayDraw_Func) {
+            draw_type = parse_subtitle_type(sub_context.type);
+            h = (0x80 | draw_type) << 20;
+            g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
+        }
     }
 
-    sub_context.paused = 1;
+    {
+        std::lock_guard<std::mutex> lock(sub_mutex);
+        sub_context.paused = 1;
+    }
 }
 
 void aml_subtitle_resume() {
@@ -270,6 +290,8 @@ void aml_subtitle_ttx_control(int event) {
     if (sub_handle) {
         sub_handle->ttControl(event, -1, -1, -1, -1);
     }
+
+    SUB_LOG("send teletext event %d end", event);
 }
 
 void aml_subtitle_set(int type, int arg1, int arg2, int arg3) {
@@ -278,6 +300,7 @@ void aml_subtitle_set(int type, int arg1, int arg2, int arg3) {
     if (sub_handle) {
         SUB_LOG("Update pip mode: (type:%d, data:%d)", type, arg1);
         sub_handle->setPipId(type + 1, arg1);
+        SUB_LOG("Update pip mode: (type:%d, data:%d) end", type, arg1);
     }
 }
 
@@ -288,5 +311,7 @@ void aml_subtitle_set_region_id(int region) {
     if (sub_handle) {
         sub_handle->ttControl(TT_EVENT_SET_REGION_ID, -1, -1, region, -1);
     }
+
+    SUB_LOG("set teletext region id %d end", region);
 }
 

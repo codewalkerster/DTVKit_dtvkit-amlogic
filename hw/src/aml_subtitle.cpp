@@ -145,6 +145,7 @@ void aml_subtitle_open(int type, aml_subtitle_param_t *p) {
 
     std::lock_guard<std::mutex> lock(sub_mutex);
 
+    SUB_LOG("Open subtitle start");
     if (!sub_context.handle) {
         sub_context.handle = amlsub_Create();
 #ifndef RDK_COMPILE
@@ -218,6 +219,8 @@ void aml_subtitle_open(int type, aml_subtitle_param_t *p) {
         amlsub_SetPip(sub_context.handle, MODE_SUBTITLE_PIP_PLAYER, p->decoder_id);
         amlsub_SetPip(sub_context.handle, MODE_SUBTITLE_PIP_MEDIASYNC, p->sync_id);
     }
+
+    SUB_LOG("Open subtitle and update end");
 }
 
 void aml_subtitle_close() {
@@ -247,6 +250,7 @@ void aml_subtitle_close() {
         sub_context.paused = 0;
         sub_context.type = TYPE_NONE;
     }
+    SUB_LOG("close subtitle end");
 }
 
 void aml_subtitle_pause() {
@@ -291,6 +295,7 @@ void aml_subtitle_set(int type, int arg1, int arg2, int arg3) {
     if (sub_context.handle) {
         SUB_LOG("Update pip mode: (type:%d, data:%d)", type, arg1);
         amlsub_SetPip(sub_context.handle, (AmlSubtitlePipMode)(type + 1), arg1);
+        SUB_LOG("Update pip mode: (type:%d, data:%d) end", type, arg1);
     }
 }
 
@@ -307,5 +312,7 @@ void aml_subtitle_set_region_id(int region) {
         p.regionid = region;
         amlsub_TeletextControl(sub_context.handle, &p);
     }
+
+    SUB_LOG("set teletext region id %d end", region);
 }
 

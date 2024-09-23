@@ -709,6 +709,7 @@ void STB_AVMuteControl(U8BIT window, U8BIT path , SET_AV_BLANK mute, AV_MUTE_OPT
             VID_DBG("mute hidden (handle = %d)", get_player_handle);
             if (get_player_handle == FALSE)
             {
+                AV_SetVideoColor(path, TRUE, TRUE);
                 STB_AVSetWindowColor(window, TRUE, TRUE, FALSE, path, TRUE);
                 VID_DBG("mute_option(set black color)");
             }
@@ -716,6 +717,7 @@ void STB_AVMuteControl(U8BIT window, U8BIT path , SET_AV_BLANK mute, AV_MUTE_OPT
         else
         {
             VID_DBG("mute_option(auto=0): %d", mute_option);
+            AV_SetVideoColor(path, TRUE, TRUE);
             if (mute_option == AUTO)
             {
                 STB_AVSetWindowColor(window, TRUE, FALSE, FALSE, path, TRUE);

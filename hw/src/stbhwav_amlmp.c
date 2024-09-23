@@ -1571,8 +1571,8 @@ void STB_AVStartVideoDecoding(U8BIT path)
                 if (video_pid != av_paths_status[av_path].video_pid)
                 {
                     VID_DBG("av-pvr: video PID changed %u->%u, notify to pvr", av_paths_status[av_path].video_pid, video_pid);
-                    if (PVRChangeDecodePIDs(av_paths_status[av_path].video_decoder,
-                                            av_paths_status[av_path].audio_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
+                    if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
+                                            av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
                                             toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
                     {
                         av_paths_status[av_path].video_pid = video_pid;
@@ -1687,12 +1687,16 @@ void STB_AVStopVideoDecoding(U8BIT path)
       Aml_MP_CodecID audio_format;
       Aml_MP_CodecID ad_format;
 
-      VID_DBG("av-pvr: V NOW:V_START: Stop Video decoding");
-
       DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
       audio_format = av_paths_status[av_path].audio_format;
       ad_format = av_paths_status[av_path].ad_format;
       video_format = av_paths_status[av_path].video_format;
+
+      AUD_DBG("av-pvr: V NOW:V_START: Stop Video decoding. path=%u, apid:%d[%d], preselection_id:%d[%d], adpid:%d[%d], vpid:%d[%d]", path, \
+          audio_pid, av_paths_status[av_path].audio_pid, \
+          preselection_id, av_paths_status[av_path].audio_presentation_id, \
+          ad_pid, av_paths_status[av_path].ad_pid, \
+          video_pid, av_paths_status[av_path].video_pid);
 
       if (audio_pid == 0)
       {
@@ -1787,41 +1791,118 @@ void STB_AVStopAudioDecoding(U8BIT path)
         return;
     }
 
-    switch (AV_GetDecoderState_l(player_handle, AUDIO_DECODER)) {
-        case DECODER_STATE_STOPPED:
-        {
-            AUD_DBG("A NOW:A_STOP, Stop audio decode already");
-            if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
-                if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED &&
-                    AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
-                {
-                    AV_ReleaseTsPlayer_l(av_path);
-                }
-            }
-            break;
-        }
-        case DECODER_STATE_STARTED:
-        {
-            AUD_DBG("A NOW:A_START, Stop Audio decoding");
-            if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
-                ret = Aml_MP_Player_StopAudioDecoding(av_paths_status[av_path].player_handle);
-                if (ret == 0) {
+    if (STB_PVRIsPlayStopped(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder))
+    {
+        switch (AV_GetDecoderState_l(player_handle, AUDIO_DECODER)) {
+            case DECODER_STATE_STOPPED:
+            {
+                AUD_DBG("A NOW:A_STOP, Stop audio decode already");
+                if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
                     if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED &&
                         AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
                     {
                         AV_ReleaseTsPlayer_l(av_path);
-                    } else {
-                        AUD_DBG("V NOW:V_START");
                     }
-                }else {
-                    AUD_DBG("Aml_MP_Player_StopAudioDecoding failed, err:%d", ret);
                 }
+                break;
             }
+            case DECODER_STATE_STARTED:
+            {
+                AUD_DBG("A NOW:A_START, Stop Audio decoding");
+                if (!IS_INVALID_PLAYER_HANDLE(av_path)) {
+                    ret = Aml_MP_Player_StopAudioDecoding(av_paths_status[av_path].player_handle);
+                    if (ret == 0) {
+                        if (AV_GetDecoderState_l(player_handle, VIDEO_DECODER) == DECODER_STATE_STOPPED &&
+                            AV_GetDecoderState_l(player_handle, AD_DECODER) == DECODER_STATE_STOPPED)
+                        {
+                            AV_ReleaseTsPlayer_l(av_path);
+                        } else {
+                            AUD_DBG("V NOW:V_START");
+                        }
+                    }else {
+                        AUD_DBG("Aml_MP_Player_StopAudioDecoding failed, err:%d", ret);
+                    }
+                }
 
-            av_paths_status[av_path].audio_pid = INVALID_PID;
-            av_paths_status[av_path].audio_presentation_id = INVALID_PID;
-            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
-            break;
+                av_paths_status[av_path].audio_pid = INVALID_PID;
+                av_paths_status[av_path].audio_presentation_id = INVALID_PID;
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
+                break;
+            }
+        }
+    } else {
+        U16BIT video_pid = INVALID_PID, audio_pid = INVALID_PID, pcr_pid = INVALID_PID, ad_pid = INVALID_PID;
+        U8BIT preselection_id = INVALID_RES_ID;
+        Aml_MP_CodecID video_format;
+        Aml_MP_CodecID audio_format;
+        Aml_MP_CodecID ad_format;
+
+        DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
+        audio_format = av_paths_status[av_path].audio_format;
+        ad_format = av_paths_status[av_path].ad_format;
+        video_format = av_paths_status[av_path].video_format;
+
+        AUD_DBG("av-pvr: Stop Audio decoding. path=%u, apid:%d[%d], preselection_id:%d[%d], adpid:%d[%d], vpid:%d[%d]", path, \
+            audio_pid, av_paths_status[av_path].audio_pid, \
+            preselection_id, av_paths_status[av_path].audio_presentation_id, \
+            ad_pid, av_paths_status[av_path].ad_pid, \
+            video_pid, av_paths_status[av_path].video_pid);
+
+        if (audio_pid == 0)
+        {
+           audio_pid = INVALID_PID;
+        }
+
+        if (audio_pid != 0)
+        {
+           switch (AV_GetDecoderState_l(player_handle, AUDIO_DECODER))
+           {
+           case DECODER_STATE_STARTED:
+              /*Just in case we get two calls to audio start without a stop
+                There's an API to switch, so we'll use it*/
+              VID_DBG("av-pvr: audio decoder started");
+              audio_pid = INVALID_PID;
+              if (audio_pid != av_paths_status[av_path].audio_pid \
+                || preselection_id != av_paths_status[av_path].audio_presentation_id)
+              {
+                 VID_DBG("av-pvr: audio PID changed %u->%u, notify to pvr", av_paths_status[av_path].audio_pid, audio_pid);
+                 if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
+                                           av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
+                      toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
+                 {
+                    av_paths_status[av_path].audio_pid = audio_pid;
+                    VID_DBG("av-pvr: A NOW: A_STOP");
+                 }
+                 {
+                     av_paths_status[av_path].audio_pid = INVALID_PID;
+                     av_paths_status[av_path].pcr_pid = INVALID_PID;
+                     STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STOPPED, &path, sizeof(U8BIT));
+                 }
+              }
+              break;
+           case DECODER_STATE_STOPPED:
+              VID_DBG("av-pvr: audio stopped already");
+              audio_pid = INVALID_PID;
+              if (audio_pid != av_paths_status[av_path].audio_pid \
+                || preselection_id != av_paths_status[av_path].audio_presentation_id)
+              {
+                 VID_DBG("av-pvr: audio stopped. audio PID changed %u->%u, notify to pvr", av_paths_status[av_path].audio_pid, audio_pid);
+                 if (PVRChangeDecodePIDs(av_paths_status[av_path].audio_decoder,
+                                           av_paths_status[av_path].video_decoder, pcr_pid, video_pid, audio_pid, ad_pid,
+                      toVideoCodec(video_format), toAudioCodec(audio_format), toAudioCodec(ad_format), preselection_id))
+                 {
+                    av_paths_status[av_path].audio_pid = audio_pid;
+                    VID_DBG("av-pvr: A NOW: A_STOP");
+                 }
+                 {
+                     av_paths_status[av_path].audio_pid = INVALID_PID;
+                     av_paths_status[av_path].pcr_pid = INVALID_PID;
+                 }
+              }
+              break;
+           default:
+              break;
+           }
         }
     }
     pthread_rwlock_unlock(_l);

@@ -101,7 +101,7 @@ static void DebugPrintBuffer(U8BIT *buff, U32BIT len)
     }
 }
 
-void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize) {
+void SectionJFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize) {
     //ALOGD("start:%s", __FUNCTION__);
     bool attached = false;
     JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -152,7 +152,74 @@ void FilterCallback(jobject filter, jobjectArray filterEventArray, int filterSta
     }
 }
 
-int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source_type ,U16BIT demux_cap  ,U32BIT section_size)
+void PesJFilterCallback(jobject filter, jobjectArray filterEventArray, int filterStatus, int filterId, int eventSize)
+{
+    ALOGI("start:%s", __FUNCTION__);
+    bool attached = false;
+    JNIEnv *env = Am_tuner_getJNIEnv(&attached);
+    if (NULL == env)
+    {
+        ALOGI("%s : test fail, env is null", __FUNCTION__);
+        return;
+    }
+    if (NULL != filterEventArray)
+    {
+        for (int index = 0; index < eventSize; index++)
+        {
+            //1.check pes event
+            jobject filterEvent = env->GetObjectArrayElement(filterEventArray, index);
+            Pes_Event stPesEvent;
+            memset(&stPesEvent, 0, sizeof(Pes_Event));
+            if (!filter_utils_getPesEvent(env, filterEvent, &stPesEvent))
+            {
+                ALOGD("%s: not pes event", __FUNCTION__);
+                continue;
+            }
+            //2.read pes data
+            char *buffer = new char[stPesEvent.dataLength];
+            int readSize = Am_filter_read(filter, buffer, 0, stPesEvent.dataLength);
+            pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
+            FILTER_MAP::iterator it = filter_map.find(filterId);
+            if (it != filter_map.end())
+            {
+                ST_CALLBACK_T para;
+                memset(&para, 0, sizeof(ST_CALLBACK_T));
+                para.un32filterID = filterId;
+                para.pun8_buffer = (uint8_t *)buffer ;
+                para.un32_length =  readSize;
+                DebugPrintBuffer((U8BIT *)buffer, (U32BIT)readSize);
+                para.un32_userdata = it->second->user_data;
+                if ((it->second != NULL) && (it->second->cb != NULL))
+                {
+                    PID_TASK_PACKAGE package;
+                    memset(&package, 0, sizeof(PID_TASK_PACKAGE));
+                    package.cb = it->second->cb;
+                    package.para = para;
+                    if (!wrapper_OSWriteQueue(pid_queue, (void *)&package, sizeof(PID_TASK_PACKAGE), TIMEOUT_NEVER))
+                    {
+                        ALOGD("%s: write pid_queue failure", __FUNCTION__);
+                    }
+                }
+              else
+              {
+                 ALOGI("can't find filter:%s", __FUNCTION__);
+              }
+            }
+            pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
+        }
+    }
+    else
+    {
+      ALOGI("filterEventArray Is NUll:%s", __FUNCTION__);
+    }
+    if (attached)
+    {
+        Am_tuner_detachJNIEnv();
+    }
+    ALOGI("end:%s", __FUNCTION__);
+}
+
+static int OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source_type,U16BIT demux_cap  ,U32BIT buffer_size, long jfilter_callback, int mainType, int subType)
 {
     int ClientId = 0xFF;
     if (!gDMXTaskLocked.initDmxLocked )
@@ -217,18 +284,18 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source
         ClientId = Am_tuner_getTunerClientIdByType(tuner_type);
         ALOGD("start DMX_CAPS_Live filter path [%d] demux_cap [0x%x] ClientId[%d] tuner_type[%d]",path,demux_cap ,ClientId,tuner_type);
     }
-    Am_filter_callback filterCallback = FilterCallback;
+
     S_HAL *filerInfo;
     filerInfo = new S_HAL();
     filerInfo->cb = cb ;
-    if (section_size > 8 * 4096)
+    if (buffer_size > 8 * 4096)
     {
-        ALOGI("Executor@large section_size  [%d]",section_size);
-        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, section_size, (long)filterCallback, 1);
+        ALOGI("Executor@large section_size  [%d]",buffer_size);
+        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, mainType, subType, buffer_size, jfilter_callback, 1);
     }
     else
     {
-        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, 1, 1, section_size, (long)filterCallback, 0);
+        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, mainType, subType, buffer_size, jfilter_callback, 0);
     }
     filerInfo->user_data  = user_data;
     int filterId = Am_filter_getId(filerInfo->Jfilter);
@@ -263,6 +330,16 @@ int DMX_OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source
     return filterId ;
 }
 
+int DMX_OpenSectionFilter(U8BIT path, filter_callback cb, void* user_data, U16BIT source_type, U16BIT demux_cap, U32BIT section_size)
+{
+    return OpenFilter(path, cb, user_data, source_type, demux_cap, section_size, (long)SectionJFilterCallback, MAIN_TYPE_TS, SUBTYPE_SECTION);
+}
+
+int DMX_OpenPesFilter(U8BIT path, filter_callback cb, void* user_data, U16BIT source_type, U16BIT demux_cap, U32BIT pes_size)
+{
+    return OpenFilter(path, cb, user_data, source_type, demux_cap, pes_size, (long)PesJFilterCallback, MAIN_TYPE_TS, SUBTYPE_PES);
+}
+
 BOOLEAN DMX_CloseFilter(int un32filterID)
 {
     BOOLEAN ret = FALSE;
@@ -287,7 +364,7 @@ BOOLEAN DMX_CloseFilter(int un32filterID)
     return ret ;
 }
 
-BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filter_params* params)
+BOOLEAN DMX_SetupSectionFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filter_params* params)
 {
     BOOLEAN ret = FALSE;
     char mode[3] = {0, 0, 0};
@@ -310,34 +387,37 @@ BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filte
 
         tsFilterConfiguration.pid = pid;
         tsFilterConfiguration.type = MAIN_TYPE_TS;
-        tsFilterConfiguration.setting.section_setting.crc_enable = params->flags;
-        tsFilterConfiguration.setting.section_setting.is_repeat = true;
-        tsFilterConfiguration.setting.section_setting.is_raw = false;
-        tsFilterConfiguration.setting.section_setting.filter[0] = params->filter.filter[0];
-        tsFilterConfiguration.setting.section_setting.filter[3] = params->filter.filter[1];
-        tsFilterConfiguration.setting.section_setting.filter[4] = params->filter.filter[2];
-        tsFilterConfiguration.setting.section_setting.filter[5] = params->filter.filter[3];
-        tsFilterConfiguration.setting.section_setting.filter[6] = params->filter.filter[4];
-        tsFilterConfiguration.setting.section_setting.filter[7] = params->filter.filter[5];
-        tsFilterConfiguration.setting.section_setting.filter[8] = params->filter.filter[6];
-        tsFilterConfiguration.setting.section_setting.filter[9] = params->filter.filter[7];
-        tsFilterConfiguration.setting.section_setting.filter[1] = 0xFF;
-        tsFilterConfiguration.setting.section_setting.filter[2] = 0xFF;
+        if (params)
+        {
+            tsFilterConfiguration.setting.section_setting.crc_enable = params->flags;
+            tsFilterConfiguration.setting.section_setting.is_repeat = true;
+            tsFilterConfiguration.setting.section_setting.is_raw = false;
+            tsFilterConfiguration.setting.section_setting.filter[0] = params->filter.filter[0];
+            tsFilterConfiguration.setting.section_setting.filter[3] = params->filter.filter[1];
+            tsFilterConfiguration.setting.section_setting.filter[4] = params->filter.filter[2];
+            tsFilterConfiguration.setting.section_setting.filter[5] = params->filter.filter[3];
+            tsFilterConfiguration.setting.section_setting.filter[6] = params->filter.filter[4];
+            tsFilterConfiguration.setting.section_setting.filter[7] = params->filter.filter[5];
+            tsFilterConfiguration.setting.section_setting.filter[8] = params->filter.filter[6];
+            tsFilterConfiguration.setting.section_setting.filter[9] = params->filter.filter[7];
+            tsFilterConfiguration.setting.section_setting.filter[1] = 0xFF;
+            tsFilterConfiguration.setting.section_setting.filter[2] = 0xFF;
 
-        tsFilterConfiguration.setting.section_setting.filter_length = DEMUX_SECTION_FILTER_LENGTH+2;
-        tsFilterConfiguration.setting.section_setting.mask[0] = params->filter.mask[0];
-        tsFilterConfiguration.setting.section_setting.mask[3] = params->filter.mask[1];
-        tsFilterConfiguration.setting.section_setting.mask[4] = params->filter.mask[2];
-        tsFilterConfiguration.setting.section_setting.mask[5] = params->filter.mask[3];
-        tsFilterConfiguration.setting.section_setting.mask[6] = params->filter.mask[4];
-        tsFilterConfiguration.setting.section_setting.mask[7] = params->filter.mask[5];
-        tsFilterConfiguration.setting.section_setting.mask[8] = params->filter.mask[5];
-        tsFilterConfiguration.setting.section_setting.mask[9] = params->filter.mask[7];
-        tsFilterConfiguration.setting.section_setting.mask[1] = 0xFF;
-        tsFilterConfiguration.setting.section_setting.mask[2] = 0xFF;
+            tsFilterConfiguration.setting.section_setting.filter_length = DEMUX_SECTION_FILTER_LENGTH+2;
+            tsFilterConfiguration.setting.section_setting.mask[0] = params->filter.mask[0];
+            tsFilterConfiguration.setting.section_setting.mask[3] = params->filter.mask[1];
+            tsFilterConfiguration.setting.section_setting.mask[4] = params->filter.mask[2];
+            tsFilterConfiguration.setting.section_setting.mask[5] = params->filter.mask[3];
+            tsFilterConfiguration.setting.section_setting.mask[6] = params->filter.mask[4];
+            tsFilterConfiguration.setting.section_setting.mask[7] = params->filter.mask[5];
+            tsFilterConfiguration.setting.section_setting.mask[8] = params->filter.mask[5];
+            tsFilterConfiguration.setting.section_setting.mask[9] = params->filter.mask[7];
+            tsFilterConfiguration.setting.section_setting.mask[1] = 0xFF;
+            tsFilterConfiguration.setting.section_setting.mask[2] = 0xFF;
 
-        tsFilterConfiguration.setting.section_setting.mask_length = DEMUX_SECTION_FILTER_LENGTH+2;
-        tsFilterConfiguration.setting.section_setting.mode_length = DEMUX_SECTION_FILTER_LENGTH;
+            tsFilterConfiguration.setting.section_setting.mask_length = DEMUX_SECTION_FILTER_LENGTH+2;
+            tsFilterConfiguration.setting.section_setting.mode_length = DEMUX_SECTION_FILTER_LENGTH;
+        }
 
         bool attached = false;
         JNIEnv *env = Am_tuner_getJNIEnv(&attached);
@@ -365,6 +445,57 @@ BOOLEAN DMX_SetupFilter(int un32filterID, U16BIT pid, const struct dmx_sct_filte
         ReleaseEnv(attached);
     }
     return ret;
+}
+
+BOOLEAN DMX_SetupPesFilter(int un32filterID, U16BIT pid, const struct dmx_pes_filter_params *params)
+{
+    ALOGI("start:%s", __FUNCTION__);
+    BOOLEAN ret = FALSE;
+
+    pthread_mutex_lock( &gDMXTaskLocked.dmx_mutex);
+    FILTER_MAP::iterator it = filter_map.find( un32filterID );
+    pthread_mutex_unlock( &gDMXTaskLocked.dmx_mutex);
+    if (it != filter_map.end())
+    {
+        TS_Filter_Configuration tsFilterConfiguration;
+        memset(&tsFilterConfiguration, 0, sizeof(TS_Filter_Configuration));
+
+        tsFilterConfiguration.pid = pid;
+        tsFilterConfiguration.type = MAIN_TYPE_TS;
+
+        //now is_raw set to false by default, false means pes data will be combined together before callback
+        tsFilterConfiguration.setting.pes_setting.is_raw = FALSE;
+
+        if (params)
+        {
+            //params not needed for now
+        }
+
+        bool attached = false;
+        JNIEnv *env = Am_tuner_getJNIEnv(&attached);
+        if (NULL == env)
+        {
+            ALOGE("%s: input parameter error", __FUNCTION__);
+            return ret;
+        }
+
+        jobject tsFilterConfigurationObject = filter_utils_getPesTsFilterConfiguration(env, tsFilterConfiguration);
+        if (tsFilterConfigurationObject)
+        {
+            ALOGD("DMX_HAL_%s  Jfilter %p pid [0x%x]",  __FUNCTION__, it->second->Jfilter, pid);
+            it->second->pid = pid ;
+            int result = Am_filter_configure((it->second->Jfilter), tsFilterConfigurationObject);
+            if (result == RETURN_ERROR)
+            {
+                ReleaseEnv(attached);
+                return FALSE;
+            }
+            ret = TRUE;
+        }
+        ReleaseEnv(attached);
+    }
+    return ret;
+   ALOGI("end:%s", __FUNCTION__);
 }
 
 BOOLEAN DMX_StartFilter(int un32filterID )

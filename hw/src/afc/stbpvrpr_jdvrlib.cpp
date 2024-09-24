@@ -438,6 +438,7 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
 
    jni_asplayer_handle asplayer_handle;
    jni_asplayer_init_params asplayer_params;
+   memset((void*)&asplayer_params,0,sizeof(jni_asplayer_init_params));
    asplayer_params.source = JNI_ASPLAYER_TS_MEMORY;
    asplayer_params.playback_mode = JNI_ASPLAYER_PLAYBACK_MODE_PASSTHROUGH;
    asplayer_params.event_mask = 1;
@@ -2132,6 +2133,10 @@ static int start_decode(jni_asplayer_handle player_handle, U8BIT video_decoder, 
     jni_asplayer_video_params video_param;
     jni_asplayer_audio_params audio_param;
     jni_asplayer_audio_presentation audio_presentation;
+
+    memset((void*)&video_param,0,sizeof(jni_asplayer_video_params));
+    memset((void*)&audio_param,0,sizeof(jni_asplayer_audio_params));
+    memset((void*)&audio_presentation,0,sizeof(jni_asplayer_audio_presentation));
 
    const int play_index = to_index(video_decoder,audio_decoder);
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];

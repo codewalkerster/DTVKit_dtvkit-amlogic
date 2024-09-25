@@ -2768,13 +2768,15 @@ static BOOLEAN Is_DDB_Filter(S_PID_FILTER_INFO * pidfilter)
            sect_filter = &pidfilter->section_filters[i];
            if (sect_filter && sect_filter->setup)
            {
-              if (sect_filter->match[0]== OAD_DSI_DDB_MATCH)
+              DMX_DBG("Is_DDB_Filter==>%d ",sect_filter->match[0]);
+              if (sect_filter->match[0]== OAD_DSI_DDB_MATCH || sect_filter->match[0]== 0x3b)
               {
                     result = TRUE;
                     break;
               }
            }
         }
+
     }
     return result;
 }

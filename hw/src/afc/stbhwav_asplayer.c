@@ -1530,7 +1530,17 @@ void STB_AVSwitchAudioTrack(U8BIT path)
         audio_presentation.presentation_id = preselection_id;
         audio_presentation.program_id = -1;
 
-        ret = Wrapper_Player_SwitchAudioTrack(player_handle, &audio_param, audio_format);
+        BOOLEAN is_pvr = STB_PVRIsPlayInitialled(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder);
+        if (!is_pvr)
+        {
+           ret = Wrapper_Player_SwitchAudioTrack(player_handle, &audio_param, audio_format);
+        }
+        else
+        {
+           ret = Wrapper_Player_StopAudioDecoding(player_handle);
+           ret |= Wrapper_Player_SetAudioParams(player_handle, &audio_param, audio_format);
+           ret |= Wrapper_Player_StartAudioDecoding(player_handle);
+        }
         if (ret == 0)
         {
             AUD_DBG("Switch audio track success, pid:%d, preselection_id:%d, format:%d, player[%u]", audio_pid, preselection_id, audio_format, player_handle);

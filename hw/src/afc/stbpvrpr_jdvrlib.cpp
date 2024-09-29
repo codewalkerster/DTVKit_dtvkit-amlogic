@@ -464,6 +464,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    if (ret1 == FALSE)
    {
       PVR_ERR("Failed to get path_prefix based on input disk_id %d and basename %s",disk_id,basename);
+      Wrapper_Player_Destroy(prps->asplayer_handle);
+      STB_AVSetPlayerHandle(prps->audio_decoder, prps->video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
       LOG_LEAVE_EARLY;
       return FALSE;
    }
@@ -474,6 +476,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    if (ret2 == -1)
    {
       PVR_ERR("Failed to create recording file %s",path_prefix);
+      Wrapper_Player_Destroy(prps->asplayer_handle);
+      STB_AVSetPlayerHandle(prps->audio_decoder, prps->video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
       LOG_LEAVE_EARLY;
       return FALSE;
    }
@@ -492,6 +496,8 @@ BOOLEAN STB_PVRPlayStart(U16BIT disk_id, U8BIT audio_decoder, U8BIT video_decode
    if (ret2 == -1)
    {
       PVR_ERR("Failed to create player");
+      Wrapper_Player_Destroy(prps->asplayer_handle);
+      STB_AVSetPlayerHandle(prps->audio_decoder, prps->video_decoder, WRAPPER_PLAYER_INVALID_HANDLE);
       LOG_LEAVE_EARLY;
       return FALSE;
    }

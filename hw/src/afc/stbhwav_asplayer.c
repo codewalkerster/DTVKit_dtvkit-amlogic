@@ -1389,13 +1389,27 @@ void STB_AVStartAudioDecoding(U8BIT path)
         {
             U16BIT pvr_video_pid,  pvr_audio_pid,  pvr_pcr_pid, pvr_ad_pid;
             PVRGetDecodePIDs(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder, &pvr_pcr_pid, &pvr_video_pid, &pvr_audio_pid, &pvr_ad_pid);
-            if (pvr_audio_pid == audio_pid)
+            if (!STB_Is_TunerFramework_Enabled())
             {
-                AUD_DBG("pvr playing, do not start audio [%d], av_path[%d]", path, av_path);
-                av_paths_status[av_path].audio_pid = audio_pid;
-                av_paths_status[av_path].audio_presentation_id = preselection_id;
-                pthread_rwlock_unlock(_l);
-                return;
+               if (pvr_audio_pid == audio_pid)
+               {
+                  AUD_DBG("pvr playing, do not start audio [%d], av_path[%d]", path, av_path);
+                  av_paths_status[av_path].audio_pid = audio_pid;
+                  av_paths_status[av_path].audio_presentation_id = preselection_id;
+                  pthread_rwlock_unlock(_l);
+                  return;
+               }
+            }
+            else
+            {
+               if (pvr_audio_pid == audio_pid && pvr_audio_pid != INVALID_PID)
+               {
+                  AUD_DBG("pvr playing, do not start audio [%d], av_path[%d]", path, av_path);
+                  av_paths_status[av_path].audio_pid = audio_pid;
+                  av_paths_status[av_path].audio_presentation_id = preselection_id;
+                  pthread_rwlock_unlock(_l);
+                  return;
+               }
             }
         }
         AUD_DBG("start audio pid= %u format:%d", audio_pid, audio_format);
@@ -1531,12 +1545,18 @@ void STB_AVSwitchAudioTrack(U8BIT path)
         audio_presentation.program_id = -1;
 
         BOOLEAN is_pvr = STB_PVRIsPlayInitialled(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder);
-        if (!is_pvr)
+        BOOLEAN is_pvr_starting = FALSE;
+        if (is_pvr)
+        {
+           is_pvr_starting = STB_PVRIsPlayStarting(av_paths_status[av_path].audio_decoder, av_paths_status[av_path].video_decoder);
+        }
+        if (!is_pvr || !is_pvr_starting)
         {
            ret = Wrapper_Player_SwitchAudioTrack(player_handle, &audio_param, audio_format);
         }
         else
         {
+           AUD_DBG("Use stop-set-start instead of switchAudioTrack");
            ret = Wrapper_Player_StopAudioDecoding(player_handle);
            ret |= Wrapper_Player_SetAudioParams(player_handle, &audio_param, audio_format);
            ret |= Wrapper_Player_StartAudioDecoding(player_handle);

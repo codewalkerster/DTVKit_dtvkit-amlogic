@@ -598,7 +598,7 @@ BOOLEAN STB_PVRIsPlayStarting(U8BIT audio_decoder, U8BIT video_decoder)
    }
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
-   BOOLEAN ret = ((prps->state == 1) ? TRUE : FALSE);
+   BOOLEAN ret = ((prps->state == 1 || prps->state == 2) ? TRUE : FALSE);
 
    //LOG_LEAVE;
    return ret;

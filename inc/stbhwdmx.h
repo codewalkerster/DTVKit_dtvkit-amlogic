@@ -474,11 +474,6 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through);
 void STB_SetTsoutSource(BOOLEAN is_cam_plugin);
 
 /**
- * @brief Start the CI signal monitor.
- */
-void STB_DMXCISignalMonitorStart();
-
-/**
  * @brief Stop the CI signal monitor.
  */
 void STB_DMXCISignalMonitorStop();

@@ -57,14 +57,7 @@ stb_hardware_cfg aml_hw_cfg = {
 	},
 .cam = {
 	{
-	.is_set_tsout  = 0,
-	.is_ciplus_mode = 0,
-	.tsout_source  = 0,
-	.is_set_tssource = 0,
-	.camPlug_tssource = 2,
-	.is_changeTo_utf8 = 0,
-	.encodec_source = {0},
-	.dev_id = -1,
+	.CICAM_TSI = 1
 	}
 	},
 .dmx_cap = {
@@ -261,54 +254,17 @@ elem_start_handler (void *userData, const XML_Char *name, const XML_Char **atts)
 
         cam = &cfg->cam[cfg->cam_num ++];
 
-        cam->is_set_tsout  = 0;
-        cam->tsout_source  = 0;
-        cam->is_set_tssource = 0;
-        cam->camPlug_tssource = 0;
-        cam->dev_id = -1;
+        cam->CICAM_TSI = 0;
 
         att = atts;
         while (*att) {
             an = att[0];
             av = att[1];
             CFG_DBG("an [%s] av[%s]", an, av);
-            if (!strcmp(an, "is_set_tsout")) {
-                cam->is_set_tsout = atoi(av);
-                //CFG_DBG("cam->is_set_tsout[%d]", cam->is_set_tsout);
-            } else if (!strcmp(an, "tsout_source")) {
-                cam->tsout_source = atoi(av);
-                //CFG_DBG("cam->tsout_source[%d]", cam->tsout_source);
-            } else if (!strcmp(an, "is_set_tssource")) {
-                cam->is_set_tssource = atoi(av);
-                //CFG_DBG("cam->is_set_tssource[%d]", cam->is_set_tssource);
-            } else if (!strcmp(an, "camPlug_tssource")) {
-                cam->camPlug_tssource = atoi(av);
-                //CFG_DBG("cam->camPlug_tssource[%d]", cam->camPlug_tssource);
-            } else if (!strcmp(an, "is_changeTo_utf8")) {
-                cam->is_changeTo_utf8 = atoi(av);
-                //CFG_DBG("cam->is_changeTo_utf8[%d]", cam->is_changeTo_utf8);
-            } else if (!strcmp(an, "encodec_source")) {
-                if (strlen(av) <= sizeof(cam->encodec_source))
-                {
-                    memcpy(cam->encodec_source, av, strlen(av));
-                }
-                else
-                {
-                    CFG_DBG("str av is too long");
-                }
-                CFG_DBG("cam->encodec_source[%s]", cam->encodec_source);
-            } else if (!strcmp(an, "use_ciplus_mode")){
-                cam->is_ciplus_mode = atoi(av);
-                STB_SPDebugWrite("cam->is_ciplus_mode %d", cam->is_ciplus_mode);
-            } else if (!strcmp(an, "dev_id")){
-                cam->dev_id = atoi(av);
-                STB_SPDebugWrite("cam->dev_id %d", cam->dev_id);
-            } else if (!strcmp(an, "host_mode")){
-                if (!strcmp(av, "user_mode"))
-                {
-                    cam->host_mode = 2;
-                }
-                CFG_DBG("cam->host_mode(%s)  %d",av, cam->host_mode);
+            if (!strcmp(an, "camPlug_tssource"))
+            {
+                cam->CICAM_TSI = atoi(av);
+                CFG_DBG("cam->CICAM_TSI[%d]", cam->CICAM_TSI);
             }
             att += 2;
         }
@@ -886,31 +842,6 @@ int STB_EpgGetEitSearchEnabled()
 }
 
 /**
- * @brief   get is need change chara encode from source to utf8
- * @param   isChange is need change encode
- * @param   encodec_source chara encode source, for example gdk gb2312 and so on
- */
-int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source)
-{
-	//get is need change code and encodec source from cfg struct
-	if (isChange == NULL || encodec_source == NULL) {
-		return -1;
-	}
-	*isChange = aml_hw_cfg.cam[0].is_changeTo_utf8;
-	memcpy(encodec_source, aml_hw_cfg.cam[0].encodec_source, strlen(aml_hw_cfg.cam[0].encodec_source));
-	return 0;
-}
-
-/**
- * @brief   get ca dev id value
- * @param   slot is used for which device is select
- */
-int STB_Get_Ca_devid(int slot)
-{
-	return aml_hw_cfg.cam[0].dev_id;
-}
-
-/**
  * @brief   get country code from cfg
  * @param   country code
  */
@@ -1059,15 +990,6 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len)
     return (TRUE == STB_DVRProp_Get(name, buf, len)) ? TRUE : FALSE;
 }
 
-/**
- * @brief   Get cam work mode[ci/ciplus]
- * @return  1 for ciplus 0 for ci
- */
-int STB_Cam_Is_CIPlus_Mode()
-{
-	return aml_hw_cfg.cam->is_ciplus_mode;
-}
-
 BOOLEAN STB_GetDemoCapabilityByType(E_STB_TUNE_SIGNAL_TYPE eType, U_STB_DEMO_CAPABILITY *pCap)
 {
     BOOLEAN ret = TRUE;
@@ -1131,23 +1053,6 @@ int STB_GetFccPipCfgStatus(void)
     return (STB_Is_PIP_Enabled() || STB_Is_FCC_Enabled()) ? 0 : 1;
 }
 
-/**
- * @brief   get cam card data in and out.
- * @return  TRUE if yes.
- */
-BOOLEAN STB_GetCamSource(U8BIT* input_with_card, U8BIT* input_without_card)
-{
-    if (input_with_card)
-    {
-        STB_SPDebugWrite("tssource %d", aml_hw_cfg.cam->camPlug_tssource);
-        *input_with_card = aml_hw_cfg.cam->camPlug_tssource;
-    }
-    if (input_without_card)
-        *input_without_card = aml_hw_cfg.tuners->ori_tsinput_idx;
-
-    return TRUE;
-}
-
 S_CAPTURE_ADC_CFG STB_GetCaptureADCCfg()
 {
     return aml_hw_cfg.capture_adc;
@@ -1178,14 +1083,6 @@ int STB_Get_PVR_RecRingBufSize()
 int STB_Get_PVR_RecHwBufSize()
 {
     return aml_hw_cfg.pvr.rec_hwbuf_size;
-}
-/**
- * @brief   get cam CI host mode.
- * @return  host mode 2:ask user to confirm, others: no need
- */
-int STB_GetCIHostMode(void)
-{
-    return aml_hw_cfg.cam->host_mode;
 }
 
 /**

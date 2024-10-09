@@ -2291,12 +2291,6 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
    // set_camPlug_tssource=inj_dev_id
    int set_camPlug_tssource = 4;
 
-   if (aml_hw_cfg.cam[slot].is_set_tssource == 0)
-   {
-      //not set source at cfg file,so we return now,
-      return;
-   }
-
 #ifdef COMMON_INTERFACE
    //DvbEnableCIPlus(pass_through == TRUE?1:0);
 #endif
@@ -2320,8 +2314,8 @@ void STB_DMXRouteTS(U8BIT tuner,U8BIT slot, BOOLEAN pass_through)
          {
             // cam card is plug.used camPlug_tssource to
             // set ts_input_idx for dmx source
-            aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].camPlug_tssource;
-            DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].camPlug_tssource);
+            aml_hw_cfg.tuners[i].ts_input_idx = aml_hw_cfg.cam[slot].CICAM_TSI;
+            DMX_DBG("index[%d]plug[%d]", i, aml_hw_cfg.cam[slot].CICAM_TSI);
          }
       }
    }
@@ -2511,22 +2505,6 @@ void STB_DMXCI_Set_Demod_Mode(int mode)
 }
 
 /**
- * @brief Start the CI signal monitor.
- */
-void STB_DMXCISignalMonitorStart()
-{
-   FUNCTION_START(STB_DMXCISignalMonitorStart);
-   DMX_DBG("ci monitor start");
-   if (!ci_signal_thread_run) {
-      ci_signal_thread_run = 1;
-      event_fd = eventfd(0, 0);
-      pthread_create(&ci_signal_thread, NULL, ci_signal_entry, NULL);
-   }
-
-   FUNCTION_FINISH(STB_DMXCISignalMonitorStart);
-}
-
-/**
  * @brief Stop the CI signal monitor.
  */
 void STB_DMXCISignalMonitorStop()
@@ -2559,42 +2537,41 @@ E_STB_TS_SOURCE STB_GetDmxTsSource(int dmx_id)
  */
 void STB_SetTsoutSource(BOOLEAN is_cam_plugin)
 {
-   FUNCTION_START(STB_SetTsoutSource);
-   if (aml_hw_cfg.cam[0].is_set_tsout)
-   {
-      char buf[32];
-      char *cmd;
-      int src = aml_hw_cfg.cam[0].tsout_source;
-      sprintf(buf, STB_TSO_SOURCE);
-      if (is_cam_plugin)
-      {
-         switch (src)
-         {
-         case STB_TS_SOURCE0:
-            cmd = "ts0";
-            break;
-         case STB_TS_SOURCE1:
-            cmd = "ts1";
-            break;
-         case STB_TS_SOURCE2:
-            cmd = "ts2";
-            break;
-         case STB_TS_SOURCE3:
-            cmd = "ts3";
-            break;
-         default:
-            DMX_DBG("do not support demux source %d", src);
-            return;
-         }
-      }
-      else
-         cmd = "close";
-      DMX_DBG("set tsout: %s", cmd);
-      STB_File_Echo(buf, cmd);
-      return;
-   }
+    FUNCTION_START(STB_SetTsoutSource);
 
-   FUNCTION_FINISH(STB_SetTsoutSource);
+    char buf[32];
+    char *cmd;
+    int src = aml_hw_cfg.tuners[0].ori_tsinput_idx;
+    sprintf(buf, STB_TSO_SOURCE);
+    if (is_cam_plugin)
+    {
+        switch (src)
+        {
+        case STB_TS_SOURCE0:
+        cmd = "ts0";
+        break;
+        case STB_TS_SOURCE1:
+        cmd = "ts1";
+        break;
+        case STB_TS_SOURCE2:
+        cmd = "ts2";
+        break;
+        case STB_TS_SOURCE3:
+        cmd = "ts3";
+        break;
+        default:
+        DMX_DBG("do not support demux source %d", src);
+        return;
+        }
+    }
+    else
+     cmd = "close";
+    DMX_DBG("set tsout: %s", cmd);
+    STB_File_Echo(buf, cmd);
+
+    FUNCTION_FINISH(STB_SetTsoutSource);
+
+    return;
 }
 
 

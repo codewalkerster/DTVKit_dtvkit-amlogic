@@ -43,15 +43,7 @@ typedef enum e_stb_cfg_service_unsupport_type
 
 typedef struct
 {
-    int           is_set_tsout;
-    int           is_ciplus_mode;
-    int           tsout_source;
-    int           is_set_tssource;
-    int           camPlug_tssource;
-    int           is_changeTo_utf8;
-    char          encodec_source[16];
-    int           dev_id;
-    int           host_mode;
+    int           CICAM_TSI;
 } stb_cam_cfg;
 
 typedef struct
@@ -195,7 +187,6 @@ typedef union
 extern stb_hardware_cfg aml_hw_cfg;
 
 extern void STB_CfgInitialise(void);
-extern int STB_Get_IsChangeUtf8(int *isChange, char *encodec_source);
 
 int STB_EpgGetIsNotMatchOrigNetId();
 
@@ -265,12 +256,6 @@ BOOLEAN STB_Get_Prop(const char *name, char *buf, int len);
 void STB_Set_Prop(const char *name, const char *value);
 
 /**
- * @brief   Get cam work mode[ci/ciplus]
- * @return  1 for ciplus 0 for ci
- */
-int STB_Cam_Is_CIPlus_Mode();
-
-/**
  * @brief   get ca dev id value
  * @param   slot is used for which device is select
  */
@@ -287,12 +272,6 @@ BOOLEAN STB_GetDemoCapabilityByType(E_STB_TUNE_SIGNAL_TYPE eType, U_STB_DEMO_CAP
  * @return  // 0 enable 1 disable
  */
 int STB_GetFccPipCfgStatus(void);
-
-/**
- * @brief   get source with and without cam.
- * @return  TRUE if yes.
- */
-BOOLEAN STB_GetCamSource(U8BIT *input_with_card, U8BIT *input_without_card);
 
 /**
  * @brief   get config of capture ADC Data
@@ -317,12 +296,6 @@ int STB_Get_PVR_RecRingBufSize();
  * @return  buffer size;
  */
 int STB_Get_PVR_RecHwBufSize();
-
-/**
- * @brief   get cam CI host mode.
- * @return  host mode 2:ask user to confirm, others: no need
- */
-int STB_GetCIHostMode(void);
 
 /**
  * @brief   get group which platform belongs to.

@@ -199,6 +199,7 @@ static BOOLEAN av_start_flag = FALSE;
 static U8BIT num_paths = 0;
 static BOOLEAN video_blank_lock = FALSE;
 static BOOLEAN audio_mute_lock = FALSE;
+static jni_asplayer_handle last_player_handle = 0;
 
 typedef enum
 {
@@ -305,6 +306,7 @@ static int AV_SetAudioVolumeAndMute_l(jni_asplayer_handle player_handle, U8BIT v
 static int AV_SetAudioMute_l(jni_asplayer_handle player_handle, BOOLEAN mute);
 static BOOLEAN AV_UpdateAudioOutControl_l(U8BIT av_path, E_AV_OUT_CONTROL_FLAG flag, BOOLEAN mute);
 static int _AVSetWindowColor_NoHandle(U8BIT av_path, BOOLEAN blank, BOOLEAN is_black_color, BOOLEAN mode);
+static void _AVStartAudioDecoding(U8BIT audio_decoder, U8BIT video_decoder, U16BIT audio_pid);
 
 /*---global function definitions----------------------------------------------*/
 
@@ -3430,6 +3432,10 @@ void STB_AVSyncDecodingFromPVR(U8BIT audio_decoder, U8BIT video_decoder)
 
         AV_DBG("av-pvr:, apid:%d vpid:%d", audio_pid, video_pid);
     }
+    else
+    {
+        _AVStartAudioDecoding(audio_decoder, video_decoder, audio_pid);
+    }
 
     FUNCTION_FINISH(STB_AVSyncDecodingFromPVR);
 }
@@ -4245,4 +4251,54 @@ static int _AVSetWindowColor_NoHandle(U8BIT av_path, BOOLEAN blank, BOOLEAN is_b
     }
     return ret;
 }
+
+static void _AVStartAudioDecoding(U8BIT audio_decoder, U8BIT video_decoder, U16BIT audio_pid)
+{
+    U16BIT video_pid, pcr_pid, ad_pid;
+    U8BIT preselection_id;
+    int ret;
+    jni_asplayer_handle player_handle;
+    WRAPPER_PLAYER_AUDIO_STREAM_TYPE audio_format;
+
+    U8BIT av_path = STB_AVGetPath(video_decoder, audio_decoder);
+    if (av_path == INVALID_RES_ID) {
+        AUD_DBG("audio decoder get path error audio=%u av_path=%u", audio_decoder, av_path);
+        return;
+    }
+
+    pthread_rwlock_t* _l = STB_AVGetLockByPath(av_path);
+    if (_l == NULL) {
+        AUD_DBG("Can't get lock, audio decoder[%d]", av_path);
+        return;
+    }
+
+    pthread_rwlock_wrlock(_l);
+    ret = AV_GetPlayerHandleByPath_l(av_paths_status[av_path].video_decoder, av_paths_status[av_path].audio_decoder, &player_handle, TRUE);
+    if (ret < 0) {
+        AUD_DBG("Cannot get player handle[%d], av_path[%d]", audio_decoder, av_path);
+        pthread_rwlock_unlock(_l);
+        return;
+    }
+
+    AUD_DBG("audio decoder path=%u av_path=%u", audio_decoder, av_path);
+
+    DMXGetDecodePIDs(av_paths_status[av_path].demux, &pcr_pid, &video_pid, &audio_pid, &ad_pid, &preselection_id);
+    audio_format = av_paths_status[av_path].audio_format;
+
+    if (audio_pid != 0 && player_handle != last_player_handle)
+    {
+        last_player_handle = player_handle;
+        AUD_DBG("start audio pid= %u format:%d", audio_pid, audio_format);
+        ret = AV_StartAudioDecode_l(av_path,player_handle,audio_pid,audio_format,av_paths_status[av_path].audio_mode,av_paths_status[av_path].volume,av_paths_status[av_path].mute, preselection_id);
+        if (ret == 0)
+        {
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &audio_decoder, sizeof(U8BIT));
+            av_paths_status[av_path].audio_pid = audio_pid;
+            av_paths_status[av_path].audio_presentation_id = preselection_id;
+        }
+    }
+
+    pthread_rwlock_unlock(_l);
+}
+
 

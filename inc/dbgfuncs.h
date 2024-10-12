@@ -53,23 +53,6 @@
 #define FUNCTION_FINISH(X,...)
 #endif
 
-
-#define RETURN_VAL_IF_NULL(PTR,RET_VAL)  \
-        do{\
-            if(NULL == (PTR)){\
-                DTV_LOGE("DBG","[%s][%d]: Return due to null pointer error!",__FILE__, __LINE__);\
-                return RET_VAL;\
-            }\
-        }while(0)
-
-#define RETURN_VOID_IF_NULL(PTR)  \
-        do{\
-            if(NULL == (PTR)){\
-                DTV_LOGE("DBG","[%s][%d]: Return due to null pointer error!",__FILE__, __LINE__);\
-                return;\
-            }\
-        }while(0)
-
 // assertion macros
 #ifdef DEBUG_ASSERT
 #define ASSERT(assertion) if (!(assertion)) { DTV_LOGF("DBG","ASSERT FAILURE at %s:%d (%s)\n",__FILE__, __LINE__, # assertion); }

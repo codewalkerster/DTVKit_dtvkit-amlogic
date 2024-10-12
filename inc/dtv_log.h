@@ -34,6 +34,22 @@ extern "C" {
 #define DTV_LOGE(module, ...)   DTV_LOG(ANDROID_LOG_ERROR, module, __VA_ARGS__)
 #define DTV_LOGF(module, ...)   DTV_LOG(ANDROID_LOG_FATAL, module, __VA_ARGS__)
 
+#define RETURN_VAL_IF_NULL(PTR,RET_VAL)  \
+        do{\
+            if(NULL == (PTR)){\
+                DTV_LOGE("### FATAL ###","[%s][%s][%d]: Return due to null pointer error!",__FILE__, __FUNCTION__, __LINE__);\
+                return RET_VAL;\
+            }\
+        }while(0)
+
+#define RETURN_VOID_IF_NULL(PTR)  \
+        do{\
+            if(NULL == (PTR)){\
+                DTV_LOGE("### FATAL ###","[%s][%s][%d]: Return due to null pointer error!",__FILE__, __FUNCTION__, __LINE__);\
+                return;\
+            }\
+        }while(0)
+
 U8BIT DTV_GetLogFilterLevel(void);
 
 U8BIT DTV_SetLogFilterLevel(U8BIT loglevel);

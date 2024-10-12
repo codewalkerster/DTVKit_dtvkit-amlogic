@@ -269,6 +269,7 @@ void STB_CAPVRPlayStop(UINTPTR handle);
 /***********************NEED CLEAN UP these API*******************************/
 E_CAS_TYPE STB_CAGetCASType();
 /******************************************************/
+BOOLEAN STB_CATMSFtaBit();
 
 #endif /* __CA_GLUE_H */
 

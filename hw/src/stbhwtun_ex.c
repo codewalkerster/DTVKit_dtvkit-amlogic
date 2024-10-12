@@ -390,7 +390,7 @@ BOOLEAN stb_tune_fsm_msg_handle(void *param_ptr)
 {
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
 
-    DTV_LOGD(TAG, "[%s] cur-state[%s] msg: %s, %s", __FUNCTION__,
+    DTV_LOGI(TAG, "[%s] cur-state[%s] msg: %s, %s", __FUNCTION__,
                     tune_fsm_GetCurStateString(sg_tune_fsm_ptr_array[msg_ptr->path]->current_state_ptr->state),
                     tune_fsm_GetMsgTypeString(msg_ptr->type),
                     tune_fsm_GetMsgEventString(msg_ptr->type, msg_ptr->event));
@@ -705,7 +705,7 @@ static BOOLEAN _fsm_send_msg(U8BIT path, U32BIT type, U32BIT event, BOOLEAN free
     }
     else
     {
-        //DTV_LOGD(TAG, "[%s] Msg[%u, %u] Send", __FUNCTION__, type, event);
+        DTV_LOGI(TAG, "[%s] Msg[%u, %u] Send", __FUNCTION__, type, event);
     }
 
     return ret;
@@ -1185,12 +1185,34 @@ static BOOLEAN tracking_to_tracking_check(void *param_ptr)
     STRU_FSM_TASK_MSG *msg_ptr = (STRU_FSM_TASK_MSG *)param_ptr;
     S_TUNER_STATUS *tstatus = (S_TUNER_STATUS *)msg_ptr->para1_ptr;
 
-    if (msg_ptr->type == EN_TUNE_TIMER_MSG)
+    if ((msg_ptr->type == EN_TUNE_TIMER_MSG) || (msg_ptr->event == EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE))
     {
         ret = TRUE;
     }
 
     return ret;
+}
+
+static BOOLEAN get_lock_state(int frontend_fd)
+{
+    U32BIT fe_status = 0;
+    BOOLEAN locked = FALSE;
+
+    if (aml_frontend_get_tuner_status(frontend_fd, &fe_status))
+    {
+        DTV_LOGI(TAG, "get_lock_state: status=0x%02x", fe_status);
+
+        if ((((fe_status_t)fe_status) & FE_HAS_LOCK) != 0)
+        {
+            locked = TRUE;
+        }
+    }
+    else
+    {
+        DTV_LOGI(TAG, "get_lock_state:  frontend_fd:%d Fail to get tuner lock status", frontend_fd);
+    }
+
+    return locked;
 }
 
 static BOOLEAN tracking_to_tracking_transition(void *param_ptr)
@@ -1201,11 +1223,11 @@ static BOOLEAN tracking_to_tracking_transition(void *param_ptr)
 
     BOOLEAN locked = FALSE;
 
-    //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+    //DTV_LOGI(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
 
     if (msg_ptr->type == EN_TUNE_TIMER_MSG && msg_ptr->event == EN_TUNE_TIMER_EVENT_TRACKING_CHK)
     {
-        //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+        //DTV_LOGI(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
 
         if (_check_hw_lock_status(tstatus->frontend_fd, &locked))
         {
@@ -1229,6 +1251,21 @@ static BOOLEAN tracking_to_tracking_transition(void *param_ptr)
             _restart_fsm_timer();
 
             //DTV_LOGD(TAG, "[%s:%d]", __FUNCTION__, __LINE__);
+        }
+    }
+    else if (msg_ptr->event == EN_TUNE_CNTRL_EVENT_CHANGE_TUNE_STATE)
+    {
+        locked = get_lock_state(tstatus->frontend_fd);
+        if (locked)
+        {
+            DTV_LOGI(TAG, "[%s:%d] frontend_fd = %d", __FUNCTION__, __LINE__, tstatus->frontend_fd);
+            STB_OSSendEvent(FALSE, HW_EV_CLASS_TUNER, HW_EV_TYPE_LOCKED, &tstatus->path, sizeof(U8BIT));
+        }
+        else
+        {
+            _restart_fsm_timer();
+
+            DTV_LOGI(TAG, "[%s:%d] frontend_fd = %d", __FUNCTION__, __LINE__, tstatus->frontend_fd);
         }
     }
 
@@ -1376,8 +1413,6 @@ static BOOLEAN relocking_to_relocking_transition(void *param_ptr)
     S_TUNER_STATUS *tstatus = (S_TUNER_STATUS *)msg_ptr->para1_ptr;
 
     BOOLEAN locked = FALSE;
-
-
     if (msg_ptr->type == EN_TUNE_TIMER_MSG && msg_ptr->event == EN_TUNE_TIMER_EVENT_RELOCKING_CHK)
     {
         if (_check_hw_lock_status(tstatus->frontend_fd, &locked))

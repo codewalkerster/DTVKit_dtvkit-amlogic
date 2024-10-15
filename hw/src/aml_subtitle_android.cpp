@@ -97,6 +97,14 @@ class SubtitleDataListenerImpl : public amlogic::SubtitleListener {
                 return;
             }
 
+            {
+                std::lock_guard<std::mutex> lock(sub_mutex);
+                if (sub_context.type == TYPE_NONE) {
+                    SUB_LOG("subtitle has been closed");
+                    return;
+                }
+            }
+
             if (parserType == TYPE_SUBTITLE_ARIB_B24 ||
                     parserType == TYPE_SUBTITLE_CLOSED_CAPTION) {
                 width_fixed = size;
@@ -225,21 +233,10 @@ void aml_subtitle_open(int type, aml_subtitle_param_t *p) {
 void aml_subtitle_close() {
     int draw_type;
     int h;
+    int subtitle_type;
 
     SUB_LOG("Close subtitle");
-
-    {
-        //clear draw
-        std::lock_guard<std::mutex> lock(sub_draw_mutex);
-
-        if (g_OverlayDraw_Func) {
-            draw_type = parse_subtitle_type(sub_context.type);
-            h = (0x80 | draw_type) << 20;
-            g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
-        }
-        SUB_LOG_V("close subtitle: clear screen end");
-    }
-
+    subtitle_type = sub_context.type;
     {
         std::lock_guard<std::mutex> lock(sub_mutex);
 
@@ -250,6 +247,18 @@ void aml_subtitle_close() {
             sub_context.paused = 0;
             sub_context.type = TYPE_NONE;
         }
+    }
+
+    {
+        //clear draw
+        std::lock_guard<std::mutex> lock(sub_draw_mutex);
+
+        if (g_OverlayDraw_Func) {
+            draw_type = parse_subtitle_type(subtitle_type);
+            h = (0x80 | draw_type) << 20;
+            g_OverlayDraw_Func(0, 0, 0, 0, 9999, h, NULL);
+        }
+        SUB_LOG_V("close subtitle: clear screen end");
     }
     SUB_LOG("close subtitle end");
 }

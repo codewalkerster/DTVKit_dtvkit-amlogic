@@ -23,6 +23,7 @@
 #include <chrono>
 #include <vector>
 #include <sstream>
+#include <cmath>
 using namespace std;
 
 // Ocean Blue header files
@@ -1480,7 +1481,14 @@ BOOLEAN STB_PVRGetElapsedTime(U8BIT audio_decoder, U8BIT video_decoder, U16BIT *
    S_RECPLAY_STATUS* prps = &s_recplay_status[play_index];
 
    const am_dvr_playback_progress progress = prps->progress;
-   const U64BIT total = progress.currTime;
+   struct timespec ts;
+   clock_gettime(CLOCK_MONOTONIC, &ts);
+   const long long now = ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
+   const int diff = (int) abs(now - progress.updateTime);
+   const int compensation = (std::fabs(progress.speed - 1.0) < 1e-9) ? diff * progress.speed : 0;
+   //PVR_INFO("time diff:%d ms, compensation:%d ms",diff,compensation);
+
+   const U64BIT total = progress.currTime + compensation;
    *elapsed_hours = total/1000/3600;
    *elapsed_mins = total/1000%3600/60;
    *elapsed_secs = total/1000%60;

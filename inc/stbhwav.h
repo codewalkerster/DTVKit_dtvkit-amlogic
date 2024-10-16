@@ -63,7 +63,9 @@ typedef enum e_stb_av_video_codec
     AV_VIDEO_CODEC_AVS2 = 7,
     AV_VIDEO_CODEC_MPEG4 = 8,
     AV_VIDEO_CODEC_DVES_AVC = 9,
-    AV_VIDEO_CODEC_DVES_HEVC = 10
+    AV_VIDEO_CODEC_DVES_HEVC = 10,
+    AV_VIDEO_CODEC_AVS3 = 11,
+    AV_VIDEO_CODEC_H266 = 12
 } E_STB_AV_VIDEO_CODEC;
 
 typedef enum e_stb_av_audio_codec

@@ -27,12 +27,14 @@ typedef enum {
     WP_VIDEO_STREAM_TYPE_MPEG4P2,    // ISO/IEC 14496-2 (MPEG-4 H.263 based video)
     WP_VIDEO_STREAM_TYPE_AVC,        // ITU-T Rec.H.264 and ISO/IEC 14496-10
     WP_VIDEO_STREAM_TYPE_HEVC,       // ITU-T Rec. H.265 and ISO/IEC 23008-2
+    WP_VIDEO_STREAM_TYPE_VVC,        // H.266
     WP_VIDEO_STREAM_TYPE_VC1,        // Microsoft VC.1
     WP_VIDEO_STREAM_TYPE_VP8,        // Google VP8
     WP_VIDEO_STREAM_TYPE_VP9,        // Google VP9
     WP_VIDEO_STREAM_TYPE_AV1,        // AOMedia Video 1
     WP_VIDEO_STREAM_TYPE_AVS,        // Chinese Standard
     WP_VIDEO_STREAM_TYPE_AVS2,       // New Chinese Standard
+    WP_VIDEO_STREAM_TYPE_AVS3,       // New Chinese Standard
     WP_VIDEO_STREAM_TYPE_DVES_AVC,   // Dolby Vision
     WP_VIDEO_STREAM_TYPE_DVES_HEVC   // Dolby Vision
 }WRAPPER_PLAYER_VIDEO_STREAM_TYPE;

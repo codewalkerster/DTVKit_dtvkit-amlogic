@@ -245,12 +245,14 @@ static VIDEO_MIME_MAP video_mime_types[] =
    {WP_VIDEO_STREAM_TYPE_MPEG4P2, "video/mp4v-es"},
    {WP_VIDEO_STREAM_TYPE_AVC, "video/avc"},
    {WP_VIDEO_STREAM_TYPE_HEVC, "video/hevc"},
+   {WP_VIDEO_STREAM_TYPE_VVC, "video/vvc"},
    {WP_VIDEO_STREAM_TYPE_VC1, "video/wvc1"},
    {WP_VIDEO_STREAM_TYPE_VP8, "video/x-vnd.on2.vp8"},
    {WP_VIDEO_STREAM_TYPE_VP9, "video/x-vnd.on2.vp9"},
    {WP_VIDEO_STREAM_TYPE_AV1, "video/av01"},
    {WP_VIDEO_STREAM_TYPE_AVS, "video/avs"},
    {WP_VIDEO_STREAM_TYPE_AVS2, "video/avs2"},
+   {WP_VIDEO_STREAM_TYPE_AVS3, "video/avs3"},
    {WP_VIDEO_STREAM_TYPE_DVES_AVC, "video/dolby-vision-avc"},
    {WP_VIDEO_STREAM_TYPE_DVES_HEVC, "video/dolby-vision-hevc"}
 };
@@ -1882,6 +1884,10 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
             av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_HEVC;
             VID_DBG("H265");
             break;
+        case AV_VIDEO_CODEC_H266:
+            av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_VVC;
+            VID_DBG("H266");
+            break;
         case AV_VIDEO_CODEC_MPEG1:
             av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_MPEG1;
             VID_DBG("MPEG1");
@@ -1901,6 +1907,10 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
         case AV_VIDEO_CODEC_AVS2:
             av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_AVS2;
             VID_DBG("AVS2");
+            break;
+        case AV_VIDEO_CODEC_AVS3:
+            av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_AVS3;
+            VID_DBG("AVS3");
             break;
         case AV_VIDEO_CODEC_MPEG4:
             av_paths_status[av_path].video_format = WP_VIDEO_STREAM_TYPE_MPEG4P2;

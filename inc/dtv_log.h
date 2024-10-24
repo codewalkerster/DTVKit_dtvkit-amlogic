@@ -19,6 +19,7 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
 #include "techtype.h"
 
 #ifdef _WIN32
@@ -57,6 +58,12 @@ U8BIT DTV_SetLogFilterLevel(U8BIT loglevel);
 void DTV_LOG_Init(void);
 
 void DTV_LOG(U32BIT loglevel, const char *module, const char *format, ... );
+
+#ifdef RDK_COMPILE
+size_t strlcpy(char *dest, const char *src, size_t size);
+
+size_t strlcat(char *dest, const char *src, size_t size);
+#endif
 
 #ifdef __cplusplus
 }

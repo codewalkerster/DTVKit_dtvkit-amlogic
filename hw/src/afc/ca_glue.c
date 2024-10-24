@@ -1461,6 +1461,13 @@ void STB_CAPVRPlayStop(UINTPTR handle)
 void STB_CANotifyRecordingStatus(UINTPTR handle, BOOLEAN status)
 {
 }
+
+BOOLEAN STB_CATMSFtaBit()
+{
+    return FALSE;
+}
+
+
 /******************************************************************************
 ** End of file
 ******************************************************************************/

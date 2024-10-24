@@ -67,6 +67,40 @@ static void DTV_ShowLogLevel(U8BIT loglevel);
 
 static U8BIT DTV_GetLogFilterConfig(void);
 
+#ifdef RDK_COMPILE
+size_t strlcpy(char *dest, const char *src, size_t size)
+{
+    size_t res;
+    int len = strlen(src);
+    if (len < size)
+    {
+        res = strncpy(dest, src, len + 1);
+    }
+    else
+    {
+        res = strncpy(dest, src, size - 1);
+        dest[size] = '\0';
+    }
+    return res;
+}
+
+size_t strlcat(char *dest, const char *src, size_t size)
+{
+    size_t res;
+    int len = strlen(src);
+    if (strlen(dest) + len < size)
+    {
+        res = strncat(dest, src, len + 1);
+    }
+    else
+    {
+        res = strncat(dest, src, size - 1 - strlen(dest));
+        dest[size] = '\0';
+    }
+    return res;
+}
+#endif
+
 
 static void LogFilterUpdate_handler(int para)
 {

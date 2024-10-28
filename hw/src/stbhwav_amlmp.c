@@ -4943,7 +4943,7 @@ static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black, BOOLEAN mode)
     memset(&parm, 0, sizeof(parm));
     parm.channelId = av_path;
     parm.demuxId = (Aml_MP_DemuxId)av_paths_status[av_path].demux;
-    parm.sourceType = AML_MP_INPUT_SOURCE_TS_DEMOD;
+    parm.sourceType = AML_MP_INPUT_SOURCE_ES_MEMORY;
     parm.drmMode = AML_MP_INPUT_STREAM_NORMAL;
     ret = Aml_MP_Player_Create(&parm, &player_handle);
     if (ret == 0)
@@ -4962,7 +4962,7 @@ static int AV_SetVideoColor(U8BIT av_path, BOOLEAN is_black, BOOLEAN mode)
         AV_DBG("Set color failed, err:%d", ret);
     }
 
-    ret = AV_StartVideoDecode_l(player_handle, 0x1ffe, 0x1ffe, AML_MP_VIDEO_CODEC_MPEG12, AML_MP_AVSYNC_SOURCE_PCR);
+    ret = AV_StartVideoDecode_l(player_handle, 0x1fff, 0x1fff, AML_MP_VIDEO_CODEC_MPEG12, AML_MP_AVSYNC_SOURCE_PCR);
     if (ret < 0)
     {
         AV_DBG("Set color failed, err:%d", ret);

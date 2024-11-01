@@ -647,9 +647,12 @@ void STB_AVApplyVideoTransformation(U8BIT path, S_RECTANGLE* src, S_RECTANGLE* d
 void STB_AVSetWindowColor(U8BIT window, BOOLEAN blank, BOOLEAN force_black, BOOLEAN force_all, U8BIT path, BOOLEAN mode)
 {
     //this function is only supported for CVTE/CTV bluescreen feature
-    if (video_blank_lock)
+    BOOLEAN pip_enabled = STB_Is_PIP_Enabled();
+    BOOLEAN fcc_enabled = STB_Is_FCC_Enabled();
+
+    if (video_blank_lock || pip_enabled || fcc_enabled)
     {
-        VID_DBG("Video blank locked, can not change");
+        VID_DBG("Video blank locked or pip/fcc enable, can not change");
         return;
     }
 

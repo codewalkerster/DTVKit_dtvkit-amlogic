@@ -219,7 +219,8 @@ void PesJFilterCallback(jobject filter, jobjectArray filterEventArray, int filte
     ALOGI("end:%s", __FUNCTION__);
 }
 
-static int OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source_type,U16BIT demux_cap  ,U32BIT buffer_size, long jfilter_callback, int mainType, int subType)
+static int OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT source_type,U16BIT demux_cap  ,U32BIT buffer_size,
+                      long jfilter_callback, int mainType, int subType, U32BIT privateCallback)
 {
     int ClientId = 0xFF;
     if (!gDMXTaskLocked.initDmxLocked )
@@ -291,12 +292,10 @@ static int OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT sou
     if (buffer_size > 8 * 4096)
     {
         ALOGI("Executor@large section_size  [%d]",buffer_size);
-        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, mainType, subType, buffer_size, jfilter_callback, 1);
     }
-    else
-    {
-        filerInfo->Jfilter = Am_tuner_openFilter(ClientId, mainType, subType, buffer_size, jfilter_callback, 0);
-    }
+
+    filerInfo->Jfilter = Am_tuner_openFilter(ClientId, mainType, subType, buffer_size, jfilter_callback, privateCallback);
+
     filerInfo->user_data  = user_data;
     int filterId = Am_filter_getId(filerInfo->Jfilter);
 
@@ -315,7 +314,7 @@ static int OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT sou
     {
         if (pid_queue == NULL)
         {
-            pid_queue = (S_QUEUE*)wrapper_OSCreateQueue(sizeof(PID_TASK_PACKAGE),  20);
+            pid_queue = (S_QUEUE*)wrapper_OSCreateQueue(sizeof(PID_TASK_PACKAGE),  200);
         }
         else
         {
@@ -330,14 +329,14 @@ static int OpenFilter(U8BIT path, filter_callback cb, void* user_data,U16BIT sou
     return filterId ;
 }
 
-int DMX_OpenSectionFilter(U8BIT path, filter_callback cb, void* user_data, U16BIT source_type, U16BIT demux_cap, U32BIT section_size)
+int DMX_OpenSectionFilter(U8BIT path, filter_callback cb, void* user_data, U16BIT source_type, U16BIT demux_cap, U32BIT section_size, U32BIT privateCallback)
 {
-    return OpenFilter(path, cb, user_data, source_type, demux_cap, section_size, (long)SectionJFilterCallback, MAIN_TYPE_TS, SUBTYPE_SECTION);
+    return OpenFilter(path, cb, user_data, source_type, demux_cap, section_size, (long)SectionJFilterCallback, MAIN_TYPE_TS, SUBTYPE_SECTION, privateCallback);
 }
 
-int DMX_OpenPesFilter(U8BIT path, filter_callback cb, void* user_data, U16BIT source_type, U16BIT demux_cap, U32BIT pes_size)
+int DMX_OpenPesFilter(U8BIT path, filter_callback cb, void* user_data, U16BIT source_type, U16BIT demux_cap, U32BIT pes_size, U32BIT privateCallback)
 {
-    return OpenFilter(path, cb, user_data, source_type, demux_cap, pes_size, (long)PesJFilterCallback, MAIN_TYPE_TS, SUBTYPE_PES);
+    return OpenFilter(path, cb, user_data, source_type, demux_cap, pes_size, (long)PesJFilterCallback, MAIN_TYPE_TS, SUBTYPE_PES, privateCallback);
 }
 
 BOOLEAN DMX_CloseFilter(int un32filterID)

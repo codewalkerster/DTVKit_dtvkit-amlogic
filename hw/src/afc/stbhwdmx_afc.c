@@ -89,7 +89,8 @@
 
 #define TEXT_BUFFER_SIZE            (65 * 1024)
 
-
+#define ATSC_TID_EVENT_INFORMATION 0xCB
+#define ATSC_TID_EXTENDED_TEXT 0xCC
 /* Local ENUM/TYPE Definitions */
 
 typedef enum
@@ -616,7 +617,7 @@ void STB_DMXChangeTextPID(U8BIT path, U16BIT text_pid)
       {
          /* Open a demux instance for the text (subtitle) PES */
          demux_status[path].text_fhandle = DMX_OpenPesFilter(demux_status[path].source_param, PesCallback, (void *)&demux_status[path], demux_status[path].source,
-            demux_status[path].demux_cap, TEXT_BUFFER_SIZE);
+            demux_status[path].demux_cap, TEXT_BUFFER_SIZE, 1);
          DMX_DBG("%u: Opened text PES filter, handle=%d", path, demux_status[path].text_fhandle);
          if (demux_status[path].text_fhandle != -1)
          {
@@ -1939,6 +1940,7 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
    struct dmx_sct_filter_params dvb_filt_p;
    U16BIT num_filters;
    BOOLEAN am_result;
+   U32BIT privateCallback = 0;
    FUNCTION_START(UpdateSectionFilter);
 
    pid_filter = &demux_status[path].filter_info[filter_index];
@@ -1985,6 +1987,12 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
 
       if (sect_filter->setup)
       {
+         if ((sect_filter->match[0] & sect_filter->mask[0]) == ATSC_TID_EVENT_INFORMATION ||
+             (sect_filter->match[0] & sect_filter->mask[0]) == ATSC_TID_EXTENDED_TEXT )
+         {
+            privateCallback = 1;
+         }
+
          /* Update "all" and "some" variables */
          for (sfi = 0; sfi < DEMUX_SECTION_FILTER_LENGTH; ++sfi)
          {
@@ -2119,11 +2127,18 @@ static BOOLEAN UpdateSectionFilter(U8BIT path, U16BIT filter_index)
            U8BIT source_path = demux_status[path].source_param;
            U16BIT demux_cap = demux_status[path].demux_cap;
            U32BIT section_size = 0;
+
            if (Is_DDB_Filter(pid_filter))
-               section_size = 8 * MAX_DDB_SECTION_SIZE ;
+           {
+               section_size = 8 * MAX_DDB_SECTION_SIZE;
+               privateCallback = 1;
+           }
            else
-                section_size = 8 * MAX_SECTION_SIZE ;
-           pid_filter->fhandle = DMX_OpenSectionFilter(source_path, PidCallback, (void*)pid_filter, source_type, demux_cap, section_size);
+           {
+               section_size = 8 * MAX_SECTION_SIZE ;
+           }
+
+           pid_filter->fhandle = DMX_OpenSectionFilter(source_path, PidCallback, (void*)pid_filter, source_type, demux_cap, section_size, privateCallback);
         }
         else
         {

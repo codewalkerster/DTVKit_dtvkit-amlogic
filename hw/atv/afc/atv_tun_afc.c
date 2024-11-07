@@ -305,9 +305,18 @@ AM_ErrorCode_t AM_VLFEND_ActiveThread(int dev_no, AM_Bool_t active)
 {
     Wrapper_SendEvent callback = atv_tuner_EventCallback;
 
-    Wrapper_TuneSetSearchMode(dev_no, TRUE);
-    Wrapper_TuneSetSignalType(dev_no, WRAPPER_TUNE_SIGNAL_ANALOG);
-    Wrapper_RegisterCallback(callback);
+    Wrapper_TuneSetSearchMode(dev_no, active);
+
+    if (active == TRUE)
+    {
+        Wrapper_TuneSetSignalType(dev_no, WRAPPER_TUNE_SIGNAL_ANALOG);
+        Wrapper_RegisterCallback(callback);
+    }
+    else
+    {
+        Wrapper_RegisterCallback(NULL);
+    }
+
     return AM_SUCCESS;
 }
 

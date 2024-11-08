@@ -784,11 +784,11 @@ static BOOLEAN IsAlreadyTuned(U8BIT path, U16BIT client_id,
     else if (signal_type == E_TERR_TYPE_ISDBT && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_ISDBT) {
         required_signal = WRAPPER_TUNE_SIGNAL_ISDBT;
     }
-    else if (signal_type == E_TERR_TYPE_VSB && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_VSB)
+    else if (signal_type == E_TERR_TYPE_VSB && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_ATSC_T)
     {
         required_signal = WRAPPER_TUNE_SIGNAL_VSB;
     }
-    else if (signal_type == E_TERR_TYPE_QAMB && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_QAMB)
+    else if (signal_type == E_TERR_TYPE_QAMB && sys_type == WRAPPER_TUNE_SYSTEM_TYPE_ATSC_C)
     {
         required_signal = WRAPPER_TUNE_SIGNAL_QAMB;
     }
@@ -1130,7 +1130,7 @@ void Wrapper_TuneStopTuner(U8BIT path)
         }
 
         Am_tuner_cancelScanning(tuner_client);
-
+        Am_tuner_closeFrontend(tuner_client);
         tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
     }
 }
@@ -2117,6 +2117,7 @@ BOOLEAN Wrapper_Tune_BlindExit(U8BIT path)
     }
 
     Am_tuner_cancelScanning(tuner_client);
+    Am_tuner_closeFrontend(tuner_client);
 
     tuner_status_map[path].blindscan_mode = FALSE;
     tuner_status_map[path].tuner_client = INVALID_TUNER_ID;

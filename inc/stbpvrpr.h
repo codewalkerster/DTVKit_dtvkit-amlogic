@@ -76,6 +76,19 @@ typedef enum e_stb_pvr_play_mode
     PLAY_TRICK_FRAME = 3
 } E_STB_PVR_PLAY_MODE;
 
+// from e_jdvr_playback_status
+typedef enum e_stb_pvr_playback_status
+{
+    CONTROLLER_STATUS_TO_START = 0x200,
+    CONTROLLER_STATUS_TO_PAUSE = 0x201,
+    CONTROLLER_STATUS_TO_EXIT = 0x202,
+    CONTROLLER_STATUS_TO_SET_SPEED = 0x203,
+    CONTROLLER_STATUS_TO_SEEK = 0x204,
+    DTVKIT_STATUS_PMT_ACQUIRED = 0x210,
+    CAS_STATUS_READY = 0x211,
+    RECORDER_STATUS_FILE_MODIFIED = 0x212
+} E_STB_PVR_PLAYBACK_STATUS;
+
 typedef struct
 {
     BOOLEAN is_smp;

@@ -5,11 +5,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "ccdatabase/dataserver_client.h"
-#include "ccdatabase/dataserver_message.h"
-#include "ccdatabase/dataserver_cmd_resp.h"
-#include "ccdatabase/dataserver_data_vbi.h"
-#include "ccdatabase/dataserver_data_userdata.h"
+#include "dataserver_client.h"
+#include "dataserver_message.h"
+#include "dataserver_cmd_resp.h"
+#include "dataserver_data_vbi.h"
+#include "dataserver_data_userdata.h"
 
 #include "xds.h"
 #include "xds_608.h"
@@ -384,6 +384,8 @@ int xds_stop(xds_handle_t *xds)
     ctx->running = 0;
     pthread_join(ctx->thread, NULL);
     xds_inf("xds stopped.");
+
+    free(ctx);
 
     return 0;
 }

@@ -1,4 +1,5 @@
 LOCAL_PATH:= $(call my-dir)
+DTVKIT_PLATFORM:=$(LOCAL_PATH)
 
 SUPPORT_PLATFORM_STATIC_LIB = true
 SUPPORT_PLATFORM_SHARED_LIB = true
@@ -57,3 +58,5 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 33 && echo OK),OK)
 
     include $(LOCAL_PATH)/tunerframework/wrapper/Android.mk
 endif
+
+include $(DTVKIT_PLATFORM)/hw/xds/Android.mk

@@ -5,12 +5,14 @@
  * */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <signal.h>
 
-#include "ccdatabase/dataserver_client.h"
+#include "dataserver_client.h"
 #include "xds.h"
 
 #define inf(_fmt, ...) printf("I "_fmt"\n", ##__VA_ARGS__)
@@ -55,6 +57,15 @@ static void* das_connect(void)
     return dataserver_connect_ip(addr.s_addr, port);
 }
 
+
+static void *decoder;
+
+static void sig_handler(int signo)
+{
+    xds_stop(decoder);
+    exit(0);
+}
+
 int main(int argc, char *argv[])
 {
     int vbi = 0;
@@ -70,6 +81,10 @@ int main(int argc, char *argv[])
         .owner = "testxds",
     };
 
+    /*disable to test the death detection*/
+    //signal(SIGINT, sig_handler);
+    //signal(SIGTERM, sig_handler);
+
     int is_ip = 0;
 
     if (argc > 1) {
@@ -78,7 +93,7 @@ int main(int argc, char *argv[])
             is_ip = 1;
     }
 
-    void *decoder = is_ip?
+    decoder = is_ip?
         xds_start_ext(&param, das_connect)
         : xds_start(&param);
 

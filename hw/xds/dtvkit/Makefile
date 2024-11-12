@@ -10,6 +10,8 @@ SRCS := xds.c \
 
 #SRCS = $(notdir $(wildcard ./src/*.c))
 
+INCLUDES := ccdatabase
+
 COMP=xds
 
 include $(MODULE_ROOT)/common.mak

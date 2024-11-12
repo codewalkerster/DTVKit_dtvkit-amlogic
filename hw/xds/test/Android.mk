@@ -1,0 +1,38 @@
+#
+ifeq ($(PRODUCT_SUPPORT_CCDATABASE), true)
+    ENABLE_XDS := true
+endif
+
+ifeq ($(ENABLE_XDS), true)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := testxds_static
+LOCAL_SRC_FILES := \
+    test/testxds.c
+LOCAL_WHOLE_STATIC_LIBRARIES := libxds_static
+LOCAL_SHARED_LIBRARIES := libccdataserver_client
+LOCAL_SHARED_LIBRARIES += $(XDS_COMM_LIBS)
+LOCAL_MULTILIB := 32
+LOCAL_PRELINK_MODULE := false
+LOCAL_MODULE_TAGS := optional
+LOCAL_VENDOR_MODULE := true
+LOCAL_LICENSE_KINDS := legacy_notice
+LOCAL_LICENSE_CONDITIONS := notice
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := testxds
+LOCAL_SRC_FILES := \
+    test/testxds.c
+LOCAL_SHARED_LIBRARIES := libxds
+LOCAL_SHARED_LIBRARIES += libccdataserver_client
+LOCAL_SHARED_LIBRARIES += $(XDS_COMM_LIBS)
+LOCAL_MULTILIB := 32
+LOCAL_PRELINK_MODULE := false
+LOCAL_MODULE_TAGS := optional
+LOCAL_VENDOR_MODULE := true
+LOCAL_LICENSE_KINDS := legacy_notice
+LOCAL_LICENSE_CONDITIONS := notice
+include $(BUILD_EXECUTABLE)
+
+endif

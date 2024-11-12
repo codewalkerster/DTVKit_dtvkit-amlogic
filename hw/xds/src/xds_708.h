@@ -2,7 +2,7 @@
 #define _XDS_708_H_
 
 #include "xds.h"
-#include "ccdatabase/dataserver_data_userdata.h"
+#include "dataserver_data_userdata.h"
 
 #ifdef __cplusplus
 extern "C" {

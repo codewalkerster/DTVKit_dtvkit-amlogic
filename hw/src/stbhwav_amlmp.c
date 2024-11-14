@@ -757,16 +757,25 @@ void STB_AVMuteControl(U8BIT window, U8BIT path , SET_AV_BLANK mute, AV_MUTE_OPT
  */
 BOOLEAN STB_AVGetStaticFrameEnable()
 {
-   BOOLEAN ret = FALSE;
-   FUNCTION_START(STB_AVGetStaticFrameEnable);
+    BOOLEAN ret = FALSE;
+    BOOLEAN pip_enabled = STB_Is_PIP_Enabled();
+    BOOLEAN fcc_enabled = STB_Is_FCC_Enabled();
+
+    FUNCTION_START(STB_AVGetStaticFrameEnable);
+
+    if (pip_enabled || fcc_enabled)
+    {
+        VID_DBG("Disable static frame function when pip/fcc enable");
+        return ret;
+    }
 
 #ifndef RDK_COMPILE
-   ret = SC_getStaticFrameEnable();
+    ret = SC_getStaticFrameEnable();
 #endif
 
-   FUNCTION_FINISH(STB_AVGetStaticFrameEnable);
+    FUNCTION_FINISH(STB_AVGetStaticFrameEnable);
 
-   return ret;
+    return ret;
 }
 
 /**

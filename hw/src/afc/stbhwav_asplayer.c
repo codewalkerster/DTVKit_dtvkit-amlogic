@@ -1422,6 +1422,10 @@ void STB_AVStartAudioDecoding(U8BIT path)
         {
             av_paths_status[av_path].audio_pid = audio_pid;
             av_paths_status[av_path].audio_presentation_id = preselection_id;
+            if (STB_Is_PIP_Enabled() && av_paths_status[av_path].video_pid== INVALID_PID)
+            {
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_AUDIO_STARTED, &path, sizeof(U8BIT));
+            }
         }
     }
 

@@ -1130,7 +1130,6 @@ void Wrapper_TuneStopTuner(U8BIT path)
         }
 
         Am_tuner_cancelScanning(tuner_client);
-        Am_tuner_closeFrontend(tuner_client);
         tuner_status_map[path].tuner_client = INVALID_TUNER_ID;
     }
 }
@@ -2117,7 +2116,6 @@ BOOLEAN Wrapper_Tune_BlindExit(U8BIT path)
     }
 
     Am_tuner_cancelScanning(tuner_client);
-    Am_tuner_closeFrontend(tuner_client);
 
     tuner_status_map[path].blindscan_mode = FALSE;
     tuner_status_map[path].tuner_client = INVALID_TUNER_ID;

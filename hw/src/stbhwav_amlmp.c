@@ -132,6 +132,9 @@
 #define MIN_AV_SPEED    -600
 #define MAX_AV_SPEED     600
 #define MAX_PLAYER_NUM     32
+#define ENCODING_AAC_LC        10
+#define ENCODING_AAC_HE_V1     11
+#define ENCODING_AAC_HE_V2     12
 
 #define INVALID_PLAYER_HANDLE -1
 #define IS_INVALID_PLAYER_HANDLE(_path_)    ((av_paths_status[_path_].player_handle) == AML_MP_INVALID_HANDLE)
@@ -4313,10 +4316,20 @@ static void AVEventHandler(void *user_data, Aml_MP_PlayerEventType eventType, in
         Aml_MP_PlayerEventAudioFormat *audioFormat = (Aml_MP_PlayerEventAudioFormat*)(intptr_t)param;
         if (audioFormat != NULL)
         {
-            AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_CHANGED: sample_rate:%d, channels:%d\n",
-                   status->decoder,
-                   audioFormat->sample_rate,
-                   audioFormat->channels);
+            U32BIT encoding = AML_MP_CODEC_UNKNOWN;
+            AV_DBG("[evt][%d] AML_MP_PLAYER_EVENT_AUDIO_CHANGED: sample_rate:%d, channels:%d, audio_codec:%d\n",
+                   status->decoder, audioFormat->sample_rate, audioFormat->channels, audioFormat->audio_codec);
+            if (audioFormat->audio_codec == AML_MP_AUDIO_CODEC_AAC)
+                encoding = ENCODING_AAC_LC;
+            else if (audioFormat->audio_codec == AML_MP_AUDIO_CODEC_HEAAC_V1)
+                encoding = ENCODING_AAC_HE_V1;
+            else if (audioFormat->audio_codec == AML_MP_AUDIO_CODEC_HEAAC_V2)
+                encoding = ENCODING_AAC_HE_V2;
+
+            if (encoding == ENCODING_AAC_LC || encoding == ENCODING_AAC_HE_V1 || encoding == ENCODING_AAC_HE_V2)
+            {
+                STB_OSSendEvent(FALSE, HW_EV_CLASS_DECODE, HW_EV_TYPE_DECODE_AUDIO_HEAAC, &encoding, sizeof(U32BIT));
+            }
         }
         break;
     }

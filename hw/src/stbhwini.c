@@ -32,6 +32,7 @@
 #include "dbgfuncs.h"
 #include "dtv_log.h"
 #define TAG  "STBHWINI"
+#include <utils/Log.h>
 
 #include "stbhwdef.h"
 #include "stbhwini.h"
@@ -50,12 +51,16 @@
 #else
 #define DBG(x,...)
 #endif
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "DTV_LOG"
 
 /*---local typedef structs for this file--------------------------------------*/
 
 /*---local (static) variable declarations for this file-----------------------*/
 static E_HW_DTVSYSTEM_TYPE sg_dtv_system = HW_DVB_SYSTEM;
-
+void MemoryLeakTrackUtil() ;
 /*---global variable definitions----------------------------------------------*/
 
 
@@ -73,6 +78,7 @@ static E_HW_DTVSYSTEM_TYPE sg_dtv_system = HW_DVB_SYSTEM;
 void STB_HWInitialise(E_HW_SUBT_CONTROL_MASK hw_subt)
 {
    FUNCTION_START(STB_HWInitialise);
+   MemoryLeakTrackUtil();
 
    STB_CfgInitialise();
 

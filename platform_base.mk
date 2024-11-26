@@ -132,6 +132,7 @@ hw/src/stbhwdemux_usb.c \
 hw/src/aml_subtitle_android.cpp \
 hw/src/systemcontrol.cpp \
 hw/src/sideband.cpp \
+hw/src/MemoryLeakTrackUtil.cpp \
 hw/src/fsm_base.c \
 hw/src/afd_ctrl.c \
 hw/src/cJSON.c \

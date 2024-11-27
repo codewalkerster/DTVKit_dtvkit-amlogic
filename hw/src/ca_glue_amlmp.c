@@ -339,6 +339,7 @@ static AML_MP_CASSESSION get_cas_session(UINTPTR handle, U16BIT es_pid)
 
 static void update_desc_pid(UINTPTR handle)
 {
+#if 0
     CA_INFO *pid_entry;
     U16BIT old_es_pid = DVB_INVALID_ID;
     U16BIT new_es_pid = DVB_INVALID_ID;
@@ -373,6 +374,7 @@ static void update_desc_pid(UINTPTR handle)
         get_cas_session(handle, old_es_pid),
         old_es_pid,
         new_es_pid);
+#endif
 }
 
 static int cas_event_cb(AML_MP_CASSESSION session, const char *json)

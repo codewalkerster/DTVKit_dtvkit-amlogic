@@ -78,8 +78,9 @@ void MemoryLeakTrackUtil() ;
 void STB_HWInitialise(E_HW_SUBT_CONTROL_MASK hw_subt)
 {
    FUNCTION_START(STB_HWInitialise);
+#ifndef RDK_COMPILE
    MemoryLeakTrackUtil();
-
+#endif
    STB_CfgInitialise();
 
    STB_MEMInitialiseRAM();

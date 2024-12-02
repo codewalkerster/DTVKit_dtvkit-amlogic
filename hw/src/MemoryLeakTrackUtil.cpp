@@ -89,8 +89,9 @@ void dumpMemoryAddresses(int fd)
     size_t infoSize = 0;
     size_t totalMemory = 0;
     size_t backtraceSize = 0;
-
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
     get_malloc_leak_info(&info, &overallSize, &infoSize, &totalMemory, &backtraceSize);
+#endif
     ALOGI("dumpMemoryAddresses start %d",__LINE__);
     if (info) {
         ALOGI("dumpMemoryAddresses end%d",__LINE__);
@@ -170,7 +171,9 @@ void dumpMemoryAddresses(int fd)
         }
 
         delete[] entries;
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
         free_malloc_leak_info(info);
+#endif
     }
 }
 

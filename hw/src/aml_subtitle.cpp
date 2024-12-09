@@ -166,6 +166,7 @@ void aml_subtitle_open(int type, aml_subtitle_param_t *p) {
     sub_param.subtitleType = sub_type;
     sub_param.pid = p->pid;
     sub_param.dmxId = p->dmx_id;
+    sub_param.flag = (int)p->ca_flag;
 
     //amlsub_SetPip(sub_context.handle, SCRAMBLE_TYPE, p->ca_flag);
 

@@ -163,13 +163,20 @@ void STB_TuneInitialise(U8BIT paths)
                 aml_hw_cfg.tuners[num_paths].frontend_idx = num_paths;
                 STB_TuneSetActualTsInputIdx(num_paths, fe_fd);
                 STB_TuneSetActualSupportedSystemType(num_paths, fe_fd);
-                TUN_DBG("[Path %u] After get from driver, ts_input_idx=%u, signal_types=%u, support_dvbt2=%u, support_dvbt2=%u",
+                TUN_DBG("[@@Path %u] After get from driver, ts_input_idx=%u, signal_types=%u, support_dvbt2=%u, support_dvbt2=%u",
                         num_paths,
                         aml_hw_cfg.tuners[num_paths].ts_input_idx,
                         aml_hw_cfg.tuners[num_paths].signal_types,
                         aml_hw_cfg.tuners[num_paths].support_dvbt2,
                         aml_hw_cfg.tuners[num_paths].support_dvbs2);
-
+                struct dvb_frontend_info fe_info;
+                memset(&fe_info, 0, sizeof(fe_info));
+                aml_frontend_get_frontend_info(fe_fd, &fe_info);
+                if (strncmp(fe_info.name, "Dummy", 5) == 0)
+                {
+                    aml_hw_cfg.tuners[num_paths].signal_types = TUNE_SIGNAL_DUMMY_TYPE;
+                    TUN_DBG("detect dummy FE in dev node");
+                }
                 aml_frontend_close_tuner(fe_fd);
 
                 num_paths++;

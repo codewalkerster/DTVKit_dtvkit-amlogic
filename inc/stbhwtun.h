@@ -64,7 +64,8 @@ typedef enum e_stb_tune_signal_type
     TUNE_SIGNAL_ISDBT = 5,
     TUNE_SIGNAL_ANALOG = 8,
     TUNE_SIGNAL_VSB  = 16,
-    TUNE_SIGNAL_QAMB = 64
+    TUNE_SIGNAL_QAMB = 64,
+    TUNE_SIGNAL_DUMMY_TYPE = 0xFF
 } E_STB_TUNE_SIGNAL_TYPE;
 
 /* Terrestrial */

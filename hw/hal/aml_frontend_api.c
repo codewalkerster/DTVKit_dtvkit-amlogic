@@ -779,7 +779,7 @@ BOOLEAN aml_frontend_get_frontend_info(S32BIT frontend_fd, struct dvb_frontend_i
         return FALSE;
     }
 
-    FD_API_DBG("Okay to get frontend info (fd:%d)", frontend_fd);
+    FD_API_INFO("Okay to get frontend info (fd:%d) (name :[%s])", frontend_fd,fe_info->name);
 
     return TRUE;
 }

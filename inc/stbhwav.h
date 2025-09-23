@@ -79,7 +79,9 @@ typedef enum e_stb_av_audio_codec
     AV_AUDIO_CODEC_HEAAC = 6,
     AV_AUDIO_CODEC_AAC_ADTS = 7,
     AV_AUDIO_CODEC_HEAACV2 = 8,
-    AV_AUDIO_CODEC_AC4 = 9
+    AV_AUDIO_CODEC_AC4 = 9,
+    AV_AUDIO_CODEC_DRA = 10,
+    AV_AUDIO_CODEC_MPEGH = 11
 } E_STB_AV_AUDIO_CODEC;
 
 typedef enum

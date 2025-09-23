@@ -272,7 +272,7 @@ static AUDIO_MIME_MAP audio_mime_types[] =
    {WP_AUDIO_STREAM_TYPE_MP3, "audio/mpeg"},
    {WP_AUDIO_STREAM_TYPE_MPEG1, "audio/mpeg"},
    {WP_AUDIO_STREAM_TYPE_MPEG2, "audio/mpeg"},
-   {WP_AUDIO_STREAM_TYPE_MPEGH, "audio/mpeg"},
+   {WP_AUDIO_STREAM_TYPE_MPEGH, "audio/mha1"},
    {WP_AUDIO_STREAM_TYPE_AAC, "audio/aac"},
    {WP_AUDIO_STREAM_TYPE_AC3, "audio/ac3"},
    {WP_AUDIO_STREAM_TYPE_EAC3, "audio/eac3"},
@@ -1954,7 +1954,7 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
     FUNCTION_START(STB_AVSetAudioCodec);
     U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
 
-    AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
+    AUD_DBG("audio codec path=%u av_path = %u, codec=%d", path, av_path, codec);
     if (av_path == INVALID_RES_ID) {
         AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
         return FALSE;
@@ -1983,7 +1983,7 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
         case AV_AUDIO_CODEC_HEAAC:
         case AV_AUDIO_CODEC_HEAACV2:
             av_paths_status[av_path].audio_format = WP_AUDIO_STREAM_TYPE_AAC_HE_LATM;
-            AUD_DBG("LATM");
+            AV_DBG("HEAAC/HEAACV2");
             break;
         case AV_AUDIO_CODEC_MP2:
             av_paths_status[av_path].audio_format = WP_AUDIO_STREAM_TYPE_MPEG2;
@@ -1992,6 +1992,14 @@ BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
         case AV_AUDIO_CODEC_MP3:
             av_paths_status[av_path].audio_format = WP_AUDIO_STREAM_TYPE_MP3;
             AUD_DBG("MPEG3");
+            break;
+        case AV_AUDIO_CODEC_DRA:
+            av_paths_status[av_path].audio_format = WP_AUDIO_STREAM_TYPE_DRA;
+            AUD_DBG("DRA");
+            break;
+        case AV_AUDIO_CODEC_MPEGH:
+            av_paths_status[av_path].audio_format = WP_AUDIO_STREAM_TYPE_MPEGH;
+            AUD_DBG("MPEGH");
             break;
         default:
             AUD_DBG("Unrecognised audio codec %u", codec);
@@ -2205,7 +2213,7 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
             break;
         case AV_AUDIO_CODEC_HEAAC:
         case AV_AUDIO_CODEC_HEAACV2:
-            AV_DBG("AD Codec[%d]: HEAACV2", codec);
+            AV_DBG("AD Codec[%d]: HEAAC/HEAACV2", codec);
             av_paths_status[av_path].ad_format = WP_AUDIO_STREAM_TYPE_AAC_HE_LATM;
             break;
         case AV_AUDIO_CODEC_MP2 :
@@ -2215,6 +2223,14 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
         case AV_AUDIO_CODEC_MP3 :
             AV_DBG("AD Codec[%d]: MP3", codec);
             av_paths_status[av_path].ad_format = WP_AUDIO_STREAM_TYPE_MP3;
+            break;
+        case AV_AUDIO_CODEC_DRA:
+            AV_DBG("AD Codec[%d]: DRA", codec);
+            av_paths_status[av_path].ad_format = WP_AUDIO_STREAM_TYPE_DRA;
+            break;
+        case AV_AUDIO_CODEC_MPEGH:
+            AV_DBG("AD Codec[%d]: MPEGH", codec);
+            av_paths_status[av_path].ad_format = WP_AUDIO_STREAM_TYPE_MPEGH;
             break;
         case AV_AUDIO_CODEC_AUTO :
         default:

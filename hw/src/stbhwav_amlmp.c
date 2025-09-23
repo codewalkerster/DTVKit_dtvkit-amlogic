@@ -2617,6 +2617,10 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
             av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_HEVC;
             VID_DBG("H265");
             break;
+        case AV_VIDEO_CODEC_H266:
+            av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_VVC;
+            VID_DBG("H266");
+            break;
         case AV_VIDEO_CODEC_MPEG1:
             av_paths_status[av_path].video_format = AML_MP_VIDEO_CODEC_MPEG12;
             VID_DBG("MPEG1");
@@ -2668,60 +2672,63 @@ BOOLEAN STB_AVSetVideoCodec(U8BIT path, E_STB_AV_VIDEO_CODEC codec)
  */
 BOOLEAN STB_AVSetAudioCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
 {
-   BOOLEAN success;
+    BOOLEAN success;
 
-   FUNCTION_START(STB_AVSetAudioCodec);
-   U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
+    FUNCTION_START(STB_AVSetAudioCodec);
+    U8BIT av_path = STB_AVGetPath(INVALID_RES_ID, path);
 
-   AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
-   if (av_path == INVALID_RES_ID) {
-      AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
-      return FALSE;
-   }
+    AUD_DBG("audio codec path=%u av_path = %u", path, av_path);
+    if (av_path == INVALID_RES_ID) {
+        AUD_DBG("get av_path error audio codec path=%u av_path = %u", path, av_path);
+        return FALSE;
+    }
 
-   success = TRUE;
+    success = TRUE;
 
-   switch (codec)
-   {
-   case AV_AUDIO_CODEC_AC3:
-      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_AC3;
-      AUD_DBG("AC3");
-      break;
-   case AV_AUDIO_CODEC_EAC3:
-      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_EAC3;
-      AUD_DBG("E-AC3");
-      break;
+    switch (codec)
+    {
+    case AV_AUDIO_CODEC_AC3:
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_AC3;
+        AUD_DBG("AC3");
+        break;
+    case AV_AUDIO_CODEC_EAC3:
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_EAC3;
+        AUD_DBG("E-AC3");
+        break;
     case AV_AUDIO_CODEC_AC4:
         av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_AC4;
         AUD_DBG("AC4");
         break;
-   case AV_AUDIO_CODEC_AAC:
-      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_AAC;
-      AUD_DBG("AAC");
-      break;
-   case AV_AUDIO_CODEC_HEAAC:
-   case AV_AUDIO_CODEC_HEAACV2:
-      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_LATM;
-      AUD_DBG("LATM");
-      break;
-      //case AV_AUDIO_CODEC_AUTO:
-   case AV_AUDIO_CODEC_MP2:
-      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_MP2;
-      AUD_DBG("MPEG");
-      break;
-   case AV_AUDIO_CODEC_MP3:
-      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_MP3;
-      AUD_DBG("MPEG");
-      break;
-   default:
-      AUD_DBG("Unrecognised audio codec %u", codec);
-      success = FALSE;
-      break;
-   }
+    case AV_AUDIO_CODEC_AAC:
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_AAC;
+        AUD_DBG("AAC");
+        break;
+    case AV_AUDIO_CODEC_HEAAC:
+    case AV_AUDIO_CODEC_HEAACV2:
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_LATM;
+        AV_DBG("HEAAC/HEAACV2");
+        break;
+    case AV_AUDIO_CODEC_MP2:
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_MP2;
+        AUD_DBG("MPEG2");
+        break;
+    case AV_AUDIO_CODEC_MP3:
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_MP3;
+        AUD_DBG("MPEG3");
+        break;
+    case AV_AUDIO_CODEC_MPEGH:
+        av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_MPEGH;
+        AUD_DBG("MPEGH");
+        break;
+    default:
+        AUD_DBG("Unrecognised audio codec %u", codec);
+        success = FALSE;
+        break;
+    }
 
-   FUNCTION_FINISH(STB_AVSetAudioCodec);
+    FUNCTION_FINISH(STB_AVSetAudioCodec);
 
-   return success;
+    return success;
 }
 
 /**
@@ -3360,6 +3367,10 @@ BOOLEAN STB_AVSetADCodec(U8BIT path, E_STB_AV_AUDIO_CODEC codec)
    case AV_AUDIO_CODEC_MP3 :
       AV_DBG("AD Codec[%d]: MP3", codec);
       av_paths_status[av_path].ad_format = AML_MP_AUDIO_CODEC_MP3;
+      break;
+  case AV_AUDIO_CODEC_MPEGH:
+      av_paths_status[av_path].audio_format = AML_MP_AUDIO_CODEC_MPEGH;
+      AUD_DBG("MPEGH");
       break;
    case AV_AUDIO_CODEC_AUTO :
    default:
